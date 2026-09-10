@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue'
+import Icon from './Icon.vue'
 import {
   relIdentifiers,
   resourceKey,
@@ -45,7 +46,7 @@ function labelFor(type: string, id: string): string {
         :title="`fetch ${href(rel.links?.related)}`"
         @click="emit('fetch', href(rel.links?.related))"
       >
-        {{ t.type }}/{{ t.id }} ↗
+        {{ t.type }}/{{ t.id }}<Icon name="arrow-up-right" :size="12" />
       </button>
       <span v-else class="rel-chip missing" :title="'не включён в документ'">
         {{ t.type }}/{{ t.id }}

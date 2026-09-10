@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { onBeforeUnmount, onMounted, ref } from 'vue'
+import Icon from './Icon.vue'
 import { EventsOn } from '../../wailsjs/runtime/runtime'
 import { CheckForUpdates, UpdateNow, Version, ShowAbout } from '../../wailsjs/go/main/App'
 
@@ -85,7 +86,7 @@ onBeforeUnmount(() => {
 <template>
   <div class="updater">
     <button class="nav-item" @click="check">
-      <span class="nav-icon">↓</span> {{ checking ? 'Проверка…' : 'Проверить обновления' }}
+      <span class="nav-icon"><Icon name="arrow-down" /></span> {{ checking ? 'Проверка…' : 'Проверить обновления' }}
     </button>
     <button v-if="currentVersion" class="updater-version" title="О программе" @click="ShowAbout()">v{{ currentVersion }}</button>
 

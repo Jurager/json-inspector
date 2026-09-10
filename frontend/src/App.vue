@@ -6,6 +6,7 @@ import ResponseViewer from './components/ResponseViewer.vue'
 import BrowserPanel from './components/BrowserPanel.vue'
 import Updater from './components/Updater.vue'
 import AboutModal from './components/AboutModal.vue'
+import Icon from './components/Icon.vue'
 import { EventsOn } from '../wailsjs/runtime/runtime'
 import { ToggleMaximize } from '../wailsjs/go/main/App'
 
@@ -138,14 +139,14 @@ onBeforeUnmount(() => {
           :class="{ active: store.activeView === 'request' }"
           @click="store.activeView = 'request'"
         >
-          <span class="nav-icon">↗</span> Запрос
+          <span class="nav-icon"><Icon name="arrow-up-right" /></span> Запрос
         </button>
         <button
           class="nav-item"
           :class="{ active: store.activeView === 'browser' }"
           @click="openBrowser"
         >
-          <span class="nav-icon">◉</span> Браузер
+          <span class="nav-icon"><Icon name="record" /></span> Браузер
           <span v-if="store.unreadCount > 0" class="nav-badge">{{ store.unreadCount }}</span>
         </button>
 

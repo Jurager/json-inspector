@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
+import Icon from './Icon.vue'
 
 const props = withDefaults(
   defineProps<{
@@ -45,7 +46,7 @@ const preview = computed(() => {
 
     <template v-else>
       <div>
-        <span class="jt-toggle" @click="collapsed = !collapsed">{{ collapsed ? '▸' : '▾' }}</span>
+        <span class="jt-toggle" @click="collapsed = !collapsed"><Icon :name="collapsed ? 'chevron-right' : 'chevron-down'" :size="12" /></span>
         <span v-if="name !== undefined" class="jt-key">{{ name }}</span>
         <span class="jt-bracket">{{ isArray ? '[' : '{' }}</span>
         <span v-if="collapsed" class="jt-bracket">{{ isArray ? ']' : '}' }}</span>

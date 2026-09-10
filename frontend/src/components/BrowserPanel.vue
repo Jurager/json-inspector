@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
+import Icon from './Icon.vue'
 import { useRequestsStore } from '../stores/requests'
 import type { RequestRecord } from '../lib/types'
 import { statusClass, formatDuration } from '../lib/json'
@@ -92,7 +93,11 @@ function timeLabel(startedAt: number): string {
     <div v-else class="list">
       <section v-for="g in groups" :key="g.key" class="group">
         <div class="group-head" role="button" tabindex="0" @click="toggle(g.key)">
-          <span class="caret" :class="{ open: !collapsed.has(g.key) }">▶</span>
+          <span class="caret" :class="{ open: !collapsed.has(g.key) }">
+            <svg viewBox="0 0 8 12" width="8" height="12" fill="none" aria-hidden="true">
+              <path d="M1.5 1.5L6 6L1.5 10.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </span>
           <img
             v-if="g.favIconUrl && !brokenFavicons.has(g.key)"
             class="favicon"
@@ -109,7 +114,7 @@ function timeLabel(startedAt: number): string {
           </span>
           <span class="group-title">{{ groupLabel(g) }}</span>
           <span class="group-count">{{ g.items.length }}</span>
-          <button class="group-clear" title="Очистить эту вкладку" @click.stop="clearTab(g)">×</button>
+          <button class="group-clear" title="Очистить эту вкладку" @click.stop="clearTab(g)"><Icon name="xmark" :size="12" /></button>
         </div>
 
         <ul v-show="!collapsed.has(g.key)" class="group-items">
@@ -202,10 +207,15 @@ function timeLabel(startedAt: number): string {
 }
 
 .caret {
-  flex: 0 0 auto;
-  width: 12px;
-  font-size: 9px;
-  color: var(--text-tertiary);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 14px;
+  width: 14px;
+  height: 14px;
+  font-size: 11px;
+  line-height: 1;
+  color: var(--text-secondary);
   transition: transform 0.12s ease;
 }
 

@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { onBeforeUnmount, onMounted, ref } from 'vue'
+import Icon from './Icon.vue'
 import { SendRequest } from '../../wailsjs/go/main/App'
 import { useRequestsStore } from '../stores/requests'
 import { buildSampleRecord } from '../lib/sample'
@@ -130,7 +131,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onWindowKeydown))
       <div v-for="(h, i) in headers" :key="i" class="header-row">
         <input v-model="h.name" class="input header-name mono" placeholder="Header" spellcheck="false" />
         <input v-model="h.value" class="input header-value mono" placeholder="Value" spellcheck="false" />
-        <button class="btn icon-btn" title="Удалить" @click="removeHeader(i)">×</button>
+        <button class="btn icon-btn" title="Удалить" @click="removeHeader(i)"><Icon name="xmark" :size="14" /></button>
       </div>
       <button class="btn" @click="addHeader">+ Добавить заголовок</button>
     </div>
@@ -217,6 +218,9 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onWindowKeydown))
 }
 
 .icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   padding: 2px 10px;
   line-height: 1;
 }

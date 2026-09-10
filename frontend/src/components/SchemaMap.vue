@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import Icon from './Icon.vue'
 import type { JsonApiDocument, Resource } from '../lib/jsonapi'
 import { dataResources, href, relIdentifiers, resourceKey, resourceLabel } from '../lib/jsonapi'
 import { copyToClipboard } from '../lib/export'
@@ -271,7 +272,9 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocClick))
       />
       <div ref="exportWrap" class="export-wrap">
         <button class="export-btn" :disabled="!types.length" @click="exportOpen = !exportOpen">
-          {{ copied ? 'Скопировано ✓' : 'Экспорт ▾' }}
+          <Icon v-if="copied" name="check" :size="12" />
+          <span>{{ copied ? 'Скопировано' : 'Экспорт' }}</span>
+          <svg viewBox="0 0 10 6" width="10" height="6" fill="none" aria-hidden="true"><path d="M1.5 1.5L5 5L8.5 1.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
         </button>
         <div v-if="exportOpen" class="export-menu">
           <button v-for="f in EXPORT_FORMATS" :key="f.id" class="export-item" @click="copyExport(f.id)">
@@ -296,7 +299,11 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocClick))
         :class="{ highlight: highlightType === t.type }"
       >
         <button class="type-head" @click="toggleType(t.type)">
-          <span class="caret" :class="{ open: expandedTypes.has(t.type) }">▶</span>
+          <span class="caret" :class="{ open: expandedTypes.has(t.type) }">
+            <svg viewBox="0 0 8 12" width="8" height="12" fill="none" aria-hidden="true">
+              <path d="M1.5 1.5L6 6L1.5 10.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </span>
           <span class="type-name">{{ t.label }}</span>
           <span class="type-count">{{ t.count }}</span>
         </button>
@@ -310,12 +317,13 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocClick))
             <div v-for="r in t.rels" :key="r.name + r.targetType" class="type-rel">
               <span class="rel-name">{{ r.name }}</span>
               <span class="rel-card">{{ r.many ? '1:N' : '1:1' }}</span>
-              <span class="rel-arrow">→</span>
+              <span class="rel-arrow"><Icon name="arrow-right" :size="12" /></span>
               <button v-if="r.inDoc" class="rel-target in-doc" @click="goToType(r.targetType)">
                 {{ humanize(r.targetType) }}
               </button>
               <button v-else-if="r.relatedUrl" class="rel-target missing" @click="emit('fetch', r.relatedUrl)">
-                {{ humanize(r.targetType) }} ↗
+                <span>{{ humanize(r.targetType) }}</span>
+                <Icon name="arrow-up-right" :size="12" />
               </button>
               <span v-else class="rel-target ghost">{{ humanize(r.targetType) }}</span>
             </div>
@@ -330,7 +338,9 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocClick))
                 class="incoming-chip"
                 @click="goToType(inc.fromType)"
               >
-                ← {{ humanize(inc.fromType) }} <span class="incoming-rel">{{ inc.rel }}</span>
+                <Icon name="arrow-left" :size="12" />
+                <span>{{ humanize(inc.fromType) }}</span>
+                <span class="incoming-rel">{{ inc.rel }}</span>
               </button>
             </div>
           </div>
@@ -399,6 +409,9 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocClick))
 }
 
 .export-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   border: 1px solid var(--border-strong);
   background: var(--bg-panel);
   color: var(--text);
@@ -406,6 +419,7 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocClick))
   padding: 5px 10px;
   border-radius: 7px;
   cursor: pointer;
+  box-shadow: var(--shadow-btn);
   --wails-draggable: no-drag;
 }
 
@@ -496,10 +510,15 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocClick))
 }
 
 .caret {
-  flex: 0 0 auto;
-  width: 12px;
-  font-size: 9px;
-  color: var(--text-tertiary);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 14px;
+  width: 14px;
+  height: 14px;
+  font-size: 11px;
+  line-height: 1;
+  color: var(--text-secondary);
   transition: transform 0.12s ease;
 }
 
@@ -579,6 +598,9 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocClick))
 }
 
 .rel-target {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
   border: none;
   background: transparent;
   padding: 2px 8px;
@@ -633,6 +655,9 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocClick))
 }
 
 .incoming-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
   border: 1px solid var(--border);
   background: var(--bg-inset);
   color: var(--text-secondary);

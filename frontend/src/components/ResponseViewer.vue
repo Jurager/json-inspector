@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import Icon from './Icon.vue'
 import type { RequestRecord } from '../lib/types'
 import {
   tryParseJson,
@@ -273,7 +274,7 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocClick))
 <template>
   <div class="resp">
     <div class="resp-bar">
-      <button v-if="hasPrev" class="btn icon-btn" title="Назад" @click="goBack">←</button>
+      <button v-if="hasPrev" class="btn icon-btn" title="Назад" @click="goBack"><Icon name="chevron-left" :size="14" /></button>
       <span class="badge badge-method">{{ record.method }}</span>
       <span class="badge" :class="statusClass(record.status)">{{ record.status }}</span>
       <span class="resp-url mono" :title="record.url">{{ record.url }}</span>
@@ -305,8 +306,8 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocClick))
 
       <template v-else-if="activeTab === 'raw'">
         <div class="toolbar">
-          <button class="btn" @click="copyRaw">{{ rawCopied ? 'Скопировано ✓' : 'Копировать' }}</button>
-          <button class="btn" @click="openSearch">Поиск ⌘F</button>
+          <button class="btn btn-inline" @click="copyRaw"><Icon v-if="rawCopied" name="check" :size="12" /><span>{{ rawCopied ? 'Скопировано' : 'Копировать' }}</span></button>
+          <button class="btn btn-inline" @click="openSearch"><span>Поиск</span><kbd class="keycap">⌘F</kbd></button>
         </div>
         <div v-if="rawSearchVisible" class="search-bar">
           <input
@@ -321,16 +322,16 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocClick))
           <span class="search-count">
             {{ rawMatches.length ? `${rawCurrentMatch + 1} / ${rawMatches.length}` : 'нет совпадений' }}
           </span>
-          <button class="btn icon-btn" title="Предыдущее (Shift+Enter)" @click="prevMatch">↑</button>
-          <button class="btn icon-btn" title="Следующее (Enter)" @click="nextMatch">↓</button>
-          <button class="btn icon-btn" title="Закрыть (Esc)" @click="closeSearch">×</button>
+          <button class="btn icon-btn" title="Предыдущее (Shift+Enter)" @click="prevMatch"><Icon name="chevron-up" :size="14" /></button>
+          <button class="btn icon-btn" title="Следующее (Enter)" @click="nextMatch"><Icon name="chevron-down" :size="14" /></button>
+          <button class="btn icon-btn" title="Закрыть (Esc)" @click="closeSearch"><Icon name="xmark" :size="14" /></button>
         </div>
         <pre class="code resp-pad" v-html="rawRender"></pre>
       </template>
 
       <template v-else-if="activeTab === 'headers'">
         <div class="toolbar">
-          <button class="btn" @click="copyHeaders">{{ headersCopied ? 'Скопировано ✓' : 'Копировать' }}</button>
+          <button class="btn btn-inline" @click="copyHeaders"><Icon v-if="headersCopied" name="check" :size="12" /><span>{{ headersCopied ? 'Скопировано' : 'Копировать' }}</span></button>
         </div>
         <table class="kv-table">
           <tbody>
@@ -348,8 +349,10 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocClick))
       <template v-else>
         <div class="toolbar">
           <div ref="copyWrapEl" class="copy-row">
-            <button class="btn" @click="copyMenuOpen = !copyMenuOpen">
-              {{ copied ? 'Скопировано ✓' : 'Копировать ▾' }}
+            <button class="btn btn-inline" @click="copyMenuOpen = !copyMenuOpen">
+              <Icon v-if="copied" name="check" :size="12" />
+              <span>{{ copied ? 'Скопировано' : 'Копировать' }}</span>
+              <svg viewBox="0 0 10 6" width="10" height="6" fill="none" aria-hidden="true"><path d="M1.5 1.5L5 5L8.5 1.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
             </button>
             <div v-if="copyMenuOpen" class="copy-menu">
               <button v-for="f in COPY_FORMATS" :key="f.id" class="copy-menu-item" @click="copyAs(f.id)">
@@ -399,6 +402,9 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocClick))
 }
 
 .icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   padding: 2px 8px;
 }
 
