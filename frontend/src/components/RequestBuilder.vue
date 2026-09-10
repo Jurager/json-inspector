@@ -1,13 +1,14 @@
 <script setup lang="ts">
-import { onBeforeUnmount, onMounted, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import Icon from './Icon.vue'
 import { SendRequest, CancelRequest } from '../../wailsjs/go/main/App'
 import { useRequestsStore } from '../stores/requests'
 import { buildSampleRecord } from '../lib/sample'
+import { shortcut } from '../lib/platform'
 
 const store = useRequestsStore()
 
-const shortcut = /Mac/i.test(navigator.userAgent) ? '⌘↵' : 'Ctrl+↵'
+const sendShortcut = computed(() => shortcut('↵'))
 
 const METHODS = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD', 'OPTIONS']
 
@@ -112,7 +113,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onWindowKeydown))
         </template>
         <template v-else>
           <span>Отправить</span>
-          <kbd class="send-hint">{{ shortcut }}</kbd>
+          <kbd class="send-hint">{{ sendShortcut }}</kbd>
         </template>
       </button>
       <button class="btn" title="Загрузить пример JSON:API" @click="loadSample">Образец</button>
@@ -151,102 +152,69 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onWindowKeydown))
 </template>
 
 <style scoped>
+@reference "../style.css";
+
 .builder {
-  flex: 0 0 auto;
-  border-bottom: 1px solid var(--border);
-  background: var(--bg-panel);
-  padding: 12px;
+  @apply flex-none border-b border-border bg-bg-panel p-3;
 }
 
 .builder-row {
-  display: flex;
-  gap: 8px;
-  align-items: center;
+  @apply flex gap-2 items-center;
 }
 
 .method-select {
-  flex: 0 0 auto;
-  font-weight: 600;
-  color: var(--accent);
+  @apply flex-none font-semibold text-accent;
 }
 
 .url-input {
-  flex: 1;
-  min-width: 0;
+  @apply flex-1 min-w-0;
 }
 
 .builder-options {
-  display: flex;
-  gap: 4px;
-  margin-top: 10px;
+  @apply flex gap-1 mt-2.5;
 }
 
 .opt-toggle {
-  border: none;
-  background: transparent;
-  color: var(--text-secondary);
-  font-size: 12px;
-  padding: 4px 8px;
-  border-radius: 6px;
-  cursor: pointer;
+  @apply border-none bg-transparent text-text-secondary text-xs py-1 px-2 rounded-md cursor-pointer;
 }
 
 .opt-toggle:hover {
-  background: var(--bg-hover);
-  color: var(--text);
+  @apply bg-bg-hover text-text;
 }
 
 .opt-toggle.active {
-  background: var(--accent-soft);
-  color: var(--accent);
+  @apply bg-accent-soft text-accent;
 }
 
 .builder-panel {
-  margin-top: 8px;
-  padding: 10px;
+  @apply mt-2 p-2.5 rounded-lg flex flex-col gap-1.5;
   background: var(--bg-inset);
   border: 1px solid var(--border);
-  border-radius: 8px;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
 }
 
 .header-row {
-  display: flex;
-  gap: 6px;
+  @apply flex gap-1.5;
 }
 
 .header-name {
-  flex: 0 0 40%;
+  @apply grow-0 shrink-0 basis-2/5;
 }
 
 .header-value {
-  flex: 1;
+  @apply flex-1;
 }
 
-
 .body-input {
-  width: 100%;
-  min-height: 140px;
+  @apply w-full min-h-35;
 }
 
 .send-btn {
-  min-width: 88px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
+  @apply min-w-22 inline-flex items-center justify-center;
 }
 
 .send-hint {
+  @apply text-[10px] font-medium leading-normal py-0 px-1.5 ml-1.5 rounded-sm text-white;
   font-family: inherit;
-  font-size: 10px;
-  font-weight: 500;
-  line-height: 1.5;
-  padding: 0 5px;
-  margin-left: 6px;
-  border-radius: 4px;
   background: rgba(255, 255, 255, 0.22);
-  color: #fff;
 }
 </style>

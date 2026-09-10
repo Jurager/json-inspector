@@ -3,14 +3,21 @@ import { computed, nextTick, onMounted, ref, watch } from 'vue'
 import {
   buildIndex,
   dataResources,
+  resourceMatchesQuery,
   type JsonApiDocument,
 } from '../lib/jsonapi'
 import ResourceNode from './ResourceNode.vue'
 
-const props = defineProps<{
-  doc: JsonApiDocument
-  highlightKey?: string | null
-}>()
+const props = withDefaults(
+  defineProps<{
+    doc: JsonApiDocument
+    highlightKey?: string | null
+    // Search lives in the parent's toolbar (the same row as pagination) —
+    // this component just filters by whatever query it's handed.
+    query?: string
+  }>(),
+  { query: '' }
+)
 
 const emit = defineEmits<{
   (e: 'fetch', url: string): void
@@ -67,13 +74,31 @@ const metaText = computed(() => {
   const m = props.doc.meta
   return m == null ? '' : JSON.stringify(m, null, 2)
 })
+
+const isFiltering = computed(() => props.query.trim().length > 0)
+
+const filteredData = computed(() => {
+  const q = props.query.trim().toLowerCase()
+  if (!q) return data.value
+  return data.value.filter((r) => resourceMatchesQuery(r, q))
+})
+
+const filteredIncluded = computed(() => {
+  const q = props.query.trim().toLowerCase()
+  if (!q) return included.value
+  return included.value.filter((r) => resourceMatchesQuery(r, q))
+})
+
+const noResults = computed(
+  () => isFiltering.value && filteredData.value.length === 0 && filteredIncluded.value.length === 0
+)
 </script>
 
 <template>
   <div class="ja-root">
     <div v-if="errors.length">
       <div class="ja-section-title">errors</div>
-      <pre class="code" style="padding: 0 16px">{{ JSON.stringify(errors, null, 2) }}</pre>
+      <pre class="code px-4">{{ JSON.stringify(errors, null, 2) }}</pre>
     </div>
 
     <div v-if="jsonapiVersion" class="ja-link">
@@ -83,13 +108,15 @@ const metaText = computed(() => {
 
     <div v-if="metaText">
       <div class="ja-section-title">meta</div>
-      <pre class="code" style="padding: 0 16px">{{ metaText }}</pre>
+      <pre class="code px-4">{{ metaText }}</pre>
     </div>
 
-    <template v-if="data.length">
+    <div v-if="noResults" class="ja-no-results">Ничего не найдено</div>
+
+    <template v-if="filteredData.length">
       <div class="ja-section-title">data</div>
       <ResourceNode
-        v-for="r in data"
+        v-for="r in filteredData"
         :key="r.type + '/' + r.id"
         :resource="r"
         :index="index"
@@ -99,10 +126,12 @@ const metaText = computed(() => {
       />
     </template>
 
-    <template v-if="included.length">
-      <div class="ja-section-title">included ({{ included.length }})</div>
+    <template v-if="filteredIncluded.length">
+      <div class="ja-section-title">
+        included {{ isFiltering ? `(${filteredIncluded.length} / ${included.length})` : `(${included.length})` }}
+      </div>
       <ResourceNode
-        v-for="r in included"
+        v-for="r in filteredIncluded"
         :key="r.type + '/' + r.id"
         :resource="r"
         :index="index"
@@ -113,3 +142,11 @@ const metaText = computed(() => {
     </template>
   </div>
 </template>
+
+<style scoped>
+@reference "../style.css";
+
+.ja-no-results {
+  @apply p-4 text-center text-text-tertiary text-xs;
+}
+</style>

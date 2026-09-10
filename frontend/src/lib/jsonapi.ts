@@ -82,6 +82,20 @@ export function resourceLabel(r: Resource): string {
   return `${r.type}/${r.id}`
 }
 
+// Used by the "Тело" search: does this resource's type/id/label/attributes
+// contain the (already-trimmed, lowercased) query? Shared so the count shown
+// in the toolbar and the actual filtering in the tree agree with each other.
+export function resourceMatchesQuery(r: Resource, q: string): boolean {
+  if (resourceLabel(r).toLowerCase().includes(q)) return true
+  if (r.type.toLowerCase().includes(q) || String(r.id).toLowerCase().includes(q)) return true
+  for (const [k, v] of Object.entries(r.attributes ?? {})) {
+    if (k.toLowerCase().includes(q)) return true
+    const vs = v === null ? 'null' : typeof v === 'object' ? JSON.stringify(v) : String(v)
+    if (vs.toLowerCase().includes(q)) return true
+  }
+  return false
+}
+
 export function isJsonApi(obj: unknown): boolean {
   if (typeof obj !== 'object' || obj === null || Array.isArray(obj)) return false
   const d = obj as Record<string, unknown>

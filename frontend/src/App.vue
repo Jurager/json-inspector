@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onBeforeUnmount, onMounted, ref, type Ref } from 'vue'
+import { onBeforeUnmount, onMounted, ref, watch, type Ref } from 'vue'
 import { useRequestsStore } from './stores/requests'
 import RequestBuilder from './components/RequestBuilder.vue'
 import ResponseViewer from './components/ResponseViewer.vue'
@@ -8,9 +8,9 @@ import Updater from './components/Updater.vue'
 import AboutModal from './components/AboutModal.vue'
 import Icon from './components/Icon.vue'
 import logoUrl from './assets/logo.svg'
+import { useCustomTitlebar } from './lib/platform'
 import {
   EventsOn,
-  Environment,
   WindowMinimise,
   WindowToggleMaximise,
   WindowIsMaximised,
@@ -24,11 +24,6 @@ const HISTORY_KEY = 'ji-history-v1'
 const MAX_HISTORY = 200
 
 const aboutOpen = ref(false)
-
-// Windows and Linux have no equivalent of macOS's hidden-inset title bar, so
-// the window there runs frameless and this titlebar draws its own icon,
-// title and caption buttons (minimize/maximize/close) to look native.
-const useCustomTitlebar = ref(false)
 const isMaximised = ref(false)
 
 async function refreshMaximised() {
@@ -42,6 +37,18 @@ async function refreshMaximised() {
 function openBrowser() {
   store.activeView = 'browser'
   store.markBrowserRead()
+}
+
+// Rail menu (hamburger at the top of the icon rail) — app-level actions that
+// don't belong to either tab. Closes on an outside click, same pattern as
+// the copy/export dropdowns elsewhere in the app.
+const railMenuOpen = ref(false)
+const railMenuEl = ref<HTMLElement | null>(null)
+
+function onDocClick(e: MouseEvent) {
+  if (railMenuEl.value && !railMenuEl.value.contains(e.target as Node)) {
+    railMenuOpen.value = false
+  }
 }
 
 // One side panel, shared by both tabs — it swaps content (history vs.
@@ -90,19 +97,21 @@ interface Captured {
 
 const offs: (() => void)[] = []
 
-onMounted(() => {
-  Environment()
-    .then((env) => {
-      useCustomTitlebar.value = env.platform === 'windows' || env.platform === 'linux'
-      if (useCustomTitlebar.value) {
-        refreshMaximised()
-        window.addEventListener('resize', refreshMaximised)
-      }
-    })
-    .catch(() => {
-      // ignore — default to the macOS-style titlebar
-    })
+// useCustomTitlebar resolves asynchronously (it waits on Wails' own
+// Environment() call, in lib/platform.ts) — watch it rather than checking
+// once, so the maximize-state listener still gets wired up once it lands.
+watch(
+  useCustomTitlebar,
+  (custom) => {
+    if (custom) {
+      refreshMaximised()
+      window.addEventListener('resize', refreshMaximised)
+    }
+  },
+  { immediate: true }
+)
 
+onMounted(() => {
   // Restore request history from the previous session.
   try {
     const raw = localStorage.getItem(HISTORY_KEY)
@@ -158,6 +167,7 @@ onMounted(() => {
 
   window.addEventListener('mousemove', sideResize.move)
   window.addEventListener('mouseup', sideResize.stop)
+  document.addEventListener('click', onDocClick)
 })
 
 onBeforeUnmount(() => {
@@ -165,6 +175,7 @@ onBeforeUnmount(() => {
   window.removeEventListener('mousemove', sideResize.move)
   window.removeEventListener('mouseup', sideResize.stop)
   window.removeEventListener('resize', refreshMaximised)
+  document.removeEventListener('click', onDocClick)
 })
 </script>
 
@@ -201,23 +212,37 @@ onBeforeUnmount(() => {
 
     <div class="body">
       <aside class="sidebar">
+        <div ref="railMenuEl" class="rail-menu-wrap">
+          <button class="rail-menu-btn" title="Меню" @click="railMenuOpen = !railMenuOpen">
+            <Icon name="menu" :size="18" />
+          </button>
+          <div v-if="railMenuOpen" class="menu rail-menu-dropdown">
+            <button class="menu-item" @click="aboutOpen = true; railMenuOpen = false">
+              <Icon name="info" :size="14" /> О программе
+            </button>
+            <Updater />
+          </div>
+        </div>
+
         <button
-          class="nav-item"
+          class="rail-item"
           :class="{ active: store.activeView === 'request' }"
           @click="store.activeView = 'request'"
         >
-          <span class="nav-icon"><Icon name="arrow-up-right" /></span> Запрос
+          <span class="rail-icon"><Icon name="arrow-up-right" :size="18" /></span>
+          <span class="rail-label">Запрос</span>
         </button>
         <button
-          class="nav-item"
+          class="rail-item"
           :class="{ active: store.activeView === 'browser' }"
           @click="openBrowser"
         >
-          <span class="nav-icon"><Icon name="record" /></span> Браузер
-          <span v-if="store.unreadCount > 0" class="nav-badge">{{ store.unreadCount }}</span>
+          <span class="rail-icon">
+            <Icon name="record" :size="18" />
+            <span v-if="store.unreadCount > 0" class="rail-badge">{{ store.unreadCount }}</span>
+          </span>
+          <span class="rail-label">Браузер</span>
         </button>
-
-        <Updater />
       </aside>
 
       <main class="main">
@@ -255,28 +280,22 @@ onBeforeUnmount(() => {
 </template>
 
 <style scoped>
+@reference "./style.css";
+
 /* Both the "Запрос" view (history + builder/response) and the "Браузер"
    view (captured list + response) are the same shape — a resizable side
    panel next to a main column — so they share one set of classes. */
 .side-layout {
-  display: flex;
-  flex: 1;
-  min-height: 0;
+  @apply flex flex-1 min-h-0;
 }
 
 .side-panel {
-  flex: 0 0 auto;
-  min-width: 0;
+  @apply flex-none min-w-0;
 }
 
 .resize-handle {
-  flex: 0 0 5px;
-  width: 5px;
-  margin-left: -5px;
-  position: relative;
-  z-index: 1;
+  @apply flex-none w-[5px] -ml-[5px] relative z-1 bg-transparent;
   cursor: col-resize;
-  background: transparent;
   transition: background 0.15s ease;
 }
 
@@ -285,14 +304,10 @@ onBeforeUnmount(() => {
 }
 
 .side-main {
-  flex: 1;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
+  @apply flex-1 min-w-0 flex flex-col;
 }
 
 .side-main > :last-child {
-  flex: 1;
-  min-height: 0;
+  @apply flex-1 min-h-0;
 }
 </style>

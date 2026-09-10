@@ -90,14 +90,14 @@ async function copyVal(k: string, v: unknown) {
 
 <template>
   <div class="ja-resource" :id="rid" :class="{ highlight: highlighted }">
-    <div class="ja-resource-head" @click="open = !open">
+    <button class="ja-resource-head" @click="open = !open">
       <span class="ja-caret" :class="{ open }">
         <Icon name="chevron-right" :size="10" />
       </span>
       <span class="ja-type-badge">{{ resource.type }}</span>
       <span class="ja-id">{{ resource.id }}</span>
       <span class="ja-label">{{ label }}</span>
-    </div>
+    </button>
 
     <div v-if="open" class="ja-body">
       <div v-if="attributes.length" class="ja-section-title" style="padding-left: 0">attributes</div>

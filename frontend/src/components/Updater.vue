@@ -79,8 +79,8 @@ onBeforeUnmount(() => {
 
 <template>
   <div class="updater">
-    <button class="nav-item" @click="check">
-      <span class="nav-icon"><Icon name="arrow-down" /></span> {{ checking ? 'Проверка…' : 'Проверить обновления' }}
+    <button class="menu-item" @click="check">
+      <Icon name="arrow-down" :size="14" /> {{ checking ? 'Проверка…' : 'Проверить обновления' }}
     </button>
 
     <transition name="fade">
@@ -106,71 +106,46 @@ onBeforeUnmount(() => {
 </template>
 
 <style scoped>
-.updater {
-  margin-top: auto;
-  padding-top: 8px;
-  border-top: 1px solid var(--border);
-}
+@reference "../style.css";
 
 .toast {
-  position: fixed;
-  bottom: 16px;
-  left: 50%;
+  @apply fixed bottom-4 left-1/2 px-4 py-2 rounded-lg text-xs z-2000 max-w-[80%];
   transform: translateX(-50%);
-  padding: 8px 16px;
-  border-radius: 8px;
-  font-size: 12px;
   background: var(--bg-panel);
   border: 1px solid var(--border);
   box-shadow: var(--shadow);
-  z-index: 2000;
-  max-width: 80%;
 }
 
 .toast.error {
-  color: var(--red);
+  @apply text-red;
 }
 
 .toast.info {
-  color: var(--text);
+  @apply text-text;
 }
 
 .modal-overlay {
-  position: fixed;
-  inset: 0;
+  @apply fixed inset-0 flex items-center justify-center z-1500;
   background: rgba(0, 0, 0, 0.4);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 1500;
 }
 
 .modal {
-  width: 360px;
-  max-width: 90%;
+  @apply w-90 max-w-[90%] rounded-xl p-4.5;
   background: var(--bg-panel);
   border: 1px solid var(--border);
-  border-radius: 12px;
   box-shadow: var(--shadow);
-  padding: 18px;
 }
 
 .modal-title {
-  font-size: 15px;
-  font-weight: 600;
-  margin-bottom: 8px;
+  @apply text-[15px] font-semibold mb-2;
 }
 
 .modal-body {
-  font-size: 13px;
-  color: var(--text-secondary);
-  margin-bottom: 16px;
+  @apply text-[13px] text-text-secondary mb-4;
 }
 
 .modal-actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 8px;
+  @apply flex justify-end gap-2;
 }
 
 .fade-enter-active,

@@ -15,7 +15,6 @@ const props = defineProps<{ source: 'manual' | 'browser' }>()
 
 const store = useRequestsStore()
 
-const emptyTitle = computed(() => (props.source === 'browser' ? 'Ничего нет' : 'Пока пусто'))
 const emptyHint = computed(() =>
   props.source === 'browser'
     ? 'Установите и активируйте расширение. Перехваченные запросы появятся здесь.'
@@ -140,7 +139,7 @@ function groupHue(key: string): number {
     </div>
 
     <div v-if="records.length === 0" class="empty">
-      <span class="empty-title">{{ emptyTitle }}</span>
+      <span class="empty-title">Пока пусто</span>
       <span class="empty-hint">{{ emptyHint }}</span>
     </div>
 
@@ -152,7 +151,11 @@ function groupHue(key: string): number {
         :key="r.id"
         class="item"
         :class="{ active: r.id === activeId }"
+        role="button"
+        tabindex="0"
         @click="select(r.id)"
+        @keydown.enter="select(r.id)"
+        @keydown.space.prevent="select(r.id)"
       >
         <div class="item-top">
           <span class="badge badge-method">{{ r.method }}</span>
@@ -166,7 +169,14 @@ function groupHue(key: string): number {
 
     <div v-else class="list">
       <section v-for="g in filteredGroups" :key="g.key" class="group">
-        <div class="group-head" role="button" tabindex="0" @click="toggleGroup(g.key)">
+        <div
+          class="group-head"
+          role="button"
+          tabindex="0"
+          @click="toggleGroup(g.key)"
+          @keydown.enter="toggleGroup(g.key)"
+          @keydown.space.prevent="toggleGroup(g.key)"
+        >
           <span class="caret" :class="{ open: !collapsed.has(g.key) }">
             <Icon name="chevron-right" :size="10" />
           </span>
@@ -191,7 +201,11 @@ function groupHue(key: string): number {
             :key="r.id"
             class="item"
             :class="{ active: r.id === activeId }"
+            role="button"
+            tabindex="0"
             @click="select(r.id)"
+            @keydown.enter="select(r.id)"
+            @keydown.space.prevent="select(r.id)"
           >
             <div class="item-top">
               <span class="badge badge-method">{{ r.method }}</span>
@@ -208,7 +222,7 @@ function groupHue(key: string): number {
     <div v-if="records.length > 0" class="panel-filter-dock">
       <div class="panel-filter-fade"></div>
       <div class="panel-filter">
-        <input v-model="query" class="filter-input mono" placeholder="Фильтр по методу, статусу, URL…" spellcheck="false" />
+        <input v-model="query" class="filter-input" placeholder="Фильтр по ссылке, методу, статусу…" spellcheck="false" />
       </div>
       <div class="panel-filter-backdrop"></div>
     </div>
@@ -216,28 +230,18 @@ function groupHue(key: string): number {
 </template>
 
 <style scoped>
+@reference "../style.css";
+
 .history-panel {
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  height: 100%;
-  min-height: 0;
-  background: var(--bg-panel);
-  border-right: 1px solid var(--border);
+  @apply relative flex flex-col h-full min-h-0 bg-bg-panel border-r border-border;
 }
 
 .panel-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  height: 48px;
-  padding: 0 12px;
-  border-bottom: 1px solid var(--border);
+  @apply flex items-center justify-between h-12 px-3 border-b border-border;
 }
 
 .panel-title {
-  font-size: 13px;
-  font-weight: 600;
+  @apply text-[13px] font-semibold;
 }
 
 /* The filter bar docks to the bottom of the panel instead of the top, so it
@@ -247,20 +251,14 @@ function groupHue(key: string): number {
    transparent as they scroll under it, rather than the bar just clipping
    them off with a hard edge. */
 .panel-filter-dock {
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  display: flex;
-  flex-direction: column;
-  pointer-events: none;
+  @apply absolute left-0 right-0 bottom-0 flex flex-col pointer-events-none;
 }
 
 /* A smoothstep curve (3t²-2t³) rather than a hand-picked handful of stops —
    it has zero slope at both ends, so the fade eases in from "list" and
    eases out into "solid" with no visible kink or seam anywhere along it. */
 .panel-filter-fade {
-  height: 32px;
+  @apply h-8;
   background: linear-gradient(
     to bottom,
     color-mix(in srgb, var(--bg-panel) 0%, transparent) 0%,
@@ -278,30 +276,21 @@ function groupHue(key: string): number {
 }
 
 .panel-filter {
-  pointer-events: auto;
-  display: flex;
-  align-items: center;
-  padding: 6px 12px;
-  background: var(--bg-panel);
+  @apply pointer-events-auto flex items-center py-1.5 px-3 bg-bg-panel;
 }
 
 /* Fills the gap between the filter row and the panel's true bottom edge
    (kept level with the sidebar's "Проверить обновления" row) with solid
    background, so list items never show through underneath the input. */
 .panel-filter-backdrop {
-  height: 8px;
-  background: var(--bg-panel);
+  @apply h-2 bg-bg-panel;
 }
 
 .filter-input {
-  width: 100%;
-  padding: 9px 10px;
-  border-radius: 7px;
+  @apply w-full py-2.5 px-2.5 rounded-md text-xs outline-none;
   border: 1px solid var(--border);
   background: var(--bg-inset);
   color: var(--text);
-  font-size: 12px;
-  outline: none;
   transition: border-color 0.12s ease, box-shadow 0.12s ease;
 }
 
@@ -311,144 +300,73 @@ function groupHue(key: string): number {
 }
 
 .no-results {
-  padding: 16px 16px 92px;
-  text-align: center;
-  color: var(--text-tertiary);
-  font-size: 12px;
+  @apply pt-4 px-4 pb-23 text-center text-text-tertiary text-xs;
 }
 
 .empty {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  padding: 16px;
-  text-align: center;
+  @apply flex-1 flex flex-col items-center justify-center gap-2 p-4 text-center;
 }
 
 .empty-title {
-  font-size: 15px;
-  font-weight: 600;
-  color: var(--text-secondary);
+  @apply text-[15px] font-semibold text-text-secondary;
 }
 
 .empty-hint {
-  font-size: 12px;
-  color: var(--text-tertiary);
-  max-width: 220px;
+  @apply text-xs text-text-tertiary max-w-[220px];
 }
 
 .list {
-  flex: 1;
-  min-height: 0;
-  overflow: auto;
-  padding: 6px 6px 92px;
+  @apply flex-1 min-h-0 overflow-auto pt-1.5 px-1.5 pb-23;
 }
 
 .group {
-  margin-bottom: 4px;
+  @apply mb-1;
 }
 
 .group-head {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  width: 100%;
-  padding: 5px 6px;
-  border: none;
-  border-radius: 7px;
-  background: transparent;
-  color: var(--text);
-  font-size: 12px;
-  text-align: left;
-  cursor: pointer;
-  user-select: none;
+  @apply flex items-center gap-[7px] w-full py-1.5 px-1.5 border-none rounded-md bg-transparent text-text text-xs text-left cursor-pointer select-none;
   --wails-draggable: no-drag;
 }
 
 .group-head:hover {
-  background: var(--bg-hover);
+  @apply bg-bg-hover;
 }
 
 .caret {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  flex: 0 0 12px;
-  width: 12px;
-  height: 12px;
-  color: var(--text-secondary);
+  @apply inline-flex items-center justify-center flex-none w-3 h-3 text-text-secondary;
   transition: transform 0.12s ease;
 }
 
 .caret.open {
-  transform: rotate(90deg);
+  @apply rotate-90;
 }
 
 .favicon {
-  flex: 0 0 auto;
-  width: 18px;
-  height: 18px;
-  border-radius: 4px;
+  @apply flex-none w-[18px] h-[18px] rounded-sm object-contain;
   border: 1px solid var(--border);
   background: var(--card);
-  object-fit: contain;
 }
 
 .avatar {
-  flex: 0 0 auto;
-  width: 18px;
-  height: 18px;
-  border-radius: 4px;
-  color: #fff;
-  font-size: 10px;
-  font-weight: 600;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  line-height: 1;
-  text-transform: uppercase;
+  @apply flex-none w-[18px] h-[18px] rounded-sm text-white text-[10px] font-semibold inline-flex items-center justify-center leading-none uppercase;
 }
 
 .group-title {
-  flex: 1;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-weight: 500;
+  @apply flex-1 min-w-0 overflow-hidden text-ellipsis whitespace-nowrap font-medium;
 }
 
 .group-count {
-  flex: 0 0 auto;
-  height: 18px;
-  line-height: 18px;
-  font-size: 11px;
-  color: var(--text-tertiary);
+  @apply flex-none h-[18px] leading-[18px] text-[11px] text-text-tertiary;
   font-variant-numeric: tabular-nums;
 }
 
 .group-clear {
-  flex: 0 0 auto;
-  width: 18px;
-  height: 18px;
-  border: none;
-  border-radius: 5px;
-  background: transparent;
-  color: var(--text-tertiary);
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0;
-  opacity: 0.55;
+  @apply flex-none w-[18px] h-[18px] border-none rounded-sm bg-transparent text-text-tertiary cursor-pointer flex items-center justify-center p-0 opacity-55;
   transition: opacity 0.12s ease, color 0.12s ease, background 0.12s ease;
 }
 
 .group-head:hover .group-clear {
-  opacity: 1;
+  @apply opacity-100;
 }
 
 .group-clear:hover {
@@ -457,49 +375,34 @@ function groupHue(key: string): number {
 }
 
 .group-items {
-  list-style: none;
-  margin: 0;
-  padding: 2px 0 2px 16px;
+  @apply list-none m-0 pt-0.5 pr-0 pb-0.5 pl-4;
 }
 
 .item {
-  padding: 7px 8px;
-  border-radius: 7px;
-  cursor: pointer;
-  margin-bottom: 1px;
+  @apply py-[7px] px-2 rounded-md cursor-pointer mb-px;
 }
 
 .item:hover {
-  background: var(--bg-hover);
+  @apply bg-bg-hover;
 }
 
 .item.active {
-  background: var(--accent-soft);
+  @apply bg-accent-soft;
 }
 
 .item-top {
-  display: flex;
-  align-items: center;
-  gap: 6px;
+  @apply flex items-center gap-1.5;
 }
 
 .item-time {
-  margin-left: auto;
-  color: var(--text-tertiary);
-  font-size: 11px;
+  @apply ml-auto text-text-tertiary text-[11px];
 }
 
 .item-dur {
-  color: var(--text-tertiary);
-  font-size: 11px;
+  @apply text-text-tertiary text-[11px];
 }
 
 .item-url {
-  margin-top: 3px;
-  font-size: 11px;
-  color: var(--text-secondary);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  @apply mt-[3px] text-[11px] text-text-secondary overflow-hidden text-ellipsis whitespace-nowrap;
 }
 </style>

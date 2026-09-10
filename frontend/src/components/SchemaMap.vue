@@ -7,6 +7,7 @@ import { buildSchema, diffSchemas, humanize, type TypeDiff } from '../lib/schema
 import { copyToClipboard } from '../lib/export'
 import { tryParseJson } from '../lib/json'
 import { useRequestsStore } from '../stores/requests'
+import { shortcut } from '../lib/platform'
 
 const props = defineProps<{ doc: JsonApiDocument | null; highlightKey?: string | null }>()
 const emit = defineEmits<{ (e: 'fetch', url: string): void; (e: 'select', key: string): void }>()
@@ -52,7 +53,7 @@ const query = ref('')
 
 const searchVisible = ref(false)
 const searchInputRef = ref<HTMLInputElement | null>(null)
-const searchShortcut = /Mac/i.test(navigator.userAgent) ? '⌘F' : 'Ctrl+F'
+const searchShortcut = computed(() => shortcut('F'))
 
 function openSearch() {
   searchVisible.value = true
@@ -65,7 +66,7 @@ function closeSearch() {
 }
 
 function onWindowKeydown(e: KeyboardEvent) {
-  if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'f') {
+  if ((e.metaKey || e.ctrlKey) && e.code === 'KeyF') {
     e.preventDefault()
     openSearch()
   } else if (e.key === 'Escape' && searchVisible.value) {
@@ -298,37 +299,40 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocClick))
         <input
           ref="searchInputRef"
           v-model="query"
-          class="search mono"
+          class="input mono flex-1 min-w-0"
           placeholder="Поиск по типам, полям, связям…"
           spellcheck="false"
           @keydown.esc="closeSearch"
         />
+        <span v-if="query.trim()" class="search-count">{{ filteredTypes.length }} найдено</span>
         <button class="btn icon-btn" title="Закрыть (Esc)" @click="closeSearch"><Icon name="xmark" :size="14" /></button>
       </template>
       <template v-else>
-        <span class="head-spacer"></span>
-        <button class="btn btn-inline" @click="openSearch"><span>Поиск</span><kbd class="keycap">{{ searchShortcut }}</kbd></button>
-      </template>
+        <span v-if="types.length && !diff" class="summary">{{ types.length }} типов · {{ all.length }} ресурсов</span>
 
-      <div class="compare-wrap">
-        <button class="btn btn-inline" @click="compareOpen = true">
-          <Icon name="compare" :size="14" />
-          <span>Сравнить</span>
-        </button>
-      </div>
-      <div ref="exportWrap" class="export-wrap">
-        <button class="btn btn-inline" :disabled="!types.length" @click="exportOpen = !exportOpen">
-          <Icon v-if="copied" name="check" :size="12" />
-          <span>{{ copied ? 'Скопировано' : 'Экспорт' }}</span>
-          <svg viewBox="0 0 10 6" width="10" height="6" fill="none" aria-hidden="true"><path d="M1.5 1.5L5 5L8.5 1.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
-        </button>
-        <div v-if="exportOpen" class="export-menu">
-          <button v-for="f in EXPORT_FORMATS" :key="f.id" class="export-item" @click="copyExport(f.id)">
-            {{ f.label }}
+        <span class="head-spacer"></span>
+
+        <button class="btn btn-inline" @click="openSearch"><span>Поиск</span><kbd class="keycap">{{ searchShortcut }}</kbd></button>
+
+        <div class="compare-wrap">
+          <button class="btn btn-inline" @click="compareOpen = true">
+            <Icon name="compare" :size="14" />
+            <span>Сравнить</span>
           </button>
         </div>
-      </div>
-      <span v-if="types.length && !diff" class="summary">{{ types.length }} типов · {{ all.length }} ресурсов</span>
+        <div ref="exportWrap" class="export-wrap">
+          <button class="btn btn-inline" :disabled="!types.length" @click="exportOpen = !exportOpen">
+            <Icon v-if="copied" name="check" :size="12" />
+            <span>{{ copied ? 'Скопировано' : 'Экспорт' }}</span>
+            <svg viewBox="0 0 10 6" width="10" height="6" fill="none" aria-hidden="true"><path d="M1.5 1.5L5 5L8.5 1.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </button>
+          <div v-if="exportOpen" class="menu export-menu">
+            <button v-for="f in EXPORT_FORMATS" :key="f.id" class="menu-item export-item" @click="copyExport(f.id)">
+              {{ f.label }}
+            </button>
+          </div>
+        </div>
+      </template>
     </div>
 
     <div class="schema-body">
@@ -463,121 +467,54 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocClick))
 </template>
 
 <style scoped>
+@reference "../style.css";
+
 .schema {
-  display: flex;
-  flex-direction: column;
-  min-height: 100%;
+  @apply flex flex-col min-h-full;
 }
 
 .schema-head {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 8px 12px;
-  border-bottom: 1px solid var(--border);
-  background: var(--bg-panel);
+  @apply flex items-center gap-2 py-2 px-3 border-b border-border bg-bg-panel;
 }
 
 .schema-body {
-  padding: 14px 16px 20px;
-}
-
-.search {
-  flex: 1;
-  min-width: 0;
-  padding: 6px 10px;
-  border-radius: 7px;
-  border: 1px solid var(--border);
-  background: var(--bg-inset);
-  color: var(--text);
-  font-size: 12px;
-  outline: none;
-  transition: border-color 0.15s ease, box-shadow 0.15s ease;
-}
-
-.head-spacer {
-  flex: 1;
-}
-
-.search:focus {
-  border-color: var(--accent);
-  box-shadow: 0 0 0 3px var(--accent-soft);
+  @apply pt-3.5 px-4 pb-5;
 }
 
 .compare-wrap,
 .export-wrap {
-  position: relative;
-  flex: 0 0 auto;
+  @apply relative flex-none;
 }
 
 .export-menu {
-  position: absolute;
+  @apply absolute right-0 max-w-80 max-h-75 overflow-auto;
   top: calc(100% + 4px);
-  right: 0;
-  z-index: 20;
-  background: var(--bg-panel);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  box-shadow: var(--shadow);
-  padding: 4px;
-  min-width: 220px;
-  max-width: 320px;
-  max-height: 300px;
-  overflow: auto;
 }
 
 .export-item {
-  display: block;
-  width: 100%;
-  text-align: left;
-  padding: 6px 10px;
-  border: none;
-  background: transparent;
-  color: var(--text);
-  font-size: 12px;
-  border-radius: 6px;
-  cursor: pointer;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  --wails-draggable: no-drag;
-}
-
-.export-item:hover {
-  background: var(--bg-hover);
+  @apply overflow-hidden text-ellipsis whitespace-nowrap;
 }
 
 .compare-empty {
-  padding: 20px;
-  text-align: center;
-  color: var(--text-tertiary);
-  font-size: 13px;
+  @apply p-5 text-center text-text-tertiary text-[13px];
 }
 
 .summary {
-  font-size: 12px;
-  color: var(--text-tertiary);
-  white-space: nowrap;
+  @apply text-xs text-text-tertiary whitespace-nowrap;
 }
 
 .empty {
-  color: var(--text-tertiary);
-  font-size: 13px;
-  padding: 24px 0;
-  text-align: center;
+  @apply text-text-tertiary text-[13px] py-6 text-center;
 }
 
 .cards {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
+  @apply flex flex-col gap-2.5;
 }
 
 .type-card {
+  @apply rounded-xl pt-2.5 px-3.5 pb-3.5;
   background: var(--bg-panel);
   border: 1px solid var(--border);
-  border-radius: 12px;
-  padding: 10px 14px 14px;
   transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
 
@@ -587,126 +524,79 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocClick))
 }
 
 .type-head {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  width: 100%;
-  border: none;
-  background: transparent;
-  padding: 4px 0;
-  cursor: pointer;
-  text-align: left;
+  @apply flex items-center gap-[7px] w-full border-none bg-transparent py-1 px-0 cursor-pointer text-left;
   font: inherit;
   --wails-draggable: no-drag;
 }
 
 .caret {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  flex: 0 0 12px;
-  width: 12px;
-  height: 12px;
-  color: var(--text-secondary);
+  @apply inline-flex items-center justify-center flex-none w-3 h-3 text-text-secondary;
   transition: transform 0.12s ease;
 }
 
 .caret.open {
-  transform: rotate(90deg);
+  @apply rotate-90;
 }
 
 .type-name {
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--text);
+  @apply text-sm font-semibold text-text;
 }
 
 .type-count {
-  font-size: 11px;
-  color: var(--text-tertiary);
+  @apply text-[11px] text-text-tertiary rounded-lg py-px px-[7px];
   background: var(--bg-inset);
   border: 1px solid var(--border);
-  border-radius: 9px;
-  padding: 1px 7px;
   font-variant-numeric: tabular-nums;
 }
 
 .type-body {
-  padding-left: 19px;
+  @apply pl-[19px];
 }
 
 .type-attrs {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 5px;
-  margin-top: 8px;
+  @apply flex flex-wrap gap-[5px] mt-2;
 }
 
 .attr-chip {
-  font-size: 11px;
-  color: var(--text-secondary);
+  @apply text-[11px] text-text-secondary rounded-md py-0.5 px-[7px];
   background: var(--bg-inset);
   border: 1px solid var(--border);
-  border-radius: 6px;
-  padding: 2px 7px;
 }
 
 .type-rels {
-  display: flex;
-  flex-direction: column;
-  gap: 7px;
-  margin-top: 10px;
-  padding-top: 10px;
-  border-top: 1px solid var(--border);
+  @apply flex flex-col gap-[7px] mt-2.5 pt-2.5 border-t border-border;
 }
 
 .type-rel {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 13px;
-  flex-wrap: wrap;
+  @apply flex items-center gap-2 text-[13px] flex-wrap;
 }
 
 .rel-name {
-  font-weight: 500;
-  color: var(--text);
+  @apply font-medium text-text;
 }
 
 .rel-card {
-  font-size: 10px;
-  color: var(--text-tertiary);
+  @apply text-[10px] text-text-tertiary rounded-sm py-px px-[5px];
   border: 1px solid var(--border);
-  border-radius: 5px;
-  padding: 1px 5px;
   font-family: var(--mono);
 }
 
 .rel-arrow {
-  color: var(--text-tertiary);
+  @apply text-text-tertiary;
 }
 
 .rel-target {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  border: none;
-  background: transparent;
-  padding: 2px 8px;
-  border-radius: 6px;
+  @apply inline-flex items-center gap-1 border-none bg-transparent py-0.5 px-2 rounded-md text-[13px] cursor-pointer;
   font: inherit;
-  font-size: 13px;
-  cursor: pointer;
   --wails-draggable: no-drag;
 }
 
 .rel-target.in-doc {
-  color: var(--accent);
-  background: var(--accent-soft);
+  @apply text-accent bg-accent-soft;
 }
 
 .rel-target.in-doc:hover {
-  text-decoration: underline;
+  @apply underline;
 }
 
 .rel-target.missing {
@@ -715,149 +605,98 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocClick))
 }
 
 .rel-target.missing:hover {
-  border-style: solid;
+  @apply border-solid;
 }
 
 .rel-target.ghost {
-  color: var(--text-tertiary);
-  cursor: default;
+  @apply text-text-tertiary cursor-default;
 }
 
 .type-incoming {
-  margin-top: 10px;
-  padding-top: 10px;
-  border-top: 1px solid var(--border);
+  @apply mt-2.5 pt-2.5 border-t border-border;
 }
 
 .incoming-title {
-  font-size: 11px;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  color: var(--text-tertiary);
-  margin-bottom: 4px;
+  @apply text-[11px] uppercase tracking-wider text-text-tertiary mb-1;
 }
 
 .incoming-list {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 5px;
+  @apply flex flex-wrap gap-[5px];
 }
 
 .incoming-chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
+  @apply inline-flex items-center gap-[5px] text-text-secondary text-[11px] py-0.5 px-2 rounded-md cursor-pointer;
   border: 1px solid var(--border);
   background: var(--bg-inset);
-  color: var(--text-secondary);
   font: inherit;
-  font-size: 11px;
-  padding: 2px 8px;
-  border-radius: 6px;
-  cursor: pointer;
   --wails-draggable: no-drag;
 }
 
 .incoming-chip:hover {
   border-color: var(--accent);
-  color: var(--text);
+  @apply text-text;
 }
 
 .incoming-rel {
-  color: var(--text-tertiary);
+  @apply text-text-tertiary;
   font-family: var(--mono);
 }
 
 .type-instances {
-  margin-top: 10px;
-  padding-top: 10px;
-  border-top: 1px solid var(--border);
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
+  @apply mt-2.5 pt-2.5 border-t border-border flex flex-col gap-1;
 }
 
 .instances-title {
-  font-size: 11px;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  color: var(--text-tertiary);
-  margin-bottom: 2px;
+  @apply text-[11px] uppercase tracking-wider text-text-tertiary mb-0.5;
 }
 
 .instance {
-  border: none;
-  background: transparent;
-  text-align: left;
+  @apply border-none bg-transparent text-left text-xs text-text-secondary py-1 px-2 rounded-md cursor-pointer;
   font: inherit;
-  font-size: 12px;
-  color: var(--text-secondary);
-  padding: 4px 8px;
-  border-radius: 6px;
-  cursor: pointer;
   --wails-draggable: no-drag;
 }
 
 .instance:hover {
-  background: var(--bg-hover);
-  color: var(--accent);
+  @apply bg-bg-hover text-accent;
 }
 
 .instance.highlighted {
-  color: var(--accent);
-  background: var(--accent-soft);
+  @apply text-accent bg-accent-soft;
 }
 
 /* --- Schema diff --- */
 .diff-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 12px;
+  @apply flex items-center justify-between mb-3;
 }
 
 .diff-title {
-  font-size: 13px;
-  font-weight: 600;
+  @apply text-[13px] font-semibold;
 }
 
 .diff-list {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
+  @apply flex flex-col gap-2.5;
 }
 
 .diff-type {
+  @apply rounded-xl py-3 px-3.5;
   background: var(--bg-panel);
   border: 1px solid var(--border);
-  border-radius: 12px;
-  padding: 12px 14px;
 }
 
 .diff-type-head {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 6px;
+  @apply flex items-center gap-2 mb-1.5;
 }
 
 .diff-badge {
-  font-size: 10px;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.03em;
-  padding: 1px 7px;
-  border-radius: 9px;
+  @apply text-[10px] font-semibold uppercase tracking-wide py-px px-[7px] rounded-full;
 }
 
 .diff-badge.added {
-  color: var(--green);
-  background: var(--green-soft);
+  @apply text-green bg-green-soft;
 }
 
 .diff-badge.removed {
-  color: var(--red);
-  background: var(--red-soft);
+  @apply text-red bg-red-soft;
 }
 
 .diff-badge.changed {
@@ -866,133 +705,81 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocClick))
 }
 
 .diff-type-name {
-  font-weight: 600;
-  font-size: 13px;
+  @apply font-semibold text-[13px];
 }
 
 .diff-lines {
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
-  padding-left: 8px;
+  @apply flex flex-col gap-[3px] pl-2;
 }
 
 .diff-line {
-  font-size: 12px;
+  @apply text-xs;
   font-family: var(--mono);
 }
 
 .diff-line.added {
-  color: var(--green);
+  @apply text-green;
 }
 
 .diff-line.removed {
-  color: var(--red);
+  @apply text-red;
 }
 
 .compare-overlay {
-  position: fixed;
-  inset: 0;
+  @apply fixed inset-0 flex items-center justify-center z-3000;
   background: rgba(0, 0, 0, 0.4);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 3000;
 }
 
 .compare-modal {
-  width: 560px;
-  max-width: 90%;
-  max-height: 80vh;
+  @apply w-140 max-w-[90%] max-h-[80vh] rounded-2xl flex flex-col overflow-hidden;
   background: var(--bg-panel);
   border: 1px solid var(--border);
-  border-radius: 14px;
   box-shadow: var(--shadow);
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
 }
 
 .compare-modal-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 12px 16px;
-  border-bottom: 1px solid var(--border);
+  @apply flex items-center justify-between py-3 px-4 border-b border-border;
 }
 
 .compare-modal-title {
-  font-size: 14px;
-  font-weight: 600;
+  @apply text-sm font-semibold;
 }
 
 .compare-modal-body {
-  flex: 1;
-  min-height: 0;
-  padding: 8px;
-  overflow: auto;
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
+  @apply flex-1 min-h-0 p-2 overflow-auto flex flex-col gap-0.5;
 }
 
 .compare-item {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 8px 10px;
-  border: none;
-  border-radius: 8px;
-  background: transparent;
-  cursor: pointer;
-  text-align: left;
+  @apply flex items-center gap-2.5 py-2 px-2.5 border-none rounded-lg bg-transparent cursor-pointer text-left;
   font: inherit;
   --wails-draggable: no-drag;
 }
 
 .compare-item:hover {
-  background: var(--bg-hover);
+  @apply bg-bg-hover;
 }
 
 .compare-method {
-  font-size: 11px;
-  font-weight: 600;
-  color: var(--accent);
-  flex: 0 0 auto;
-  min-width: 44px;
+  @apply text-[11px] font-semibold text-accent flex-none min-w-11;
 }
 
 .compare-url {
-  flex: 1;
-  min-width: 0;
-  font-size: 12px;
-  color: var(--text);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  @apply flex-1 min-w-0 text-xs text-text overflow-hidden text-ellipsis whitespace-nowrap;
 }
 
 .compare-time {
-  flex: 0 0 auto;
-  font-size: 11px;
-  color: var(--text-tertiary);
-  white-space: nowrap;
+  @apply flex-none text-[11px] text-text-tertiary whitespace-nowrap;
 }
 
 .compare-search {
-  padding: 8px 12px;
-  border-bottom: 1px solid var(--border);
+  @apply py-2 px-3 border-b border-border;
 }
 
 .compare-search-input {
-  width: 100%;
-  padding: 5px 8px;
-  border-radius: 7px;
+  @apply w-full py-1.5 px-2 rounded-md text-xs outline-none;
   border: 1px solid var(--border);
   background: var(--bg-inset);
   color: var(--text);
-  font-size: 12px;
-  outline: none;
 }
 
 .compare-search-input:focus {
@@ -1001,30 +788,18 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocClick))
 }
 
 .compare-paste {
-  padding: 10px 12px 12px;
-  border-top: 1px solid var(--border);
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
+  @apply pt-2.5 px-3 pb-3 border-t border-border flex flex-col gap-1.5;
 }
 
 .compare-paste-label {
-  font-size: 12px;
-  color: var(--text-secondary);
+  @apply text-xs text-text-secondary;
 }
 
 .compare-textarea {
-  width: 100%;
-  min-height: 64px;
-  resize: vertical;
-  padding: 6px 8px;
-  border-radius: 7px;
+  @apply w-full min-h-16 resize-y py-1.5 px-2 rounded-md text-xs outline-none select-text;
   border: 1px solid var(--border);
   background: var(--bg-inset);
   color: var(--text);
-  font-size: 12px;
-  outline: none;
-  user-select: text;
 }
 
 .compare-textarea:focus {
@@ -1033,7 +808,6 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocClick))
 }
 
 .compare-error {
-  font-size: 12px;
-  color: var(--red);
+  @apply text-xs text-red;
 }
 </style>

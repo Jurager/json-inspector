@@ -10,13 +10,14 @@ import {
   formatDuration,
   statusClass,
 } from '../lib/json'
-import { href, isJsonApi, type JsonApiDocument } from '../lib/jsonapi'
+import { dataResources, href, isJsonApi, resourceMatchesQuery, type JsonApiDocument } from '../lib/jsonapi'
 import JsonApiTree from './JsonApiTree.vue'
 import JsonTree from './JsonTree.vue'
 import SchemaMap from './SchemaMap.vue'
 import { Fetch } from '../../wailsjs/go/main/App'
 import { useRequestsStore } from '../stores/requests'
 import { copyToClipboard, exportRequest, type ExportFormat } from '../lib/export'
+import { shortcut } from '../lib/platform'
 
 const props = defineProps<{ record: RequestRecord }>()
 
@@ -81,6 +82,31 @@ const pagination = computed(() => {
 })
 
 const hasPagination = computed(() => Boolean(pagination.value.prev || pagination.value.next))
+
+// --- Тело search (Cmd/Ctrl+F) — lives in the same toolbar row as the
+// pagination controls below, rather than a container of its own; JsonApiTree
+// just filters by whatever query it's handed. ---
+const bodyQuery = ref('')
+const bodySearchVisible = ref(false)
+const bodySearchInputRef = ref<HTMLInputElement | null>(null)
+
+const bodyMatchCount = computed(() => {
+  if (!doc.value) return 0
+  const q = bodyQuery.value.trim().toLowerCase()
+  if (!q) return 0
+  const all = [...dataResources(doc.value), ...(doc.value.included ?? [])]
+  return all.filter((r) => resourceMatchesQuery(r, q)).length
+})
+
+function openBodySearch() {
+  bodySearchVisible.value = true
+  nextTick(() => bodySearchInputRef.value?.focus())
+}
+
+function closeBodySearch() {
+  bodySearchVisible.value = false
+  bodyQuery.value = ''
+}
 
 const highlightKey = ref<string | null>(null)
 
@@ -171,7 +197,8 @@ const rawHtml = computed(() => highlightJson(prettyRaw.value))
 const rawSearchQuery = ref('')
 const rawSearchVisible = ref(false)
 const rawCurrentMatch = ref(0)
-const searchInputRef = ref<HTMLInputElement | null>(null)
+const rawSearchInputRef = ref<HTMLInputElement | null>(null)
+const searchShortcut = computed(() => shortcut('F'))
 
 const rawMatches = computed(() => findMatches(prettyRaw.value, rawSearchQuery.value))
 
@@ -210,13 +237,13 @@ function scrollToCurrentMatch() {
   })
 }
 
-function openSearch() {
+function openRawSearch() {
   rawSearchVisible.value = true
   rawCurrentMatch.value = 0
-  nextTick(() => searchInputRef.value?.focus())
+  nextTick(() => rawSearchInputRef.value?.focus())
 }
 
-function closeSearch() {
+function closeRawSearch() {
   rawSearchVisible.value = false
   rawSearchQuery.value = ''
   rawCurrentMatch.value = 0
@@ -242,12 +269,20 @@ async function copyHeaders() {
 }
 
 function onWindowKeydown(e: KeyboardEvent) {
-  if (activeTab.value !== 'raw') return
-  if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'f') {
-    e.preventDefault()
-    openSearch()
-  } else if (e.key === 'Escape' && rawSearchVisible.value) {
-    closeSearch()
+  if (activeTab.value === 'raw') {
+    if ((e.metaKey || e.ctrlKey) && e.code === 'KeyF') {
+      e.preventDefault()
+      openRawSearch()
+    } else if (e.key === 'Escape' && rawSearchVisible.value) {
+      closeRawSearch()
+    }
+  } else if (activeTab.value === 'body' && doc.value) {
+    if ((e.metaKey || e.ctrlKey) && e.code === 'KeyF') {
+      e.preventDefault()
+      openBodySearch()
+    } else if (e.key === 'Escape' && bodySearchVisible.value) {
+      closeBodySearch()
+    }
   }
 }
 
@@ -316,13 +351,31 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocClick))
 
     <div class="resp-content">
       <template v-if="activeTab === 'body'">
-        <div v-if="doc && hasPagination" class="pagination">
-          <button class="btn icon-btn" :disabled="!pagination.first || !pagination.prev" title="Первая" @click="follow(pagination.first)"><Icon name="chevrons-left" :size="14" /></button>
-          <button class="btn icon-btn" :disabled="!pagination.prev" title="Предыдущая" @click="follow(pagination.prev)"><Icon name="chevron-left" :size="14" /></button>
-          <button class="btn icon-btn" :disabled="!pagination.next" title="Следующая" @click="follow(pagination.next)"><Icon name="chevron-right" :size="14" /></button>
-          <button class="btn icon-btn" :disabled="!pagination.last || !pagination.next" title="Последняя" @click="follow(pagination.last)"><Icon name="chevrons-right" :size="14" /></button>
+        <div v-if="doc" class="toolbar">
+          <template v-if="bodySearchVisible">
+            <input
+              ref="bodySearchInputRef"
+              v-model="bodyQuery"
+              class="input mono flex-1 min-w-0"
+              placeholder="Поиск по ресурсам, полям, значениям…"
+              spellcheck="false"
+              @keydown.esc="closeBodySearch"
+            />
+            <span v-if="bodyQuery.trim()" class="search-count">{{ bodyMatchCount }} найдено</span>
+            <button class="btn icon-btn" title="Закрыть (Esc)" @click="closeBodySearch"><Icon name="xmark" :size="14" /></button>
+          </template>
+          <template v-else>
+            <template v-if="hasPagination">
+              <button class="btn icon-btn" :disabled="!pagination.first || !pagination.prev" title="Первая" @click="follow(pagination.first)"><Icon name="chevrons-left" :size="14" /></button>
+              <button class="btn icon-btn" :disabled="!pagination.prev" title="Предыдущая" @click="follow(pagination.prev)"><Icon name="chevron-left" :size="14" /></button>
+              <button class="btn icon-btn" :disabled="!pagination.next" title="Следующая" @click="follow(pagination.next)"><Icon name="chevron-right" :size="14" /></button>
+              <button class="btn icon-btn" :disabled="!pagination.last || !pagination.next" title="Последняя" @click="follow(pagination.last)"><Icon name="chevrons-right" :size="14" /></button>
+            </template>
+            <span class="head-spacer"></span>
+            <button class="btn btn-inline" @click="openBodySearch"><span>Поиск</span><kbd class="keycap">{{ searchShortcut }}</kbd></button>
+          </template>
         </div>
-        <JsonApiTree v-if="doc" :doc="doc" :highlight-key="highlightKey" @select="onTreeSelect" @fetch="onTreeFetch" />
+        <JsonApiTree v-if="doc" :doc="doc" :query="bodyQuery" :highlight-key="highlightKey" @select="onTreeSelect" @fetch="onTreeFetch" />
         <div v-else-if="isJson" class="jt-wrap"><JsonTree :value="jsonValue" /></div>
         <pre v-else class="code resp-pad">{{ record.responseBody }}</pre>
       </template>
@@ -333,25 +386,27 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocClick))
 
       <template v-else-if="activeTab === 'raw'">
         <div class="toolbar">
-          <button class="btn btn-inline" @click="copyRaw"><Icon v-if="rawCopied" name="check" :size="12" /><span>{{ rawCopied ? 'Скопировано' : 'Копировать' }}</span></button>
-          <button class="btn btn-inline" @click="openSearch"><span>Поиск</span><kbd class="keycap">⌘F</kbd></button>
-        </div>
-        <div v-if="rawSearchVisible" class="search-bar">
-          <input
-            ref="searchInputRef"
-            v-model="rawSearchQuery"
-            class="input search-input mono"
-            placeholder="Поиск…"
-            spellcheck="false"
-            @keydown.enter="onSearchEnter"
-            @keydown.esc="closeSearch"
-          />
-          <span class="search-count">
-            {{ rawMatches.length ? `${rawCurrentMatch + 1} / ${rawMatches.length}` : 'нет совпадений' }}
-          </span>
-          <button class="btn icon-btn" title="Предыдущее (Shift+Enter)" @click="prevMatch"><Icon name="chevron-up" :size="14" /></button>
-          <button class="btn icon-btn" title="Следующее (Enter)" @click="nextMatch"><Icon name="chevron-down" :size="14" /></button>
-          <button class="btn icon-btn" title="Закрыть (Esc)" @click="closeSearch"><Icon name="xmark" :size="14" /></button>
+          <template v-if="rawSearchVisible">
+            <input
+              ref="rawSearchInputRef"
+              v-model="rawSearchQuery"
+              class="input mono flex-1 min-w-0"
+              placeholder="Поиск…"
+              spellcheck="false"
+              @keydown.enter="onSearchEnter"
+              @keydown.esc="closeRawSearch"
+            />
+            <span class="search-count">
+              {{ rawMatches.length ? `${rawCurrentMatch + 1} / ${rawMatches.length}` : 'нет совпадений' }}
+            </span>
+            <button class="btn icon-btn" title="Предыдущее (Shift+Enter)" @click="prevMatch"><Icon name="chevron-up" :size="14" /></button>
+            <button class="btn icon-btn" title="Следующее (Enter)" @click="nextMatch"><Icon name="chevron-down" :size="14" /></button>
+            <button class="btn icon-btn" title="Закрыть (Esc)" @click="closeRawSearch"><Icon name="xmark" :size="14" /></button>
+          </template>
+          <template v-else>
+            <button class="btn btn-inline" @click="copyRaw"><Icon v-if="rawCopied" name="check" :size="12" /><span>{{ rawCopied ? 'Скопировано' : 'Копировать' }}</span></button>
+            <button class="btn btn-inline" @click="openRawSearch"><span>Поиск</span><kbd class="keycap">{{ searchShortcut }}</kbd></button>
+          </template>
         </div>
         <pre class="code resp-pad" v-html="rawRender"></pre>
       </template>
@@ -381,8 +436,8 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocClick))
               <span>{{ copied ? 'Скопировано' : 'Копировать' }}</span>
               <svg viewBox="0 0 10 6" width="10" height="6" fill="none" aria-hidden="true"><path d="M1.5 1.5L5 5L8.5 1.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
             </button>
-            <div v-if="copyMenuOpen" class="copy-menu">
-              <button v-for="f in COPY_FORMATS" :key="f.id" class="copy-menu-item" @click="copyAs(f.id)">
+            <div v-if="copyMenuOpen" class="menu copy-menu">
+              <button v-for="f in COPY_FORMATS" :key="f.id" class="menu-item" @click="copyAs(f.id)">
                 {{ f.label }}
               </button>
             </div>
@@ -410,173 +465,70 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocClick))
 </template>
 
 <style scoped>
+@reference "../style.css";
+
 .resp {
-  display: flex;
-  flex-direction: column;
-  height: 100%;
-  min-height: 0;
-  background: var(--bg);
+  @apply flex flex-col h-full min-h-0 bg-bg;
 }
 
 .resp-bar {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  height: 48px;
-  padding: 0 12px;
-  border-bottom: 1px solid var(--border);
-  background: var(--bg-panel);
+  @apply flex items-center gap-2 h-12 px-3 border-b border-border bg-bg-panel;
 }
 
 .resp-url {
-  flex: 1;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  color: var(--text-secondary);
-  font-size: 12px;
+  @apply flex-1 min-w-0 overflow-hidden text-ellipsis whitespace-nowrap text-text-secondary text-xs;
 }
 
 .resp-meta {
-  color: var(--text-tertiary);
-  font-size: 12px;
-  white-space: nowrap;
+  @apply text-text-tertiary text-xs whitespace-nowrap;
 }
 
 .resp-error {
-  padding: 10px 12px;
-  color: var(--red);
-  background: var(--red-soft);
-  font-size: 12px;
+  @apply py-2.5 px-3 text-red bg-red-soft text-xs;
 }
 
 .resp-content {
-  flex: 1;
-  min-height: 0;
-  overflow: auto;
-}
-
-.pagination {
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 8px;
-  padding: 8px 12px;
-  border-bottom: 1px solid var(--border);
-  background: var(--bg-panel);
+  @apply flex-1 min-h-0 overflow-auto;
 }
 
 .resp-pad {
-  padding: 12px 16px;
-  margin: 0;
+  @apply py-3 px-4 m-0;
 }
 
 .jt-wrap {
-  padding: 12px 16px;
+  @apply py-3 px-4;
 }
 
 .kv-table {
-  border-collapse: collapse;
-  width: 100%;
-  font-size: 12px;
+  @apply border-collapse w-full text-xs;
 }
 
 .kv-key {
-  color: var(--text-secondary);
-  padding: 4px 16px;
-  vertical-align: top;
-  white-space: nowrap;
+  @apply text-text-secondary py-1 px-4 align-top whitespace-nowrap;
 }
 
 .kv-val {
-  color: var(--text);
-  word-break: break-all;
-  user-select: text;
-  padding: 4px 0;
+  @apply text-text break-all select-text py-1 px-0;
 }
 
 .kv-row {
-  display: flex;
-  gap: 12px;
-  padding: 3px 0;
-  font-size: 12px;
+  @apply flex gap-3 py-[3px] px-0 text-xs;
 }
 
 .kv-label {
-  color: var(--text-secondary);
-  min-width: 70px;
-  flex: 0 0 70px;
+  @apply text-text-secondary min-w-[70px] grow-0 shrink-0 basis-[70px];
 }
 
 .break {
-  word-break: break-all;
-}
-
-.toolbar {
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 6px;
-  padding: 8px 12px;
-  border-bottom: 1px solid var(--border);
-  background: var(--bg-panel);
-}
-
-.search-bar {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 8px 12px;
-  border-bottom: 1px solid var(--border);
-  background: var(--bg-panel);
-  position: sticky;
-  top: 0;
-  z-index: 10;
-}
-
-.search-input {
-  flex: 1;
-  min-width: 0;
-}
-
-.search-count {
-  font-size: 12px;
-  color: var(--text-tertiary);
-  white-space: nowrap;
+  @apply break-all;
 }
 
 .copy-row {
-  position: relative;
+  @apply relative;
 }
 
 .copy-menu {
-  position: absolute;
+  @apply absolute right-0;
   top: calc(100% + 4px);
-  right: 0;
-  z-index: 20;
-  background: var(--bg-panel);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  box-shadow: var(--shadow);
-  padding: 4px;
-  min-width: 160px;
-}
-
-.copy-menu-item {
-  display: block;
-  width: 100%;
-  text-align: left;
-  padding: 6px 10px;
-  border: none;
-  background: transparent;
-  color: var(--text);
-  font-size: 12px;
-  border-radius: 6px;
-  cursor: pointer;
-}
-
-.copy-menu-item:hover {
-  background: var(--bg-hover);
 }
 </style>

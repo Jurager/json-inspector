@@ -1,3 +1,40 @@
+@import "tailwindcss";
+
+/* Bridges the existing color tokens below into Tailwind's utility namespace
+   (bg-bg, text-text-secondary, border-border, ...) instead of introducing a
+   second, parallel color system. `inline` makes Tailwind reference the var
+   directly in each generated utility rather than pre-resolving it, which is
+   what lets the dark-mode media query below keep working. */
+@theme inline {
+  --color-bg: var(--bg);
+  --color-bg-sidebar: var(--bg-sidebar);
+  --color-bg-panel: var(--bg-panel);
+  --color-bg-inset: var(--bg-inset);
+  --color-bg-hover: var(--bg-hover);
+  --color-bg-active: var(--bg-active);
+  --color-border: var(--border);
+  --color-border-strong: var(--border-strong);
+  --color-text: var(--text);
+  --color-text-secondary: var(--text-secondary);
+  --color-text-tertiary: var(--text-tertiary);
+  --color-accent: var(--accent);
+  --color-accent-soft: var(--accent-soft);
+  --color-accent-text: var(--accent-text);
+  --color-green: var(--green);
+  --color-green-soft: var(--green-soft);
+  --color-red: var(--red);
+  --color-red-soft: var(--red-soft);
+  --color-orange: var(--orange);
+  --color-orange-soft: var(--orange-soft);
+  --color-yellow: var(--yellow);
+  --color-purple: var(--purple);
+  --color-tok-str: var(--tok-str);
+  --color-tok-num: var(--tok-num);
+  --color-tok-bool: var(--tok-bool);
+  --color-tok-null: var(--tok-null);
+  --font-mono: var(--mono);
+}
+
 :root {
   --bg: #f5f5f7;
   --bg-sidebar: #ececef;
@@ -64,120 +101,80 @@
 }
 
 * {
-  box-sizing: border-box;
+  @apply box-border;
 }
 
 html,
 body,
 #app {
-  height: 100%;
-  margin: 0;
-  padding: 0;
+  @apply h-full m-0 p-0;
 }
 
 body {
   font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto,
     "Helvetica Neue", Arial, sans-serif;
-  font-size: 13px;
-  color: var(--text);
-  background: var(--bg);
-  -webkit-font-smoothing: antialiased;
-  overflow: hidden;
-  user-select: none;
+  @apply text-[13px] text-text bg-bg antialiased overflow-hidden select-none;
 }
 
 .app {
-  display: flex;
-  flex-direction: column;
-  height: 100%;
+  @apply flex flex-col h-full;
 }
 
 /* ---- Title bar (native look, full-width, draggable) ---- */
 .titlebar {
-  height: 52px;
-  flex: 0 0 52px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: var(--bg-sidebar);
-  border-bottom: 1px solid var(--border);
+  @apply h-13 flex-none flex items-center justify-center bg-bg-sidebar border-b border-border select-none;
   --wails-draggable: drag;
-  user-select: none;
 }
 
 .titlebar-title {
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--text-secondary);
-  letter-spacing: 0.01em;
+  @apply text-[13px] font-semibold text-text-secondary tracking-wide;
 }
 
 /* ---- Windows/Linux: frameless window, so the titlebar draws its own
    icon/title (left) and caption buttons (right) itself. ---- */
 .titlebar-custom {
-  justify-content: flex-start;
-  padding: 0;
+  @apply justify-start p-0;
 }
 
 .titlebar-appicon {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  height: 100%;
-  padding: 0 12px;
-  border: none;
-  background: transparent;
-  cursor: default;
+  @apply flex items-center gap-2 h-full px-3 border-none bg-transparent cursor-default;
   --wails-draggable: no-drag;
 }
 
 .titlebar-appicon:hover .titlebar-title {
-  color: var(--text);
+  @apply text-text;
 }
 
 .titlebar-logo {
-  width: 16px;
-  height: 16px;
+  @apply w-4 h-4;
   -webkit-user-drag: none;
   user-drag: none;
 }
 
 .titlebar-custom .titlebar-title {
-  font-weight: 500;
+  @apply font-medium;
 }
 
 .titlebar-spacer {
-  flex: 1;
-  height: 100%;
+  @apply flex-1 h-full;
 }
 
 .titlebar-controls {
-  display: flex;
-  align-items: stretch;
-  align-self: stretch;
-  height: 100%;
+  @apply flex items-stretch self-stretch h-full;
   --wails-draggable: no-drag;
 }
 
 .cap-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 46px;
-  height: 100%;
-  border: none;
-  background: transparent;
-  color: var(--text);
-  cursor: pointer;
+  @apply flex items-center justify-center w-[46px] h-full border-none bg-transparent text-text cursor-pointer;
 }
 
 .cap-btn:hover {
-  background: var(--bg-hover);
+  @apply bg-bg-hover;
 }
 
 .cap-btn.cap-close:hover {
   background: #c42b1c;
-  color: #fff;
+  @apply text-white;
 }
 
 /* Caption icons are drawn with plain CSS boxes rather than SVG paths:
@@ -185,61 +182,35 @@ body {
    more reliably than hand-picked SVG coordinates, so they stay crisp *and*
    aligned with each other across fractional display scaling (125%, 150%). */
 .cap-icon {
-  position: relative;
-  display: block;
+  @apply relative block;
 }
 
 .cap-icon-minus {
-  width: 10px;
-  height: 1px;
-  background: currentColor;
+  @apply w-2.5 h-px bg-current;
 }
 
 .cap-icon-square {
-  width: 10px;
-  height: 10px;
-  border: 1px solid currentColor;
-  box-sizing: border-box;
+  @apply w-2.5 h-2.5 border border-current box-border;
 }
 
 .cap-icon-restore {
-  width: 10px;
-  height: 10px;
+  @apply w-2.5 h-2.5;
 }
 
 .cap-icon-restore-back {
-  position: absolute;
-  top: 0;
-  right: 0;
-  width: 7px;
-  height: 7px;
-  border-top: 1px solid currentColor;
-  border-right: 1px solid currentColor;
-  box-sizing: border-box;
+  @apply absolute top-0 right-0 w-[7px] h-[7px] border-t border-r border-current box-border;
 }
 
 .cap-icon-restore-front {
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  width: 7px;
-  height: 7px;
-  border: 1px solid currentColor;
-  box-sizing: border-box;
+  @apply absolute bottom-0 left-0 w-[7px] h-[7px] border border-current box-border;
 }
 
 .cap-icon-close {
-  width: 10px;
-  height: 10px;
+  @apply w-2.5 h-2.5;
 }
 
 .cap-icon-close-bar {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  width: 14px;
-  height: 1px;
-  background: currentColor;
+  @apply absolute top-1/2 left-1/2 w-3.5 h-px bg-current;
   transform-origin: center;
 }
 
@@ -253,77 +224,92 @@ body {
 
 /* ---- Body: sidebar + main ---- */
 .body {
-  display: flex;
-  flex: 1;
-  min-height: 0;
+  @apply flex flex-1 min-h-0;
 }
 
+/* ---- Sidebar: narrow icon rail (menu + Запрос/Браузер), Telegram/Slack-
+   style rather than the old wide text-row list — icon over label, active
+   state as a soft accent fill on the whole tile. ---- */
 .sidebar {
-  width: 216px;
-  flex: 0 0 216px;
-  background: var(--bg-sidebar);
-  border-right: 1px solid var(--border);
-  padding: 8px;
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
+  @apply w-18 flex-none bg-bg-sidebar border-r border-border py-2 px-1.5 flex flex-col items-center gap-1;
 }
 
-.nav-item {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  width: 100%;
-  padding: 7px 10px;
-  border: none;
-  border-radius: 7px;
-  background: transparent;
-  color: var(--text);
-  font-size: 13px;
-  font-family: inherit;
-  text-align: left;
-  cursor: pointer;
+.rail-menu-wrap {
+  @apply relative w-full pb-1 mb-1 flex justify-center border-b border-border;
+}
+
+.rail-menu-btn {
+  @apply flex items-center justify-center w-9 h-9 border-none rounded-lg bg-transparent text-text-secondary cursor-pointer;
   --wails-draggable: no-drag;
 }
 
-.nav-item:hover {
-  background: var(--bg-hover);
+.rail-menu-btn:hover {
+  @apply bg-bg-hover text-text;
 }
 
-.nav-item.active {
-  background: var(--accent-soft);
-  color: var(--accent);
-  font-weight: 500;
+.rail-menu-dropdown {
+  @apply absolute top-0 left-full ml-1;
 }
 
-.nav-icon {
-  width: 16px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
+.rail-item {
+  @apply flex flex-col items-center gap-1 w-full py-2 border-none rounded-lg bg-transparent text-text-secondary cursor-pointer;
+  --wails-draggable: no-drag;
 }
 
-.nav-badge {
-  margin-left: auto;
-  min-width: 18px;
-  height: 18px;
-  padding: 0 5px;
-  border-radius: 9px;
-  background: var(--red);
-  color: #fff;
-  font-size: 11px;
-  font-weight: 600;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
+.rail-item:hover {
+  @apply bg-bg-hover text-text;
+}
+
+.rail-item.active {
+  @apply bg-accent-soft text-accent;
+}
+
+.rail-icon {
+  @apply relative flex items-center justify-center;
+}
+
+.rail-label {
+  @apply text-[10px] font-medium leading-none;
+}
+
+.rail-badge {
+  @apply absolute -top-1.5 -right-2 min-w-[16px] h-4 px-1 rounded-full bg-red text-white text-[10px] font-semibold inline-flex items-center justify-center;
+}
+
+/* ---- Dropdown menus (rail menu, copy/export menus) ---- */
+.menu {
+  @apply z-20 rounded-lg p-1 min-w-[200px];
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow);
+}
+
+.menu-item {
+  @apply flex items-center gap-2 w-full text-left py-1.5 px-2.5 border-none bg-transparent text-text text-xs rounded-md cursor-pointer;
+}
+
+.menu-item:hover {
+  @apply bg-bg-hover;
+}
+
+/* ---- Content toolbar (Raw, Тело, headers) — a persistent row of actions
+   at the top of a tab's content; search (Raw, Тело, Карта) swaps this same
+   row's content in place (input + result count + close) instead of opening
+   a second row below it, so every tab's search looks and sits the same. ---- */
+.toolbar {
+  @apply flex items-center justify-end gap-1.5 py-2 px-3 border-b border-border bg-bg-panel;
+}
+
+.search-count {
+  @apply text-xs text-text-tertiary whitespace-nowrap;
+}
+
+.head-spacer {
+  @apply flex-1;
 }
 
 .main {
-  flex: 1;
-  min-width: 0;
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
+  @apply flex-1 min-w-0 overflow-hidden flex flex-col;
 }
 
 /* ---- Shared primitives ---- */
@@ -336,116 +322,84 @@ button {
 }
 
 .badge {
-  display: inline-flex;
-  align-items: center;
-  padding: 1px 7px;
-  border-radius: 5px;
-  font-size: 11px;
-  font-weight: 600;
-  line-height: 1.5;
+  @apply inline-flex items-center px-[7px] py-px rounded-sm text-[11px] font-semibold leading-normal;
 }
 
 .badge-method {
-  color: var(--accent);
-  background: var(--accent-soft);
+  @apply text-accent bg-accent-soft;
 }
 
 .badge-status-2xx {
-  color: var(--green);
-  background: var(--green-soft);
+  @apply text-green bg-green-soft;
 }
 
 .badge-status-3xx {
-  color: var(--orange);
-  background: var(--orange-soft);
+  @apply text-orange bg-orange-soft;
 }
 
 .badge-status-4xx,
 .badge-status-5xx {
-  color: var(--red);
-  background: var(--red-soft);
+  @apply text-red bg-red-soft;
 }
 
 .btn {
-  padding: 6px 14px;
-  border-radius: 7px;
+  @apply px-3.5 py-1.5 rounded-md text-[13px] cursor-pointer;
   border: 1px solid var(--border-strong);
   background: var(--bg-panel);
   color: var(--text);
-  font-size: 13px;
-  cursor: pointer;
   box-shadow: var(--shadow-btn);
   transition: background 0.12s ease, border-color 0.12s ease, box-shadow 0.12s ease, filter 0.12s ease;
   --wails-draggable: no-drag;
 }
 
 .btn:not(.btn-primary):hover {
-  background: var(--bg-hover);
+  @apply bg-bg-hover;
 }
 
 .btn:not(.btn-primary):active {
-  background: var(--bg-active);
+  @apply bg-bg-active;
 }
 
 .btn-primary {
-  background: var(--accent);
-  border-color: var(--accent);
-  color: var(--accent-text);
+  @apply bg-accent border-accent text-accent-text;
 }
 
 .btn-primary:hover {
-  filter: brightness(1.08);
+  @apply brightness-110;
 }
 
 .btn-primary:active {
-  filter: brightness(0.94);
+  @apply brightness-95;
 }
 
 .btn:disabled {
-  opacity: 0.5;
-  cursor: default;
-  box-shadow: none;
+  @apply opacity-50 cursor-default shadow-none;
 }
 
 .btn-inline {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
+  @apply inline-flex items-center gap-1.5;
 }
 
 .icon-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  padding: 2px 8px;
+  @apply inline-flex items-center justify-center py-0.5 px-2;
 }
 
 .keycap {
+  @apply text-[9px] font-medium leading-tight px-1.5 rounded-sm text-text-secondary;
   font-family: inherit;
-  font-size: 9px;
-  font-weight: 500;
-  line-height: 1.2;
-  padding: 0 5px;
-  border-radius: 4px;
   background: var(--bg-inset);
   border: 1px solid var(--border);
-  color: var(--text-secondary);
 }
 
 .spinner {
-  width: 14px;
-  height: 14px;
+  @apply w-3.5 h-3.5 rounded-full inline-block;
   border: 2px solid var(--border-strong);
   border-top-color: var(--accent);
-  border-radius: 50%;
   animation: spin 0.7s linear infinite;
-  display: inline-block;
 }
 
 .spinner-lg {
-  width: 28px;
-  height: 28px;
-  border-width: 3px;
+  @apply w-7 h-7 border-[3px];
 }
 
 .btn-primary .spinner {
@@ -462,14 +416,10 @@ button {
 .input,
 .select,
 .textarea {
+  @apply text-[13px] text-text rounded-md py-1.5 px-2.5 outline-none;
   font-family: inherit;
-  font-size: 13px;
-  color: var(--text);
   background: var(--bg-inset);
   border: 1px solid var(--border);
-  border-radius: 7px;
-  padding: 6px 10px;
-  outline: none;
   transition: border-color 0.12s ease, box-shadow 0.12s ease;
   --wails-draggable: no-drag;
 }
@@ -488,76 +438,44 @@ button {
 }
 
 .textarea {
+  @apply resize-y select-text;
   font-family: var(--mono);
-  resize: vertical;
-  user-select: text;
 }
 
 /* ---- Empty state ---- */
 .empty {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  color: var(--text-tertiary);
-  gap: 8px;
+  @apply flex-1 flex flex-col items-center justify-center text-text-tertiary gap-2;
 }
 
 .empty-title {
-  font-size: 15px;
-  font-weight: 600;
-  color: var(--text-secondary);
+  @apply text-[15px] font-semibold text-text-secondary;
 }
 
 /* ---- JSON:API tree ---- */
 .ja-root {
-  padding: 8px 0;
+  @apply py-2;
 }
 
 .ja-section-title {
-  font-size: 11px;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  color: var(--text-tertiary);
-  padding: 8px 16px 4px;
+  @apply text-[11px] uppercase tracking-wider text-text-tertiary pt-2 px-4 pb-1;
 }
 
 .ja-link {
-  display: flex;
-  align-items: baseline;
-  gap: 8px;
-  padding: 3px 16px;
+  @apply flex items-baseline gap-2 py-[3px] px-4;
 }
 
 .ja-link-name {
-  flex: 0 0 auto;
-  min-width: 52px;
-  font-size: 12px;
-  color: var(--text-secondary);
+  @apply flex-none min-w-[52px] text-xs text-text-secondary;
 }
 
 .ja-meta-value {
-  font-size: 12px;
-  color: var(--text);
+  @apply text-xs text-text;
 }
 
 .ja-link-url {
-  flex: 0 1 auto;
-  max-width: 100%;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  text-align: left;
+  @apply flex-1 shrink max-w-full min-w-0 overflow-hidden text-ellipsis whitespace-nowrap text-left text-xs text-orange bg-none rounded-md py-px px-2 cursor-pointer;
   font-family: var(--mono);
-  font-size: 12px;
-  color: var(--orange);
-  background: none;
   border: 1px dashed color-mix(in srgb, var(--orange) 55%, transparent);
-  border-radius: 6px;
-  padding: 1px 8px;
-  cursor: pointer;
 }
 
 .ja-link-url:hover {
@@ -565,22 +483,19 @@ button {
 }
 
 mark.search-match {
+  @apply rounded-xs;
   background: color-mix(in srgb, var(--accent) 25%, transparent);
   color: inherit;
-  border-radius: 2px;
 }
 
 mark.search-match.current {
+  @apply text-white;
   background: var(--orange);
-  color: #fff;
 }
 
 .ja-resource {
-  margin: 6px 16px;
+  @apply mx-4 my-1.5 rounded-lg bg-bg-panel overflow-hidden;
   border: 1px solid var(--border);
-  border-radius: 8px;
-  background: var(--bg-panel);
-  overflow: hidden;
   transition: box-shadow 0.15s ease, border-color 0.15s ease;
 }
 
@@ -590,141 +505,100 @@ mark.search-match.current {
 }
 
 .ja-resource-head {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 8px 12px;
-  cursor: pointer;
-  user-select: none;
+  @apply flex items-center gap-2 py-2 px-3 cursor-pointer select-none w-full text-left border-none bg-transparent text-text;
+  font: inherit;
 }
 
 .ja-resource-head:hover {
-  background: var(--bg-hover);
+  @apply bg-bg-hover;
 }
 
 .ja-caret {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 12px;
-  height: 12px;
-  flex: 0 0 12px;
-  color: var(--text-secondary);
+  @apply inline-flex items-center justify-center w-3 h-3 flex-none text-text-secondary;
   transition: transform 0.12s ease;
 }
 
 .ja-caret.open {
-  transform: rotate(90deg);
+  @apply rotate-90;
 }
 
 .ja-type-badge {
+  @apply text-[11px] text-purple py-px px-[7px] rounded-sm;
   font-family: var(--mono);
-  font-size: 11px;
-  color: var(--purple);
   background: color-mix(in srgb, var(--purple) 14%, transparent);
-  padding: 1px 7px;
-  border-radius: 5px;
 }
 
 .ja-id {
+  @apply text-xs text-text-secondary;
   font-family: var(--mono);
-  font-size: 12px;
-  color: var(--text-secondary);
 }
 
 .ja-label {
-  color: var(--text);
-  font-weight: 500;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  @apply text-text font-medium overflow-hidden text-ellipsis whitespace-nowrap;
 }
 
 .ja-body {
-  padding: 4px 12px 10px 30px;
-  border-top: 1px solid var(--border);
+  @apply pt-1 px-3 pb-2.5 pl-[30px] border-t border-border;
 }
 
 .ja-attr {
-  display: flex;
-  gap: 8px;
-  padding: 2px 0;
+  @apply flex gap-2 py-0.5 text-xs;
   font-family: var(--mono);
-  font-size: 12px;
 }
 
 .ja-attr-key,
 .ja-attr-val {
-  cursor: pointer;
-  border-radius: 3px;
-  padding: 0 2px;
-  margin: 0 -2px;
+  @apply cursor-pointer rounded-xs py-0 px-0.5 -mx-0.5;
 }
 
 .ja-attr-key:hover,
 .ja-attr-val:hover {
-  background: var(--bg-hover);
+  @apply bg-bg-hover;
 }
 
 .ja-attr-key.copied,
 .ja-attr-val.copied {
-  background: var(--accent-soft);
+  @apply bg-accent-soft;
 }
 
 .ja-attr-key {
-  color: var(--text-secondary);
-  min-width: 120px;
-  flex: 0 0 120px;
+  @apply text-text-secondary min-w-[120px] flex-none;
 }
 
 .ja-attr-val {
-  color: var(--text);
-  word-break: break-word;
-  user-select: text;
+  @apply text-text break-words select-text;
 }
 
 .ja-attr-val.str {
-  color: var(--tok-str);
+  @apply text-tok-str;
 }
 
 .ja-attr-val.num,
 .ja-attr-val.bool {
-  color: var(--tok-num);
+  @apply text-tok-num;
 }
 
 .ja-attr-val.null {
-  color: var(--tok-null);
+  @apply text-tok-null;
 }
 
 .ja-rel {
-  padding: 3px 0;
+  @apply py-[3px];
 }
 
 .ja-rel-name {
-  color: var(--text-secondary);
-  font-size: 12px;
-  font-weight: 500;
-  margin-right: 6px;
+  @apply text-text-secondary text-xs font-medium mr-1.5;
 }
 
 .ja-rel-targets {
-  display: inline-flex;
-  flex-wrap: wrap;
-  gap: 5px;
+  @apply inline-flex flex-wrap gap-1.5;
 }
 
 .rel-chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
+  @apply inline-flex items-center gap-1.5 text-[11px] py-0.5 px-2 rounded-xl cursor-pointer select-none;
   font-family: var(--mono);
-  font-size: 11px;
-  padding: 2px 8px;
-  border-radius: 12px;
   border: 1px solid var(--border-strong);
   background: var(--bg-inset);
-  cursor: pointer;
-  user-select: none;
 }
 
 .rel-chip:hover {
@@ -737,158 +611,137 @@ mark.search-match.current {
 }
 
 .rel-chip.fetchable {
+  @apply border-dashed;
   color: var(--orange);
   border-color: color-mix(in srgb, var(--orange) 50%, transparent);
-  border-style: dashed;
 }
 
 .rel-chip.missing {
-  color: var(--text-tertiary);
-  cursor: default;
+  @apply text-text-tertiary cursor-default;
 }
 
 .rel-chip-empty {
-  color: var(--text-tertiary);
-  font-style: italic;
+  @apply text-text-tertiary italic;
 }
 
 /* ---- Generic JSON tree ---- */
 .jt-node {
+  @apply text-xs select-text;
   font-family: var(--mono);
-  font-size: 12px;
-  user-select: text;
 }
 
 .jt-toggle {
-  cursor: pointer;
-  color: var(--text-tertiary);
-  user-select: none;
-  display: inline-block;
-  width: 12px;
+  @apply cursor-pointer text-text-tertiary select-none inline-block w-3;
 }
 
 .jt-key,
 .jt-value {
-  cursor: pointer;
-  border-radius: 3px;
-  padding: 0 2px;
-  margin: 0 -2px;
+  @apply cursor-pointer rounded-xs py-0 px-0.5 -mx-0.5;
 }
 
 .jt-key:hover,
 .jt-value:hover {
-  background: var(--bg-hover);
+  @apply bg-bg-hover;
 }
 
 .jt-key.copied,
 .jt-value.copied {
-  background: var(--accent-soft);
+  @apply bg-accent-soft;
 }
 
 .jt-key {
-  color: var(--accent);
+  @apply text-accent;
 }
 
 .jt-preview {
-  color: var(--accent);
-  opacity: 0.45;
+  @apply text-accent opacity-45;
 }
 
 .jt-bracket {
-  color: var(--text-tertiary);
+  @apply text-text-tertiary;
 }
 
 .jt-string {
-  color: var(--tok-str);
+  @apply text-tok-str;
 }
 
 .jt-number,
 .jt-boolean {
-  color: var(--tok-num);
+  @apply text-tok-num;
 }
 
 .jt-null {
-  color: var(--tok-null);
+  @apply text-tok-null;
 }
 
 .jt-children {
-  padding-left: 18px;
-  border-left: 1px solid var(--border);
-  margin-left: 6px;
+  @apply pl-[18px] border-l border-border ml-1.5;
 }
 
 /* ---- Tabs ---- */
 .tabs {
-  display: flex;
-  align-items: stretch;
-  gap: 2px;
-  height: 44px;
-  border-bottom: 1px solid var(--border);
-  padding: 0 8px;
-  background: var(--bg-panel);
+  @apply flex items-stretch gap-0.5 h-11 border-b border-border px-2 bg-bg-panel;
 }
 
 .tab {
-  display: flex;
-  align-items: center;
-  padding: 0 14px;
-  font-size: 13px;
-  color: var(--text-secondary);
-  cursor: pointer;
-  border: none;
-  background: transparent;
-  border-bottom: 2px solid transparent;
+  @apply flex items-center px-3.5 text-[13px] text-text-secondary cursor-pointer bg-transparent border-0 border-b-2 border-b-transparent;
   --wails-draggable: no-drag;
 }
 
 .tab:hover {
-  color: var(--text);
+  @apply text-text;
 }
 
 .tab.active {
-  color: var(--accent);
+  @apply text-accent font-medium;
   border-bottom-color: var(--accent);
-  font-weight: 500;
 }
 
 /* ---- Raw / code ---- */
 .code {
+  @apply text-xs whitespace-pre select-text leading-relaxed;
   font-family: var(--mono);
-  font-size: 12px;
-  white-space: pre;
-  user-select: text;
-  line-height: 1.5;
 }
 
 .tok-str {
-  color: var(--tok-str);
+  @apply text-tok-str;
 }
 
 .tok-num {
-  color: var(--tok-num);
+  @apply text-tok-num;
 }
 
 .tok-bool {
-  color: var(--tok-bool);
+  @apply text-tok-bool;
 }
 
 .tok-null {
-  color: var(--tok-null);
+  @apply text-tok-null;
 }
 
 /* ---- Scrollbars ---- */
 ::-webkit-scrollbar {
-  width: 10px;
-  height: 10px;
+  @apply w-2.5 h-2.5;
 }
 
 ::-webkit-scrollbar-thumb {
+  @apply rounded-sm border-2 border-transparent;
   background: var(--border-strong);
-  border-radius: 5px;
-  border: 2px solid transparent;
   background-clip: content-box;
 }
 
 ::-webkit-scrollbar-track {
-  background: transparent;
+  @apply bg-transparent;
+}
+
+/* ---- Keyboard focus ---- */
+/* Text fields already draw their own accent ring on focus. Every other
+   interactive element (buttons, nav items, tabs, chips) had no focus
+   treatment at all and fell back to the browser's default outline — visible
+   only for keyboard users, but jarring against the rest of the app. One
+   shared rule instead of repeating it per component. */
+button:focus-visible,
+[role="button"]:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
 }

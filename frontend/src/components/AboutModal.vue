@@ -38,68 +38,47 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
 </template>
 
 <style scoped>
+@reference "../style.css";
+
 .about-overlay {
-  position: fixed;
-  inset: 0;
+  @apply fixed inset-0 flex items-center justify-center z-3000;
   background: rgba(0, 0, 0, 0.4);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 3000;
 }
 
 .about {
-  width: 320px;
-  max-width: 90%;
+  @apply w-80 max-w-[90%] rounded-2xl pt-7 px-6 pb-5 text-center flex flex-col items-center gap-1.5;
   background: var(--bg-panel);
   border: 1px solid var(--border);
-  border-radius: 14px;
   box-shadow: var(--shadow);
-  padding: 28px 24px 20px;
-  text-align: center;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 6px;
 }
 
 .about-icon {
-  width: 88px;
-  height: 88px;
-  margin-bottom: 10px;
+  @apply w-22 h-22 mb-2.5;
   -webkit-user-drag: none;
   user-drag: none;
 }
 
 .about-name {
-  font-size: 17px;
-  font-weight: 700;
+  @apply text-[17px] font-bold;
 }
 
 .about-version {
-  font-size: 13px;
-  color: var(--text-secondary);
+  @apply text-[13px] text-text-secondary;
 }
 
 .about-desc {
-  font-size: 12px;
-  color: var(--text-secondary);
-  margin-top: 6px;
-  line-height: 1.4;
+  @apply text-xs text-text-secondary mt-1.5 leading-normal;
 }
 
 .about-tech {
-  font-size: 11px;
-  color: var(--text-tertiary);
+  @apply text-[11px] text-text-tertiary;
 }
 
 .about-copy {
-  font-size: 11px;
-  color: var(--text-tertiary);
-  margin-top: 8px;
+  @apply text-[11px] text-text-tertiary mt-2;
 }
 
 .about .btn {
-  margin-top: 14px;
+  @apply mt-3.5;
 }
 </style>
