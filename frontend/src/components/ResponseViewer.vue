@@ -145,15 +145,22 @@ const bodySize = computed(() => new Blob([props.record.responseBody]).size)
 const responseHeaderEntries = computed(() => Object.entries(props.record.responseHeaders ?? {}))
 const requestHeaderEntries = computed(() => Object.entries(props.record.requestHeaders ?? {}))
 
+// "Назад" steps within the record's own source list (manual or browser),
+// not the combined list — otherwise going back from a captured request could
+// silently reassign the *manual* selection instead of the browser one.
+const sourceList = computed(() => store.requests.filter((r) => r.source === props.record.source))
+
 const hasPrev = computed(() => {
-  const idx = store.requests.findIndex((r) => r.id === props.record.id)
-  return idx >= 0 && idx < store.requests.length - 1
+  const idx = sourceList.value.findIndex((r) => r.id === props.record.id)
+  return idx >= 0 && idx < sourceList.value.length - 1
 })
 
 function goBack() {
-  const idx = store.requests.findIndex((r) => r.id === props.record.id)
-  if (idx >= 0 && idx < store.requests.length - 1) {
-    store.selectManual(store.requests[idx + 1].id)
+  const idx = sourceList.value.findIndex((r) => r.id === props.record.id)
+  if (idx >= 0 && idx < sourceList.value.length - 1) {
+    const prev = sourceList.value[idx + 1]
+    if (prev.source === 'browser') store.selectBrowser(prev.id)
+    else store.selectManual(prev.id)
   }
 }
 

@@ -18,6 +18,7 @@
   --red: #ff3b30;
   --red-soft: rgba(255, 59, 48, 0.12);
   --orange: #ff9500;
+  --orange-soft: rgba(255, 149, 0, 0.14);
   --yellow: #ffcc00;
   --purple: #af52de;
   --tok-str: #c41a16;
@@ -50,6 +51,7 @@
     --red: #ff453a;
     --red-soft: rgba(255, 69, 58, 0.16);
     --orange: #ff9f0a;
+    --orange-soft: rgba(255, 159, 10, 0.18);
     --yellow: #ffd60a;
     --purple: #bf5af2;
     --tok-str: #fc6a5d;
@@ -355,8 +357,7 @@ button {
 
 .badge-status-3xx {
   color: var(--orange);
-  background: var(--orange);
-  color: #fff;
+  background: var(--orange-soft);
 }
 
 .badge-status-4xx,
@@ -652,6 +653,24 @@ mark.search-match.current {
   font-size: 12px;
 }
 
+.ja-attr-key,
+.ja-attr-val {
+  cursor: pointer;
+  border-radius: 3px;
+  padding: 0 2px;
+  margin: 0 -2px;
+}
+
+.ja-attr-key:hover,
+.ja-attr-val:hover {
+  background: var(--bg-hover);
+}
+
+.ja-attr-key.copied,
+.ja-attr-val.copied {
+  background: var(--accent-soft);
+}
+
 .ja-attr-key {
   color: var(--text-secondary);
   min-width: 120px;
@@ -748,8 +767,31 @@ mark.search-match.current {
   width: 12px;
 }
 
+.jt-key,
+.jt-value {
+  cursor: pointer;
+  border-radius: 3px;
+  padding: 0 2px;
+  margin: 0 -2px;
+}
+
+.jt-key:hover,
+.jt-value:hover {
+  background: var(--bg-hover);
+}
+
+.jt-key.copied,
+.jt-value.copied {
+  background: var(--accent-soft);
+}
+
 .jt-key {
   color: var(--accent);
+}
+
+.jt-preview {
+  color: var(--accent);
+  opacity: 0.45;
 }
 
 .jt-bracket {

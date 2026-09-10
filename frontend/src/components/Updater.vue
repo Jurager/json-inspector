@@ -2,7 +2,7 @@
 import { onBeforeUnmount, onMounted, ref } from 'vue'
 import Icon from './Icon.vue'
 import { EventsOn } from '../../wailsjs/runtime/runtime'
-import { CheckForUpdates, UpdateNow, Version, ShowAbout } from '../../wailsjs/go/main/App'
+import { CheckForUpdates, UpdateNow } from '../../wailsjs/go/main/App'
 
 interface UpdateInfo {
   available: boolean
@@ -10,7 +10,6 @@ interface UpdateInfo {
   latest: string
 }
 
-const currentVersion = ref('')
 const checking = ref(false)
 const updating = ref(false)
 const update = ref<UpdateInfo | null>(null)
@@ -54,12 +53,7 @@ async function doUpdate() {
   }
 }
 
-onMounted(async () => {
-  try {
-    currentVersion.value = await Version()
-  } catch {
-    currentVersion.value = ''
-  }
+onMounted(() => {
   offs.push(
     EventsOn('update-available', (u: UpdateInfo) => {
       update.value = u
@@ -88,7 +82,6 @@ onBeforeUnmount(() => {
     <button class="nav-item" @click="check">
       <span class="nav-icon"><Icon name="arrow-down" /></span> {{ checking ? 'Проверка…' : 'Проверить обновления' }}
     </button>
-    <button v-if="currentVersion" class="updater-version" title="О программе" @click="ShowAbout()">v{{ currentVersion }}</button>
 
     <transition name="fade">
       <div v-if="toast" class="toast" :class="toastType">{{ toast }}</div>
@@ -117,25 +110,6 @@ onBeforeUnmount(() => {
   margin-top: auto;
   padding-top: 8px;
   border-top: 1px solid var(--border);
-}
-
-.updater-version {
-  display: block;
-  width: 100%;
-  text-align: left;
-  padding: 2px 10px;
-  font-size: 11px;
-  color: var(--text-tertiary);
-  border: none;
-  background: transparent;
-  cursor: pointer;
-  border-radius: 6px;
-  font-family: inherit;
-}
-
-.updater-version:hover {
-  color: var(--text-secondary);
-  background: var(--bg-hover);
 }
 
 .toast {

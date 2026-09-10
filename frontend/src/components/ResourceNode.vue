@@ -3,6 +3,7 @@ import { computed, ref, watch } from 'vue'
 import Icon from './Icon.vue'
 import { resourceKey, resourceLabel, type Resource, type Relationship } from '../lib/jsonapi'
 import RelationshipLink from './RelationshipLink.vue'
+import { copyToClipboard } from '../lib/export'
 
 const props = defineProps<{
   resource: Resource
@@ -52,6 +53,39 @@ function formatValue(v: unknown): string {
 }
 
 const rid = computed(() => 'res-' + resourceKey(props.resource.type, props.resource.id))
+
+// Click-to-copy on an attribute's key or value. Skipped while the user has
+// an active text selection, so it doesn't steal a click-drag meant to
+// select part of the text.
+const copiedKeys = ref<Set<string>>(new Set())
+const copiedVals = ref<Set<string>>(new Set())
+
+function hasSelection(): boolean {
+  return (window.getSelection()?.toString().length ?? 0) > 0
+}
+
+function flash(target: 'key' | 'val', k: string) {
+  const set = target === 'key' ? copiedKeys : copiedVals
+  const next = new Set(set.value)
+  next.add(k)
+  set.value = next
+  setTimeout(() => {
+    const after = new Set(set.value)
+    after.delete(k)
+    set.value = after
+  }, 700)
+}
+
+async function copyKey(k: string) {
+  if (hasSelection()) return
+  if (await copyToClipboard(k)) flash('key', k)
+}
+
+async function copyVal(k: string, v: unknown) {
+  if (hasSelection()) return
+  const text = v === null ? 'null' : typeof v === 'object' ? JSON.stringify(v, null, 2) : String(v)
+  if (await copyToClipboard(text)) flash('val', k)
+}
 </script>
 
 <template>
@@ -68,8 +102,14 @@ const rid = computed(() => 'res-' + resourceKey(props.resource.type, props.resou
     <div v-if="open" class="ja-body">
       <div v-if="attributes.length" class="ja-section-title" style="padding-left: 0">attributes</div>
       <div v-for="[k, v] in attributes" :key="k" class="ja-attr">
-        <span class="ja-attr-key">{{ k }}</span>
-        <span class="ja-attr-val" :class="valueClass(v)">{{ formatValue(v) }}</span>
+        <span class="ja-attr-key" title="Скопировать ключ" :class="{ copied: copiedKeys.has(k) }" @click.stop="copyKey(k)">{{ k }}</span>
+        <span
+          class="ja-attr-val"
+          title="Скопировать значение"
+          :class="[valueClass(v), { copied: copiedVals.has(k) }]"
+          @click.stop="copyVal(k, v)"
+          >{{ formatValue(v) }}</span
+        >
       </div>
 
       <template v-if="relationships.length">

@@ -1,9 +1,9 @@
 <script setup lang="ts">
-import { onBeforeUnmount, onMounted, ref } from 'vue'
+import { onBeforeUnmount, onMounted, ref, type Ref } from 'vue'
 import { useRequestsStore } from './stores/requests'
 import RequestBuilder from './components/RequestBuilder.vue'
 import ResponseViewer from './components/ResponseViewer.vue'
-import BrowserPanel from './components/BrowserPanel.vue'
+import HistoryPanel from './components/HistoryPanel.vue'
 import Updater from './components/Updater.vue'
 import AboutModal from './components/AboutModal.vue'
 import Icon from './components/Icon.vue'
@@ -44,26 +44,33 @@ function openBrowser() {
   store.markBrowserRead()
 }
 
-const browserSideWidth = ref(300)
-let resizeState: { startX: number; startWidth: number } | null = null
-
-function startResize(e: MouseEvent) {
-  resizeState = { startX: e.clientX, startWidth: browserSideWidth.value }
-  document.body.style.cursor = 'col-resize'
-  document.body.style.userSelect = 'none'
+// One side panel, shared by both tabs — it swaps content (history vs.
+// browser-captured list) depending on store.activeView, so its width is a
+// single piece of state and resizing it on either tab carries over to the
+// other.
+function makeSideResizer(width: Ref<number>, min: number, max: number) {
+  let state: { startX: number; startWidth: number } | null = null
+  return {
+    start(e: MouseEvent) {
+      state = { startX: e.clientX, startWidth: width.value }
+      document.body.style.cursor = 'col-resize'
+      document.body.style.userSelect = 'none'
+    },
+    move(e: MouseEvent) {
+      if (!state) return
+      const delta = e.clientX - state.startX
+      width.value = Math.min(max, Math.max(min, state.startWidth + delta))
+    },
+    stop() {
+      state = null
+      document.body.style.cursor = ''
+      document.body.style.userSelect = ''
+    },
+  }
 }
 
-function onResizeMove(e: MouseEvent) {
-  if (!resizeState) return
-  const delta = e.clientX - resizeState.startX
-  browserSideWidth.value = Math.min(600, Math.max(180, resizeState.startWidth + delta))
-}
-
-function stopResize() {
-  resizeState = null
-  document.body.style.cursor = ''
-  document.body.style.userSelect = ''
-}
+const sideWidth = ref(300)
+const sideResize = makeSideResizer(sideWidth, 220, 560)
 
 interface Captured {
   method: string
@@ -149,14 +156,14 @@ onMounted(() => {
     })
   )
 
-  window.addEventListener('mousemove', onResizeMove)
-  window.addEventListener('mouseup', stopResize)
+  window.addEventListener('mousemove', sideResize.move)
+  window.addEventListener('mouseup', sideResize.stop)
 })
 
 onBeforeUnmount(() => {
   offs.forEach((off) => off())
-  window.removeEventListener('mousemove', onResizeMove)
-  window.removeEventListener('mouseup', stopResize)
+  window.removeEventListener('mousemove', sideResize.move)
+  window.removeEventListener('mouseup', sideResize.stop)
   window.removeEventListener('resize', refreshMaximised)
 })
 </script>
@@ -214,33 +221,32 @@ onBeforeUnmount(() => {
       </aside>
 
       <main class="main">
-        <template v-if="store.activeView === 'request'">
-          <div class="request-view">
-            <RequestBuilder />
-            <ResponseViewer v-if="store.manualSelected" :record="store.manualSelected" />
-            <div v-else-if="store.loading" class="empty">
-              <span class="spinner spinner-lg"></span>
-            </div>
-            <div v-else class="empty">
-              <span class="empty-title">Отправьте запрос</span>
-              <span>Или нажмите «Образец», чтобы увидеть JSON:API-документ.</span>
-            </div>
+        <div class="side-layout">
+          <div class="side-panel" :style="{ width: sideWidth + 'px' }">
+            <HistoryPanel :source="store.activeView === 'request' ? 'manual' : 'browser'" />
           </div>
-        </template>
-
-        <template v-else>
-          <div class="browser-layout">
-            <div class="browser-side" :style="{ width: browserSideWidth + 'px' }"><BrowserPanel /></div>
-            <div class="resize-handle" @mousedown.prevent="startResize"></div>
-            <div class="browser-main">
+          <div class="resize-handle" @mousedown.prevent="sideResize.start"></div>
+          <div class="side-main">
+            <template v-if="store.activeView === 'request'">
+              <RequestBuilder />
+              <ResponseViewer v-if="store.manualSelected" :record="store.manualSelected" />
+              <div v-else-if="store.loading" class="empty">
+                <span class="spinner spinner-lg"></span>
+              </div>
+              <div v-else class="empty">
+                <span class="empty-title">Отправьте запрос</span>
+                <span>Или нажмите «Образец», чтобы увидеть JSON:API-документ.</span>
+              </div>
+            </template>
+            <template v-else>
               <ResponseViewer v-if="store.browserSelected" :record="store.browserSelected" />
               <div v-else class="empty">
                 <span class="empty-title">Нет выбранного запроса</span>
                 <span>Выберите запрос из списка слева.</span>
               </div>
-            </div>
+            </template>
           </div>
-        </template>
+        </div>
       </main>
     </div>
   </div>
@@ -249,29 +255,16 @@ onBeforeUnmount(() => {
 </template>
 
 <style scoped>
-.request-view {
-  display: flex;
-  flex-direction: column;
-  flex: 1;
-  min-height: 0;
-}
-
-.request-view .builder {
-  flex: 0 0 auto;
-}
-
-.request-view > :last-child {
-  flex: 1;
-  min-height: 0;
-}
-
-.browser-layout {
+/* Both the "Запрос" view (history + builder/response) and the "Браузер"
+   view (captured list + response) are the same shape — a resizable side
+   panel next to a main column — so they share one set of classes. */
+.side-layout {
   display: flex;
   flex: 1;
   min-height: 0;
 }
 
-.browser-side {
+.side-panel {
   flex: 0 0 auto;
   min-width: 0;
 }
@@ -291,14 +284,14 @@ onBeforeUnmount(() => {
   background: var(--border-strong);
 }
 
-.browser-main {
+.side-main {
   flex: 1;
   min-width: 0;
   display: flex;
   flex-direction: column;
 }
 
-.browser-main > :first-child {
+.side-main > :last-child {
   flex: 1;
   min-height: 0;
 }
