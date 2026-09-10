@@ -314,8 +314,7 @@ function timeLabel(startedAt: number): string {
 .group-count {
   flex: 0 0 auto;
   height: 18px;
-  display: inline-flex;
-  align-items: center;
+  line-height: 18px;
   font-size: 11px;
   color: var(--text-tertiary);
   font-variant-numeric: tabular-nums;
@@ -329,8 +328,6 @@ function timeLabel(startedAt: number): string {
   border-radius: 5px;
   background: transparent;
   color: var(--text-tertiary);
-  font-size: 14px;
-  line-height: 1;
   cursor: pointer;
   display: flex;
   align-items: center;
