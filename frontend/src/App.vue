@@ -7,7 +7,15 @@ import BrowserPanel from './components/BrowserPanel.vue'
 import Updater from './components/Updater.vue'
 import AboutModal from './components/AboutModal.vue'
 import Icon from './components/Icon.vue'
-import { EventsOn } from '../wailsjs/runtime/runtime'
+import logoUrl from './assets/logo.svg'
+import {
+  EventsOn,
+  Environment,
+  WindowMinimise,
+  WindowToggleMaximise,
+  WindowIsMaximised,
+  Quit,
+} from '../wailsjs/runtime/runtime'
 import { ToggleMaximize } from '../wailsjs/go/main/App'
 
 const store = useRequestsStore()
@@ -16,6 +24,20 @@ const HISTORY_KEY = 'ji-history-v1'
 const MAX_HISTORY = 200
 
 const aboutOpen = ref(false)
+
+// Windows and Linux have no equivalent of macOS's hidden-inset title bar, so
+// the window there runs frameless and this titlebar draws its own icon,
+// title and caption buttons (minimize/maximize/close) to look native.
+const useCustomTitlebar = ref(false)
+const isMaximised = ref(false)
+
+async function refreshMaximised() {
+  try {
+    isMaximised.value = await WindowIsMaximised()
+  } catch {
+    // ignore — runtime not ready yet
+  }
+}
 
 function openBrowser() {
   store.activeView = 'browser'
@@ -62,6 +84,18 @@ interface Captured {
 const offs: (() => void)[] = []
 
 onMounted(() => {
+  Environment()
+    .then((env) => {
+      useCustomTitlebar.value = env.platform === 'windows' || env.platform === 'linux'
+      if (useCustomTitlebar.value) {
+        refreshMaximised()
+        window.addEventListener('resize', refreshMaximised)
+      }
+    })
+    .catch(() => {
+      // ignore — default to the macOS-style titlebar
+    })
+
   // Restore request history from the previous session.
   try {
     const raw = localStorage.getItem(HISTORY_KEY)
@@ -123,13 +157,39 @@ onBeforeUnmount(() => {
   offs.forEach((off) => off())
   window.removeEventListener('mousemove', onResizeMove)
   window.removeEventListener('mouseup', stopResize)
+  window.removeEventListener('resize', refreshMaximised)
 })
 </script>
 
 <template>
   <div class="app">
-    <header class="titlebar" @dblclick="ToggleMaximize">
-      <span class="titlebar-title">JSON Inspector</span>
+    <header class="titlebar" :class="{ 'titlebar-custom': useCustomTitlebar }" @dblclick="ToggleMaximize">
+      <template v-if="useCustomTitlebar">
+        <button class="titlebar-appicon" @click="aboutOpen = true" title="О программе">
+          <img :src="logoUrl" alt="" class="titlebar-logo" draggable="false" />
+          <span class="titlebar-title">JSON Inspector</span>
+        </button>
+        <div class="titlebar-spacer"></div>
+        <div class="titlebar-controls">
+          <button class="cap-btn" title="Свернуть" @click="WindowMinimise">
+            <span class="cap-icon cap-icon-minus"></span>
+          </button>
+          <button class="cap-btn" title="Развернуть" @click="WindowToggleMaximise">
+            <span v-if="!isMaximised" class="cap-icon cap-icon-square"></span>
+            <span v-else class="cap-icon cap-icon-restore">
+              <span class="cap-icon-restore-back"></span>
+              <span class="cap-icon-restore-front"></span>
+            </span>
+          </button>
+          <button class="cap-btn cap-close" title="Закрыть" @click="Quit">
+            <span class="cap-icon cap-icon-close">
+              <span class="cap-icon-close-bar cap-icon-close-bar-1"></span>
+              <span class="cap-icon-close-bar cap-icon-close-bar-2"></span>
+            </span>
+          </button>
+        </div>
+      </template>
+      <span v-else class="titlebar-title">JSON Inspector</span>
     </header>
 
     <div class="body">

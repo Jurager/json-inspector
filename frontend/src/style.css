@@ -110,6 +110,145 @@ body {
   letter-spacing: 0.01em;
 }
 
+/* ---- Windows/Linux: frameless window, so the titlebar draws its own
+   icon/title (left) and caption buttons (right) itself. ---- */
+.titlebar-custom {
+  justify-content: flex-start;
+  padding: 0;
+}
+
+.titlebar-appicon {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 100%;
+  padding: 0 12px;
+  border: none;
+  background: transparent;
+  cursor: default;
+  --wails-draggable: no-drag;
+}
+
+.titlebar-appicon:hover .titlebar-title {
+  color: var(--text);
+}
+
+.titlebar-logo {
+  width: 16px;
+  height: 16px;
+  -webkit-user-drag: none;
+  user-drag: none;
+}
+
+.titlebar-custom .titlebar-title {
+  font-weight: 500;
+}
+
+.titlebar-spacer {
+  flex: 1;
+  height: 100%;
+}
+
+.titlebar-controls {
+  display: flex;
+  align-items: stretch;
+  align-self: stretch;
+  height: 100%;
+  --wails-draggable: no-drag;
+}
+
+.cap-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 46px;
+  height: 100%;
+  border: none;
+  background: transparent;
+  color: var(--text);
+  cursor: pointer;
+}
+
+.cap-btn:hover {
+  background: var(--bg-hover);
+}
+
+.cap-btn.cap-close:hover {
+  background: #c42b1c;
+  color: #fff;
+}
+
+/* Caption icons are drawn with plain CSS boxes rather than SVG paths:
+   browsers snap element borders/backgrounds to the device pixel grid far
+   more reliably than hand-picked SVG coordinates, so they stay crisp *and*
+   aligned with each other across fractional display scaling (125%, 150%). */
+.cap-icon {
+  position: relative;
+  display: block;
+}
+
+.cap-icon-minus {
+  width: 10px;
+  height: 1px;
+  background: currentColor;
+}
+
+.cap-icon-square {
+  width: 10px;
+  height: 10px;
+  border: 1px solid currentColor;
+  box-sizing: border-box;
+}
+
+.cap-icon-restore {
+  width: 10px;
+  height: 10px;
+}
+
+.cap-icon-restore-back {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 7px;
+  height: 7px;
+  border-top: 1px solid currentColor;
+  border-right: 1px solid currentColor;
+  box-sizing: border-box;
+}
+
+.cap-icon-restore-front {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 7px;
+  height: 7px;
+  border: 1px solid currentColor;
+  box-sizing: border-box;
+}
+
+.cap-icon-close {
+  width: 10px;
+  height: 10px;
+}
+
+.cap-icon-close-bar {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 14px;
+  height: 1px;
+  background: currentColor;
+  transform-origin: center;
+}
+
+.cap-icon-close-bar-1 {
+  transform: translate(-50%, -50%) rotate(45deg);
+}
+
+.cap-icon-close-bar-2 {
+  transform: translate(-50%, -50%) rotate(-45deg);
+}
+
 /* ---- Body: sidebar + main ---- */
 .body {
   display: flex;
