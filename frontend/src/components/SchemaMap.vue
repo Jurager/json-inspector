@@ -2,91 +2,23 @@
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import Icon from './Icon.vue'
 import type { JsonApiDocument, Resource } from '../lib/jsonapi'
-import { dataResources, href, relIdentifiers, resourceKey, resourceLabel } from '../lib/jsonapi'
+import { dataResources, isJsonApi, resourceKey, resourceLabel } from '../lib/jsonapi'
+import { buildSchema, diffSchemas, humanize, type TypeDiff } from '../lib/schema'
 import { copyToClipboard } from '../lib/export'
+import { tryParseJson } from '../lib/json'
+import { useRequestsStore } from '../stores/requests'
 
 const props = defineProps<{ doc: JsonApiDocument | null; highlightKey?: string | null }>()
 const emit = defineEmits<{ (e: 'fetch', url: string): void; (e: 'select', key: string): void }>()
+
+const store = useRequestsStore()
 
 const all = computed<Resource[]>(() => {
   if (!props.doc) return []
   return [...dataResources(props.doc), ...(props.doc.included ?? [])]
 })
 
-const presentTypes = computed(() => new Set(all.value.map((r) => r.type)))
-
-interface RelInfo {
-  name: string
-  targetType: string
-  many: boolean
-  inDoc: boolean
-  relatedUrl: string
-}
-
-interface IncomingInfo {
-  fromType: string
-  rel: string
-}
-
-interface TypeInfo {
-  type: string
-  label: string
-  count: number
-  attributes: string[]
-  rels: RelInfo[]
-  incoming: IncomingInfo[]
-}
-
-function humanize(type: string): string {
-  return type.charAt(0).toUpperCase() + type.slice(1)
-}
-
-const types = computed<TypeInfo[]>(() => {
-  const map = new Map<string, TypeInfo>()
-  for (const r of all.value) {
-    let t = map.get(r.type)
-    if (!t) {
-      t = { type: r.type, label: humanize(r.type), count: 0, attributes: [], rels: [], incoming: [] }
-      map.set(r.type, t)
-    }
-    t.count++
-    if (r.attributes) {
-      for (const k of Object.keys(r.attributes)) {
-        if (!t.attributes.includes(k)) t.attributes.push(k)
-      }
-    }
-  }
-
-  for (const r of all.value) {
-    const t = map.get(r.type)
-    if (!t || !r.relationships) continue
-    for (const [name, rel] of Object.entries(r.relationships)) {
-      const many = Array.isArray(rel.data)
-      const relatedUrl = href(rel.links?.related)
-      for (const ri of relIdentifiers(rel)) {
-        const existing = t.rels.find((x) => x.name === name && x.targetType === ri.type)
-        if (existing) {
-          existing.many = existing.many || many
-          if (!existing.relatedUrl && relatedUrl) existing.relatedUrl = relatedUrl
-        } else {
-          t.rels.push({
-            name,
-            targetType: ri.type,
-            many,
-            inDoc: presentTypes.value.has(ri.type),
-            relatedUrl,
-          })
-        }
-        const target = map.get(ri.type)
-        if (target && !target.incoming.some((x) => x.fromType === r.type && x.rel === name)) {
-          target.incoming.push({ fromType: r.type, rel: name })
-        }
-      }
-    }
-  }
-
-  return Array.from(map.values()).sort((a, b) => a.label.localeCompare(b.label))
-})
+const types = computed(() => (props.doc ? buildSchema(props.doc) : []))
 
 const instancesByType = computed<Map<string, Resource[]>>(() => {
   const map = new Map<string, Resource[]>()
@@ -251,6 +183,49 @@ async function copyExport(format: ExportId) {
   }
 }
 
+// --- Compare schemas ---
+const compareOpen = ref(false)
+const compareId = ref<string | null>(null)
+
+const compareOptions = computed(() =>
+  store.requests
+    .map((r) => {
+      const p = tryParseJson(r.responseBody)
+      return {
+        id: r.id,
+        method: r.method,
+        url: r.url,
+        doc: p.ok && isJsonApi(p.value) ? (p.value as JsonApiDocument) : null,
+      }
+    })
+    .filter((o) => o.doc != null)
+)
+
+const compareDoc = computed(() => {
+  if (!compareId.value) return null
+  return compareOptions.value.find((o) => o.id === compareId.value)?.doc ?? null
+})
+
+const diff = computed<TypeDiff[] | null>(() => {
+  if (!compareDoc.value) return null
+  return diffSchemas(types.value, buildSchema(compareDoc.value))
+})
+
+function pickCompare(id: string) {
+  compareId.value = id
+  compareOpen.value = false
+}
+
+function closeCompare() {
+  compareId.value = null
+}
+
+function statusLabel(s: string): string {
+  if (s === 'added') return 'добавлен'
+  if (s === 'removed') return 'удалён'
+  return 'изменён'
+}
+
 function onDocClick(e: MouseEvent) {
   if (exportWrap.value && !exportWrap.value.contains(e.target as Node)) {
     exportOpen.value = false
@@ -270,6 +245,12 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocClick))
         placeholder="Поиск по типам, полям, связям…"
         spellcheck="false"
       />
+      <div class="compare-wrap">
+        <button class="export-btn" @click="compareOpen = true">
+          <Icon name="compare" :size="14" />
+          <span>Сравнить</span>
+        </button>
+      </div>
       <div ref="exportWrap" class="export-wrap">
         <button class="export-btn" :disabled="!types.length" @click="exportOpen = !exportOpen">
           <Icon v-if="copied" name="check" :size="12" />
@@ -282,85 +263,125 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocClick))
           </button>
         </div>
       </div>
-      <span v-if="types.length" class="summary">{{ types.length }} типов · {{ all.length }} ресурсов</span>
+      <span v-if="types.length && !diff" class="summary">{{ types.length }} типов · {{ all.length }} ресурсов</span>
     </div>
 
     <div class="schema-body">
-      <div v-if="filteredTypes.length === 0" class="empty">
-        {{ types.length === 0 ? 'Нет данных для карты' : 'Ничего не найдено' }}
-      </div>
-
-      <div v-else class="cards">
-      <section
-        v-for="t in filteredTypes"
-        :key="t.type"
-        :data-type="t.type"
-        class="type-card"
-        :class="{ highlight: highlightType === t.type }"
-      >
-        <button class="type-head" @click="toggleType(t.type)">
-          <span class="caret" :class="{ open: expandedTypes.has(t.type) }">
-            <svg viewBox="0 0 8 12" width="8" height="12" fill="none" aria-hidden="true">
-              <path d="M1.5 1.5L6 6L1.5 10.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
-            </svg>
-          </span>
-          <span class="type-name">{{ t.label }}</span>
-          <span class="type-count">{{ t.count }}</span>
-        </button>
-
-        <div class="type-body">
-          <div v-if="t.attributes.length" class="type-attrs">
-            <span v-for="a in t.attributes" :key="a" class="attr-chip mono">{{ a }}</span>
-          </div>
-
-          <div v-if="t.rels.length" class="type-rels">
-            <div v-for="r in t.rels" :key="r.name + r.targetType" class="type-rel">
-              <span class="rel-name">{{ r.name }}</span>
-              <span class="rel-card">{{ r.many ? '1:N' : '1:1' }}</span>
-              <span class="rel-arrow"><Icon name="arrow-right" :size="12" /></span>
-              <button v-if="r.inDoc" class="rel-target in-doc" @click="goToType(r.targetType)">
-                {{ humanize(r.targetType) }}
-              </button>
-              <button v-else-if="r.relatedUrl" class="rel-target missing" @click="emit('fetch', r.relatedUrl)">
-                <span>{{ humanize(r.targetType) }}</span>
-                <Icon name="arrow-up-right" :size="12" />
-              </button>
-              <span v-else class="rel-target ghost">{{ humanize(r.targetType) }}</span>
+      <template v-if="diff">
+        <div class="diff-head">
+          <span class="diff-title">Сравнение схем</span>
+          <button class="btn" @click="closeCompare">Закрыть</button>
+        </div>
+        <div v-if="diff.length === 0" class="empty">Схемы идентичны</div>
+        <div v-else class="diff-list">
+          <div v-for="d in diff" :key="d.type" class="diff-type">
+            <div class="diff-type-head">
+              <span class="diff-badge" :class="d.status">{{ statusLabel(d.status) }}</span>
+              <span class="diff-type-name">{{ d.label }}</span>
             </div>
-          </div>
-
-          <div v-if="t.incoming.length" class="type-incoming">
-            <div class="incoming-title">Связан из</div>
-            <div class="incoming-list">
-              <button
-                v-for="inc in t.incoming"
-                :key="inc.fromType + inc.rel"
-                class="incoming-chip"
-                @click="goToType(inc.fromType)"
-              >
-                <Icon name="arrow-left" :size="12" />
-                <span>{{ humanize(inc.fromType) }}</span>
-                <span class="incoming-rel">{{ inc.rel }}</span>
-              </button>
+            <div class="diff-lines">
+              <div v-for="a in d.addedAttrs" :key="'aa' + a" class="diff-line added">+ {{ a }}</div>
+              <div v-for="a in d.removedAttrs" :key="'ra' + a" class="diff-line removed">− {{ a }}</div>
+              <div v-for="a in d.addedRels" :key="'ar' + a" class="diff-line added">+ {{ a }}</div>
+              <div v-for="a in d.removedRels" :key="'rr' + a" class="diff-line removed">− {{ a }}</div>
             </div>
-          </div>
-
-          <div v-if="expandedTypes.has(t.type)" class="type-instances">
-            <div class="instances-title">Экземпляры</div>
-            <button
-              v-for="res in instancesOf(t.type)"
-              :key="resourceKey(res.type, res.id)"
-              :id="'inst-' + resourceKey(res.type, res.id)"
-              class="instance"
-              :class="{ highlighted: highlightInstance === resourceKey(res.type, res.id) }"
-              @click="emit('select', resourceKey(res.type, res.id))"
-            >
-              {{ instanceLabel(res) }}
-            </button>
           </div>
         </div>
-      </section>
+      </template>
+
+      <template v-else>
+        <div v-if="filteredTypes.length === 0" class="empty">
+          {{ types.length === 0 ? 'Нет данных для карты' : 'Ничего не найдено' }}
+        </div>
+
+        <div v-else class="cards">
+          <section
+            v-for="t in filteredTypes"
+            :key="t.type"
+            :data-type="t.type"
+            class="type-card"
+            :class="{ highlight: highlightType === t.type }"
+          >
+            <button class="type-head" @click="toggleType(t.type)">
+              <span class="caret" :class="{ open: expandedTypes.has(t.type) }">
+                <svg viewBox="0 0 8 12" width="8" height="12" fill="none" aria-hidden="true">
+                  <path d="M1.5 1.5L6 6L1.5 10.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+              </span>
+              <span class="type-name">{{ t.label }}</span>
+              <span class="type-count">{{ t.count }}</span>
+            </button>
+
+            <div class="type-body">
+              <div v-if="t.attributes.length" class="type-attrs">
+                <span v-for="a in t.attributes" :key="a" class="attr-chip mono">{{ a }}</span>
+              </div>
+
+              <div v-if="t.rels.length" class="type-rels">
+                <div v-for="r in t.rels" :key="r.name + r.targetType" class="type-rel">
+                  <span class="rel-name">{{ r.name }}</span>
+                  <span class="rel-card">{{ r.many ? '1:N' : '1:1' }}</span>
+                  <span class="rel-arrow"><Icon name="arrow-right" :size="12" /></span>
+                  <button v-if="r.inDoc" class="rel-target in-doc" @click="goToType(r.targetType)">
+                    {{ humanize(r.targetType) }}
+                  </button>
+                  <button v-else-if="r.relatedUrl" class="rel-target missing" @click="emit('fetch', r.relatedUrl)">
+                    <span>{{ humanize(r.targetType) }}</span>
+                    <Icon name="arrow-up-right" :size="12" />
+                  </button>
+                  <span v-else class="rel-target ghost">{{ humanize(r.targetType) }}</span>
+                </div>
+              </div>
+
+              <div v-if="t.incoming.length" class="type-incoming">
+                <div class="incoming-title">Связан из</div>
+                <div class="incoming-list">
+                  <button
+                    v-for="inc in t.incoming"
+                    :key="inc.fromType + inc.rel"
+                    class="incoming-chip"
+                    @click="goToType(inc.fromType)"
+                  >
+                    <Icon name="arrow-left" :size="12" />
+                    <span>{{ humanize(inc.fromType) }}</span>
+                    <span class="incoming-rel">{{ inc.rel }}</span>
+                  </button>
+                </div>
+              </div>
+
+              <div v-if="expandedTypes.has(t.type)" class="type-instances">
+                <div class="instances-title">Экземпляры</div>
+                <button
+                  v-for="res in instancesOf(t.type)"
+                  :key="resourceKey(res.type, res.id)"
+                  :id="'inst-' + resourceKey(res.type, res.id)"
+                  class="instance"
+                  :class="{ highlighted: highlightInstance === resourceKey(res.type, res.id) }"
+                  @click="emit('select', resourceKey(res.type, res.id))"
+                >
+                  {{ instanceLabel(res) }}
+                </button>
+              </div>
+            </div>
+          </section>
+        </div>
+      </template>
     </div>
+  </div>
+
+  <div v-if="compareOpen" class="compare-overlay" @click.self="compareOpen = false">
+    <div class="compare-modal">
+      <div class="compare-modal-head">
+        <span class="compare-modal-title">Сравнить схему с…</span>
+        <button class="btn icon-btn" @click="compareOpen = false"><Icon name="xmark" :size="14" /></button>
+      </div>
+      <div class="compare-modal-body">
+        <div v-if="compareOptions.length === 0" class="compare-empty">Нет других JSON:API ответов в истории</div>
+        <button v-for="o in compareOptions" :key="o.id" class="compare-item" @click="pickCompare(o.id)">
+          <span class="compare-method">{{ o.method }}</span>
+          <span class="compare-url mono">{{ o.url }}</span>
+        </button>
+      </div>
     </div>
   </div>
 </template>
@@ -403,6 +424,7 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocClick))
   box-shadow: 0 0 0 3px var(--accent-soft);
 }
 
+.compare-wrap,
 .export-wrap {
   position: relative;
   flex: 0 0 auto;
@@ -442,7 +464,10 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocClick))
   border-radius: 8px;
   box-shadow: var(--shadow);
   padding: 4px;
-  min-width: 180px;
+  min-width: 220px;
+  max-width: 320px;
+  max-height: 300px;
+  overflow: auto;
 }
 
 .export-item {
@@ -456,11 +481,21 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocClick))
   font-size: 12px;
   border-radius: 6px;
   cursor: pointer;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   --wails-draggable: no-drag;
 }
 
 .export-item:hover {
   background: var(--bg-hover);
+}
+
+.compare-empty {
+  padding: 20px;
+  text-align: center;
+  color: var(--text-tertiary);
+  font-size: 13px;
 }
 
 .summary {
@@ -717,5 +752,174 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocClick))
 .instance.highlighted {
   color: var(--accent);
   background: var(--accent-soft);
+}
+
+/* --- Schema diff --- */
+.diff-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.diff-title {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.diff-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.diff-type {
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 12px 14px;
+}
+
+.diff-type-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.diff-badge {
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  padding: 1px 7px;
+  border-radius: 9px;
+}
+
+.diff-badge.added {
+  color: var(--green);
+  background: var(--green-soft);
+}
+
+.diff-badge.removed {
+  color: var(--red);
+  background: var(--red-soft);
+}
+
+.diff-badge.changed {
+  color: var(--orange);
+  background: color-mix(in srgb, var(--orange) 14%, transparent);
+}
+
+.diff-type-name {
+  font-weight: 600;
+  font-size: 13px;
+}
+
+.diff-lines {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding-left: 8px;
+}
+
+.diff-line {
+  font-size: 12px;
+  font-family: var(--mono);
+}
+
+.diff-line.added {
+  color: var(--green);
+}
+
+.diff-line.removed {
+  color: var(--red);
+}
+
+.icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2px 8px;
+}
+
+.compare-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 3000;
+}
+
+.compare-modal {
+  width: 480px;
+  max-width: 90%;
+  max-height: 70vh;
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  box-shadow: var(--shadow);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.compare-modal-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border);
+}
+
+.compare-modal-title {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.compare-modal-body {
+  padding: 8px;
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.compare-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  cursor: pointer;
+  text-align: left;
+  font: inherit;
+  --wails-draggable: no-drag;
+}
+
+.compare-item:hover {
+  background: var(--bg-hover);
+}
+
+.compare-method {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--accent);
+  flex: 0 0 auto;
+  min-width: 44px;
+}
+
+.compare-url {
+  flex: 1;
+  min-width: 0;
+  font-size: 12px;
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 </style>

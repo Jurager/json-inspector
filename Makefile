@@ -24,7 +24,7 @@ package-darwin:
 # Linux: build the binary and tar.gz it.
 package-linux:
 	@mkdir -p dist
-	wails build -ldflags "$(LDFLAGS)"
+	wails build -tags "webkit2_41" -ldflags "$(LDFLAGS)"
 	cd build/bin && tar -czf "../../dist/$(BINARY)-linux-$(GOARCH).tar.gz" "$(BINARY)"
 	@ls -la dist
 

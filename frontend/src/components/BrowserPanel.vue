@@ -34,6 +34,24 @@ const groups = computed<TabGroup[]>(() => {
   return Array.from(map.values()).sort((a, b) => b.items[0].startedAt - a.items[0].startedAt)
 })
 
+const query = ref('')
+
+const filteredGroups = computed(() => {
+  const q = query.value.trim().toLowerCase()
+  if (!q) return groups.value
+  return groups.value
+    .map((g) => ({
+      ...g,
+      items: g.items.filter(
+        (r) =>
+          r.method.toLowerCase().includes(q) ||
+          String(r.status).includes(q) ||
+          r.url.toLowerCase().includes(q)
+      ),
+    }))
+    .filter((g) => g.items.length > 0)
+})
+
 const collapsed = ref<Set<string>>(new Set())
 const brokenFavicons = ref<Set<string>>(new Set())
 
@@ -85,13 +103,21 @@ function timeLabel(startedAt: number): string {
       <button class="btn" :disabled="captured.length === 0" @click="store.clear()">Очистить</button>
     </div>
 
+    <div v-if="captured.length > 0" class="browser-filter">
+      <input v-model="query" class="filter-input mono" placeholder="Фильтр по методу, статусу, URL…" spellcheck="false" />
+    </div>
+
     <div v-if="captured.length === 0" class="empty">
       <span class="empty-title">Ничего нет</span>
       <span class="empty-hint">Установите и активируйте расширение. Перехваченные запросы появятся здесь.</span>
     </div>
 
+    <div v-else-if="filteredGroups.length === 0" class="no-results">
+      Ничего не найдено
+    </div>
+
     <div v-else class="list">
-      <section v-for="g in groups" :key="g.key" class="group">
+      <section v-for="g in filteredGroups" :key="g.key" class="group">
         <div class="group-head" role="button" tabindex="0" @click="toggle(g.key)">
           <span class="caret" :class="{ open: !collapsed.has(g.key) }">
             <svg viewBox="0 0 8 12" width="8" height="12" fill="none" aria-hidden="true">
@@ -161,6 +187,35 @@ function timeLabel(startedAt: number): string {
 .browser-title {
   font-size: 13px;
   font-weight: 600;
+}
+
+.browser-filter {
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border);
+}
+
+.filter-input {
+  width: 100%;
+  padding: 5px 8px;
+  border-radius: 7px;
+  border: 1px solid var(--border);
+  background: var(--bg-inset);
+  color: var(--text);
+  font-size: 12px;
+  outline: none;
+  transition: border-color 0.12s ease, box-shadow 0.12s ease;
+}
+
+.filter-input:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+.no-results {
+  padding: 16px;
+  text-align: center;
+  color: var(--text-tertiary);
+  font-size: 12px;
 }
 
 .empty {

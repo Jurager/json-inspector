@@ -6,6 +6,10 @@ export function Analyze(arg1) {
   return window['go']['main']['App']['Analyze'](arg1);
 }
 
+export function CancelRequest() {
+  return window['go']['main']['App']['CancelRequest']();
+}
+
 export function CheckForUpdates() {
   return window['go']['main']['App']['CheckForUpdates']();
 }

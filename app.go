@@ -2,9 +2,11 @@ package main
 
 import (
 	"context"
+	"errors"
 	"io"
 	"net/http"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/wailsapp/wails/v2/pkg/runtime"
@@ -18,6 +20,9 @@ import (
 // Its exported methods are callable from the frontend through the generated bindings.
 type App struct {
 	ctx context.Context
+
+	mu        sync.Mutex
+	cancelReq context.CancelFunc
 }
 
 // NewApp creates a new App application struct.
@@ -106,6 +111,7 @@ type ResponseResult struct {
 	DurationMs  int64             `json:"durationMs"`
 	ContentType string            `json:"contentType"`
 	Error       string            `json:"error,omitempty"`
+	Cancelled   bool              `json:"cancelled,omitempty"`
 }
 
 // SendRequest performs an HTTP request and returns the full result. It is used
@@ -120,11 +126,31 @@ func (a *App) Fetch(url string, headers map[string]string) *ResponseResult {
 	return a.do(http.MethodGet, url, headers, "")
 }
 
+// CancelRequest cancels the in-flight HTTP request, if any.
+func (a *App) CancelRequest() {
+	a.mu.Lock()
+	cancel := a.cancelReq
+	a.mu.Unlock()
+	if cancel != nil {
+		cancel()
+	}
+}
+
 func (a *App) do(method, url string, headers map[string]string, body string) *ResponseResult {
 	res := &ResponseResult{}
 	start := time.Now()
 
-	req, err := http.NewRequest(method, url, strings.NewReader(body))
+	ctx, cancel := context.WithCancel(context.Background())
+	a.mu.Lock()
+	a.cancelReq = cancel
+	a.mu.Unlock()
+	defer func() {
+		a.mu.Lock()
+		a.cancelReq = nil
+		a.mu.Unlock()
+	}()
+
+	req, err := http.NewRequestWithContext(ctx, method, url, strings.NewReader(body))
 	if err != nil {
 		res.Error = err.Error()
 		return res
@@ -138,7 +164,12 @@ func (a *App) do(method, url string, headers map[string]string, body string) *Re
 	client := &http.Client{Timeout: 60 * time.Second}
 	resp, err := client.Do(req)
 	if err != nil {
-		res.Error = err.Error()
+		if errors.Is(err, context.Canceled) {
+			res.Cancelled = true
+			res.Error = "запрос отменён"
+		} else {
+			res.Error = err.Error()
+		}
 		return res
 	}
 	defer resp.Body.Close()

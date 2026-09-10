@@ -10,7 +10,7 @@ import {
   formatDuration,
   statusClass,
 } from '../lib/json'
-import { isJsonApi, type JsonApiDocument } from '../lib/jsonapi'
+import { href, isJsonApi, type JsonApiDocument } from '../lib/jsonapi'
 import JsonApiTree from './JsonApiTree.vue'
 import JsonTree from './JsonTree.vue'
 import SchemaMap from './SchemaMap.vue'
@@ -70,6 +70,20 @@ const doc = computed<JsonApiDocument | null>(() =>
   isJsonApiDoc.value ? (jsonValue.value as JsonApiDocument) : null
 )
 
+const pagination = computed(() => {
+  const l = doc.value?.links ?? {}
+  return {
+    first: href(l.first),
+    prev: href(l.prev),
+    next: href(l.next),
+    last: href(l.last),
+  }
+})
+
+const hasPagination = computed(() =>
+  Boolean(pagination.value.first || pagination.value.prev || pagination.value.next || pagination.value.last)
+)
+
 const highlightKey = ref<string | null>(null)
 
 watch(
@@ -99,6 +113,7 @@ function onMapFetch(url: string) {
 }
 
 async function follow(url: string) {
+  if (!url) return
   const headers = props.record.requestHeaders
   // Switch to the request view immediately and clear it, so the user isn't
   // left staring at the stale response while the new request runs.
@@ -107,6 +122,7 @@ async function follow(url: string) {
   store.manualId = null
   try {
     const res = await Fetch(url, headers)
+    if (res.cancelled) return
     store.add({
       method: 'GET',
       url,
@@ -295,6 +311,12 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocClick))
 
     <div class="resp-content">
       <template v-if="activeTab === 'body'">
+        <div v-if="doc && hasPagination" class="pagination">
+          <button class="btn icon-btn" :disabled="!pagination.first" title="Первая" @click="follow(pagination.first)"><Icon name="chevrons-left" :size="14" /></button>
+          <button class="btn icon-btn" :disabled="!pagination.prev" title="Предыдущая" @click="follow(pagination.prev)"><Icon name="chevron-left" :size="14" /></button>
+          <button class="btn icon-btn" :disabled="!pagination.next" title="Следующая" @click="follow(pagination.next)"><Icon name="chevron-right" :size="14" /></button>
+          <button class="btn icon-btn" :disabled="!pagination.last" title="Последняя" @click="follow(pagination.last)"><Icon name="chevrons-right" :size="14" /></button>
+        </div>
         <JsonApiTree v-if="doc" :doc="doc" :highlight-key="highlightKey" @select="onTreeSelect" @fetch="onTreeFetch" />
         <div v-else-if="isJson" class="jt-wrap"><JsonTree :value="jsonValue" /></div>
         <pre v-else class="code resp-pad">{{ record.responseBody }}</pre>
@@ -435,6 +457,16 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocClick))
   flex: 1;
   min-height: 0;
   overflow: auto;
+}
+
+.pagination {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-panel);
 }
 
 .resp-pad {

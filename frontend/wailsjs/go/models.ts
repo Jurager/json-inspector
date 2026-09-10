@@ -119,6 +119,7 @@ export namespace main {
 	    durationMs: number;
 	    contentType: string;
 	    error?: string;
+	    cancelled?: boolean;
 	
 	    static createFrom(source: any = {}) {
 	        return new ResponseResult(source);
@@ -133,6 +134,7 @@ export namespace main {
 	        this.durationMs = source["durationMs"];
 	        this.contentType = source["contentType"];
 	        this.error = source["error"];
+	        this.cancelled = source["cancelled"];
 	    }
 	}
 

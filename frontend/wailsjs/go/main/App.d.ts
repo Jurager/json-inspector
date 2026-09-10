@@ -6,6 +6,8 @@ import {main} from '../models';
 
 export function Analyze(arg1:string):Promise<jsonapi.Analysis>;
 
+export function CancelRequest():Promise<void>;
+
 export function CheckForUpdates():Promise<update.Update>;
 
 export function Fetch(arg1:string,arg2:Record<string, string>):Promise<main.ResponseResult>;

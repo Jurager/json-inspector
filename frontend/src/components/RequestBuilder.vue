@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { onBeforeUnmount, onMounted, ref } from 'vue'
 import Icon from './Icon.vue'
-import { SendRequest } from '../../wailsjs/go/main/App'
+import { SendRequest, CancelRequest } from '../../wailsjs/go/main/App'
 import { useRequestsStore } from '../stores/requests'
 import { buildSampleRecord } from '../lib/sample'
 
@@ -53,6 +53,7 @@ async function send() {
   const requestHeaders = collectHeaders()
   try {
     const res = await SendRequest(method.value, url.value.trim(), requestHeaders, body.value)
+    if (res.cancelled) return
     store.add({
       method: method.value,
       url: url.value.trim(),
@@ -70,6 +71,10 @@ async function send() {
   } finally {
     store.loading = false
   }
+}
+
+async function cancel() {
+  await CancelRequest()
 }
 
 function loadSample() {
@@ -100,8 +105,11 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onWindowKeydown))
         spellcheck="false"
         @keydown.enter="send"
       />
-      <button class="btn btn-primary send-btn" :disabled="store.loading || !url.trim()" @click="send">
-        <span v-if="store.loading" class="spinner"></span>
+      <button class="btn btn-primary send-btn" :disabled="!url.trim()" @click="store.loading ? cancel() : send()">
+        <template v-if="store.loading">
+          <Icon name="xmark" :size="14" />
+          <span>Отмена</span>
+        </template>
         <template v-else>
           <span>Отправить</span>
           <kbd class="send-hint">{{ shortcut }}</kbd>

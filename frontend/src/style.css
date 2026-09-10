@@ -390,6 +390,11 @@ button {
   color: var(--text-secondary);
 }
 
+.ja-meta-value {
+  font-size: 12px;
+  color: var(--text);
+}
+
 .ja-link-url {
   flex: 0 1 auto;
   max-width: 100%;

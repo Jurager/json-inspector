@@ -3,10 +3,8 @@ import { computed, nextTick, onMounted, ref, watch } from 'vue'
 import {
   buildIndex,
   dataResources,
-  href,
   type JsonApiDocument,
 } from '../lib/jsonapi'
-import { decodeUrl } from '../lib/json'
 import ResourceNode from './ResourceNode.vue'
 
 const props = defineProps<{
@@ -56,11 +54,19 @@ function isHighlighted(key: string): boolean {
   return highlightedKey.value === key
 }
 
-const docLinks = computed<[string, string][]>(() =>
-  Object.entries(props.doc.links ?? {})
-    .map(([k, v]) => [k, href(v)] as [string, string])
-    .filter(([, url]) => url !== '')
-)
+const jsonapiVersion = computed(() => {
+  const j = props.doc.jsonapi
+  if (j && typeof j === 'object' && !Array.isArray(j)) {
+    const v = (j as Record<string, unknown>).version
+    if (typeof v === 'string' && v) return v
+  }
+  return ''
+})
+
+const metaText = computed(() => {
+  const m = props.doc.meta
+  return m == null ? '' : JSON.stringify(m, null, 2)
+})
 </script>
 
 <template>
@@ -70,14 +76,14 @@ const docLinks = computed<[string, string][]>(() =>
       <pre class="code" style="padding: 0 16px">{{ JSON.stringify(errors, null, 2) }}</pre>
     </div>
 
-    <div v-if="docLinks.length">
-      <div class="ja-section-title">links</div>
-      <div v-for="[name, url] in docLinks" :key="name" class="ja-link">
-        <span class="ja-link-name">{{ name }}</span>
-        <button class="ja-link-url" :title="decodeUrl(url)" @click="emit('fetch', url)">
-          {{ decodeUrl(url) }}
-        </button>
-      </div>
+    <div v-if="jsonapiVersion" class="ja-link">
+      <span class="ja-link-name">jsonapi</span>
+      <span class="ja-meta-value mono">v{{ jsonapiVersion }}</span>
+    </div>
+
+    <div v-if="metaText">
+      <div class="ja-section-title">meta</div>
+      <pre class="code" style="padding: 0 16px">{{ metaText }}</pre>
     </div>
 
     <template v-if="data.length">
