@@ -120,9 +120,7 @@ function timeLabel(startedAt: number): string {
       <section v-for="g in filteredGroups" :key="g.key" class="group">
         <div class="group-head" role="button" tabindex="0" @click="toggle(g.key)">
           <span class="caret" :class="{ open: !collapsed.has(g.key) }">
-            <svg viewBox="0 0 8 12" width="8" height="12" fill="none" aria-hidden="true">
-              <path d="M1.5 1.5L6 6L1.5 10.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
-            </svg>
+            <Icon name="chevron-right" :size="10" />
           </span>
           <img
             v-if="g.favIconUrl && !brokenFavicons.has(g.key)"
@@ -190,7 +188,10 @@ function timeLabel(startedAt: number): string {
 }
 
 .browser-filter {
-  padding: 8px 12px;
+  display: flex;
+  align-items: center;
+  height: 44px;
+  padding: 0 12px;
   border-bottom: 1px solid var(--border);
 }
 
@@ -265,11 +266,9 @@ function timeLabel(startedAt: number): string {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  flex: 0 0 14px;
-  width: 14px;
-  height: 14px;
-  font-size: 11px;
-  line-height: 1;
+  flex: 0 0 12px;
+  width: 12px;
+  height: 12px;
   color: var(--text-secondary);
   transition: transform 0.12s ease;
 }
@@ -314,6 +313,9 @@ function timeLabel(startedAt: number): string {
 
 .group-count {
   flex: 0 0 auto;
+  height: 18px;
+  display: inline-flex;
+  align-items: center;
   font-size: 11px;
   color: var(--text-tertiary);
   font-variant-numeric: tabular-nums;

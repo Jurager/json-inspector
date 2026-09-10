@@ -50,6 +50,32 @@ function toggleType(type: string) {
 
 const query = ref('')
 
+const searchVisible = ref(false)
+const searchInputRef = ref<HTMLInputElement | null>(null)
+const searchShortcut = /Mac/i.test(navigator.userAgent) ? '⌘F' : 'Ctrl+F'
+
+function openSearch() {
+  searchVisible.value = true
+  nextTick(() => searchInputRef.value?.focus())
+}
+
+function closeSearch() {
+  searchVisible.value = false
+  query.value = ''
+}
+
+function onWindowKeydown(e: KeyboardEvent) {
+  if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'f') {
+    e.preventDefault()
+    openSearch()
+  } else if (e.key === 'Escape' && searchVisible.value) {
+    closeSearch()
+  }
+}
+
+onMounted(() => window.addEventListener('keydown', onWindowKeydown))
+onBeforeUnmount(() => window.removeEventListener('keydown', onWindowKeydown))
+
 const filteredTypes = computed(() => {
   const q = query.value.trim().toLowerCase()
   if (!q) return types.value
@@ -185,25 +211,29 @@ async function copyExport(format: ExportId) {
 
 // --- Compare schemas ---
 const compareOpen = ref(false)
-const compareId = ref<string | null>(null)
+const compareDoc = ref<JsonApiDocument | null>(null)
+const compareFilter = ref('')
+const pasteBody = ref('')
+const pasteError = ref('')
 
-const compareOptions = computed(() =>
-  store.requests
+const compareOptions = computed(() => {
+  const q = compareFilter.value.trim().toLowerCase()
+  return store.requests
     .map((r) => {
       const p = tryParseJson(r.responseBody)
       return {
         id: r.id,
         method: r.method,
         url: r.url,
+        startedAt: r.startedAt,
         doc: p.ok && isJsonApi(p.value) ? (p.value as JsonApiDocument) : null,
       }
     })
     .filter((o) => o.doc != null)
-)
-
-const compareDoc = computed(() => {
-  if (!compareId.value) return null
-  return compareOptions.value.find((o) => o.id === compareId.value)?.doc ?? null
+    .filter((o) => {
+      if (!q) return true
+      return o.method.toLowerCase().includes(q) || o.url.toLowerCase().includes(q)
+    })
 })
 
 const diff = computed<TypeDiff[] | null>(() => {
@@ -211,13 +241,38 @@ const diff = computed<TypeDiff[] | null>(() => {
   return diffSchemas(types.value, buildSchema(compareDoc.value))
 })
 
+function formatTime(startedAt: number): string {
+  const d = new Date(startedAt)
+  return d.toLocaleString('ru-RU', {
+    day: '2-digit',
+    month: '2-digit',
+    year: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+  })
+}
+
 function pickCompare(id: string) {
-  compareId.value = id
-  compareOpen.value = false
+  const o = compareOptions.value.find((x) => x.id === id)
+  if (o && o.doc) {
+    compareDoc.value = o.doc
+    compareOpen.value = false
+  }
+}
+
+function comparePaste() {
+  const p = tryParseJson(pasteBody.value)
+  if (p.ok && isJsonApi(p.value)) {
+    compareDoc.value = p.value as JsonApiDocument
+    compareOpen.value = false
+    pasteError.value = ''
+  } else {
+    pasteError.value = 'Невалидный JSON:API документ'
+  }
 }
 
 function closeCompare() {
-  compareId.value = null
+  compareDoc.value = null
 }
 
 function statusLabel(s: string): string {
@@ -239,20 +294,30 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocClick))
 <template>
   <div class="schema">
     <div class="schema-head">
-      <input
-        v-model="query"
-        class="search mono"
-        placeholder="Поиск по типам, полям, связям…"
-        spellcheck="false"
-      />
+      <template v-if="searchVisible">
+        <input
+          ref="searchInputRef"
+          v-model="query"
+          class="search mono"
+          placeholder="Поиск по типам, полям, связям…"
+          spellcheck="false"
+          @keydown.esc="closeSearch"
+        />
+        <button class="btn icon-btn" title="Закрыть (Esc)" @click="closeSearch"><Icon name="xmark" :size="14" /></button>
+      </template>
+      <template v-else>
+        <span class="head-spacer"></span>
+        <button class="btn btn-inline" @click="openSearch"><span>Поиск</span><kbd class="keycap">{{ searchShortcut }}</kbd></button>
+      </template>
+
       <div class="compare-wrap">
-        <button class="export-btn" @click="compareOpen = true">
+        <button class="btn btn-inline" @click="compareOpen = true">
           <Icon name="compare" :size="14" />
           <span>Сравнить</span>
         </button>
       </div>
       <div ref="exportWrap" class="export-wrap">
-        <button class="export-btn" :disabled="!types.length" @click="exportOpen = !exportOpen">
+        <button class="btn btn-inline" :disabled="!types.length" @click="exportOpen = !exportOpen">
           <Icon v-if="copied" name="check" :size="12" />
           <span>{{ copied ? 'Скопировано' : 'Экспорт' }}</span>
           <svg viewBox="0 0 10 6" width="10" height="6" fill="none" aria-hidden="true"><path d="M1.5 1.5L5 5L8.5 1.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
@@ -304,9 +369,7 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocClick))
           >
             <button class="type-head" @click="toggleType(t.type)">
               <span class="caret" :class="{ open: expandedTypes.has(t.type) }">
-                <svg viewBox="0 0 8 12" width="8" height="12" fill="none" aria-hidden="true">
-                  <path d="M1.5 1.5L6 6L1.5 10.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
-                </svg>
+                <Icon name="chevron-right" :size="10" />
               </span>
               <span class="type-name">{{ t.label }}</span>
               <span class="type-count">{{ t.count }}</span>
@@ -375,12 +438,25 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocClick))
         <span class="compare-modal-title">Сравнить схему с…</span>
         <button class="btn icon-btn" @click="compareOpen = false"><Icon name="xmark" :size="14" /></button>
       </div>
+
+      <div class="compare-search">
+        <input v-model="compareFilter" class="compare-search-input mono" placeholder="Поиск по методу, URL…" spellcheck="false" />
+      </div>
+
       <div class="compare-modal-body">
-        <div v-if="compareOptions.length === 0" class="compare-empty">Нет других JSON:API ответов в истории</div>
+        <div v-if="compareOptions.length === 0" class="compare-empty">Нет JSON:API ответов в истории</div>
         <button v-for="o in compareOptions" :key="o.id" class="compare-item" @click="pickCompare(o.id)">
           <span class="compare-method">{{ o.method }}</span>
           <span class="compare-url mono">{{ o.url }}</span>
+          <span class="compare-time">{{ formatTime(o.startedAt) }}</span>
         </button>
+      </div>
+
+      <div class="compare-paste">
+        <div class="compare-paste-label">Или вставьте JSON</div>
+        <textarea v-model="pasteBody" class="compare-textarea mono" placeholder="{ … JSON:API документ … }" spellcheck="false"></textarea>
+        <div v-if="pasteError" class="compare-error">{{ pasteError }}</div>
+        <button class="btn btn-primary" :disabled="!pasteBody.trim()" @click="comparePaste">Сравнить с этим JSON</button>
       </div>
     </div>
   </div>
@@ -419,6 +495,10 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocClick))
   transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
 
+.head-spacer {
+  flex: 1;
+}
+
 .search:focus {
   border-color: var(--accent);
   box-shadow: 0 0 0 3px var(--accent-soft);
@@ -428,30 +508,6 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocClick))
 .export-wrap {
   position: relative;
   flex: 0 0 auto;
-}
-
-.export-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  border: 1px solid var(--border-strong);
-  background: var(--bg-panel);
-  color: var(--text);
-  font-size: 12px;
-  padding: 5px 10px;
-  border-radius: 7px;
-  cursor: pointer;
-  box-shadow: var(--shadow-btn);
-  --wails-draggable: no-drag;
-}
-
-.export-btn:hover {
-  background: var(--bg-hover);
-}
-
-.export-btn:disabled {
-  opacity: 0.5;
-  cursor: default;
 }
 
 .export-menu {
@@ -548,11 +604,9 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocClick))
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  flex: 0 0 14px;
-  width: 14px;
-  height: 14px;
-  font-size: 11px;
-  line-height: 1;
+  flex: 0 0 12px;
+  width: 12px;
+  height: 12px;
   color: var(--text-secondary);
   transition: transform 0.12s ease;
 }
@@ -836,13 +890,6 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocClick))
   color: var(--red);
 }
 
-.icon-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  padding: 2px 8px;
-}
-
 .compare-overlay {
   position: fixed;
   inset: 0;
@@ -854,9 +901,9 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocClick))
 }
 
 .compare-modal {
-  width: 480px;
+  width: 560px;
   max-width: 90%;
-  max-height: 70vh;
+  max-height: 80vh;
   background: var(--bg-panel);
   border: 1px solid var(--border);
   border-radius: 14px;
@@ -880,6 +927,8 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocClick))
 }
 
 .compare-modal-body {
+  flex: 1;
+  min-height: 0;
   padding: 8px;
   overflow: auto;
   display: flex;
@@ -921,5 +970,70 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocClick))
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.compare-time {
+  flex: 0 0 auto;
+  font-size: 11px;
+  color: var(--text-tertiary);
+  white-space: nowrap;
+}
+
+.compare-search {
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border);
+}
+
+.compare-search-input {
+  width: 100%;
+  padding: 5px 8px;
+  border-radius: 7px;
+  border: 1px solid var(--border);
+  background: var(--bg-inset);
+  color: var(--text);
+  font-size: 12px;
+  outline: none;
+}
+
+.compare-search-input:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+.compare-paste {
+  padding: 10px 12px 12px;
+  border-top: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.compare-paste-label {
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.compare-textarea {
+  width: 100%;
+  min-height: 64px;
+  resize: vertical;
+  padding: 6px 8px;
+  border-radius: 7px;
+  border: 1px solid var(--border);
+  background: var(--bg-inset);
+  color: var(--text);
+  font-size: 12px;
+  outline: none;
+  user-select: text;
+}
+
+.compare-textarea:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+.compare-error {
+  font-size: 12px;
+  color: var(--red);
 }
 </style>

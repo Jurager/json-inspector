@@ -225,13 +225,6 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onWindowKeydown))
   flex: 1;
 }
 
-.icon-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  padding: 2px 10px;
-  line-height: 1;
-}
 
 .body-input {
   width: 100%;

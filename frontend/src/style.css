@@ -273,12 +273,19 @@ button {
   gap: 6px;
 }
 
+.icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2px 8px;
+}
+
 .keycap {
   font-family: inherit;
-  font-size: 10px;
+  font-size: 9px;
   font-weight: 500;
-  line-height: 1.4;
-  padding: 1px 5px;
+  line-height: 1.2;
+  padding: 0 5px;
   border-radius: 4px;
   background: var(--bg-inset);
   border: 1px solid var(--border);
@@ -459,12 +466,10 @@ mark.search-match.current {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 14px;
-  height: 14px;
-  flex: 0 0 14px;
+  width: 12px;
+  height: 12px;
+  flex: 0 0 12px;
   color: var(--text-secondary);
-  font-size: 11px;
-  line-height: 1;
   transition: transform 0.12s ease;
 }
 
@@ -634,14 +639,18 @@ mark.search-match.current {
 /* ---- Tabs ---- */
 .tabs {
   display: flex;
+  align-items: stretch;
   gap: 2px;
+  height: 44px;
   border-bottom: 1px solid var(--border);
   padding: 0 8px;
   background: var(--bg-panel);
 }
 
 .tab {
-  padding: 8px 14px;
+  display: flex;
+  align-items: center;
+  padding: 0 14px;
   font-size: 13px;
   color: var(--text-secondary);
   cursor: pointer;

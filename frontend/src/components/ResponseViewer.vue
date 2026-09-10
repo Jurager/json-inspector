@@ -80,9 +80,7 @@ const pagination = computed(() => {
   }
 })
 
-const hasPagination = computed(() =>
-  Boolean(pagination.value.first || pagination.value.prev || pagination.value.next || pagination.value.last)
-)
+const hasPagination = computed(() => Boolean(pagination.value.prev || pagination.value.next))
 
 const highlightKey = ref<string | null>(null)
 
@@ -312,10 +310,10 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocClick))
     <div class="resp-content">
       <template v-if="activeTab === 'body'">
         <div v-if="doc && hasPagination" class="pagination">
-          <button class="btn icon-btn" :disabled="!pagination.first" title="Первая" @click="follow(pagination.first)"><Icon name="chevrons-left" :size="14" /></button>
+          <button class="btn icon-btn" :disabled="!pagination.first || !pagination.prev" title="Первая" @click="follow(pagination.first)"><Icon name="chevrons-left" :size="14" /></button>
           <button class="btn icon-btn" :disabled="!pagination.prev" title="Предыдущая" @click="follow(pagination.prev)"><Icon name="chevron-left" :size="14" /></button>
           <button class="btn icon-btn" :disabled="!pagination.next" title="Следующая" @click="follow(pagination.next)"><Icon name="chevron-right" :size="14" /></button>
-          <button class="btn icon-btn" :disabled="!pagination.last" title="Последняя" @click="follow(pagination.last)"><Icon name="chevrons-right" :size="14" /></button>
+          <button class="btn icon-btn" :disabled="!pagination.last || !pagination.next" title="Последняя" @click="follow(pagination.last)"><Icon name="chevrons-right" :size="14" /></button>
         </div>
         <JsonApiTree v-if="doc" :doc="doc" :highlight-key="highlightKey" @select="onTreeSelect" @fetch="onTreeFetch" />
         <div v-else-if="isJson" class="jt-wrap"><JsonTree :value="jsonValue" /></div>
@@ -421,13 +419,6 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocClick))
   padding: 0 12px;
   border-bottom: 1px solid var(--border);
   background: var(--bg-panel);
-}
-
-.icon-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  padding: 2px 8px;
 }
 
 .resp-url {
