@@ -5,17 +5,48 @@
   <link rel="stylesheet" href="popup.css" />
 </head>
 <body>
-  <h1>JSON Inspector</h1>
-  <label class="row">
-    <input type="checkbox" id="enabled" />
-    <span>Перехватывать эту вкладку</span>
-  </label>
-  <label class="row">
-    <span class="port-label">Порт</span>
-    <input type="number" id="port" min="1" max="65535" />
-  </label>
-  <div id="app-status" class="status"></div>
-  <div id="cap-status" class="status"></div>
+  <header class="header">
+    <svg class="logo" viewBox="0 0 1024 1024" aria-hidden="true">
+      <rect x="48" y="48" width="928" height="928" rx="210" fill="#20B889"/>
+      <path d="M385 285h-55c-42 0-62 21-62 63v105c0 38-16 57-50 57 34 0 50 19 50 57v105c0 42 20 63 62 63h55" fill="none" stroke="#fff" stroke-width="48" stroke-linecap="round"/>
+      <path d="M639 285h55c42 0 62 21 62 63v105c0 38 16 57 50 57-34 0-50 19-50 57v105c0 42-20 63-62 63h-55" fill="none" stroke="#fff" stroke-width="48" stroke-linecap="round"/>
+      <path d="M465 512h94" stroke="#fff" stroke-width="44" stroke-linecap="round"/>
+    </svg>
+    <div class="header-text">
+      <div class="title">JSON Inspector</div>
+      <div class="subtitle">Перехват запросов браузера</div>
+    </div>
+  </header>
+
+  <div class="card toggle-card">
+    <div class="toggle-info">
+      <div class="toggle-label">Перехватывать вкладку</div>
+    </div>
+    <label class="switch">
+      <input type="checkbox" id="enabled" />
+      <span class="slider"></span>
+    </label>
+  </div>
+
+  <div class="status-list">
+    <div class="status-row">
+      <span class="dot" id="app-dot"></span>
+      <span class="status-text" id="app-status"></span>
+    </div>
+  </div>
+
+  <div class="tabs-section" id="tabs-section">
+    <div class="tabs-heading">Перехватываемые вкладки</div>
+    <div class="tabs-list" id="tabs-list"></div>
+  </div>
+
+  <div class="card port-card">
+    <label class="port-label" for="port">Порт</label>
+    <input type="number" id="port" min="1" max="65535" spellcheck="false" />
+  </div>
+
+  <a class="open-app primary" id="open-app" href="json-inspector://open">Открыть приложение</a>
+
   <script src="popup.js"></script>
 </body>
 </html>

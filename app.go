@@ -53,6 +53,22 @@ func (a *App) ToggleMaximize() {
 	runtime.WindowToggleMaximise(a.ctx)
 }
 
+// ShowAbout emits the event that opens the "About" dialog in the UI.
+func (a *App) ShowAbout() {
+	runtime.EventsEmit(a.ctx, "show-about")
+}
+
+// handleUrlOpen is called when the app is opened via the json-inspector://
+// custom URL scheme (e.g. the Chrome extension's "Open app" button). It brings
+// the window to the front.
+func (a *App) handleUrlOpen(_ string) {
+	if a.ctx == nil {
+		return
+	}
+	runtime.WindowShow(a.ctx)
+	runtime.WindowUnminimise(a.ctx)
+}
+
 // CheckForUpdates queries the registry immediately and reports the result.
 func (a *App) CheckForUpdates() (*update.Update, error) {
 	u, err := update.Check()

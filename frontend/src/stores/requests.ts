@@ -10,15 +10,21 @@ function nextId(): string {
 export const useRequestsStore = defineStore('requests', {
   state: () => ({
     requests: [] as RequestRecord[],
-    selectedId: null as string | null,
+    // The manual request shown in the "Запрос" view.
+    manualId: null as string | null,
+    // The captured request selected in the "Браузер" view.
+    browserId: null as string | null,
     activeView: 'request' as 'request' | 'browser',
     capturing: false,
     unreadCount: 0,
     loading: false,
   }),
   getters: {
-    selected(state): RequestRecord | null {
-      return state.requests.find((r) => r.id === state.selectedId) ?? null
+    manualSelected(state): RequestRecord | null {
+      return state.requests.find((r) => r.id === state.manualId) ?? null
+    },
+    browserSelected(state): RequestRecord | null {
+      return state.requests.find((r) => r.id === state.browserId) ?? null
     },
   },
   actions: {
@@ -29,7 +35,7 @@ export const useRequestsStore = defineStore('requests', {
         startedAt: Date.now(),
       }
       this.requests.unshift(full)
-      this.selectedId = full.id
+      this.manualId = full.id
     },
     addCaptured(record: Omit<RequestRecord, 'id' | 'source' | 'startedAt'>) {
       const full: RequestRecord = {
@@ -43,16 +49,33 @@ export const useRequestsStore = defineStore('requests', {
         this.unreadCount += 1
       }
     },
-    select(id: string) {
-      this.selectedId = id
+    hydrate(requests: RequestRecord[]) {
+      this.requests = requests
+      this.manualId = null
+      this.browserId = null
+      this.unreadCount = 0
+    },
+    selectManual(id: string) {
+      this.manualId = id
+    },
+    selectBrowser(id: string) {
+      this.browserId = id
     },
     markBrowserRead() {
       this.unreadCount = 0
     },
     clear() {
       this.requests = []
-      this.selectedId = null
+      this.manualId = null
+      this.browserId = null
       this.unreadCount = 0
+    },
+    clearRequests(ids: string[]) {
+      if (ids.length === 0) return
+      const set = new Set(ids)
+      this.requests = this.requests.filter((r) => !set.has(r.id))
+      if (this.manualId && set.has(this.manualId)) this.manualId = null
+      if (this.browserId && set.has(this.browserId)) this.browserId = null
     },
   },
 })

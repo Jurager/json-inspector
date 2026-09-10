@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, nextTick, ref, watch } from 'vue'
+import { computed, nextTick, onMounted, ref, watch } from 'vue'
 import {
   buildIndex,
   dataResources,
@@ -16,6 +16,7 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   (e: 'fetch', url: string): void
+  (e: 'select', key: string): void
 }>()
 
 const index = computed(() => buildIndex(props.doc))
@@ -25,19 +26,30 @@ const errors = computed(() => props.doc.errors ?? [])
 
 const highlightedKey = ref<string | null>(null)
 
-watch(
-  () => props.highlightKey,
-  (k) => {
-    if (k) jumpTo(k)
-  }
-)
-
-function jumpTo(key: string) {
+function highlightAndScroll(key: string) {
   highlightedKey.value = key
   nextTick(() => {
     const el = document.getElementById('res-' + key)
     el?.scrollIntoView({ behavior: 'smooth', block: 'start' })
   })
+}
+
+watch(
+  () => props.highlightKey,
+  (k) => {
+    if (k) highlightAndScroll(k)
+  }
+)
+
+// The tree remounts when switching back from the map tab; jump on mount so a
+// highlight set while on the map still lands.
+onMounted(() => {
+  if (props.highlightKey) highlightAndScroll(props.highlightKey)
+})
+
+function jumpTo(key: string) {
+  highlightAndScroll(key)
+  emit('select', key)
 }
 
 function isHighlighted(key: string): boolean {

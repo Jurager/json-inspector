@@ -22,4 +22,5 @@ type CapturedRequest struct {
 	TabID           int               `json:"tabId"`
 	TabTitle        string            `json:"tabTitle"`
 	TabURL          string            `json:"tabURL"`
+	FavIconURL      string            `json:"favIconUrl"`
 }

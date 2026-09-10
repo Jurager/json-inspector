@@ -12,6 +12,25 @@
 
   const isCaptureEnabled = () => window.__jsonInspectorEnabled === true;
 
+  const MAX_BODY_CHARS = 2 * 1024 * 1024; // ~2 MB
+
+  function isBinaryContentType(ct) {
+    if (!ct) return false;
+    const t = ct.split(';')[0].trim().toLowerCase();
+    return /^image\//.test(t)
+      || /^audio\//.test(t)
+      || /^video\//.test(t)
+      || /^font\//.test(t)
+      || /^application\/(pdf|zip|gzip|octet-stream|wasm|x-binary|x-compressed)$/.test(t);
+  }
+
+  function limitBody(text) {
+    if (text.length > MAX_BODY_CHARS) {
+      return text.slice(0, MAX_BODY_CHARS) + '\n…[обрезано до 2 МБ]';
+    }
+    return text;
+  }
+
   /**
    * Normalizes any of the header shapes we might encounter (Headers,
    * array-of-pairs, plain object) into a plain { name: value } object.
@@ -121,12 +140,23 @@
         (response) => {
           const durationMs = Date.now() - startedAt;
           const responseHeaders = serializeHeaders(response.headers);
+          const contentType = response.headers.get('content-type') || '';
+
+          if (isBinaryContentType(contentType)) {
+            capture({
+              method, url, requestHeaders, requestBody,
+              status: response.status, statusText: response.statusText,
+              responseHeaders, durationMs,
+              responseBody: '[двоичный ответ: ' + contentType.split(';')[0] + ']',
+            });
+            return;
+          }
 
           response.clone().text().then(
             (responseBody) => capture({
               method, url, requestHeaders, requestBody,
               status: response.status, statusText: response.statusText,
-              responseHeaders, responseBody, durationMs,
+              responseHeaders, responseBody: limitBody(responseBody), durationMs,
             }),
             () => capture({
               method, url, requestHeaders, requestBody,
@@ -172,19 +202,29 @@
       if (state && isCaptureEnabled()) {
         const requestBody = bodyToString(body);
 
-        const onLoad = () => capture({
-          method: state.method,
-          url: state.url,
-          requestHeaders: state.requestHeaders,
-          requestBody,
-          status: this.status,
-          statusText: this.statusText,
-          responseHeaders: parseRawResponseHeaders(
-            typeof this.getAllResponseHeaders === 'function' ? this.getAllResponseHeaders() : ''
-          ),
-          responseBody: typeof this.responseText === 'string' ? this.responseText : '',
-          durationMs: Date.now() - state.startedAt,
-        });
+        const onLoad = () => {
+          const contentType =
+            typeof this.getResponseHeader === 'function' ? (this.getResponseHeader('content-type') || '') : '';
+          let responseBody = typeof this.responseText === 'string' ? this.responseText : '';
+          if (isBinaryContentType(contentType)) {
+            responseBody = '[двоичный ответ: ' + contentType.split(';')[0] + ']';
+          } else {
+            responseBody = limitBody(responseBody);
+          }
+          capture({
+            method: state.method,
+            url: state.url,
+            requestHeaders: state.requestHeaders,
+            requestBody,
+            status: this.status,
+            statusText: this.statusText,
+            responseHeaders: parseRawResponseHeaders(
+              typeof this.getAllResponseHeaders === 'function' ? this.getAllResponseHeaders() : ''
+            ),
+            responseBody,
+            durationMs: Date.now() - state.startedAt,
+          });
+        };
 
         const onError = () => capture({
           method: state.method,

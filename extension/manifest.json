@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "JSON Inspector Bridge",
   "version": "0.1.0",
-  "description": "Перехватывает fetch/XHR запросы выбранной вкладки и отправляет их в приложение JSON Inspector.",
+  "description": "Перехватывает сетевые запросы выбранной вкладки браузера и передаёт их в JSON Inspector для просмотра и анализа.",
   "icons": {
     "16": "icons/icon16.png",
     "32": "icons/icon32.png",

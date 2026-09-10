@@ -5,10 +5,16 @@ import RequestBuilder from './components/RequestBuilder.vue'
 import ResponseViewer from './components/ResponseViewer.vue'
 import BrowserPanel from './components/BrowserPanel.vue'
 import Updater from './components/Updater.vue'
+import AboutModal from './components/AboutModal.vue'
 import { EventsOn } from '../wailsjs/runtime/runtime'
 import { ToggleMaximize } from '../wailsjs/go/main/App'
 
 const store = useRequestsStore()
+
+const HISTORY_KEY = 'ji-history-v1'
+const MAX_HISTORY = 200
+
+const aboutOpen = ref(false)
 
 function openBrowser() {
   store.activeView = 'browser'
@@ -48,35 +54,72 @@ interface Captured {
   durationMs?: number
   tabTitle?: string
   tabURL?: string
+  tabId?: number
+  favIconUrl?: string
 }
 
-let off: (() => void) | null = null
+const offs: (() => void)[] = []
 
 onMounted(() => {
-  off = EventsOn('captured-request', (c: Captured) => {
-    const headers = c.responseHeaders ?? {}
-    store.addCaptured({
-      method: c.method,
-      url: c.url,
-      requestHeaders: c.requestHeaders ?? {},
-      requestBody: c.requestBody ?? '',
-      status: c.status,
-      statusText: c.statusText ?? '',
-      responseHeaders: headers,
-      responseBody: c.responseBody ?? '',
-      durationMs: c.durationMs ?? 0,
-      contentType: headers['content-type'] ?? headers['Content-Type'] ?? '',
-      tabTitle: c.tabTitle,
-      tabURL: c.tabURL,
+  // Restore request history from the previous session.
+  try {
+    const raw = localStorage.getItem(HISTORY_KEY)
+    if (raw) {
+      const parsed = JSON.parse(raw)
+      if (Array.isArray(parsed)) store.hydrate(parsed)
+    }
+  } catch {
+    // ignore corrupt storage
+  }
+
+  // Persist request history (debounced).
+  let saveTimer: ReturnType<typeof setTimeout> | null = null
+  offs.push(
+    store.$subscribe((_m, state) => {
+      if (saveTimer) clearTimeout(saveTimer)
+      saveTimer = setTimeout(() => {
+        try {
+          localStorage.setItem(HISTORY_KEY, JSON.stringify(state.requests.slice(0, MAX_HISTORY)))
+        } catch {
+          // ignore quota errors
+        }
+      }, 300)
     })
-  })
+  )
+
+  offs.push(
+    EventsOn('captured-request', (c: Captured) => {
+      const headers = c.responseHeaders ?? {}
+      store.addCaptured({
+        method: c.method,
+        url: c.url,
+        requestHeaders: c.requestHeaders ?? {},
+        requestBody: c.requestBody ?? '',
+        status: c.status,
+        statusText: c.statusText ?? '',
+        responseHeaders: headers,
+        responseBody: c.responseBody ?? '',
+        durationMs: c.durationMs ?? 0,
+        contentType: headers['content-type'] ?? headers['Content-Type'] ?? '',
+        tabTitle: c.tabTitle,
+        tabURL: c.tabURL,
+        tabId: c.tabId,
+        favIconUrl: c.favIconUrl,
+      })
+    })
+  )
+  offs.push(
+    EventsOn('show-about', () => {
+      aboutOpen.value = true
+    })
+  )
 
   window.addEventListener('mousemove', onResizeMove)
   window.addEventListener('mouseup', stopResize)
 })
 
 onBeforeUnmount(() => {
-  off?.()
+  offs.forEach((off) => off())
   window.removeEventListener('mousemove', onResizeMove)
   window.removeEventListener('mouseup', stopResize)
 })
@@ -113,7 +156,7 @@ onBeforeUnmount(() => {
         <template v-if="store.activeView === 'request'">
           <div class="request-view">
             <RequestBuilder />
-            <ResponseViewer v-if="store.selected" :record="store.selected" />
+            <ResponseViewer v-if="store.manualSelected" :record="store.manualSelected" />
             <div v-else-if="store.loading" class="empty">
               <span class="spinner spinner-lg"></span>
             </div>
@@ -129,7 +172,7 @@ onBeforeUnmount(() => {
             <div class="browser-side" :style="{ width: browserSideWidth + 'px' }"><BrowserPanel /></div>
             <div class="resize-handle" @mousedown.prevent="startResize"></div>
             <div class="browser-main">
-              <ResponseViewer v-if="store.selected" :record="store.selected" />
+              <ResponseViewer v-if="store.browserSelected" :record="store.browserSelected" />
               <div v-else class="empty">
                 <span class="empty-title">Нет выбранного запроса</span>
                 <span>Выберите запрос из списка слева.</span>
@@ -140,6 +183,8 @@ onBeforeUnmount(() => {
       </main>
     </div>
   </div>
+
+  <AboutModal v-if="aboutOpen" @close="aboutOpen = false" />
 </template>
 
 <style scoped>
@@ -173,6 +218,9 @@ onBeforeUnmount(() => {
 .resize-handle {
   flex: 0 0 5px;
   width: 5px;
+  margin-left: -5px;
+  position: relative;
+  z-index: 1;
   cursor: col-resize;
   background: transparent;
   transition: background 0.15s ease;

@@ -12,6 +12,8 @@ export function Fetch(arg1:string,arg2:Record<string, string>):Promise<main.Resp
 
 export function SendRequest(arg1:string,arg2:string,arg3:Record<string, string>,arg4:string):Promise<main.ResponseResult>;
 
+export function ShowAbout():Promise<void>;
+
 export function ToggleMaximize():Promise<void>;
 
 export function UpdateNow(arg1:string):Promise<void>;

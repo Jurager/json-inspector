@@ -1,10 +1,12 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { onBeforeUnmount, onMounted, ref } from 'vue'
 import { SendRequest } from '../../wailsjs/go/main/App'
 import { useRequestsStore } from '../stores/requests'
 import { buildSampleRecord } from '../lib/sample'
 
 const store = useRequestsStore()
+
+const shortcut = /Mac/i.test(navigator.userAgent) ? '⌘↵' : 'Ctrl+↵'
 
 const METHODS = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD', 'OPTIONS']
 
@@ -35,20 +37,25 @@ function removeHeader(i: number) {
   headers.value.splice(i, 1)
 }
 
+function collectHeaders(): Record<string, string> {
+  const map: Record<string, string> = {}
+  for (const h of headers.value) {
+    const name = h.name.trim()
+    if (name) map[name] = h.value
+  }
+  return map
+}
+
 async function send() {
   if (!url.value.trim() || store.loading) return
   store.loading = true
-  const headerMap: Record<string, string> = {}
-  for (const h of headers.value) {
-    const name = h.name.trim()
-    if (name) headerMap[name] = h.value
-  }
+  const requestHeaders = collectHeaders()
   try {
-    const res = await SendRequest(method.value, url.value.trim(), headerMap, body.value)
+    const res = await SendRequest(method.value, url.value.trim(), requestHeaders, body.value)
     store.add({
       method: method.value,
       url: url.value.trim(),
-      requestHeaders: headerMap,
+      requestHeaders,
       requestBody: body.value,
       status: res.status,
       statusText: res.statusText,
@@ -67,6 +74,16 @@ async function send() {
 function loadSample() {
   store.add(buildSampleRecord())
 }
+
+function onWindowKeydown(e: KeyboardEvent) {
+  if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
+    e.preventDefault()
+    send()
+  }
+}
+
+onMounted(() => window.addEventListener('keydown', onWindowKeydown))
+onBeforeUnmount(() => window.removeEventListener('keydown', onWindowKeydown))
 </script>
 
 <template>
@@ -84,7 +101,10 @@ function loadSample() {
       />
       <button class="btn btn-primary send-btn" :disabled="store.loading || !url.trim()" @click="send">
         <span v-if="store.loading" class="spinner"></span>
-        <template v-else>Отправить</template>
+        <template v-else>
+          <span>Отправить</span>
+          <kbd class="send-hint">{{ shortcut }}</kbd>
+        </template>
       </button>
       <button class="btn" title="Загрузить пример JSON:API" @click="loadSample">Образец</button>
     </div>
@@ -211,5 +231,17 @@ function loadSample() {
   display: inline-flex;
   align-items: center;
   justify-content: center;
+}
+
+.send-hint {
+  font-family: inherit;
+  font-size: 10px;
+  font-weight: 500;
+  line-height: 1.5;
+  padding: 0 5px;
+  margin-left: 6px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.22);
+  color: #fff;
 }
 </style>

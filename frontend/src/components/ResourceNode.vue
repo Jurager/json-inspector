@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { resourceKey, resourceLabel, type Resource, type Relationship } from '../lib/jsonapi'
 import RelationshipLink from './RelationshipLink.vue'
 
@@ -15,6 +15,15 @@ const emit = defineEmits<{
 }>()
 
 const open = ref(false)
+
+// When the parent highlights this node (e.g. jump from the map), expand it so
+// the resource is actually visible, not just its header.
+watch(
+  () => props.highlighted,
+  (h) => {
+    if (h) open.value = true
+  }
+)
 
 const label = computed(() => resourceLabel(props.resource))
 

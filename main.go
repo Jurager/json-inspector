@@ -47,7 +47,8 @@ func main() {
 			app,
 		},
 		Mac: &mac.Options{
-			TitleBar: mac.TitleBarHiddenInset(),
+			TitleBar:  mac.TitleBarHiddenInset(),
+			OnUrlOpen: app.handleUrlOpen,
 		},
 	})
 

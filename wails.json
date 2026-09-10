@@ -9,5 +9,14 @@
   "author": {
     "name": "Yuri Gerasimov",
     "email": "jurager01@gmail.com"
+  },
+  "info": {
+    "protocols": [
+      {
+        "scheme": "json-inspector",
+        "description": "JSON Inspector Protocol",
+        "role": "Editor"
+      }
+    ]
   }
 }

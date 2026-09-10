@@ -18,6 +18,10 @@ export function SendRequest(arg1, arg2, arg3, arg4) {
   return window['go']['main']['App']['SendRequest'](arg1, arg2, arg3, arg4);
 }
 
+export function ShowAbout() {
+  return window['go']['main']['App']['ShowAbout']();
+}
+
 export function ToggleMaximize() {
   return window['go']['main']['App']['ToggleMaximize']();
 }

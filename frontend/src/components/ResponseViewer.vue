@@ -12,10 +12,10 @@ import {
 import { isJsonApi, type JsonApiDocument } from '../lib/jsonapi'
 import JsonApiTree from './JsonApiTree.vue'
 import JsonTree from './JsonTree.vue'
-import RelationshipMap from './RelationshipMap.vue'
-import { Fetch, Analyze } from '../../wailsjs/go/main/App'
-import type { jsonapi } from '../../wailsjs/go/models'
+import SchemaMap from './SchemaMap.vue'
+import { Fetch } from '../../wailsjs/go/main/App'
 import { useRequestsStore } from '../stores/requests'
+import { copyToClipboard, exportRequest, type ExportFormat } from '../lib/export'
 
 const props = defineProps<{ record: RequestRecord }>()
 
@@ -69,31 +69,12 @@ const doc = computed<JsonApiDocument | null>(() =>
   isJsonApiDoc.value ? (jsonValue.value as JsonApiDocument) : null
 )
 
-const graph = ref<jsonapi.Graph | null>(null)
-const mapLoaded = ref(false)
 const highlightKey = ref<string | null>(null)
-
-async function loadMap() {
-  if (mapLoaded.value || !isJsonApiDoc.value) return
-  mapLoaded.value = true
-  try {
-    const analysis = await Analyze(props.record.responseBody)
-    graph.value = analysis.graph ?? null
-  } catch {
-    graph.value = null
-  }
-}
-
-watch(activeTab, (t) => {
-  if (t === 'map') loadMap()
-})
 
 watch(
   () => props.record.id,
   () => {
     activeTab.value = 'body'
-    graph.value = null
-    mapLoaded.value = false
     highlightKey.value = null
   },
   { immediate: true }
@@ -101,6 +82,10 @@ watch(
 
 function onTreeFetch(url: string) {
   follow(url)
+}
+
+function onTreeSelect(key: string) {
+  highlightKey.value = key
 }
 
 function onMapSelect(key: string) {
@@ -118,7 +103,7 @@ async function follow(url: string) {
   // left staring at the stale response while the new request runs.
   store.activeView = 'request'
   store.loading = true
-  store.selectedId = null
+  store.manualId = null
   try {
     const res = await Fetch(url, headers)
     store.add({
@@ -153,7 +138,7 @@ const hasPrev = computed(() => {
 function goBack() {
   const idx = store.requests.findIndex((r) => r.id === props.record.id)
   if (idx >= 0 && idx < store.requests.length - 1) {
-    store.select(store.requests[idx + 1].id)
+    store.selectManual(store.requests[idx + 1].id)
   }
 }
 
@@ -215,6 +200,25 @@ function closeSearch() {
   rawCurrentMatch.value = 0
 }
 
+const rawCopied = ref(false)
+
+async function copyRaw() {
+  if (await copyToClipboard(prettyRaw.value)) {
+    rawCopied.value = true
+    setTimeout(() => (rawCopied.value = false), 1500)
+  }
+}
+
+const headersCopied = ref(false)
+
+async function copyHeaders() {
+  const text = responseHeaderEntries.value.map(([k, v]) => `${k}: ${v}`).join('\n')
+  if (await copyToClipboard(text)) {
+    headersCopied.value = true
+    setTimeout(() => (headersCopied.value = false), 1500)
+  }
+}
+
 function onWindowKeydown(e: KeyboardEvent) {
   if (activeTab.value !== 'raw') return
   if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'f') {
@@ -227,6 +231,43 @@ function onWindowKeydown(e: KeyboardEvent) {
 
 onMounted(() => window.addEventListener('keydown', onWindowKeydown))
 onBeforeUnmount(() => window.removeEventListener('keydown', onWindowKeydown))
+
+// --- Copy request (Запрос tab) ---
+const COPY_FORMATS: { id: ExportFormat; label: string }[] = [
+  { id: 'curl', label: 'cURL' },
+  { id: 'fetch', label: 'fetch (JS)' },
+  { id: 'wget', label: 'wget' },
+  { id: 'httpie', label: 'HTTPie' },
+  { id: 'powershell', label: 'PowerShell' },
+]
+
+const copyMenuOpen = ref(false)
+const copied = ref(false)
+const copyWrapEl = ref<HTMLElement | null>(null)
+
+async function copyAs(format: ExportFormat) {
+  copyMenuOpen.value = false
+  const text = exportRequest(
+    format,
+    props.record.method,
+    props.record.url,
+    props.record.requestHeaders,
+    props.record.requestBody
+  )
+  if (await copyToClipboard(text)) {
+    copied.value = true
+    setTimeout(() => (copied.value = false), 1500)
+  }
+}
+
+function onDocClick(e: MouseEvent) {
+  if (copyWrapEl.value && !copyWrapEl.value.contains(e.target as Node)) {
+    copyMenuOpen.value = false
+  }
+}
+
+onMounted(() => document.addEventListener('click', onDocClick))
+onBeforeUnmount(() => document.removeEventListener('click', onDocClick))
 </script>
 
 <template>
@@ -253,16 +294,20 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onWindowKeydown))
 
     <div class="resp-content">
       <template v-if="activeTab === 'body'">
-        <JsonApiTree v-if="doc" :doc="doc" :highlight-key="highlightKey" @fetch="onTreeFetch" />
+        <JsonApiTree v-if="doc" :doc="doc" :highlight-key="highlightKey" @select="onTreeSelect" @fetch="onTreeFetch" />
         <div v-else-if="isJson" class="jt-wrap"><JsonTree :value="jsonValue" /></div>
         <pre v-else class="code resp-pad">{{ record.responseBody }}</pre>
       </template>
 
       <template v-else-if="activeTab === 'map'">
-        <RelationshipMap :graph="graph" @select="onMapSelect" @fetch="onMapFetch" />
+        <SchemaMap :doc="doc" :highlight-key="highlightKey" @select="onMapSelect" @fetch="onMapFetch" />
       </template>
 
       <template v-else-if="activeTab === 'raw'">
+        <div class="toolbar">
+          <button class="btn" @click="copyRaw">{{ rawCopied ? 'Скопировано ✓' : 'Копировать' }}</button>
+          <button class="btn" @click="openSearch">Поиск ⌘F</button>
+        </div>
         <div v-if="rawSearchVisible" class="search-bar">
           <input
             ref="searchInputRef"
@@ -284,6 +329,9 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onWindowKeydown))
       </template>
 
       <template v-else-if="activeTab === 'headers'">
+        <div class="toolbar">
+          <button class="btn" @click="copyHeaders">{{ headersCopied ? 'Скопировано ✓' : 'Копировать' }}</button>
+        </div>
         <table class="kv-table">
           <tbody>
             <tr v-for="[k, v] in responseHeaderEntries" :key="k">
@@ -298,6 +346,18 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onWindowKeydown))
       </template>
 
       <template v-else>
+        <div class="toolbar">
+          <div ref="copyWrapEl" class="copy-row">
+            <button class="btn" @click="copyMenuOpen = !copyMenuOpen">
+              {{ copied ? 'Скопировано ✓' : 'Копировать ▾' }}
+            </button>
+            <div v-if="copyMenuOpen" class="copy-menu">
+              <button v-for="f in COPY_FORMATS" :key="f.id" class="copy-menu-item" @click="copyAs(f.id)">
+                {{ f.label }}
+              </button>
+            </div>
+          </div>
+        </div>
         <div class="resp-pad">
           <div class="kv-row"><span class="kv-label">Метод</span><span class="mono">{{ record.method }}</span></div>
           <div class="kv-row"><span class="kv-label">URL</span><span class="mono break">{{ record.url }}</span></div>
@@ -332,7 +392,8 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onWindowKeydown))
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 8px 12px;
+  height: 48px;
+  padding: 0 12px;
   border-bottom: 1px solid var(--border);
   background: var(--bg-panel);
 }
@@ -416,6 +477,16 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onWindowKeydown))
   word-break: break-all;
 }
 
+.toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-panel);
+}
+
 .search-bar {
   display: flex;
   align-items: center;
@@ -437,5 +508,39 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onWindowKeydown))
   font-size: 12px;
   color: var(--text-tertiary);
   white-space: nowrap;
+}
+
+.copy-row {
+  position: relative;
+}
+
+.copy-menu {
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 0;
+  z-index: 20;
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: var(--shadow);
+  padding: 4px;
+  min-width: 160px;
+}
+
+.copy-menu-item {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 6px 10px;
+  border: none;
+  background: transparent;
+  color: var(--text);
+  font-size: 12px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.copy-menu-item:hover {
+  background: var(--bg-hover);
 }
 </style>

@@ -1,9 +1,10 @@
-// Service worker. Captures requests from ONE tab at a time (chosen via the
-// popup) and forwards them to the JSON Inspector app over a WebSocket. Capture
-// state is shown by swapping the toolbar icon: a red dot while the app is
-// connected, an orange dot while the app is unreachable. A silent /health check
-// runs before each connection attempt so a closed app never logs WebSocket
-// errors, and the interceptor is re-injected on navigation.
+// Service worker. Captures requests from any number of tabs (each enabled via
+// the popup) and forwards them to the JSON Inspector app over a WebSocket.
+// Capture state is shown by swapping the toolbar icon and tooltip per tab: a
+// red dot while the app is connected, an orange dot while the app is
+// unreachable. A silent /health check runs before each connection attempt so a
+// closed app never logs WebSocket errors, and the interceptor is re-injected on
+// navigation.
 const DEFAULT_PORT = 38761;
 const KEEPALIVE = 'ji-keepalive';
 const RECONNECT_MS = 2500;
@@ -30,13 +31,19 @@ const DISCONNECTED_ICON = {
 let socket = null;
 let reconnectTimer = null;
 let pending = [];
-let captureTabId = null;
+let captureTabIds = new Set(); // tabs currently being captured
+let captureTabMeta = new Map(); // tabId -> { title }
+let capturedCounts = new Map(); // tabId -> number of captured requests
 let connected = false;
 
-async function getState() {
-  const sess = await chrome.storage.session.get('captureTabId');
+async function readState() {
+  const sess = await chrome.storage.session.get('captureTabIds');
   const local = await chrome.storage.local.get('port');
-  return { captureTabId: sess.captureTabId ?? null, port: local.port || DEFAULT_PORT };
+  return { captureTabIds: sess.captureTabIds ?? [], port: local.port || DEFAULT_PORT };
+}
+
+async function persistCapture() {
+  await chrome.storage.session.set({ captureTabIds: Array.from(captureTabIds) });
 }
 
 function setCaptureIcon(tabId, state) {
@@ -44,9 +51,29 @@ function setCaptureIcon(tabId, state) {
   chrome.action.setIcon({ path, tabId });
 }
 
-function refreshIcon() {
-  if (captureTabId == null) return;
-  setCaptureIcon(captureTabId, connected ? 'recording' : 'disconnected');
+function setCaptureTitle(tabId, title) {
+  chrome.action.setTitle({ title, tabId });
+}
+
+function pluralRequests(n) {
+  const m10 = n % 10;
+  const m100 = n % 100;
+  if (m10 === 1 && m100 !== 11) return n + ' запрос';
+  if (m10 >= 2 && m10 <= 4 && (m100 < 12 || m100 > 14)) return n + ' запроса';
+  return n + ' запросов';
+}
+
+function captureTitleText(tabId) {
+  const meta = captureTabMeta.get(tabId);
+  const label = meta && meta.title ? '«' + meta.title + '»' : 'вкладка';
+  return 'Перехват: ' + label + ' · ' + pluralRequests(capturedCounts.get(tabId) || 0);
+}
+
+function refreshIndicator() {
+  for (const id of captureTabIds) {
+    setCaptureIcon(id, connected ? 'recording' : 'disconnected');
+    setCaptureTitle(id, connected ? captureTitleText(id) : 'Перехват: приложение недоступно');
+  }
 }
 
 async function isAppRunning(port) {
@@ -69,7 +96,7 @@ async function connect(port) {
   const running = await isAppRunning(port);
   if (!running) {
     connected = false;
-    refreshIcon();
+    refreshIndicator();
     scheduleReconnect();
     return;
   }
@@ -85,7 +112,7 @@ async function connect(port) {
 
   ws.onopen = () => {
     connected = true;
-    refreshIcon();
+    refreshIndicator();
     const queue = pending.splice(0, pending.length);
     for (const msg of queue) {
       if (ws.readyState === WebSocket.OPEN) ws.send(msg);
@@ -104,10 +131,10 @@ async function connect(port) {
 function scheduleReconnect() {
   clearTimeout(reconnectTimer);
   connected = false;
-  refreshIcon();
+  refreshIndicator();
   reconnectTimer = setTimeout(async () => {
-    const { captureTabId: id, port } = await getState();
-    if (id != null) connect(port);
+    const { port } = await readState();
+    if (captureTabIds.size > 0) connect(port);
   }, RECONNECT_MS);
 }
 
@@ -157,34 +184,45 @@ async function startCapture() {
     return { ok: false, error: 'нет активной вкладки' };
   }
 
-  const prev = await getState();
-  if (prev.captureTabId != null && prev.captureTabId !== tab.id) {
-    await disableInTab(prev.captureTabId);
-    setCaptureIcon(prev.captureTabId, 'normal');
+  if (!captureTabIds.has(tab.id)) {
+    await injectInto(tab.id);
+    captureTabIds.add(tab.id);
+    captureTabMeta.set(tab.id, { title: tab.title || '' });
+    capturedCounts.set(tab.id, 0);
+    await persistCapture();
   }
 
-  await injectInto(tab.id);
-
-  captureTabId = tab.id;
-  await chrome.storage.session.set({ captureTabId: tab.id });
   chrome.alarms.create(KEEPALIVE, { periodInMinutes: 0.4 });
   setCaptureIcon(tab.id, 'disconnected');
+  setCaptureTitle(tab.id, 'Перехват: приложение недоступно');
 
-  const { port } = await getState();
-  connect(port);
+  if (!(socket && socket.readyState === WebSocket.OPEN)) {
+    const { port } = await readState();
+    connect(port);
+  } else {
+    refreshIndicator();
+  }
   return { ok: true, tabId: tab.id };
 }
 
-async function stopCapture() {
-  const { captureTabId: id } = await getState();
-  if (id != null) {
-    await disableInTab(id);
-    setCaptureIcon(id, 'normal');
+async function stopCaptureFor(tabId) {
+  await disableInTab(tabId);
+  setCaptureIcon(tabId, 'normal');
+  setCaptureTitle(tabId, 'JSON Inspector');
+  captureTabIds.delete(tabId);
+  captureTabMeta.delete(tabId);
+  capturedCounts.delete(tabId);
+  await persistCapture();
+  if (captureTabIds.size === 0) {
+    chrome.alarms.clear(KEEPALIVE);
+    disconnect();
   }
-  captureTabId = null;
-  await chrome.storage.session.remove('captureTabId');
-  chrome.alarms.clear(KEEPALIVE);
-  disconnect();
+}
+
+async function stopCapture() {
+  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+  if (!tab || tab.id == null) return { ok: true };
+  await stopCaptureFor(tab.id);
   return { ok: true };
 }
 
@@ -197,25 +235,27 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
 
   // Fire-and-forget from the content bridge — no response expected.
   if (msg.type === 'captured') {
-    chrome.storage.session.get('captureTabId').then(({ captureTabId: id }) => {
-      if (id == null || !sender.tab || sender.tab.id !== id) return;
-      enqueue({
-        type: 'request',
-        id: makeId(),
-        method: msg.method,
-        url: msg.url,
-        requestHeaders: msg.requestHeaders || {},
-        requestBody: msg.requestBody || '',
-        status: msg.status,
-        statusText: msg.statusText || '',
-        responseHeaders: msg.responseHeaders || {},
-        responseBody: msg.responseBody || '',
-        durationMs: msg.durationMs || 0,
-        startedAt: Date.now(),
-        tabId: sender.tab.id,
-        tabTitle: msg.tabTitle,
-        tabURL: msg.tabURL,
-      });
+    if (!sender.tab || !captureTabIds.has(sender.tab.id)) return false;
+    const id = sender.tab.id;
+    capturedCounts.set(id, (capturedCounts.get(id) || 0) + 1);
+    if (connected) setCaptureTitle(id, captureTitleText(id));
+    enqueue({
+      type: 'request',
+      id: makeId(),
+      method: msg.method,
+      url: msg.url,
+      requestHeaders: msg.requestHeaders || {},
+      requestBody: msg.requestBody || '',
+      status: msg.status,
+      statusText: msg.statusText || '',
+      responseHeaders: msg.responseHeaders || {},
+      responseBody: msg.responseBody || '',
+      durationMs: msg.durationMs || 0,
+      startedAt: Date.now(),
+      tabId: id,
+      tabTitle: msg.tabTitle,
+      tabURL: msg.tabURL,
+      favIconUrl: sender.tab.favIconUrl || '',
     });
     return false;
   }
@@ -224,15 +264,33 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   (async () => {
     switch (msg.type) {
       case 'getState': {
-        const { captureTabId: id, port } = await getState();
+        const { port } = await readState();
         const appRunning = await isAppRunning(port);
         const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+        const activeTabId = tab ? tab.id : null;
+
+        const capturedTabs = [];
+        for (const id of captureTabIds) {
+          try {
+            const t = await chrome.tabs.get(id);
+            capturedTabs.push({
+              tabId: id,
+              title: t.title || '',
+              url: t.url || '',
+              favIconUrl: t.favIconUrl || '',
+              count: capturedCounts.get(id) || 0,
+            });
+          } catch (_) {
+            // Tab closed; onRemoved will clean it up.
+          }
+        }
+
         sendResponse({
-          capturing: id != null,
-          captureTabId: id,
-          activeTabId: tab ? tab.id : null,
+          capturing: activeTabId != null && captureTabIds.has(activeTabId),
+          activeTabId,
           port,
           appRunning,
+          capturedTabs,
         });
         break;
       }
@@ -242,12 +300,17 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
       case 'stopCapture':
         sendResponse(await stopCapture());
         break;
+      case 'stopCaptureTab':
+        if (msg.tabId != null && captureTabIds.has(msg.tabId)) {
+          await stopCaptureFor(msg.tabId);
+        }
+        sendResponse({ ok: true });
+        break;
       case 'setPort': {
         const p = parseInt(msg.port, 10);
         if (p > 0 && p < 65536) {
           await chrome.storage.local.set({ port: p });
-          const { captureTabId: id } = await getState();
-          if (id != null) connect(p);
+          if (captureTabIds.size > 0) connect(p);
         }
         sendResponse({ ok: true });
         break;
@@ -259,8 +322,8 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
 
 chrome.alarms.onAlarm.addListener((alarm) => {
   if (alarm.name !== KEEPALIVE) return;
-  getState().then(({ captureTabId: id, port }) => {
-    if (id == null) return;
+  readState().then(({ port }) => {
+    if (captureTabIds.size === 0) return;
     if (!socket || socket.readyState !== WebSocket.OPEN) {
       connect(port);
     } else {
@@ -270,28 +333,38 @@ chrome.alarms.onAlarm.addListener((alarm) => {
 });
 
 // Re-inject the interceptor after navigation so capture survives a page reload.
-// The per-tab icon is reset by Chrome on navigation, so re-apply it too.
+// The per-tab icon and tooltip are reset by Chrome on navigation, so re-apply
+// them too.
 chrome.webNavigation.onCommitted.addListener((details) => {
   if (details.frameId !== 0) return;
-  if (details.tabId !== captureTabId) return;
-  refreshIcon();
+  if (!captureTabIds.has(details.tabId)) return;
+  refreshIndicator();
   injectInto(details.tabId).catch(() => {});
+  chrome.tabs.get(details.tabId).then((t) => {
+    if (captureTabIds.has(details.tabId)) captureTabMeta.set(details.tabId, { title: t.title || '' });
+  }).catch(() => {});
 });
 
 // Restore capture state if the service worker was killed and restarted.
-chrome.storage.session.get('captureTabId').then(({ captureTabId: id }) => {
-  if (id != null) {
-    captureTabId = id;
+chrome.storage.session.get('captureTabIds').then(({ captureTabIds: ids }) => {
+  if (!ids || !ids.length) return;
+  for (const id of ids) {
+    captureTabIds.add(id);
+    captureTabMeta.set(id, { title: '' });
     setCaptureIcon(id, 'disconnected');
-    getState().then(({ port }) => connect(port));
+    setCaptureTitle(id, 'Перехват: приложение недоступно');
   }
+  readState().then(({ port }) => connect(port));
 });
 
-// If the captured tab closes, stop capture.
+// If a captured tab closes, remove it from the capture set.
 chrome.tabs.onRemoved.addListener((tabId) => {
-  if (tabId === captureTabId) {
-    captureTabId = null;
-    chrome.storage.session.remove('captureTabId');
+  if (!captureTabIds.has(tabId)) return;
+  captureTabIds.delete(tabId);
+  captureTabMeta.delete(tabId);
+  capturedCounts.delete(tabId);
+  persistCapture();
+  if (captureTabIds.size === 0) {
     chrome.alarms.clear(KEEPALIVE);
     disconnect();
   }

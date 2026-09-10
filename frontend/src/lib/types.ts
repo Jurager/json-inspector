@@ -17,4 +17,6 @@ export interface RequestRecord {
   error?: string
   tabTitle?: string
   tabURL?: string
+  tabId?: number
+  favIconUrl?: string
 }

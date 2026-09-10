@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { onBeforeUnmount, onMounted, ref } from 'vue'
 import { EventsOn } from '../../wailsjs/runtime/runtime'
-import { CheckForUpdates, UpdateNow, Version } from '../../wailsjs/go/main/App'
+import { CheckForUpdates, UpdateNow, Version, ShowAbout } from '../../wailsjs/go/main/App'
 
 interface UpdateInfo {
   available: boolean
@@ -87,7 +87,7 @@ onBeforeUnmount(() => {
     <button class="nav-item" @click="check">
       <span class="nav-icon">↓</span> {{ checking ? 'Проверка…' : 'Проверить обновления' }}
     </button>
-    <div v-if="currentVersion" class="updater-version">v{{ currentVersion }}</div>
+    <button v-if="currentVersion" class="updater-version" title="О программе" @click="ShowAbout()">v{{ currentVersion }}</button>
 
     <transition name="fade">
       <div v-if="toast" class="toast" :class="toastType">{{ toast }}</div>
@@ -119,9 +119,22 @@ onBeforeUnmount(() => {
 }
 
 .updater-version {
+  display: block;
+  width: 100%;
+  text-align: left;
   padding: 2px 10px;
   font-size: 11px;
   color: var(--text-tertiary);
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  border-radius: 6px;
+  font-family: inherit;
+}
+
+.updater-version:hover {
+  color: var(--text-secondary);
+  background: var(--bg-hover);
 }
 
 .toast {

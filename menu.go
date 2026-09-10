@@ -11,6 +11,11 @@ func buildMenu(app *App) *menu.Menu {
 		Label: "JSON Inspector",
 		SubMenu: menu.NewMenuFromItems(
 			&menu.MenuItem{
+				Label: "О программе",
+				Click: func(*menu.CallbackData) { app.ShowAbout() },
+			},
+			menu.Separator(),
+			&menu.MenuItem{
 				Label:       "Проверить обновления…",
 				Accelerator: keys.CmdOrCtrl("u"),
 				Click:       func(*menu.CallbackData) { app.checkForUpdatesFromMenu() },
