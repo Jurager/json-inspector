@@ -19,6 +19,8 @@ import {
   Menu,
   Info,
   Sparkles,
+  Folder,
+  Settings2,
 } from 'lucide-vue-next'
 
 const props = defineProps<{ name: string; size?: number }>()
@@ -41,6 +43,8 @@ const ICONS: Record<string, Component> = {
   menu: Menu,
   info: Info,
   sparkles: Sparkles,
+  folder: Folder,
+  'settings-2': Settings2,
 }
 
 const icon = computed(() => ICONS[props.name] ?? ArrowUpRight)

@@ -1,7 +1,10 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { BridgePort } from '../../wailsjs/go/main/App'
 import { BrowserOpenURL } from '../../wailsjs/runtime/runtime'
+import { useRequestsStore } from '../stores/requests'
+
+const store = useRequestsStore()
 
 const port = ref('')
 
@@ -11,6 +14,16 @@ onMounted(async () => {
   } catch {
     // ignore — runtime not ready yet
   }
+})
+
+// The status line reflects the live bridge connection rather than a hardcoded
+// "not found": the extension can be connected (or even recording) while there
+// are simply no captured requests to show yet.
+const statusText = computed(() => {
+  const p = port.value || '…'
+  return store.capture.connected
+    ? `Расширение подключено · порт ${p} слушает`
+    : `Расширение не найдено · порт ${p} слушает`
 })
 
 // The instruction lives in the repository README (extension/ setup steps).
@@ -45,8 +58,8 @@ function openInstructions() {
       <div class="empty-actions">
         <button class="btn btn-primary" @click="openInstructions">Открыть инструкцию</button>
         <span class="status-line">
-          <span class="dot dot-orange"></span>
-          <span>Расширение не найдено · порт {{ port || '…' }} слушает</span>
+          <span class="dot" :class="store.capture.connected ? 'dot-green' : 'dot-orange'"></span>
+          <span>{{ statusText }}</span>
         </span>
       </div>
     </div>
@@ -111,5 +124,9 @@ function openInstructions() {
 
 .dot-orange {
   background: var(--orange);
+}
+
+.dot-green {
+  background: var(--green);
 }
 </style>

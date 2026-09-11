@@ -1,15 +1,21 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useRequestsStore } from '../stores/requests'
+import { PauseCapture } from '../../wailsjs/go/main/App'
 
 const store = useRequestsStore()
 
-// The source is the browser tab the selected request came from; until step 9
-// wires per-tab state, the selected record is the best available hint.
+// The source is the browser tab the selected request came from.
 const sourceLabel = computed(() => {
   const t = store.browserSelected?.tabTitle
   return t ? `Источник: вкладка «${t}»` : 'Источник: браузер'
 })
+
+// Stops capture on every tab via the reverse WS channel; the extension replies
+// with a fresh capture-state message that updates the status bar.
+async function pause() {
+  await PauseCapture()
+}
 </script>
 
 <template>
@@ -17,8 +23,7 @@ const sourceLabel = computed(() => {
     <span class="capture-source">{{ sourceLabel }}</span>
     <span class="capture-spacer"></span>
     <span class="capture-hint">Только чтение — запросы уже выполнены</span>
-    <!-- Wired to the bridge on step 9; present now so the bar has its shape. -->
-    <button class="capture-pause" title="Приостановить перехват">Приостановить перехват</button>
+    <button class="capture-pause" title="Приостановить перехват" @click="pause">Приостановить перехват</button>
   </div>
 </template>
 

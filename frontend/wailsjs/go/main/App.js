@@ -22,6 +22,10 @@ export function Fetch(arg1, arg2) {
   return window['go']['main']['App']['Fetch'](arg1, arg2);
 }
 
+export function PauseCapture() {
+  return window['go']['main']['App']['PauseCapture']();
+}
+
 export function SendRequest(arg1, arg2, arg3, arg4) {
   return window['go']['main']['App']['SendRequest'](arg1, arg2, arg3, arg4);
 }

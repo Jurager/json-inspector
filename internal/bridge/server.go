@@ -6,6 +6,7 @@ import (
 	"log"
 	"net/http"
 	"strings"
+	"sync"
 
 	"github.com/gorilla/websocket"
 )
@@ -21,20 +22,40 @@ type StateHandler func(CaptureState)
 type DisconnectHandler func()
 
 // Server is a loopback WebSocket server that receives captured requests from
-// the Chrome extension and forwards them to the UI.
+// the Chrome extension and forwards them to the UI. It also keeps the live
+// socket so the app can push control messages back to the extension (pause).
 type Server struct {
 	port              int
 	handler           Handler
 	stateHandler      StateHandler
 	disconnectHandler DisconnectHandler
 	upgrader          websocket.Upgrader
+
+	mu      sync.Mutex
+	clients map[*websocket.Conn]struct{}
 }
 
 // NewServer creates a server listening on 127.0.0.1:port.
 func NewServer(port int, handler Handler, stateHandler StateHandler, disconnectHandler DisconnectHandler) *Server {
-	s := &Server{port: port, handler: handler, stateHandler: stateHandler, disconnectHandler: disconnectHandler}
+	s := &Server{
+		port:              port,
+		handler:           handler,
+		stateHandler:      stateHandler,
+		disconnectHandler: disconnectHandler,
+		clients:           make(map[*websocket.Conn]struct{}),
+	}
 	s.upgrader = websocket.Upgrader{CheckOrigin: s.checkOrigin}
 	return s
+}
+
+// Broadcast sends a message to every currently connected extension. It is the
+// app → extension direction (the opposite of the requests the extension pushes).
+func (s *Server) Broadcast(payload []byte) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	for c := range s.clients {
+		_ = c.WriteMessage(websocket.TextMessage, payload)
+	}
 }
 
 // checkOrigin limits connections to trusted origins: non-browser clients
@@ -81,8 +102,14 @@ func (s *Server) handleWS(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		return
 	}
+	s.mu.Lock()
+	s.clients[conn] = struct{}{}
+	s.mu.Unlock()
 	defer conn.Close()
 	defer func() {
+		s.mu.Lock()
+		delete(s.clients, conn)
+		s.mu.Unlock()
 		if s.disconnectHandler != nil {
 			s.disconnectHandler()
 		}

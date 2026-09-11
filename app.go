@@ -25,6 +25,15 @@ type App struct {
 
 	mu        sync.Mutex
 	cancelReq context.CancelFunc
+
+	// bridge is the loopback WS server the extension connects to; it lets the
+	// app push control messages back (pause) in the opposite direction.
+	bridge *bridge.Server
+}
+
+// setBridge wires the bridge server so PauseCapture can reach the extension.
+func (a *App) setBridge(s *bridge.Server) {
+	a.bridge = s
 }
 
 // NewApp creates a new App application struct.
@@ -253,6 +262,15 @@ func (a *App) Analyze(body string) *jsonapi.Analysis {
 // the empty state can name it without hardcoding the number in the template.
 func (a *App) BridgePort() int {
 	return bridge.DefaultPort
+}
+
+// PauseCapture tells the extension to stop capturing every tab. It is the
+// "Приостановить перехват" action in the browser view; the extension stops its
+// interceptors and replies with a fresh capture-state message.
+func (a *App) PauseCapture() {
+	if a.bridge != nil {
+		a.bridge.Broadcast([]byte(`{"type":"pause"}`))
+	}
 }
 
 // onCapturedRequest is the bridge handler: it forwards browser-captured

@@ -122,7 +122,7 @@ body {
 
 /* ---- Title bar (native look, full-width, draggable) ---- */
 .titlebar {
-  @apply h-13 flex-none flex items-center justify-center bg-bg-sidebar border-b border-border select-none;
+  @apply relative h-13 flex-none flex items-center justify-center bg-bg-sidebar border-b border-border select-none;
   --wails-draggable: drag;
 }
 
@@ -162,6 +162,56 @@ body {
 .titlebar-controls {
   @apply flex items-stretch self-stretch h-full;
   --wails-draggable: no-drag;
+}
+
+/* macOS titlebar: environment + global search live on the right, over the
+   native hidden-inset bar. The title stays centered via the absolute action
+   cluster. */
+.titlebar-actions {
+  @apply absolute right-3.5 top-1/2 -translate-y-1/2 flex items-center gap-2;
+  --wails-draggable: no-drag;
+}
+
+.env-wrap {
+  @apply relative;
+}
+
+.titlebar-btn {
+  @apply inline-flex items-center gap-1.5 h-[26px] px-2.5 rounded-md text-xs cursor-pointer;
+  border: 1px solid var(--border-strong);
+  background: var(--bg-panel);
+  color: var(--text);
+  box-shadow: var(--shadow);
+  --wails-draggable: no-drag;
+}
+
+.titlebar-btn:hover {
+  @apply bg-bg-hover;
+}
+
+.titlebar-search {
+  color: var(--text-secondary);
+}
+
+.titlebar-key {
+  @apply text-[10.5px] leading-none px-1 py-0.5 rounded-sm text-text-tertiary;
+  font-family: var(--mono);
+  background: var(--bg-inset);
+  border: 1px solid var(--border);
+}
+
+.env-dot {
+  @apply w-[7px] h-[7px] rounded-full flex-none;
+  background: var(--green);
+}
+
+.env-menu {
+  @apply absolute right-0 top-full mt-1;
+}
+
+.env-item-active {
+  color: var(--text);
+  background: var(--accent-soft);
 }
 
 .cap-btn {
@@ -274,6 +324,15 @@ body {
 
 .rail-badge {
   @apply absolute -top-1.5 -right-2 min-w-[16px] h-4 px-1 rounded-full bg-red text-white text-[10px] font-semibold inline-flex items-center justify-center;
+}
+
+/* Pushes the settings tile to the bottom of the rail, after the source items. */
+.rail-spacer {
+  @apply flex-1;
+}
+
+.rail-settings {
+  @apply flex-none;
 }
 
 /* ---- Dropdown menus (rail menu, copy/export menus) ---- */

@@ -14,6 +14,8 @@ export function CheckForUpdates():Promise<update.Update>;
 
 export function Fetch(arg1:string,arg2:Record<string, string>):Promise<main.ResponseResult>;
 
+export function PauseCapture():Promise<void>;
+
 export function SendRequest(arg1:string,arg2:string,arg3:Record<string, string>,arg4:string):Promise<main.ResponseResult>;
 
 export function ShowAbout():Promise<void>;

@@ -127,6 +127,14 @@ async function connect(port) {
   ws.onerror = () => {
     // onclose fires next and drives the reconnect; nothing to do here.
   };
+  ws.onmessage = (event) => {
+    let msg;
+    try { msg = JSON.parse(event.data); } catch (_) { return; }
+    // The app's "Приостановить перехват" — stop every tab's interceptor.
+    if (msg.type === 'pause') {
+      pauseAll();
+    }
+  };
 }
 
 function scheduleReconnect() {
@@ -239,6 +247,14 @@ async function stopCapture() {
   if (!tab || tab.id == null) return { ok: true };
   await stopCaptureFor(tab.id);
   return { ok: true };
+}
+
+// Stops capture on every tab — the app's "Приостановить перехват" control.
+async function pauseAll() {
+  const ids = Array.from(captureTabIds);
+  for (const id of ids) {
+    await stopCaptureFor(id);
+  }
 }
 
 function makeId() {

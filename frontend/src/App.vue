@@ -111,9 +111,32 @@ async function doUpdate() {
 const railMenuOpen = ref(false)
 const railMenuEl = ref<HTMLElement | null>(null)
 
+// Environment switcher in the titlebar. Environments aren't implemented yet, so
+// it is a single-entry dropdown ("Local · dev"); the dropdown exists so the
+// control has its final shape.
+const envOpen = ref(false)
+const envWrapEl = ref<HTMLElement | null>(null)
+
 function onDocClick(e: MouseEvent) {
   if (railMenuEl.value && !railMenuEl.value.contains(e.target as Node)) {
     railMenuOpen.value = false
+  }
+  if (envWrapEl.value && !envWrapEl.value.contains(e.target as Node)) {
+    envOpen.value = false
+  }
+}
+
+// Global search (⌘K) — there is no search index yet, so it points at the
+// command line: switch to "Запрос" and focus the URL field.
+function focusSearch() {
+  store.activeView = 'request'
+  store.requestFocusUrl()
+}
+
+function onGlobalKeydown(e: KeyboardEvent) {
+  if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
+    e.preventDefault()
+    focusSearch()
   }
 }
 
@@ -256,6 +279,7 @@ onMounted(() => {
 
   window.addEventListener('mousemove', sideResize.move)
   window.addEventListener('mouseup', sideResize.stop)
+  window.addEventListener('keydown', onGlobalKeydown)
   document.addEventListener('click', onDocClick)
 })
 
@@ -264,6 +288,7 @@ onBeforeUnmount(() => {
   window.removeEventListener('mousemove', sideResize.move)
   window.removeEventListener('mouseup', sideResize.stop)
   window.removeEventListener('resize', refreshMaximised)
+  window.removeEventListener('keydown', onGlobalKeydown)
   document.removeEventListener('click', onDocClick)
 })
 </script>
@@ -296,7 +321,28 @@ onBeforeUnmount(() => {
           </button>
         </div>
       </template>
-      <span v-else class="titlebar-title">JSON Inspector</span>
+      <template v-else>
+        <span class="titlebar-title">JSON Inspector</span>
+        <div class="titlebar-actions">
+          <div ref="envWrapEl" class="env-wrap">
+            <button class="titlebar-btn" title="Окружение" @click="envOpen = !envOpen">
+              <span class="env-dot"></span>
+              <span>Local · dev</span>
+              <Icon name="chevron-down" :size="11" />
+            </button>
+            <div v-if="envOpen" class="menu env-menu">
+              <div class="menu-item env-item-active">
+                <span class="env-dot"></span>
+                <span>Local · dev</span>
+              </div>
+            </div>
+          </div>
+          <button class="titlebar-btn titlebar-search" title="Глобальный поиск (⌘K)" @click="focusSearch">
+            <span>Поиск</span>
+            <kbd class="titlebar-key">⌘K</kbd>
+          </button>
+        </div>
+      </template>
     </header>
 
     <div class="body">
@@ -337,14 +383,28 @@ onBeforeUnmount(() => {
           </span>
           <span class="rail-label">Браузер</span>
         </button>
+        <button
+          class="rail-item"
+          :class="{ active: store.activeView === 'collections' }"
+          @click="store.activeView = 'collections'"
+        >
+          <span class="rail-icon"><Icon name="folder" :size="18" /></span>
+          <span class="rail-label">Коллекции</span>
+        </button>
+
+        <div class="rail-spacer"></div>
+
+        <button class="rail-item rail-settings" title="Настройки" @click="aboutOpen = true">
+          <span class="rail-icon"><Icon name="settings-2" :size="17" /></span>
+        </button>
       </aside>
 
       <main class="main">
         <div class="side-layout">
-          <div v-if="!browserEmpty" class="side-panel" :style="{ width: sideWidth + 'px' }">
+          <div v-if="!browserEmpty && store.activeView !== 'collections'" class="side-panel" :style="{ width: sideWidth + 'px' }">
             <HistoryPanel :source="store.activeView === 'request' ? 'manual' : 'browser'" />
           </div>
-          <div v-if="!browserEmpty" class="resize-handle" @mousedown.prevent="sideResize.start"></div>
+          <div v-if="!browserEmpty && store.activeView !== 'collections'" class="resize-handle" @mousedown.prevent="sideResize.start"></div>
           <div class="side-main">
             <template v-if="store.activeView === 'request'">
               <RequestBuilder />
@@ -357,10 +417,16 @@ onBeforeUnmount(() => {
                 <span>Или загрузите образец JSON:API из меню.</span>
               </div>
             </template>
-            <template v-else>
+            <template v-else-if="store.activeView === 'browser'">
               <CaptureBar />
               <ResponseViewer v-if="store.browserSelected" :record="store.browserSelected" />
               <BrowserEmptyState v-else />
+            </template>
+            <template v-else>
+              <div class="empty">
+                <span class="empty-title">Коллекции скоро</span>
+                <span>Здесь будут сохранённые запросы, сгруппированные в коллекции.</span>
+              </div>
             </template>
           </div>
         </div>

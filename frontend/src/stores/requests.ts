@@ -42,7 +42,7 @@ export const useRequestsStore = defineStore('requests', {
     manualId: null as string | null,
     // The captured request selected in the "Браузер" view.
     browserId: null as string | null,
-    activeView: 'request' as 'request' | 'browser',
+    activeView: 'request' as 'request' | 'browser' | 'collections',
     capturing: false,
     unreadCount: 0,
     loading: false,
