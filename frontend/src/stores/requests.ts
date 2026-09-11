@@ -22,6 +22,26 @@ interface CaptureState {
   tabs: number
 }
 
+interface KeyValueRow {
+  name: string
+  value: string
+  enabled: boolean
+}
+
+type AuthType = 'none' | 'bearer' | 'basic' | 'oauth2'
+
+// The in-progress request being assembled in the command line. Lived in
+// RequestBuilder's local refs before the redesign; it moved into the store so
+// "Открыть в «Запросе»" (step 5) can fill it from a captured record.
+interface DraftState {
+  method: string
+  url: string
+  params: KeyValueRow[]
+  headers: KeyValueRow[]
+  auth: { type: AuthType; token: string }
+  body: string
+}
+
 export const useRequestsStore = defineStore('requests', {
   state: () => ({
     requests: [] as RequestRecord[],
@@ -34,6 +54,15 @@ export const useRequestsStore = defineStore('requests', {
     unreadCount: 0,
     loading: false,
     capture: { connected: false, recording: false, tabs: 0 } as CaptureState,
+    draft: {
+      method: 'GET',
+      url: '',
+      params: [] as KeyValueRow[],
+      headers: [{ name: 'Accept', value: 'application/vnd.api+json', enabled: true }] as KeyValueRow[],
+      auth: { type: 'none' as AuthType, token: '' },
+      body: '',
+    } as DraftState,
+    openChip: null as 'params' | 'headers' | 'auth' | 'body' | null,
   }),
   getters: {
     manualSelected(state): RequestRecord | null {
@@ -94,6 +123,66 @@ export const useRequestsStore = defineStore('requests', {
         clearTimeout(recordingTimer)
         recordingTimer = null
       }
+    },
+    setOpenChip(chip: 'params' | 'headers' | 'auth' | 'body' | null) {
+      this.openChip = chip
+    },
+    // setUrl is the URL → params direction of the two-way sync: a manual URL
+    // edit is the source of truth, so its query string replaces the params.
+    setUrl(url: string) {
+      this.draft.url = url
+      const qi = url.indexOf('?')
+      if (qi === -1) {
+        this.draft.params = []
+        return
+      }
+      try {
+        const sp = new URLSearchParams(url.slice(qi + 1))
+        const next: KeyValueRow[] = []
+        sp.forEach((value, name) => next.push({ name, value, enabled: true }))
+        this.draft.params = next
+      } catch {
+        // Invalid query string — leave params untouched.
+      }
+    },
+    // syncParamsToUrl is the params → URL direction: rebuilds the query string
+    // from enabled rows only, preserving order, without normalizing the rest of
+    // the URL the way the URL API would.
+    syncParamsToUrl() {
+      const base = this.draft.url.split('?')[0]
+      const sp = new URLSearchParams()
+      for (const p of this.draft.params) {
+        if (p.enabled && p.name.trim()) sp.append(p.name.trim(), p.value)
+      }
+      const qs = sp.toString()
+      this.draft.url = qs ? `${base}?${qs}` : base
+    },
+    addParam() {
+      this.draft.params.push({ name: '', value: '', enabled: true })
+    },
+    removeParam(i: number) {
+      this.draft.params.splice(i, 1)
+      this.syncParamsToUrl()
+    },
+    toggleParam(i: number) {
+      this.draft.params[i].enabled = !this.draft.params[i].enabled
+      this.syncParamsToUrl()
+    },
+    updateParam(i: number, patch: Partial<KeyValueRow>) {
+      this.draft.params[i] = { ...this.draft.params[i], ...patch }
+      this.syncParamsToUrl()
+    },
+    addHeader() {
+      this.draft.headers.push({ name: '', value: '', enabled: true })
+    },
+    removeHeader(i: number) {
+      this.draft.headers.splice(i, 1)
+    },
+    toggleHeader(i: number) {
+      this.draft.headers[i].enabled = !this.draft.headers[i].enabled
+    },
+    updateHeader(i: number, patch: Partial<KeyValueRow>) {
+      this.draft.headers[i] = { ...this.draft.headers[i], ...patch }
     },
     clear() {
       this.requests = []
