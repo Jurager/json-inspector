@@ -3,7 +3,7 @@ import { computed, ref } from 'vue'
 import Icon from './Icon.vue'
 import { useRequestsStore } from '../stores/requests'
 import type { RequestRecord } from '../lib/types'
-import { statusClass, formatDuration } from '../lib/json'
+import { statusClass } from '../lib/json'
 
 // One panel, two sources: the manually-built requests ("Запрос" tab) and the
 // ones captured by the browser extension ("Браузер" tab). They're the same
@@ -36,6 +36,18 @@ function clearAll() {
 function timeLabel(startedAt: number): string {
   const d = new Date(startedAt)
   return d.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit', second: '2-digit' })
+}
+
+// Path + query only — the scheme and host are redundant here (the host already
+// shows in the browser group header or the command line), and the full URL is
+// kept in the row's title tooltip.
+function pathOf(url: string): string {
+  try {
+    const u = new URL(url)
+    return u.pathname + u.search
+  } catch {
+    return url
+  }
 }
 
 const query = ref('')
@@ -92,6 +104,12 @@ const isEmptyFiltered = computed(() =>
   props.source === 'browser' ? filteredGroups.value.length === 0 : filteredRecords.value.length === 0
 )
 
+// Until step 9 wires up per-tab capture state, the "запись" label is a
+// heuristic: the most recently active group is the one still being written to.
+function isRecording(g: TabGroup): boolean {
+  return store.capture.recording && filteredGroups.value[0]?.key === g.key
+}
+
 const collapsed = ref<Set<string>>(new Set())
 const brokenFavicons = ref<Set<string>>(new Set())
 
@@ -134,7 +152,7 @@ function groupHue(key: string): number {
 <template>
   <div class="history-panel">
     <div class="panel-head">
-      <span class="panel-title">История</span>
+      <span class="panel-title">{{ source === 'browser' ? 'Перехвачено' : 'История' }}</span>
       <button class="btn" :disabled="records.length === 0" @click="clearAll">Очистить</button>
     </div>
 
@@ -157,13 +175,10 @@ function groupHue(key: string): number {
         @keydown.enter="select(r.id)"
         @keydown.space.prevent="select(r.id)"
       >
-        <div class="item-top">
-          <span class="badge badge-method">{{ r.method }}</span>
-          <span class="badge" :class="statusClass(r.status)">{{ r.status }}</span>
-          <span class="item-time">{{ timeLabel(r.startedAt) }}</span>
-          <span class="item-dur">{{ formatDuration(r.durationMs) }}</span>
-        </div>
-        <div class="item-url mono">{{ r.url }}</div>
+        <span class="item-method mono" :class="{ active: r.id === activeId }">{{ r.method }}</span>
+        <span class="item-status" :class="statusClass(r.status)">{{ r.status }}</span>
+        <span class="item-path mono" :title="r.url">{{ pathOf(r.url) }}</span>
+        <span class="item-time">{{ timeLabel(r.startedAt) }}</span>
       </li>
     </ul>
 
@@ -191,6 +206,10 @@ function groupHue(key: string): number {
             {{ groupLabel(g).charAt(0).toUpperCase() }}
           </span>
           <span class="group-title">{{ groupLabel(g) }}</span>
+          <span v-if="isRecording(g)" class="recording-label">
+            <span class="recording-dot"></span>
+            <span>запись</span>
+          </span>
           <span class="group-count">{{ g.items.length }}</span>
           <button class="group-clear" title="Очистить эту вкладку" @click.stop="clearGroup(g)"><Icon name="xmark" :size="12" /></button>
         </div>
@@ -207,13 +226,10 @@ function groupHue(key: string): number {
             @keydown.enter="select(r.id)"
             @keydown.space.prevent="select(r.id)"
           >
-            <div class="item-top">
-              <span class="badge badge-method">{{ r.method }}</span>
-              <span class="badge" :class="statusClass(r.status)">{{ r.status }}</span>
-              <span class="item-time">{{ timeLabel(r.startedAt) }}</span>
-              <span class="item-dur">{{ formatDuration(r.durationMs) }}</span>
-            </div>
-            <div class="item-url mono">{{ r.url }}</div>
+            <span class="item-method mono" :class="{ active: r.id === activeId }">{{ r.method }}</span>
+            <span class="item-status" :class="statusClass(r.status)">{{ r.status }}</span>
+            <span class="item-path mono" :title="r.url">{{ pathOf(r.url) }}</span>
+            <span class="item-time">{{ timeLabel(r.startedAt) }}</span>
           </li>
         </ul>
       </section>
@@ -355,6 +371,15 @@ function groupHue(key: string): number {
   @apply flex-1 min-w-0 overflow-hidden text-ellipsis whitespace-nowrap font-medium;
 }
 
+.recording-label {
+  @apply flex-none inline-flex items-center gap-1 text-[10.5px] text-red;
+}
+
+.recording-dot {
+  @apply w-1.5 h-1.5 rounded-full flex-none;
+  background: var(--red);
+}
+
 .group-count {
   @apply flex-none h-[18px] leading-[18px] text-[11px] text-text-tertiary;
   font-variant-numeric: tabular-nums;
@@ -375,11 +400,14 @@ function groupHue(key: string): number {
 }
 
 .group-items {
-  @apply list-none m-0 pt-0.5 pr-0 pb-0.5 pl-4;
+  @apply list-none m-0 pt-0.5 pr-0 pb-0.5 pl-3.5;
 }
 
+/* A single, dense row: method → status → path → time. The duration was
+   dropped here because the response header already shows it; the host was
+   dropped from the path because it's redundant with the group header / URL. */
 .item {
-  @apply py-[7px] px-2 rounded-md cursor-pointer mb-px;
+  @apply flex items-center gap-2 py-[7px] px-2.5 rounded-md cursor-pointer mb-px;
 }
 
 .item:hover {
@@ -390,19 +418,27 @@ function groupHue(key: string): number {
   @apply bg-accent-soft;
 }
 
-.item-top {
-  @apply flex items-center gap-1.5;
+.item-method {
+  @apply flex-none min-w-[48px] text-[10.5px] font-semibold text-text-secondary;
+  font-family: var(--mono);
+}
+
+.item-method.active {
+  color: var(--accent);
+}
+
+.item-status {
+  @apply flex-none inline-flex items-center px-1.5 py-px rounded-sm text-[10px] font-semibold;
+  font-variant-numeric: tabular-nums;
+}
+
+.item-path {
+  @apply flex-1 min-w-0 text-[11.5px] text-text overflow-hidden text-ellipsis whitespace-nowrap;
+  font-family: var(--mono);
 }
 
 .item-time {
-  @apply ml-auto text-text-tertiary text-[11px];
-}
-
-.item-dur {
-  @apply text-text-tertiary text-[11px];
-}
-
-.item-url {
-  @apply mt-[3px] text-[11px] text-text-secondary overflow-hidden text-ellipsis whitespace-nowrap;
+  @apply flex-none text-[10.5px] text-text-tertiary;
+  font-variant-numeric: tabular-nums;
 }
 </style>
