@@ -10,19 +10,6 @@ const emit = defineEmits<{ (e: 'close'): void }>()
 
 const editHint = shortcut('E')
 
-// Only the four colours the model allows, mapped onto existing tokens — the
-// chip and the sheet read the same dot from here.
-const DOT_COLORS: Record<string, string> = {
-  green: 'var(--green)',
-  orange: 'var(--orange)',
-  red: 'var(--red)',
-  purple: 'var(--purple)',
-}
-
-function dotStyle(color?: string) {
-  return { background: DOT_COLORS[color ?? 'green'] ?? 'var(--green)' }
-}
-
 // Picking is a transient act, so the menu closes on it — the chip in the
 // titlebar is what confirms the choice landed.
 function choose(id: string | null) {
@@ -57,10 +44,13 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
       <span class="env-row-mark">
         <Icon v-if="env.id === store.activeId" name="check" :size="12" />
       </span>
-      <span class="env-row-dot" :style="dotStyle(env.color)"></span>
       <span class="env-row-name">{{ env.name }}</span>
       <span v-if="env.readonly" class="env-badge">только чтение</span>
-      <span v-else class="env-count">{{ env.vars.length }} перем.</span>
+      <!-- The active row spells the unit out; the others stay compact, as in
+           the reference. -->
+      <span v-else class="env-count">
+        {{ env.vars.length }}<template v-if="env.id === store.activeId"> перем.</template>
+      </span>
     </button>
 
     <button class="env-row" :class="{ active: store.activeId === null }" @click="choose(null)">
@@ -111,10 +101,6 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
    rows line up without hardcoding "30px of room for a tick". */
 .env-row-mark {
   @apply flex-none w-3 inline-flex items-center justify-center text-accent;
-}
-
-.env-row-dot {
-  @apply flex-none w-[7px] h-[7px] rounded-full;
 }
 
 .env-row-name {
