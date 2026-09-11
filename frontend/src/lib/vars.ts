@@ -87,3 +87,23 @@ export function missing(text: string, resolve: ResolveFn): string[] {
   }
   return Array.from(names)
 }
+
+export interface Segment {
+  text: string
+  token?: string
+}
+
+// Splits text into literal runs and tokens for the highlight layers. Concatenating
+// the segments reproduces the input exactly — the display layers paint over a
+// real input, so a character dropped here would show up as misaligned text.
+export function segments(text: string): Segment[] {
+  const out: Segment[] = []
+  let last = 0
+  for (const t of parseTokens(text)) {
+    if (t.start > last) out.push({ text: text.slice(last, t.start) })
+    out.push({ text: t.raw, token: t.name })
+    last = t.end
+  }
+  if (last < text.length) out.push({ text: text.slice(last) })
+  return out
+}

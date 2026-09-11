@@ -2,9 +2,11 @@
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import Icon from './Icon.vue'
 import RequestChipPopover from './RequestChipPopover.vue'
+import VarToken from './VarToken.vue'
 import { SendRequest, CancelRequest } from '../../wailsjs/go/main/App'
 import { useRequestsStore } from '../stores/requests'
 import { shortcut } from '../lib/platform'
+import { segments } from '../lib/vars'
 
 const store = useRequestsStore()
 
@@ -107,6 +109,37 @@ watch(
   }
 )
 
+// --- Token highlighting in the URL field ---
+//
+// The input stays the real, editable control at all times; highlights are
+// painted by a separate layer shown *only while the field isn't focused*. That
+// keeps typing, selection and the IME path completely untouched, at the cost of
+// the highlight being hidden mid-edit (a trade-off to revisit if it turns out
+// to be missed).
+const urlFocused = ref(false)
+const urlDisplayRef = ref<HTMLElement | null>(null)
+
+const showUrlDisplay = computed(() => !urlFocused.value && store.draft.url.length > 0)
+
+const urlSegments = computed(() => segments(store.draft.url))
+
+function startUrlEditing() {
+  urlInputRef.value?.focus()
+}
+
+// A long URL is scrolled while being typed; the display layer starts at 0, so
+// it has to be caught up whenever it becomes visible.
+function syncUrlScroll() {
+  const input = urlInputRef.value
+  const display = urlDisplayRef.value
+  if (input && display) display.scrollLeft = input.scrollLeft
+}
+
+function onUrlBlur() {
+  urlFocused.value = false
+  nextTick(syncUrlScroll)
+}
+
 // Close the method dropdown and the chip popover on an outside click. The
 // popover is a descendant of `.request-bar` (absolutely positioned below it),
 // so a click inside it still counts as "inside" and keeps it open.
@@ -158,15 +191,35 @@ onBeforeUnmount(() => {
           </div>
         </div>
 
-        <input
-          ref="urlInputRef"
-          :value="store.draft.url"
-          class="url-input mono"
-          placeholder="https://api.example.com/articles?include=author"
-          spellcheck="false"
-          @input="store.setUrl(($event.target as HTMLInputElement).value)"
-          @keydown.enter="send"
-        />
+        <div class="url-text">
+          <input
+            ref="urlInputRef"
+            :value="store.draft.url"
+            class="url-input mono"
+            :class="{ 'url-input-veiled': showUrlDisplay }"
+            placeholder="https://api.example.com/articles?include=author"
+            spellcheck="false"
+            @input="store.setUrl(($event.target as HTMLInputElement).value)"
+            @keydown.enter="send"
+            @focus="urlFocused = true"
+            @blur="onUrlBlur"
+            @scroll="syncUrlScroll"
+          />
+          <!-- Decorative: the input above holds the real value and stays the
+               only editable control. -->
+          <div
+            v-if="showUrlDisplay"
+            ref="urlDisplayRef"
+            class="url-display mono"
+            aria-hidden="true"
+            @mousedown.prevent="startUrlEditing"
+          >
+            <template v-for="(seg, i) in urlSegments" :key="i">
+              <VarToken v-if="seg.token" :name="seg.token" />
+              <span v-else>{{ seg.text }}</span>
+            </template>
+          </div>
+        </div>
 
         <div class="chips">
           <button class="chip" :class="{ active: store.openChip === 'params' }" @click="toggleChip('params')">
@@ -240,9 +293,27 @@ onBeforeUnmount(() => {
   @apply absolute top-full left-0 mt-1;
 }
 
+.url-text {
+  @apply relative flex-1 min-w-0 flex items-stretch;
+}
+
 .url-input {
   @apply flex-1 min-w-0 bg-transparent border-0 outline-none px-2 text-[12.5px];
   font-family: var(--mono);
+  color: var(--text);
+}
+
+/* The display layer sits exactly on top of the input, so the input's own text
+   would show through doubled — it is hidden, not removed, to keep the caret
+   and focus handling working. */
+.url-input-veiled {
+  color: transparent;
+}
+
+.url-display {
+  @apply absolute inset-0 flex items-center overflow-hidden px-2 text-[12.5px] cursor-text;
+  font-family: var(--mono);
+  white-space: pre;
   color: var(--text);
 }
 

@@ -1,7 +1,9 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import Icon from './Icon.vue'
+import VarToken from './VarToken.vue'
 import { useRequestsStore } from '../stores/requests'
+import { parseTokens, segments } from '../lib/vars'
 
 const props = defineProps<{ chip: 'params' | 'headers' | 'auth' | 'body' }>()
 
@@ -34,6 +36,27 @@ const authIndicatorStyle = computed(() => ({
 
 function close() {
   store.setOpenChip(null)
+}
+
+// --- Token highlighting in row values ---
+//
+// Same deal as the URL field: the input stays the editable control, and a
+// decorative layer paints the tokens only while that cell isn't focused.
+const editCell = ref<string | null>(null)
+
+function cellKey(kind: string, i: number): string {
+  return `${kind}:${i}`
+}
+
+function showCellValue(kind: string, i: number, value: string): boolean {
+  return editCell.value !== cellKey(kind, i) && parseTokens(value).length > 0
+}
+
+// The layer covers the input, so a click has to hand focus over by hand; the
+// input is the layer's sibling inside the same cell.
+function focusCell(e: MouseEvent) {
+  const input = (e.currentTarget as HTMLElement).parentElement?.querySelector('input')
+  input?.focus()
 }
 
 // Value colour hints at its type — numbers in --tok-num, everything else as a
@@ -72,7 +95,30 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
             <Icon v-if="p.enabled" name="check" :size="10" />
           </button>
           <input :value="p.name" class="row-input mono" placeholder="имя" spellcheck="false" @input="store.updateParam(i, { name: ($event.target as HTMLInputElement).value })" />
-          <input :value="p.value" class="row-input mono" :class="valueClass(p.value)" placeholder="значение" spellcheck="false" @input="store.updateParam(i, { value: ($event.target as HTMLInputElement).value })" />
+          <div class="row-cell">
+            <input
+              :value="p.value"
+              class="row-input mono"
+              :class="[valueClass(p.value), { 'row-input-veiled': showCellValue('params', i, p.value) }]"
+              placeholder="значение"
+              spellcheck="false"
+              @input="store.updateParam(i, { value: ($event.target as HTMLInputElement).value })"
+              @focus="editCell = cellKey('params', i)"
+              @blur="editCell = null"
+            />
+            <span
+              v-if="showCellValue('params', i, p.value)"
+              class="row-input row-display mono"
+              :class="valueClass(p.value)"
+              aria-hidden="true"
+              @mousedown.prevent="focusCell"
+            >
+              <template v-for="(seg, si) in segments(p.value)" :key="si">
+                <VarToken v-if="seg.token" :name="seg.token" />
+                <span v-else>{{ seg.text }}</span>
+              </template>
+            </span>
+          </div>
           <button class="row-del" title="Удалить" @click.stop="store.removeParam(i)"><Icon name="xmark" :size="12" /></button>
         </div>
         <div class="popover-foot">
@@ -87,7 +133,30 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
             <Icon v-if="h.enabled" name="check" :size="10" />
           </button>
           <input :value="h.name" class="row-input mono" placeholder="Header" spellcheck="false" @input="store.updateHeader(i, { name: ($event.target as HTMLInputElement).value })" />
-          <input :value="h.value" class="row-input mono" :class="valueClass(h.value)" placeholder="Value" spellcheck="false" @input="store.updateHeader(i, { value: ($event.target as HTMLInputElement).value })" />
+          <div class="row-cell">
+            <input
+              :value="h.value"
+              class="row-input mono"
+              :class="[valueClass(h.value), { 'row-input-veiled': showCellValue('headers', i, h.value) }]"
+              placeholder="Value"
+              spellcheck="false"
+              @input="store.updateHeader(i, { value: ($event.target as HTMLInputElement).value })"
+              @focus="editCell = cellKey('headers', i)"
+              @blur="editCell = null"
+            />
+            <span
+              v-if="showCellValue('headers', i, h.value)"
+              class="row-input row-display mono"
+              :class="valueClass(h.value)"
+              aria-hidden="true"
+              @mousedown.prevent="focusCell"
+            >
+              <template v-for="(seg, si) in segments(h.value)" :key="si">
+                <VarToken v-if="seg.token" :name="seg.token" />
+                <span v-else>{{ seg.text }}</span>
+              </template>
+            </span>
+          </div>
           <button class="row-del" title="Удалить" @click.stop="store.removeHeader(i)"><Icon name="xmark" :size="12" /></button>
         </div>
         <div class="popover-foot">
@@ -191,6 +260,22 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
 
 .row-input:focus {
   background: var(--bg-inset);
+}
+
+.row-cell {
+  @apply relative flex min-w-0;
+}
+
+/* Painted over the input, so the input's own text is hidden rather than
+   removed — focus, caret and selection keep working untouched. Scoped through
+   .row-cell so it also beats the .str/.num value colours. */
+.row-cell .row-input.row-input-veiled {
+  color: transparent;
+}
+
+.row-display {
+  @apply absolute inset-0 flex items-center overflow-hidden cursor-text;
+  white-space: pre;
 }
 
 .row-input.str {
