@@ -27,6 +27,13 @@ const maxMs = computed(() => Math.max(1, ...phases.value.map((p) => p.ms)))
 <template>
   <div class="timings">
     <template v-if="hasDetail">
+      <div class="timing-row timing-total">
+        <span class="timing-label">Всего</span>
+        <div class="timing-track">
+          <div class="timing-fill" style="width: 100%"></div>
+        </div>
+        <span class="timing-value mono">{{ record.durationMs }} мс</span>
+      </div>
       <div v-for="p in phases" :key="p.label" class="timing-row">
         <span class="timing-label">{{ p.label }}</span>
         <div class="timing-track">
@@ -78,5 +85,9 @@ const maxMs = computed(() => Math.max(1, ...phases.value.map((p) => p.ms)))
 
 .timing-note {
   @apply text-[11.5px] text-text-tertiary;
+}
+
+.timing-total .timing-label {
+  @apply font-medium text-text;
 }
 </style>

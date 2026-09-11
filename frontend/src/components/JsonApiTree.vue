@@ -32,6 +32,15 @@ const data = computed(() => dataResources(props.doc))
 const included = computed(() => props.doc.included ?? [])
 const errors = computed(() => props.doc.errors ?? [])
 
+// Russian plural for the section counts ("ресурс/ресурса/ресурсов").
+function pluralRu(n: number, forms: [string, string, string]): string {
+  const m10 = n % 10
+  const m100 = n % 100
+  if (m10 === 1 && m100 !== 11) return forms[0]
+  if (m10 >= 2 && m10 <= 4 && (m100 < 12 || m100 > 14)) return forms[1]
+  return forms[2]
+}
+
 // Flat index in doc.included, so a grouped resource still gets a stable
 // "included[j]" path for the inspector.
 const includedFlatIndex = computed(() => {
@@ -189,7 +198,9 @@ const noResults = computed(
     <div v-if="noResults" class="ja-no-results">Ничего не найдено</div>
 
     <template v-if="filteredData.length">
-      <div class="ja-section-title">data</div>
+      <div class="ja-section-title">
+        data · {{ filteredData.length }} {{ pluralRu(filteredData.length, ['ресурс', 'ресурса', 'ресурсов']) }}
+      </div>
       <ResourceNode
         v-for="(r, i) in filteredData"
         :key="r.type + '/' + r.id"
@@ -205,7 +216,10 @@ const noResults = computed(
 
     <template v-if="filteredIncluded.length">
       <div class="ja-section-title ja-included-head">
-        <span>included ({{ filteredIncluded.length }})</span>
+        <span>
+          included · {{ filteredIncluded.length }} {{ pluralRu(filteredIncluded.length, ['ресурс', 'ресурса', 'ресурсов']) }}
+          · {{ typeCounts.length }} {{ pluralRu(typeCounts.length, ['тип', 'типа', 'типов']) }}
+        </span>
         <span v-if="typeCounts.length" class="type-chips">
           <button
             v-for="tc in visibleTypeChips"
@@ -228,7 +242,9 @@ const noResults = computed(
             <Icon name="chevron-right" :size="10" />
           </span>
           <span class="ja-type-badge">{{ g.type }}</span>
-          <span class="group-res-count">{{ g.resources.length }} ресурсов</span>
+          <span class="group-res-count">
+            {{ g.resources.length }} {{ pluralRu(g.resources.length, ['ресурс', 'ресурса', 'ресурсов']) }}
+          </span>
         </button>
         <div v-if="isGroupOpen(g.type)">
           <ResourceNode
@@ -282,8 +298,14 @@ const noResults = computed(
   @apply mb-1;
 }
 
+/* An included type group is a card of its own — the same white surface as a
+   resource card — so the collapsed groups read as peers of the resources they
+   contain, not as bare section labels. */
 .included-group-head {
-  @apply flex items-center gap-2 w-full py-1.5 px-4 border-none bg-transparent text-left cursor-pointer select-none;
+  @apply flex items-center gap-2 w-full py-2 px-3 rounded-lg text-left cursor-pointer select-none;
+  margin: 5px 16px;
+  border: 1px solid var(--border);
+  background: var(--bg-panel);
   --wails-draggable: no-drag;
 }
 

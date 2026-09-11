@@ -392,7 +392,7 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocClick))
 <template>
   <div class="resp">
     <div class="resp-bar">
-      <button v-if="hasPrev" class="btn icon-btn" title="Назад" @click="goBack"><Icon name="chevron-left" :size="14" /></button>
+      <button v-if="hasPrev" class="resp-action icon" title="Назад" @click="goBack"><Icon name="chevron-left" :size="14" /></button>
       <span class="badge badge-method">{{ record.method }}</span>
       <span class="badge" :class="statusClass(record.status)">{{ record.status }}</span>
 
@@ -473,23 +473,23 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocClick))
               @keydown.esc="closeBodySearch"
             />
             <span v-if="bodyQuery.trim()" class="search-count">{{ bodyMatchCount }} найдено</span>
-            <button class="btn icon-btn" title="Закрыть (Esc)" @click="closeBodySearch"><Icon name="xmark" :size="14" /></button>
+            <button class="resp-action icon" title="Закрыть (Esc)" @click="closeBodySearch"><Icon name="xmark" :size="14" /></button>
           </template>
           <template v-else>
             <template v-if="hasPagination">
-              <button class="btn icon-btn" :disabled="!pagination.first || !pagination.prev" title="Первая" @click="follow(pagination.first)"><Icon name="chevrons-left" :size="14" /></button>
-              <button class="btn icon-btn" :disabled="!pagination.prev" title="Предыдущая" @click="follow(pagination.prev)"><Icon name="chevron-left" :size="14" /></button>
-              <button class="btn icon-btn" :disabled="!pagination.next" title="Следующая" @click="follow(pagination.next)"><Icon name="chevron-right" :size="14" /></button>
-              <button class="btn icon-btn" :disabled="!pagination.last || !pagination.next" title="Последняя" @click="follow(pagination.last)"><Icon name="chevrons-right" :size="14" /></button>
+              <button class="resp-action icon" :disabled="!pagination.first || !pagination.prev" title="Первая" @click="follow(pagination.first)"><Icon name="chevrons-left" :size="14" /></button>
+              <button class="resp-action icon" :disabled="!pagination.prev" title="Предыдущая" @click="follow(pagination.prev)"><Icon name="chevron-left" :size="14" /></button>
+              <button class="resp-action icon" :disabled="!pagination.next" title="Следующая" @click="follow(pagination.next)"><Icon name="chevron-right" :size="14" /></button>
+              <button class="resp-action icon" :disabled="!pagination.last || !pagination.next" title="Последняя" @click="follow(pagination.last)"><Icon name="chevrons-right" :size="14" /></button>
             </template>
             <span class="head-spacer"></span>
-            <button v-if="record.source === 'browser'" class="btn open-in-request" @click="openInRequest">Открыть в «Запросе»</button>
-            <button class="btn btn-inline" @click="openBodySearch"><span>Поиск</span><kbd class="keycap">{{ searchShortcut }}</kbd></button>
+            <button v-if="record.source === 'browser'" class="resp-action open-in-request" @click="openInRequest">Открыть в «Запросе»</button>
+            <button class="resp-action" @click="openBodySearch"><span>Поиск</span><kbd class="keycap">{{ searchShortcut }}</kbd></button>
           </template>
         </div>
         <div v-else-if="record.source === 'browser'" class="toolbar">
           <span class="head-spacer"></span>
-          <button class="btn open-in-request" @click="openInRequest">Открыть в «Запросе»</button>
+          <button class="resp-action open-in-request" @click="openInRequest">Открыть в «Запросе»</button>
         </div>
         <JsonApiTree v-if="doc" :doc="doc" :query="bodyQuery" :highlight-key="highlightKey" @select="onTreeSelect" @inspect="onInspect" @fetch="onTreeFetch" />
         <div v-else-if="isJson" class="jt-wrap"><JsonTree :value="jsonValue" /></div>
@@ -515,13 +515,13 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocClick))
             <span class="search-count">
               {{ rawMatches.length ? `${rawCurrentMatch + 1} / ${rawMatches.length}` : 'нет совпадений' }}
             </span>
-            <button class="btn icon-btn" title="Предыдущее (Shift+Enter)" @click="prevMatch"><Icon name="chevron-up" :size="14" /></button>
-            <button class="btn icon-btn" title="Следующее (Enter)" @click="nextMatch"><Icon name="chevron-down" :size="14" /></button>
-            <button class="btn icon-btn" title="Закрыть (Esc)" @click="closeRawSearch"><Icon name="xmark" :size="14" /></button>
+            <button class="resp-action icon" title="Предыдущее (Shift+Enter)" @click="prevMatch"><Icon name="chevron-up" :size="14" /></button>
+            <button class="resp-action icon" title="Следующее (Enter)" @click="nextMatch"><Icon name="chevron-down" :size="14" /></button>
+            <button class="resp-action icon" title="Закрыть (Esc)" @click="closeRawSearch"><Icon name="xmark" :size="14" /></button>
           </template>
           <template v-else>
-            <button class="btn btn-inline" @click="copyRaw"><Icon v-if="rawCopied" name="check" :size="12" /><span>{{ rawCopied ? 'Скопировано' : 'Копировать' }}</span></button>
-            <button class="btn btn-inline" @click="openRawSearch"><span>Поиск</span><kbd class="keycap">{{ searchShortcut }}</kbd></button>
+            <button class="resp-action" @click="copyRaw"><Icon v-if="rawCopied" name="check" :size="12" /><span>{{ rawCopied ? 'Скопировано' : 'Копировать' }}</span></button>
+            <button class="resp-action" @click="openRawSearch"><span>Поиск</span><kbd class="keycap">{{ searchShortcut }}</kbd></button>
           </template>
         </div>
         <pre class="code resp-pad" v-html="rawRender"></pre>
@@ -529,7 +529,7 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocClick))
 
       <template v-else-if="activeTab === 'headers'">
         <div class="toolbar">
-          <button class="btn btn-inline" @click="copyHeaders"><Icon v-if="headersCopied" name="check" :size="12" /><span>{{ headersCopied ? 'Скопировано' : 'Копировать' }}</span></button>
+          <button class="resp-action" @click="copyHeaders"><Icon v-if="headersCopied" name="check" :size="12" /><span>{{ headersCopied ? 'Скопировано' : 'Копировать' }}</span></button>
         </div>
         <table class="kv-table">
           <tbody>
@@ -625,6 +625,12 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocClick))
 
 .resp-action:disabled {
   @apply opacity-50 cursor-default;
+}
+
+/* Icon-only variant (pagination arrows, search toggle) — a square 24px button
+   matching the toolbar buttons in the reference, not the taller .btn default. */
+.resp-action.icon {
+  @apply w-6 px-0 justify-center;
 }
 
 .request-caption {

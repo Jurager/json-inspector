@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRequestsStore } from './stores/requests'
 import RequestBuilder from './components/RequestBuilder.vue'
 import ResponseViewer from './components/ResponseViewer.vue'
@@ -123,6 +123,12 @@ function onDocClick(e: MouseEvent) {
 // other.
 const sideWidth = ref(300)
 const sideResize = makeSideResizer(sideWidth, 220, 560)
+
+// With no captured requests at all, the browser view drops the list entirely
+// and shows the onboarding full-width — the design's "одно пустое состояние".
+const browserEmpty = computed(
+  () => store.activeView === 'browser' && !store.requests.some((r) => r.source === 'browser')
+)
 
 interface Captured {
   method: string
@@ -335,10 +341,10 @@ onBeforeUnmount(() => {
 
       <main class="main">
         <div class="side-layout">
-          <div class="side-panel" :style="{ width: sideWidth + 'px' }">
+          <div v-if="!browserEmpty" class="side-panel" :style="{ width: sideWidth + 'px' }">
             <HistoryPanel :source="store.activeView === 'request' ? 'manual' : 'browser'" />
           </div>
-          <div class="resize-handle" @mousedown.prevent="sideResize.start"></div>
+          <div v-if="!browserEmpty" class="resize-handle" @mousedown.prevent="sideResize.start"></div>
           <div class="side-main">
             <template v-if="store.activeView === 'request'">
               <RequestBuilder />

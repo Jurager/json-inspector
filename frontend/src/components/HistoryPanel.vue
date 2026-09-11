@@ -66,6 +66,34 @@ const filteredRecords = computed(() => {
   return records.value.filter((r) => matches(r, q))
 })
 
+// Manual history is grouped by calendar day ("Сегодня"/"Вчера"/date) so a long
+// list reads as a timeline rather than a flat pile of rows.
+function dateLabel(startedAt: number): string {
+  const d = new Date(startedAt)
+  const start = new Date(d)
+  start.setHours(0, 0, 0, 0)
+  const now = new Date()
+  const today = new Date(now)
+  today.setHours(0, 0, 0, 0)
+  const yesterday = new Date(today)
+  yesterday.setDate(yesterday.getDate() - 1)
+  const dayMs = start.getTime()
+  if (dayMs === today.getTime()) return 'Сегодня'
+  if (dayMs === yesterday.getTime()) return 'Вчера'
+  return d.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' })
+}
+
+const manualGroups = computed(() => {
+  const out: { label: string; items: RequestRecord[] }[] = []
+  for (const r of filteredRecords.value) {
+    const label = dateLabel(r.startedAt)
+    const last = out[out.length - 1]
+    if (last && last.label === label) last.items.push(r)
+    else out.push({ label, items: [r] })
+  }
+  return out
+})
+
 // --- Browser-only: group captured requests by the tab they came from ---
 interface TabGroup {
   key: string
@@ -153,7 +181,7 @@ function groupHue(key: string): number {
   <div class="history-panel">
     <div class="panel-head">
       <span class="panel-title">{{ source === 'browser' ? 'Перехвачено' : 'История' }}</span>
-      <button class="btn" :disabled="records.length === 0" @click="clearAll">Очистить</button>
+      <button class="panel-clear" :disabled="records.length === 0" @click="clearAll">Очистить</button>
     </div>
 
     <!-- No empty text for the browser source: the centered BrowserEmptyState in
@@ -171,22 +199,25 @@ function groupHue(key: string): number {
     <div v-else-if="records.length > 0 && isEmptyFiltered" class="no-results">Ничего не найдено</div>
 
     <ul v-else-if="source === 'manual'" class="list">
-      <li
-        v-for="r in filteredRecords"
-        :key="r.id"
-        class="item"
-        :class="{ active: r.id === activeId }"
-        role="button"
-        tabindex="0"
-        @click="select(r.id)"
-        @keydown.enter="select(r.id)"
-        @keydown.space.prevent="select(r.id)"
-      >
-        <span class="item-method mono" :class="{ active: r.id === activeId }">{{ r.method }}</span>
-        <span class="item-status" :class="statusClass(r.status)">{{ r.status }}</span>
-        <span class="item-path mono" :title="r.url">{{ pathOf(r.url) }}</span>
-        <span class="item-time">{{ timeLabel(r.startedAt) }}</span>
-      </li>
+      <template v-for="g in manualGroups" :key="g.label">
+        <li class="date-sep">{{ g.label }}</li>
+        <li
+          v-for="r in g.items"
+          :key="r.id"
+          class="item"
+          :class="{ active: r.id === activeId }"
+          role="button"
+          tabindex="0"
+          @click="select(r.id)"
+          @keydown.enter="select(r.id)"
+          @keydown.space.prevent="select(r.id)"
+        >
+          <span class="item-method mono" :class="{ active: r.id === activeId }">{{ r.method }}</span>
+          <span class="item-status" :class="statusClass(r.status)">{{ r.status }}</span>
+          <span class="item-path mono" :title="r.url">{{ pathOf(r.url) }}</span>
+          <span class="item-time">{{ timeLabel(r.startedAt) }}</span>
+        </li>
+      </template>
     </ul>
 
     <div v-else class="list">
@@ -260,11 +291,30 @@ function groupHue(key: string): number {
 }
 
 .panel-head {
-  @apply flex items-center justify-between h-12 px-3 border-b border-border;
+  @apply flex items-center justify-between h-10 px-2 pl-3.5 border-b border-border;
 }
 
 .panel-title {
-  @apply text-[13px] font-semibold;
+  @apply text-xs font-semibold text-text-secondary;
+}
+
+.panel-clear {
+  @apply border-none bg-transparent text-text-secondary text-xs py-1 px-2 rounded-md cursor-pointer;
+  font: inherit;
+  --wails-draggable: no-drag;
+}
+
+.panel-clear:hover:not(:disabled) {
+  @apply bg-bg-hover text-text;
+}
+
+.panel-clear:disabled {
+  @apply opacity-50 cursor-default;
+}
+
+.date-sep {
+  @apply text-[10px] uppercase tracking-[0.08em] text-text-tertiary pt-1.5 px-3.5 pb-1;
+  font-family: var(--mono);
 }
 
 /* The filter bar docks to the bottom of the panel instead of the top, so it

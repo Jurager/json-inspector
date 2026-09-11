@@ -47,7 +47,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
   <div class="chip-popover" :class="props.chip === 'auth' ? 'w-[380px]' : 'w-[460px]'">
     <div class="popover-head">
       <span class="popover-title">{{ title }}</span>
-      <button class="btn icon-btn" title="Закрыть (Esc)" @click="close"><Icon name="xmark" :size="14" /></button>
+      <button class="popover-close" title="Закрыть (Esc)" @click="close"><Icon name="xmark" :size="14" /></button>
     </div>
 
     <!-- params / headers share the same row grid -->
@@ -61,12 +61,12 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
 
       <template v-if="props.chip === 'params'">
         <div v-for="(p, i) in store.draft.params" :key="i" class="row" :class="{ off: !p.enabled }">
-          <button class="row-check" :class="{ on: p.enabled }" @click="store.toggleParam(i)">
+          <button class="row-check" :class="{ on: p.enabled }" @click.stop="store.toggleParam(i)">
             <Icon v-if="p.enabled" name="check" :size="10" />
           </button>
           <input :value="p.name" class="row-input mono" placeholder="имя" spellcheck="false" @input="store.updateParam(i, { name: ($event.target as HTMLInputElement).value })" />
           <input :value="p.value" class="row-input mono" :class="valueClass(p.value)" placeholder="значение" spellcheck="false" @input="store.updateParam(i, { value: ($event.target as HTMLInputElement).value })" />
-          <button class="row-del" title="Удалить" @click="store.removeParam(i)"><Icon name="xmark" :size="12" /></button>
+          <button class="row-del" title="Удалить" @click.stop="store.removeParam(i)"><Icon name="xmark" :size="12" /></button>
         </div>
         <div class="popover-foot">
           <button class="add-btn" @click="store.addParam()">+ Параметр</button>
@@ -76,12 +76,12 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
 
       <template v-else>
         <div v-for="(h, i) in store.draft.headers" :key="i" class="row" :class="{ off: !h.enabled }">
-          <button class="row-check" :class="{ on: h.enabled }" @click="store.toggleHeader(i)">
+          <button class="row-check" :class="{ on: h.enabled }" @click.stop="store.toggleHeader(i)">
             <Icon v-if="h.enabled" name="check" :size="10" />
           </button>
           <input :value="h.name" class="row-input mono" placeholder="Header" spellcheck="false" @input="store.updateHeader(i, { name: ($event.target as HTMLInputElement).value })" />
           <input :value="h.value" class="row-input mono" :class="valueClass(h.value)" placeholder="Value" spellcheck="false" @input="store.updateHeader(i, { value: ($event.target as HTMLInputElement).value })" />
-          <button class="row-del" title="Удалить" @click="store.removeHeader(i)"><Icon name="xmark" :size="12" /></button>
+          <button class="row-del" title="Удалить" @click.stop="store.removeHeader(i)"><Icon name="xmark" :size="12" /></button>
         </div>
         <div class="popover-foot">
           <button class="add-btn" @click="store.addHeader()">+ Заголовок</button>
@@ -141,6 +141,14 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
 
 .popover-title {
   @apply text-xs font-semibold;
+}
+
+.popover-close {
+  @apply w-6 h-6 border-none bg-transparent text-text-tertiary rounded-md cursor-pointer flex items-center justify-center;
+}
+
+.popover-close:hover {
+  @apply bg-bg-hover text-text;
 }
 
 .row-head {
@@ -221,7 +229,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
 
 .seg.active {
   @apply bg-bg-panel font-medium text-text;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.18), 0 0 0 0.5px var(--border-strong);
 }
 
 .body-area {
