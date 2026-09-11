@@ -111,33 +111,22 @@ watch(
 
 // --- Token highlighting in the URL field ---
 //
-// The input stays the real, editable control at all times; highlights are
-// painted by a separate layer shown *only while the field isn't focused*. That
-// keeps typing, selection and the IME path completely untouched, at the cost of
-// the highlight being hidden mid-edit (a trade-off to revisit if it turns out
-// to be missed).
-const urlFocused = ref(false)
+// The input stays the real, editable control; highlights are painted by a
+// separate layer above it. The input's own glyphs are hidden (not removed) and
+// the layer is transparent to the mouse, so the caret, selection, drag-select
+// and the IME path all keep working natively — only tokens opt back into mouse
+// events, for their hover tooltip.
 const urlDisplayRef = ref<HTMLElement | null>(null)
 
-const showUrlDisplay = computed(() => !urlFocused.value && store.draft.url.length > 0)
-
 const urlSegments = computed(() => segments(store.draft.url))
+const showUrlDisplay = computed(() => urlSegments.value.length > 0)
 
-function startUrlEditing() {
-  urlInputRef.value?.focus()
-}
-
-// A long URL is scrolled while being typed; the display layer starts at 0, so
-// it has to be caught up whenever it becomes visible.
+// A long URL scrolls while it's typed; the layer above has to follow, or the
+// two texts drift apart.
 function syncUrlScroll() {
   const input = urlInputRef.value
   const display = urlDisplayRef.value
   if (input && display) display.scrollLeft = input.scrollLeft
-}
-
-function onUrlBlur() {
-  urlFocused.value = false
-  nextTick(syncUrlScroll)
 }
 
 // Close the method dropdown and the chip popover on an outside click. The
@@ -199,23 +188,15 @@ onBeforeUnmount(() => {
             :class="{ 'url-input-veiled': showUrlDisplay }"
             placeholder="https://api.example.com/articles?include=author"
             spellcheck="false"
-            @input="store.setUrl(($event.target as HTMLInputElement).value)"
+            @input="store.setUrl(($event.target as HTMLInputElement).value); syncUrlScroll()"
             @keydown.enter="send"
-            @focus="urlFocused = true"
-            @blur="onUrlBlur"
             @scroll="syncUrlScroll"
           />
           <!-- Decorative: the input above holds the real value and stays the
                only editable control. -->
-          <div
-            v-if="showUrlDisplay"
-            ref="urlDisplayRef"
-            class="url-display mono"
-            aria-hidden="true"
-            @mousedown.prevent="startUrlEditing"
-          >
+          <div v-if="showUrlDisplay" ref="urlDisplayRef" class="url-display mono" aria-hidden="true">
             <template v-for="(seg, i) in urlSegments" :key="i">
-              <VarToken v-if="seg.token" :name="seg.token" />
+              <VarToken v-if="seg.token" :name="seg.token" :offset="seg.start" />
               <span v-else>{{ seg.text }}</span>
             </template>
           </div>
@@ -303,15 +284,19 @@ onBeforeUnmount(() => {
   color: var(--text);
 }
 
-/* The display layer sits exactly on top of the input, so the input's own text
-   would show through doubled — it is hidden, not removed, to keep the caret
-   and focus handling working. */
+/* The display layer sits exactly on top of the input, so the input's own glyphs
+   would show through doubled — they are hidden, not removed, and the caret is
+   given its colour back explicitly (it follows `color`, so it would otherwise
+   vanish with them). */
 .url-input-veiled {
   color: transparent;
+  caret-color: var(--text);
 }
 
+/* Transparent to the mouse: every click, drag and caret placement goes to the
+   input underneath. Tokens opt back in individually for their tooltip. */
 .url-display {
-  @apply absolute inset-0 flex items-center overflow-hidden px-2 text-[12.5px] cursor-text;
+  @apply absolute inset-0 flex items-center overflow-hidden px-2 text-[12.5px] pointer-events-none;
   font-family: var(--mono);
   white-space: pre;
   color: var(--text);

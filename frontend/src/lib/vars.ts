@@ -91,6 +91,9 @@ export function missing(text: string, resolve: ResolveFn): string[] {
 export interface Segment {
   text: string
   token?: string
+  // Where the segment starts in the source text. The highlight layer sits over a
+  // real input, so a token click has to translate back into a caret index.
+  start: number
 }
 
 // Splits text into literal runs and tokens for the highlight layers. Concatenating
@@ -100,10 +103,10 @@ export function segments(text: string): Segment[] {
   const out: Segment[] = []
   let last = 0
   for (const t of parseTokens(text)) {
-    if (t.start > last) out.push({ text: text.slice(last, t.start) })
-    out.push({ text: t.raw, token: t.name })
+    if (t.start > last) out.push({ text: text.slice(last, t.start), start: last })
+    out.push({ text: t.raw, token: t.name, start: t.start })
     last = t.end
   }
-  if (last < text.length) out.push({ text: text.slice(last) })
+  if (last < text.length) out.push({ text: text.slice(last), start: last })
   return out
 }

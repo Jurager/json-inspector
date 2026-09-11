@@ -41,22 +41,16 @@ function close() {
 // --- Token highlighting in row values ---
 //
 // Same deal as the URL field: the input stays the editable control, and a
-// decorative layer paints the tokens only while that cell isn't focused.
-const editCell = ref<string | null>(null)
-
-function cellKey(kind: string, i: number): string {
-  return `${kind}:${i}`
+// transparent decorative layer paints the tokens above it.
+function showCellValue(value: string): boolean {
+  return parseTokens(value).length > 0
 }
 
-function showCellValue(kind: string, i: number, value: string): boolean {
-  return editCell.value !== cellKey(kind, i) && parseTokens(value).length > 0
-}
-
-// The layer covers the input, so a click has to hand focus over by hand; the
-// input is the layer's sibling inside the same cell.
-function focusCell(e: MouseEvent) {
-  const input = (e.currentTarget as HTMLElement).parentElement?.querySelector('input')
-  input?.focus()
+// The layer above scrolls independently of the input it mirrors.
+function syncCellScroll(e: Event) {
+  const input = e.target as HTMLInputElement
+  const display = input.parentElement?.querySelector<HTMLElement>('.row-display')
+  if (display) display.scrollLeft = input.scrollLeft
 }
 
 // Value colour hints at its type — numbers in --tok-num, everything else as a
@@ -99,22 +93,20 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
             <input
               :value="p.value"
               class="row-input mono"
-              :class="[valueClass(p.value), { 'row-input-veiled': showCellValue('params', i, p.value) }]"
+              :class="[valueClass(p.value), { 'row-input-veiled': showCellValue(p.value) }]"
               placeholder="значение"
               spellcheck="false"
-              @input="store.updateParam(i, { value: ($event.target as HTMLInputElement).value })"
-              @focus="editCell = cellKey('params', i)"
-              @blur="editCell = null"
+              @input="store.updateParam(i, { value: ($event.target as HTMLInputElement).value }); syncCellScroll($event)"
+              @scroll="syncCellScroll"
             />
             <span
-              v-if="showCellValue('params', i, p.value)"
+              v-if="showCellValue(p.value)"
               class="row-input row-display mono"
               :class="valueClass(p.value)"
               aria-hidden="true"
-              @mousedown.prevent="focusCell"
             >
               <template v-for="(seg, si) in segments(p.value)" :key="si">
-                <VarToken v-if="seg.token" :name="seg.token" />
+                <VarToken v-if="seg.token" :name="seg.token" :offset="seg.start" />
                 <span v-else>{{ seg.text }}</span>
               </template>
             </span>
@@ -137,22 +129,20 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
             <input
               :value="h.value"
               class="row-input mono"
-              :class="[valueClass(h.value), { 'row-input-veiled': showCellValue('headers', i, h.value) }]"
+              :class="[valueClass(h.value), { 'row-input-veiled': showCellValue(h.value) }]"
               placeholder="Value"
               spellcheck="false"
-              @input="store.updateHeader(i, { value: ($event.target as HTMLInputElement).value })"
-              @focus="editCell = cellKey('headers', i)"
-              @blur="editCell = null"
+              @input="store.updateHeader(i, { value: ($event.target as HTMLInputElement).value }); syncCellScroll($event)"
+              @scroll="syncCellScroll"
             />
             <span
-              v-if="showCellValue('headers', i, h.value)"
+              v-if="showCellValue(h.value)"
               class="row-input row-display mono"
               :class="valueClass(h.value)"
               aria-hidden="true"
-              @mousedown.prevent="focusCell"
             >
               <template v-for="(seg, si) in segments(h.value)" :key="si">
-                <VarToken v-if="seg.token" :name="seg.token" />
+                <VarToken v-if="seg.token" :name="seg.token" :offset="seg.start" />
                 <span v-else>{{ seg.text }}</span>
               </template>
             </span>
@@ -266,15 +256,18 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
   @apply relative flex min-w-0;
 }
 
-/* Painted over the input, so the input's own text is hidden rather than
-   removed — focus, caret and selection keep working untouched. Scoped through
-   .row-cell so it also beats the .str/.num value colours. */
+/* Painted over the input, so the input's own glyphs are hidden rather than
+   removed — and the caret gets its colour back, since it follows `color`.
+   Scoped through .row-cell so it also beats the .str/.num value colours. */
 .row-cell .row-input.row-input-veiled {
   color: transparent;
+  caret-color: var(--text);
 }
 
+/* Transparent to the mouse so the input keeps native caret and selection;
+   tokens opt back in for their tooltip. */
 .row-display {
-  @apply absolute inset-0 flex items-center overflow-hidden cursor-text;
+  @apply absolute inset-0 flex items-center overflow-hidden pointer-events-none;
   white-space: pre;
 }
 

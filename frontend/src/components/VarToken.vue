@@ -3,7 +3,7 @@ import { computed, ref } from 'vue'
 import { useEnvironmentsStore } from '../stores/environments'
 import { isMac } from '../lib/platform'
 
-const props = defineProps<{ name: string }>()
+const props = defineProps<{ name: string; offset?: number }>()
 
 const store = useEnvironmentsStore()
 
@@ -49,6 +49,33 @@ function onClick(e: MouseEvent) {
     varName: props.name,
   })
 }
+
+// The highlight layer sits on top of a real input, so a click that lands on a
+// token never reaches it. Find the input by walking up — the token is always
+// rendered inside the same field/cell as the input it belongs to.
+function siblingInput(from: HTMLElement | null): HTMLInputElement | null {
+  let node: HTMLElement | null = from
+  while (node) {
+    const found = node.querySelector('input')
+    if (found) return found
+    node = node.parentElement
+  }
+  return null
+}
+
+// A token behaves like one atom of text: clicking it puts the caret at its
+// start rather than dropping the user inside a name they can't see the braces
+// of. Dragging on plain text around it still selects normally, because the
+// layer itself is transparent to the mouse.
+function onMouseDown(e: MouseEvent) {
+  if (e.altKey) return
+  const input = siblingInput(root.value?.parentElement ?? null)
+  if (!input) return
+  e.preventDefault()
+  input.focus()
+  const at = props.offset ?? input.value.length
+  input.setSelectionRange(at, at)
+}
 </script>
 
 <template>
@@ -58,6 +85,7 @@ function onClick(e: MouseEvent) {
     :class="{ unknown: !known, secret: isSecret }"
     @mouseenter="showTip"
     @mouseleave="hideTip"
+    @mousedown="onMouseDown"
     @click="onClick"
     >{{ label }}</span
   >
@@ -75,8 +103,13 @@ function onClick(e: MouseEvent) {
 <style scoped>
 @reference "../style.css";
 
+/* Interactive while the layer around it is not: the parent display is
+   pointer-events:none so the input underneath keeps native caret and selection
+   behaviour, and only the tokens opt back in — they're the parts that have a
+   hover state and a click action. */
 .var-token {
-  @apply rounded-sm;
+  @apply rounded-sm cursor-text;
+  pointer-events: auto;
   padding: 1px 4px;
   background: var(--accent-soft);
   color: var(--accent);
