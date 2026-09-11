@@ -6,6 +6,8 @@ import {main} from '../models';
 
 export function Analyze(arg1:string):Promise<jsonapi.Analysis>;
 
+export function BridgePort():Promise<number>;
+
 export function CancelRequest():Promise<void>;
 
 export function CheckForUpdates():Promise<update.Update>;

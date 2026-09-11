@@ -168,6 +168,30 @@ async function follow(url: string) {
 
 const bodySize = computed(() => new Blob([props.record.responseBody]).size)
 
+// --- Browser mode: host+path + read-only query params (step 5) ---
+function hostPath(url: string): string {
+  try {
+    const u = new URL(url)
+    return u.host + u.pathname
+  } catch {
+    return url
+  }
+}
+
+const browserParams = computed(() => {
+  const out: { name: string; value: string }[] = []
+  try {
+    const u = new URL(props.record.url)
+    u.searchParams.forEach((value, name) => out.push({ name, value }))
+  } catch {
+    // invalid URL — no params to show
+  }
+  return out
+})
+
+const paramsOpen = ref(false)
+const paramsWrapEl = ref<HTMLElement | null>(null)
+
 const responseHeaderEntries = computed(() => Object.entries(props.record.responseHeaders ?? {}))
 const requestHeaderEntries = computed(() => Object.entries(props.record.requestHeaders ?? {}))
 
@@ -188,6 +212,15 @@ function goBack() {
     if (prev.source === 'browser') store.selectBrowser(prev.id)
     else store.selectManual(prev.id)
   }
+}
+
+// "Открыть в «Запросе»" — copies a read-only captured request into the editable
+// draft and switches rails, without sending anything.
+function openInRequest() {
+  store.loadDraft(props.record)
+  store.setOpenChip(null)
+  store.activeView = 'request'
+  store.requestFocusUrl()
 }
 
 const prettyRaw = computed(() => (isJson.value ? prettyJson(jsonValue.value) : props.record.responseBody))
@@ -321,6 +354,9 @@ function onDocClick(e: MouseEvent) {
   if (copyWrapEl.value && !copyWrapEl.value.contains(e.target as Node)) {
     copyMenuOpen.value = false
   }
+  if (paramsWrapEl.value && !paramsWrapEl.value.contains(e.target as Node)) {
+    paramsOpen.value = false
+  }
 }
 
 onMounted(() => document.addEventListener('click', onDocClick))
@@ -336,7 +372,16 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocClick))
 
       <!-- URL is shown only for captured requests: for manual ones it already
            sits in the command line, so repeating it here would be noise. -->
-      <span v-if="record.source === 'browser'" class="resp-url mono" :title="record.url">{{ record.url }}</span>
+      <span v-if="record.source === 'browser'" class="resp-url mono" :title="record.url">{{ hostPath(record.url) }}</span>
+      <div v-if="record.source === 'browser' && browserParams.length" ref="paramsWrapEl" class="params-row">
+        <button class="resp-action" @click="paramsOpen = !paramsOpen">Параметры {{ browserParams.length }}</button>
+        <div v-if="paramsOpen" class="menu params-menu">
+          <div v-for="p in browserParams" :key="p.name" class="params-item">
+            <span class="params-name mono">{{ p.name }}</span>
+            <span class="params-value mono">{{ p.value }}</span>
+          </div>
+        </div>
+      </div>
       <template v-else>
         <span class="divider"></span>
         <span class="resp-meta">{{ formatDuration(record.durationMs) }}</span>
@@ -399,8 +444,13 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocClick))
               <button class="btn icon-btn" :disabled="!pagination.last || !pagination.next" title="Последняя" @click="follow(pagination.last)"><Icon name="chevrons-right" :size="14" /></button>
             </template>
             <span class="head-spacer"></span>
+            <button v-if="record.source === 'browser'" class="btn open-in-request" @click="openInRequest">Открыть в «Запросе»</button>
             <button class="btn btn-inline" @click="openBodySearch"><span>Поиск</span><kbd class="keycap">{{ searchShortcut }}</kbd></button>
           </template>
+        </div>
+        <div v-else-if="record.source === 'browser'" class="toolbar">
+          <span class="head-spacer"></span>
+          <button class="btn open-in-request" @click="openInRequest">Открыть в «Запросе»</button>
         </div>
         <JsonApiTree v-if="doc" :doc="doc" :query="bodyQuery" :highlight-key="highlightKey" @select="onTreeSelect" @fetch="onTreeFetch" />
         <div v-else-if="isJson" class="jt-wrap"><JsonTree :value="jsonValue" /></div>
@@ -575,5 +625,32 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocClick))
 .copy-menu {
   @apply absolute right-0;
   top: calc(100% + 4px);
+}
+
+.params-row {
+  @apply relative flex-none;
+}
+
+.params-menu {
+  @apply absolute right-0 w-[360px] max-h-64 overflow-auto;
+  top: calc(100% + 4px);
+}
+
+.params-item {
+  @apply flex gap-2 py-1 px-2;
+}
+
+.params-name {
+  @apply flex-none min-w-[110px] text-[11.5px] text-text-secondary;
+  font-family: var(--mono);
+}
+
+.params-value {
+  @apply flex-1 min-w-0 text-[11.5px] text-text overflow-hidden text-ellipsis whitespace-nowrap;
+  font-family: var(--mono);
+}
+
+.open-in-request {
+  @apply text-accent;
 }
 </style>

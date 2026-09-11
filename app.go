@@ -200,6 +200,12 @@ func (a *App) Analyze(body string) *jsonapi.Analysis {
 	return jsonapi.Analyze([]byte(body))
 }
 
+// BridgePort returns the loopback port the browser extension connects to, so
+// the empty state can name it without hardcoding the number in the template.
+func (a *App) BridgePort() int {
+	return bridge.DefaultPort
+}
+
 // onCapturedRequest is the bridge handler: it forwards browser-captured
 // requests to the frontend as a Wails event.
 func (a *App) onCapturedRequest(req bridge.CapturedRequest) {

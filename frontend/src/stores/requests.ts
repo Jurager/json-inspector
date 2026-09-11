@@ -63,6 +63,9 @@ export const useRequestsStore = defineStore('requests', {
       body: '',
     } as DraftState,
     openChip: null as 'params' | 'headers' | 'auth' | 'body' | null,
+    // Incremented by "Открыть в «Запросе»" to nudge RequestBuilder to focus its
+    // URL field after it remounts.
+    focusUrlTick: 0,
   }),
   getters: {
     manualSelected(state): RequestRecord | null {
@@ -126,6 +129,22 @@ export const useRequestsStore = defineStore('requests', {
     },
     setOpenChip(chip: 'params' | 'headers' | 'auth' | 'body' | null) {
       this.openChip = chip
+    },
+    requestFocusUrl() {
+      this.focusUrlTick++
+    },
+    // Fills the draft from a captured record without sending it — the
+    // "Открыть в «Запросе»" action turns a read-only captured request back into
+    // an editable draft.
+    loadDraft(record: Pick<RequestRecord, 'method' | 'url' | 'requestHeaders' | 'requestBody'>) {
+      this.draft.method = record.method
+      this.setUrl(record.url)
+      this.draft.headers = Object.entries(record.requestHeaders).map(([name, value]) => ({
+        name,
+        value,
+        enabled: true,
+      }))
+      this.draft.body = record.requestBody
     },
     // setUrl is the URL → params direction of the two-way sync: a manual URL
     // edit is the source of truth, so its query string replaces the params.

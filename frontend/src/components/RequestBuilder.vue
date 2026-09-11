@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import Icon from './Icon.vue'
 import { SendRequest, CancelRequest } from '../../wailsjs/go/main/App'
 import { useRequestsStore } from '../stores/requests'
@@ -90,6 +90,17 @@ async function cancel() {
   await CancelRequest()
 }
 
+// Focus the URL field when "Открыть в «Запросе»" asks for it — the field only
+// exists after this component remounts, hence the nextTick.
+const urlInputRef = ref<HTMLInputElement | null>(null)
+
+watch(
+  () => store.focusUrlTick,
+  () => {
+    nextTick(() => urlInputRef.value?.focus())
+  }
+)
+
 // Close the method dropdown and the chip popover on an outside click. The
 // popover is a descendant of `.request-bar` (absolutely positioned below it),
 // so a click inside it still counts as "inside" and keeps it open.
@@ -142,6 +153,7 @@ onBeforeUnmount(() => {
         </div>
 
         <input
+          ref="urlInputRef"
           :value="store.draft.url"
           class="url-input mono"
           placeholder="https://api.example.com/articles?include=author"

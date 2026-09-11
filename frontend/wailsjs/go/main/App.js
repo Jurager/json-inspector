@@ -6,6 +6,10 @@ export function Analyze(arg1) {
   return window['go']['main']['App']['Analyze'](arg1);
 }
 
+export function BridgePort() {
+  return window['go']['main']['App']['BridgePort']();
+}
+
 export function CancelRequest() {
   return window['go']['main']['App']['CancelRequest']();
 }

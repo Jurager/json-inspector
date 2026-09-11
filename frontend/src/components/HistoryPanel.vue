@@ -156,7 +156,10 @@ function groupHue(key: string): number {
       <button class="btn" :disabled="records.length === 0" @click="clearAll">Очистить</button>
     </div>
 
-    <div v-if="records.length === 0" class="empty">
+    <!-- No empty text for the browser source: the centered BrowserEmptyState in
+         the main column already explains the next step, so a second message
+         here would just repeat it. -->
+    <div v-if="records.length === 0 && source === 'manual'" class="empty">
       <span class="empty-title">Пока пусто</span>
       <span class="empty-hint">{{ emptyHint }}</span>
     </div>

@@ -6,6 +6,8 @@ import ResponseViewer from './components/ResponseViewer.vue'
 import HistoryPanel from './components/HistoryPanel.vue'
 import AboutModal from './components/AboutModal.vue'
 import StatusBar from './components/StatusBar.vue'
+import CaptureBar from './components/CaptureBar.vue'
+import BrowserEmptyState from './components/BrowserEmptyState.vue'
 import Icon from './components/Icon.vue'
 import logoUrl from './assets/logo.svg'
 import { buildSampleRecord } from './lib/sample'
@@ -347,11 +349,9 @@ onBeforeUnmount(() => {
               </div>
             </template>
             <template v-else>
+              <CaptureBar />
               <ResponseViewer v-if="store.browserSelected" :record="store.browserSelected" />
-              <div v-else class="empty">
-                <span class="empty-title">Нет выбранного запроса</span>
-                <span>Выберите запрос из списка слева.</span>
-              </div>
+              <BrowserEmptyState v-else />
             </template>
           </div>
         </div>
