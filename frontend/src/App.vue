@@ -7,7 +7,6 @@ import EnvironmentsSheet from './components/EnvironmentsSheet.vue'
 import RequestBuilder from './components/RequestBuilder.vue'
 import ResponseViewer from './components/ResponseViewer.vue'
 import HistoryPanel from './components/HistoryPanel.vue'
-import AboutModal from './components/AboutModal.vue'
 import StatusBar from './components/StatusBar.vue'
 import CaptureBar from './components/CaptureBar.vue'
 import BrowserEmptyState from './components/BrowserEmptyState.vue'
@@ -51,7 +50,6 @@ const HISTORY_KEY = 'ji-history-v1'
 const UI_KEY = 'ji-ui-v1'
 const MAX_HISTORY = 200
 
-const aboutOpen = ref(false)
 const isMaximised = ref(false)
 
 interface UpdateInfo {
@@ -304,11 +302,6 @@ onMounted(() => {
     })
   )
   offs.push(
-    EventsOn('show-about', () => {
-      aboutOpen.value = true
-    })
-  )
-  offs.push(
     EventsOn('update-available', (u: UpdateInfo) => {
       update.value = u
     })
@@ -344,10 +337,10 @@ onBeforeUnmount(() => {
   <div class="app">
     <header class="titlebar" :class="{ 'titlebar-custom': useCustomTitlebar }" @dblclick="ToggleMaximize">
       <template v-if="useCustomTitlebar">
-        <button class="titlebar-appicon" @click="aboutOpen = true" title="О программе">
+        <div class="titlebar-appicon">
           <img :src="logoUrl" alt="" class="titlebar-logo" draggable="false" />
           <span class="titlebar-title">JSON Inspector</span>
-        </button>
+        </div>
         <div class="titlebar-spacer"></div>
         <div class="titlebar-controls">
           <button class="cap-btn" title="Свернуть" @click="WindowMinimise">
@@ -397,9 +390,6 @@ onBeforeUnmount(() => {
             <button class="menu-item" @click="loadSample(); railMenuOpen = false">
               <Icon name="sparkles" :size="14" /> Загрузить образец
             </button>
-            <button class="menu-item" @click="aboutOpen = true; railMenuOpen = false">
-              <Icon name="info" :size="14" /> О программе
-            </button>
             <button class="menu-item" @click="checkUpdates(); railMenuOpen = false">
               <Icon name="arrow-down" :size="14" /> {{ checking ? 'Проверка…' : 'Проверить обновления' }}
             </button>
@@ -434,7 +424,7 @@ onBeforeUnmount(() => {
 
         <div class="rail-spacer"></div>
 
-        <button class="rail-menu-btn rail-settings" title="Настройки" @click="aboutOpen = true">
+        <button class="rail-menu-btn rail-settings" title="Переменные окружения (⌘E)" @click="envStore.openSheet()">
           <Icon name="settings-2" :size="17" />
         </button>
       </aside>
@@ -474,8 +464,6 @@ onBeforeUnmount(() => {
     </div>
     <StatusBar :update="update" @open-update="openUpdate" />
   </div>
-
-  <AboutModal v-if="aboutOpen" @close="aboutOpen = false" />
 
   <EnvironmentsSheet v-if="envStore.sheetOpen" @close="closeSheet" />
 

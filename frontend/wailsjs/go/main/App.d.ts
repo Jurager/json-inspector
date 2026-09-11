@@ -26,8 +26,6 @@ export function SecretSet(arg1:string,arg2:string,arg3:string):Promise<void>;
 
 export function SendRequest(arg1:string,arg2:string,arg3:Record<string, string>,arg4:string):Promise<main.ResponseResult>;
 
-export function ShowAbout():Promise<void>;
-
 export function ToggleMaximize():Promise<void>;
 
 export function UpdateNow(arg1:string):Promise<void>;
