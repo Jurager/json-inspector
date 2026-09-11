@@ -142,11 +142,11 @@ body.settings .view-settings {
   background: var(--text-tertiary);
 }
 
-.dot.ok {
+.dot.dot-status-ok {
   background: var(--green);
 }
 
-.dot.warn {
+.dot.dot-status-warn {
   background: var(--orange);
 }
 

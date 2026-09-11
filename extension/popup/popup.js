@@ -188,7 +188,7 @@ function renderHeader(state) {
   const port = $('status-port');
 
   if (state.appRunning) {
-    dot.className = 'dot ok';
+    dot.className = 'dot dot-status-ok';
     text.textContent = 'Подключено';
     port.textContent = ':' + (
         state.port || DEFAULT_PORT
@@ -196,7 +196,7 @@ function renderHeader(state) {
     return;
   }
 
-  dot.className = 'dot warn';
+  dot.className = 'dot dot-status-warn';
   text.textContent = 'Приложение не запущено';
   port.textContent = '';
 }
