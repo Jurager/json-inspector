@@ -318,10 +318,12 @@ body {
   @apply text-[10px] font-semibold leading-none;
 }
 
-/* Sits in the tile's top-right corner (4px/12px from its edges), not on the
-   icon's — that is where the reference puts it. */
+/* Sits in the tile's top-right corner (4px/12px from its edges — the reference
+   positions it against the tile, not the icon) and reads as a pill: the
+   rendered reference is 24×16 for a single digit, not a circle, so the box is
+   wider than it is tall. */
 .rail-badge {
-  @apply absolute top-1 right-3 min-w-4 h-4 px-1 rounded-full bg-red text-white text-[10px] font-semibold inline-flex items-center justify-center;
+  @apply absolute top-1 right-3 min-w-6 h-4 px-1 rounded-full bg-red text-white text-[10px] font-semibold inline-flex items-center justify-center;
 }
 
 /* Pushes the settings tile to the bottom of the rail, after the source items. */
