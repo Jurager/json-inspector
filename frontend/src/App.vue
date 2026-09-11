@@ -215,7 +215,16 @@ onMounted(() => {
         tabId: c.tabId,
         favIconUrl: c.favIconUrl,
       })
-      store.setCaptureState({ connected: true, recording: true })
+    })
+  )
+  offs.push(
+    EventsOn('capture-state', (s: { recording: boolean; tabs: number }) => {
+      store.setCaptureState({ connected: true, recording: s.recording, tabs: s.tabs })
+    })
+  )
+  offs.push(
+    EventsOn('capture-disconnected', () => {
+      store.setCaptureState({ connected: false, recording: false, tabs: 0 })
     })
   )
   offs.push(

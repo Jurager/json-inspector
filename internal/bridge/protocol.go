@@ -24,3 +24,13 @@ type CapturedRequest struct {
 	TabURL          string            `json:"tabURL"`
 	FavIconURL      string            `json:"favIconUrl"`
 }
+
+// CaptureState is the second wire-format message, sent by the extension to
+// report its live capture status (how many tabs, whether recording, which
+// browser) so the status bar doesn't have to guess from badge counts.
+type CaptureState struct {
+	Type      string `json:"type"` // always "state"
+	Recording bool   `json:"recording"`
+	Tabs      int    `json:"tabs"`
+	Browser   string `json:"browser"`
+}

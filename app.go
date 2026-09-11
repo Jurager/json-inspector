@@ -263,3 +263,20 @@ func (a *App) onCapturedRequest(req bridge.CapturedRequest) {
 	}
 	runtime.EventsEmit(a.ctx, "captured-request", req)
 }
+
+// onCaptureState forwards the extension's live capture status to the status bar.
+func (a *App) onCaptureState(s bridge.CaptureState) {
+	if a.ctx == nil {
+		return
+	}
+	runtime.EventsEmit(a.ctx, "capture-state", s)
+}
+
+// onCaptureDisconnected fires when the extension's socket drops, so the status
+// bar stops claiming the extension is still connected.
+func (a *App) onCaptureDisconnected() {
+	if a.ctx == nil {
+		return
+	}
+	runtime.EventsEmit(a.ctx, "capture-disconnected")
+}

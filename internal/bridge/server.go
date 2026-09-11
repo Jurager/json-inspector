@@ -13,17 +13,26 @@ import (
 // Handler is called for every validated request received over the WebSocket.
 type Handler func(CapturedRequest)
 
+// StateHandler is called for every capture-state message from the extension.
+type StateHandler func(CaptureState)
+
+// DisconnectHandler is called when the extension's WebSocket drops, so the UI
+// can stop claiming the extension is still connected.
+type DisconnectHandler func()
+
 // Server is a loopback WebSocket server that receives captured requests from
 // the Chrome extension and forwards them to the UI.
 type Server struct {
-	port     int
-	handler  Handler
-	upgrader websocket.Upgrader
+	port              int
+	handler           Handler
+	stateHandler      StateHandler
+	disconnectHandler DisconnectHandler
+	upgrader          websocket.Upgrader
 }
 
 // NewServer creates a server listening on 127.0.0.1:port.
-func NewServer(port int, handler Handler) *Server {
-	s := &Server{port: port, handler: handler}
+func NewServer(port int, handler Handler, stateHandler StateHandler, disconnectHandler DisconnectHandler) *Server {
+	s := &Server{port: port, handler: handler, stateHandler: stateHandler, disconnectHandler: disconnectHandler}
 	s.upgrader = websocket.Upgrader{CheckOrigin: s.checkOrigin}
 	return s
 }
@@ -73,20 +82,39 @@ func (s *Server) handleWS(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	defer conn.Close()
+	defer func() {
+		if s.disconnectHandler != nil {
+			s.disconnectHandler()
+		}
+	}()
 	for {
 		_, msg, err := conn.ReadMessage()
 		if err != nil {
 			return
 		}
-		var req CapturedRequest
-		if err := json.Unmarshal(msg, &req); err != nil {
+		var envelope struct {
+			Type string `json:"type"`
+		}
+		if err := json.Unmarshal(msg, &envelope); err != nil {
 			continue
 		}
-		if req.Type != "request" {
-			continue
-		}
-		if s.handler != nil {
-			s.handler(req)
+		switch envelope.Type {
+		case "request":
+			var req CapturedRequest
+			if err := json.Unmarshal(msg, &req); err != nil {
+				continue
+			}
+			if s.handler != nil {
+				s.handler(req)
+			}
+		case "state":
+			var st CaptureState
+			if err := json.Unmarshal(msg, &st); err != nil {
+				continue
+			}
+			if s.stateHandler != nil {
+				s.stateHandler(st)
+			}
 		}
 	}
 }

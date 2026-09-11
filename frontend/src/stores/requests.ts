@@ -7,15 +7,8 @@ function nextId(): string {
   return `req-${Date.now()}-${counter}`
 }
 
-// Recording flips back to false after 30s of silence from the extension —
-// module-level like `counter` above, since it's bookkeeping for the store's
-// own action rather than reactive UI state itself.
-let recordingTimer: ReturnType<typeof setTimeout> | null = null
-const RECORDING_TIMEOUT_MS = 30_000
-
 // Capture is the status bar's source of truth for the browser extension's
-// state. Real signals arrive on step 9; until then the only event is the
-// arrival of a captured request.
+// state, fed by the extension's capture-state messages over the bridge.
 interface CaptureState {
   connected: boolean
   recording: boolean
@@ -115,18 +108,6 @@ export const useRequestsStore = defineStore('requests', {
     },
     setCaptureState(partial: Partial<CaptureState>) {
       this.capture = { ...this.capture, ...partial }
-      // While recording, keep the 30s watchdog alive: each captured request
-      // pushes the deadline back, so `recording` only drops after a real
-      // silence, not between two requests a second apart.
-      if (this.capture.recording) {
-        if (recordingTimer) clearTimeout(recordingTimer)
-        recordingTimer = setTimeout(() => {
-          this.capture = { ...this.capture, recording: false }
-        }, RECORDING_TIMEOUT_MS)
-      } else if (recordingTimer) {
-        clearTimeout(recordingTimer)
-        recordingTimer = null
-      }
     },
     setOpenChip(chip: 'params' | 'headers' | 'auth' | 'body' | null) {
       this.openChip = chip

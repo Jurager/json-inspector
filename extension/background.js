@@ -113,6 +113,7 @@ async function connect(port) {
   ws.onopen = () => {
     connected = true;
     refreshIndicator();
+    sendState();
     const queue = pending.splice(0, pending.length);
     for (const msg of queue) {
       if (ws.readyState === WebSocket.OPEN) ws.send(msg);
@@ -158,6 +159,18 @@ function enqueue(payload) {
   }
 }
 
+// Reports the live capture status (recording flag + tab count) to the app, so
+// its status bar reflects reality rather than inferring from badge counts.
+function sendState() {
+  if (!socket || socket.readyState !== WebSocket.OPEN) return;
+  socket.send(JSON.stringify({
+    type: 'state',
+    recording: connected && captureTabIds.size > 0,
+    tabs: captureTabIds.size,
+    browser: 'Chrome',
+  }));
+}
+
 async function injectInto(tabId) {
   await chrome.scripting.executeScript({ target: { tabId }, files: ['content/bridge.js'] });
   await chrome.scripting.executeScript({
@@ -201,6 +214,7 @@ async function startCapture() {
     connect(port);
   } else {
     refreshIndicator();
+    sendState();
   }
   return { ok: true, tabId: tab.id };
 }
@@ -217,6 +231,7 @@ async function stopCaptureFor(tabId) {
     chrome.alarms.clear(KEEPALIVE);
     disconnect();
   }
+  sendState();
 }
 
 async function stopCapture() {
@@ -368,4 +383,5 @@ chrome.tabs.onRemoved.addListener((tabId) => {
     chrome.alarms.clear(KEEPALIVE);
     disconnect();
   }
+  sendState();
 });

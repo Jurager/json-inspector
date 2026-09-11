@@ -27,7 +27,7 @@ func main() {
 
 	app := NewApp()
 
-	bridgeServer := bridge.NewServer(bridge.DefaultPort, app.onCapturedRequest)
+	bridgeServer := bridge.NewServer(bridge.DefaultPort, app.onCapturedRequest, app.onCaptureState, app.onCaptureDisconnected)
 	go func() {
 		if err := bridgeServer.Start(); err != nil {
 			log.Printf("[bridge] error: %v", err)
