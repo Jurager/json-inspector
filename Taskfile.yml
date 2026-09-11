@@ -56,7 +56,8 @@ tasks:
     cmds:
       - |
         set -euo pipefail
-        GO_VER=$(go list -m github.com/wailsapp/wails/v3 | awk '{print $2}')
+        set -- $(go list -m github.com/wailsapp/wails/v3)
+        GO_VER=${2:-}
         NPM_VER=$(node -p "require('./frontend/package.json').dependencies['@wailsio/runtime']")
         GO_VER=${GO_VER#v}
         NPM_VER=${NPM_VER#v}
@@ -79,8 +80,14 @@ tasks:
   clean:
     desc: Remove all build output
     cmds:
-      - rm -rf dist bin .task
-      - rm -f build/linux/*.desktop
+      - cmd: >-
+          powershell -Command "Remove-Item -Recurse -Force -ErrorAction SilentlyContinue dist, bin, .task;
+          Remove-Item -Force -ErrorAction SilentlyContinue build/linux/*.desktop"
+        platforms: [windows]
+      - cmd: rm -rf dist bin .task
+        platforms: [linux, darwin]
+      - cmd: rm -f build/linux/*.desktop
+        platforms: [linux, darwin]
 
   # ─── Frontend ─────────────────────────────────────────────────────────────
 
@@ -345,7 +352,7 @@ tasks:
     cmds:
       - task: windows:syso
       - 'go build {{.BUILD_FLAGS}} -o "{{.APP_PATH}}.exe"'
-      - rm -f wails_windows_*.syso
+      - powershell -Command "Remove-Item -Force -ErrorAction SilentlyContinue wails_windows_*.syso"
     vars:
       BUILD_FLAGS: '{{if eq .DEV "true"}}-buildvcs=false -gcflags=all="-l"{{else}}-tags production -trimpath -buildvcs=false -ldflags="{{.LDFLAGS}} -H windowsgui"{{end}}'
     env:
@@ -368,12 +375,14 @@ tasks:
       - task: windows:build
     cmds:
       - task: windows:nsis
-      - mkdir -p dist
+      - powershell -Command "if (-not (Test-Path dist)) { New-Item -ItemType Directory dist }"
       - >-
         powershell -Command "Compress-Archive -Path '{{.APP_PATH}}.exe'
         -DestinationPath 'dist/{{.APP_NAME}}-windows-{{.ARCH | default ARCH}}.exe.zip' -Force"
-      - cp "{{.BIN_DIR}}/{{.APP_NAME}}-{{.ARCH | default ARCH}}-installer.exe" "dist/{{.APP_NAME}}-windows-{{.ARCH | default ARCH}}-installer.exe"
-      - ls -la dist
+      - >-
+        powershell -Command "Copy-Item '{{.BIN_DIR}}/{{.APP_NAME}}-{{.ARCH | default ARCH}}-installer.exe'
+        'dist/{{.APP_NAME}}-windows-{{.ARCH | default ARCH}}-installer.exe' -Force"
+      - powershell -Command "Get-ChildItem dist"
 
   windows:nsis:
     desc: Create the NSIS installer, which also registers json-inspector://

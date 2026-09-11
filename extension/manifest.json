@@ -18,9 +18,9 @@
     "default_popup": "popup/popup.html",
     "default_title": "JSON Inspector",
     "default_icon": {
-      "16": "icons/icon16.png",
-      "32": "icons/icon32.png",
-      "48": "icons/icon48.png"
+      "16": "icons/off-icon16.png",
+      "32": "icons/off-icon32.png",
+      "48": "icons/off-icon48.png"
     }
   }
 }

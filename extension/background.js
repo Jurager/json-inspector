@@ -2,18 +2,18 @@ const DEFAULT_PORT = 38761;
 const KEEPALIVE = 'ji-keepalive';
 const RECONNECT_MS = 2500;
 
-const NORMAL_ICON = {
+const RECORDING_ICON = {
   16: 'icons/icon16.png',
   32: 'icons/icon32.png',
   48: 'icons/icon48.png',
   128: 'icons/icon128.png',
 };
 
-const RECORDING_ICON = {
-  16: 'icons/recording-icon16.png',
-  32: 'icons/recording-icon32.png',
-  48: 'icons/recording-icon48.png',
-  128: 'icons/recording-icon128.png',
+const OFF_ICON = {
+  16: 'icons/off-icon16.png',
+  32: 'icons/off-icon32.png',
+  48: 'icons/off-icon48.png',
+  128: 'icons/off-icon128.png',
 };
 
 const DISCONNECTED_ICON = {
@@ -92,7 +92,7 @@ function setCaptureIcon(tabId, state) {
   const path = {
     recording: RECORDING_ICON,
     disconnected: DISCONNECTED_ICON,
-    normal: NORMAL_ICON,
+    normal: OFF_ICON,
   }[state];
 
   chrome.action.setIcon({

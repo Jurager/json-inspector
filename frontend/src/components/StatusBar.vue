@@ -24,11 +24,8 @@ const emit = defineEmits<{ (e: 'open-update'): void }>()
 const store = useRequestsStore()
 const envStore = useEnvironmentsStore()
 
-// The active environment, or the explicit "nothing is being substituted" state.
 const environment = computed(() => envStore.active?.name ?? 'Без окружения')
 
-// Only the manual draft can be sent, so only it can be blocked by an
-// unresolved variable; a captured request is already on the wire.
 const missingCount = computed(() =>
   store.activeView === 'request' ? store.missingVars.length : 0
 )
@@ -110,8 +107,8 @@ const captureLabel = computed(() => {
 
 const captureDotClass = computed(() => {
   const c = capture.value
-  if (c.recording) return 'dot dot-red'
-  if (c.connected) return 'dot dot-green'
+  if (c.recording) return 'dot dot-green'
+  if (c.connected) return 'dot dot-grey'
   return 'dot dot-orange'
 })
 </script>
@@ -172,6 +169,10 @@ const captureDotClass = computed(() => {
 
 .dot-green {
   background: var(--green);
+}
+
+.dot-grey {
+  background: var(--text-tertiary);
 }
 
 .dot-orange {
