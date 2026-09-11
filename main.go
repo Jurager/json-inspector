@@ -27,7 +27,13 @@ func main() {
 
 	app := NewApp()
 
-	bridgeServer := bridge.NewServer(bridge.DefaultPort, app.onCapturedRequest, app.onCaptureState, app.onCaptureDisconnected)
+	bridgeServer := bridge.NewServer(
+		bridge.DefaultPort,
+		app.onCapturedRequest,
+		app.onCaptureState,
+		app.onCaptureDisconnected,
+		app.onFocusRequest,
+	)
 	app.setBridge(bridgeServer)
 	go func() {
 		if err := bridgeServer.Start(); err != nil {

@@ -8,6 +8,29 @@ function $(id) {
   return document.getElementById(id);
 }
 
+// Opening the app takes one of two routes.
+//
+// If the socket is up, the app is already running and listening — ask it to
+// come forward over that connection. This is the common case and the reliable
+// one: no external-protocol handoff, no confirmation dialog, no leftover tab.
+//
+// Otherwise the app has to be started, and the only way in is the custom
+// scheme. That has to be launched from here rather than by the service worker:
+// Chrome only allows an external protocol from a document with a user gesture,
+// which is why a `tabs.create` from the worker just flashed a blank tab.
+async function openApp(tabId) {
+  try {
+    const res = await chrome.runtime.sendMessage({ type: 'focusApp', tabId });
+    if (res && res.ok) {
+      window.close();
+      return;
+    }
+  } catch (_) {
+    // fall through to the protocol
+  }
+  window.location.href = 'json-inspector://open' + (tabId != null ? `?tab=${encodeURIComponent(tabId)}` : '');
+}
+
 function hostnameOf(url) {
   try {
     return new URL(url).hostname;
@@ -102,7 +125,7 @@ function buildMoreRow(t) {
   row.appendChild(stop);
 
   // Anywhere else on the row: take me to this tab's requests.
-  row.addEventListener('click', () => chrome.runtime.sendMessage({ type: 'openApp', tabId: t.tabId }));
+  row.addEventListener('click', () => openApp(t.tabId));
   return row;
 }
 
@@ -194,7 +217,7 @@ function renderCurrentTab(state) {
   agoEl.textContent = agoLabel(tab.lastAt);
   arrow.hidden = false;
   foot.classList.add('actionable');
-  foot.onclick = () => chrome.runtime.sendMessage({ type: 'openApp', tabId: tab.tabId });
+  foot.onclick = () => openApp(tab.tabId);
 }
 
 function renderWarning(state) {
@@ -272,8 +295,8 @@ $('enabled').addEventListener('change', async (e) => {
   await refresh();
 });
 
-$('open-app').addEventListener('click', () => chrome.runtime.sendMessage({ type: 'openApp' }));
-$('warn-launch').addEventListener('click', () => chrome.runtime.sendMessage({ type: 'openApp' }));
+$('open-app').addEventListener('click', () => openApp());
+$('warn-launch').addEventListener('click', () => openApp());
 
 $('open-settings').addEventListener('click', () => document.body.classList.add('settings'));
 $('close-settings').addEventListener('click', () => document.body.classList.remove('settings'));

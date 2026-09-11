@@ -354,3 +354,17 @@ func (a *App) onCaptureDisconnected() {
 	}
 	runtime.EventsEmit(a.ctx, "capture-disconnected")
 }
+
+// onFocusRequest brings the window forward for the extension's "open this
+// request" action. The extension asks over the live socket, so this path works
+// whether or not the OS protocol handoff does.
+func (a *App) onFocusRequest(req bridge.FocusRequest) {
+	if a.ctx == nil {
+		return
+	}
+	runtime.WindowShow(a.ctx)
+	runtime.WindowUnminimise(a.ctx)
+	if req.Tab > 0 {
+		runtime.EventsEmit(a.ctx, "open-tab", req.Tab)
+	}
+}

@@ -453,20 +453,10 @@ async function describeTab(tab) {
   };
 }
 
-// Hands `json-inspector://open[?tab=N]` to the OS. The extra tab Chrome opens
-// for an external protocol is closed right after — otherwise the user is left
-// with a blank tab per click.
-async function openApp(tabId) {
-  const url = 'json-inspector://open' + (tabId != null ? `?tab=${encodeURIComponent(tabId)}` : '');
-  try {
-    const created = await chrome.tabs.create({ url, active: false });
-    setTimeout(() => {
-      if (created && created.id != null) chrome.tabs.remove(created.id).catch(() => {});
-    }, 1200);
-  } catch (_) {
-    // Nothing else to try — the popup's own anchor still works.
-  }
-}
+// Launching the app itself happens in the popup, not here: Chrome refuses an
+// external-protocol navigation that has no user gesture behind it, so a
+// `tabs.create` from the worker only produced a blank tab that had to be closed
+// again while the app never came forward. See popup.js → openApp().
 
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   if (!msg) return false;
@@ -544,6 +534,17 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
         });
         break;
       }
+      case 'focusApp': {
+        // The app is already listening, so asking it over the socket is the
+        // reliable way to bring it forward — no OS protocol dialog, no tab.
+        // The popup falls back to the custom scheme when this says no.
+        const live = socket && socket.readyState === WebSocket.OPEN;
+        if (live) {
+          socket.send(JSON.stringify({ type: 'focus', tab: msg.tabId ?? 0 }));
+        }
+        sendResponse({ ok: Boolean(live) });
+        break;
+      }
       case 'setSetting': {
         const key = String(msg.key || '');
         if (key in DEFAULT_SETTINGS) {
@@ -556,10 +557,6 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
         sendResponse({ ok: true, settings: { ...settings } });
         break;
       }
-      case 'openApp':
-        await openApp(msg.tabId);
-        sendResponse({ ok: true });
-        break;
       case 'startCapture':
         sendResponse(await startCapture());
         break;

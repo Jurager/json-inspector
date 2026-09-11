@@ -21,6 +21,10 @@ type StateHandler func(CaptureState)
 // can stop claiming the extension is still connected.
 type DisconnectHandler func()
 
+// FocusHandler is called when the extension asks the app to come to the front,
+// optionally on one of its tabs.
+type FocusHandler func(FocusRequest)
+
 // Server is a loopback WebSocket server that receives captured requests from
 // the Chrome extension and forwards them to the UI. It also keeps the live
 // socket so the app can push control messages back to the extension (pause).
@@ -29,6 +33,7 @@ type Server struct {
 	handler           Handler
 	stateHandler      StateHandler
 	disconnectHandler DisconnectHandler
+	focusHandler      FocusHandler
 	upgrader          websocket.Upgrader
 
 	mu      sync.Mutex
@@ -36,12 +41,13 @@ type Server struct {
 }
 
 // NewServer creates a server listening on 127.0.0.1:port.
-func NewServer(port int, handler Handler, stateHandler StateHandler, disconnectHandler DisconnectHandler) *Server {
+func NewServer(port int, handler Handler, stateHandler StateHandler, disconnectHandler DisconnectHandler, focusHandler FocusHandler) *Server {
 	s := &Server{
 		port:              port,
 		handler:           handler,
 		stateHandler:      stateHandler,
 		disconnectHandler: disconnectHandler,
+		focusHandler:      focusHandler,
 		clients:           make(map[*websocket.Conn]struct{}),
 	}
 	s.upgrader = websocket.Upgrader{CheckOrigin: s.checkOrigin}
@@ -152,6 +158,14 @@ func (s *Server) handleWS(w http.ResponseWriter, r *http.Request) {
 			}
 			if s.stateHandler != nil {
 				s.stateHandler(st)
+			}
+		case "focus":
+			var fr FocusRequest
+			if err := json.Unmarshal(msg, &fr); err != nil {
+				continue
+			}
+			if s.focusHandler != nil {
+				s.focusHandler(fr)
 			}
 		}
 	}

@@ -34,3 +34,12 @@ type CaptureState struct {
 	Tabs      int    `json:"tabs"`
 	Browser   string `json:"browser"`
 }
+
+// FocusRequest asks the running app to come to the front, optionally showing a
+// particular browser tab. It is the extension's "open this request" action:
+// since the app is already connected, this needs no OS protocol handoff — no
+// launch confirmation, no leftover tab.
+type FocusRequest struct {
+	Type string `json:"type"` // always "focus"
+	Tab  int    `json:"tab"`
+}
