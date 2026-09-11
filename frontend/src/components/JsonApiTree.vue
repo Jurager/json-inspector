@@ -59,32 +59,31 @@ const highlightedKey = ref<string | null>(null)
 // type. Groups collapse only when there are enough resources to matter; search
 // and a selected type chip always force them open.
 const typeFilter = ref<string | null>(null)
-const expandedGroups = ref<Set<string>>(new Set())
+const toggled = ref<Set<string>>(new Set())
 const showAllTypes = ref(false)
 
 function toggleTypeFilter(type: string) {
   typeFilter.value = typeFilter.value === type ? null : type
 }
 
+// A group is collapsed by default only for large docs; the `toggled` set holds
+// the types the user has flipped, so the effective state is default XOR toggled.
+// This lets every group be opened/closed, unlike always-open for small docs.
 function isGroupOpen(type: string): boolean {
   if (props.query.trim() || typeFilter.value) return true
-  if (included.value.length <= 20) return true
-  return expandedGroups.value.has(type)
+  const defaultOpen = included.value.length <= 20
+  return toggled.value.has(type) ? !defaultOpen : defaultOpen
 }
 
 function toggleGroup(type: string) {
-  const next = new Set(expandedGroups.value)
+  const next = new Set(toggled.value)
   if (next.has(type)) next.delete(type)
   else next.add(type)
-  expandedGroups.value = next
+  toggled.value = next
 }
 
 function forceExpand(type: string) {
-  if (!expandedGroups.value.has(type)) {
-    const next = new Set(expandedGroups.value)
-    next.add(type)
-    expandedGroups.value = next
-  }
+  if (!isGroupOpen(type)) toggleGroup(type)
 }
 
 function highlightAndScroll(key: string) {
@@ -244,7 +243,7 @@ const noResults = computed(
           <span class="ja-type-badge">{{ g.type }}</span>
           <span class="group-res-count">
             {{ g.resources.length }} {{ pluralRu(g.resources.length, ['ресурс', 'ресурса', 'ресурсов']) }}
-            <span v-if="!isGroupOpen(g.type)" class="group-open-hint">— раскрыть группой</span>
+            <template v-if="!isGroupOpen(g.type)"> — раскрыть группой</template>
           </span>
         </button>
         <div v-if="isGroupOpen(g.type)">
@@ -304,6 +303,7 @@ const noResults = computed(
    contain, not as bare section labels. */
 .included-group-head {
   @apply flex items-center gap-2 py-2 px-3 rounded-lg text-left cursor-pointer select-none;
+  width: calc(100% - 32px);
   margin: 5px 16px;
   border: 1px solid var(--border);
   background: var(--bg-panel);
@@ -315,10 +315,6 @@ const noResults = computed(
 }
 
 .group-res-count {
-  @apply text-xs text-text-secondary;
-}
-
-.group-open-hint {
-  @apply text-text-tertiary;
+  @apply flex-1 min-w-0 text-xs text-text-secondary;
 }
 </style>
