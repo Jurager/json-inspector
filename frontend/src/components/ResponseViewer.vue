@@ -333,8 +333,35 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocClick))
       <button v-if="hasPrev" class="btn icon-btn" title="Назад" @click="goBack"><Icon name="chevron-left" :size="14" /></button>
       <span class="badge badge-method">{{ record.method }}</span>
       <span class="badge" :class="statusClass(record.status)">{{ record.status }}</span>
-      <span class="resp-url mono" :title="record.url">{{ record.url }}</span>
-      <span class="resp-meta">{{ formatDuration(record.durationMs) }} · {{ formatBytes(bodySize) }}</span>
+
+      <!-- URL is shown only for captured requests: for manual ones it already
+           sits in the command line, so repeating it here would be noise. -->
+      <span v-if="record.source === 'browser'" class="resp-url mono" :title="record.url">{{ record.url }}</span>
+      <template v-else>
+        <span class="divider"></span>
+        <span class="resp-meta">{{ formatDuration(record.durationMs) }}</span>
+        <span class="divider"></span>
+        <span class="resp-meta">{{ formatBytes(bodySize) }}</span>
+        <span class="divider"></span>
+        <span v-if="record.contentType" class="resp-meta truncate max-w-[240px]">{{ record.contentType }}</span>
+      </template>
+
+      <span class="resp-spacer"></span>
+
+      <button class="resp-action" disabled title="Сравнение ответов — скоро">Сравнить</button>
+      <div ref="copyWrapEl" class="copy-row">
+        <button class="resp-action" @click="copyMenuOpen = !copyMenuOpen">
+          <Icon v-if="copied" name="check" :size="12" />
+          <span>{{ copied ? 'Скопировано' : 'Копировать' }}</span>
+          <svg viewBox="0 0 10 6" width="10" height="6" fill="none" aria-hidden="true"><path d="M1.5 1.5L5 5L8.5 1.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>
+        <div v-if="copyMenuOpen" class="menu copy-menu">
+          <button v-for="f in COPY_FORMATS" :key="f.id" class="menu-item" @click="copyAs(f.id)">
+            {{ f.label }}
+          </button>
+        </div>
+      </div>
+      <button class="resp-action" disabled title="Инспектор узла — скоро">Инспектор <kbd class="keycap">⌥I</kbd></button>
     </div>
 
     <div v-if="record.error" class="resp-error">Ошибка: {{ record.error }}</div>
@@ -430,18 +457,7 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocClick))
 
       <template v-else>
         <div class="toolbar">
-          <div ref="copyWrapEl" class="copy-row">
-            <button class="btn btn-inline" @click="copyMenuOpen = !copyMenuOpen">
-              <Icon v-if="copied" name="check" :size="12" />
-              <span>{{ copied ? 'Скопировано' : 'Копировать' }}</span>
-              <svg viewBox="0 0 10 6" width="10" height="6" fill="none" aria-hidden="true"><path d="M1.5 1.5L5 5L8.5 1.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
-            </button>
-            <div v-if="copyMenuOpen" class="menu copy-menu">
-              <button v-for="f in COPY_FORMATS" :key="f.id" class="menu-item" @click="copyAs(f.id)">
-                {{ f.label }}
-              </button>
-            </div>
-          </div>
+          <span class="request-caption">после подстановки переменных окружения</span>
         </div>
         <div class="resp-pad">
           <div class="kv-row"><span class="kv-label">Метод</span><span class="mono">{{ record.method }}</span></div>
@@ -481,6 +497,35 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocClick))
 
 .resp-meta {
   @apply text-text-tertiary text-xs whitespace-nowrap;
+}
+
+.divider {
+  @apply w-px h-3 bg-border flex-none;
+}
+
+.resp-spacer {
+  @apply flex-1;
+}
+
+.resp-action {
+  @apply inline-flex items-center gap-1.5 h-6 px-2.5 rounded-md text-[11.5px] flex-none;
+  border: 1px solid var(--border-strong);
+  background: var(--bg-panel);
+  color: var(--text);
+  cursor: pointer;
+  --wails-draggable: no-drag;
+}
+
+.resp-action:hover {
+  @apply bg-bg-hover;
+}
+
+.resp-action:disabled {
+  @apply opacity-50 cursor-default;
+}
+
+.request-caption {
+  @apply mr-auto text-[11.5px] text-text-tertiary;
 }
 
 .resp-error {
