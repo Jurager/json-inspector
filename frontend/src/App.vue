@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onBeforeUnmount, onMounted, ref, watch, type Ref } from 'vue'
+import { onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRequestsStore } from './stores/requests'
 import RequestBuilder from './components/RequestBuilder.vue'
 import ResponseViewer from './components/ResponseViewer.vue'
@@ -12,6 +12,7 @@ import Icon from './components/Icon.vue'
 import logoUrl from './assets/logo.svg'
 import { buildSampleRecord } from './lib/sample'
 import { useCustomTitlebar } from './lib/platform'
+import { makeSideResizer } from './lib/resize'
 import {
   EventsOn,
   WindowMinimise,
@@ -24,6 +25,7 @@ import { ToggleMaximize, CheckForUpdates, UpdateNow } from '../wailsjs/go/main/A
 const store = useRequestsStore()
 
 const HISTORY_KEY = 'ji-history-v1'
+const UI_KEY = 'ji-ui-v1'
 const MAX_HISTORY = 200
 
 const aboutOpen = ref(false)
@@ -119,27 +121,6 @@ function onDocClick(e: MouseEvent) {
 // browser-captured list) depending on store.activeView, so its width is a
 // single piece of state and resizing it on either tab carries over to the
 // other.
-function makeSideResizer(width: Ref<number>, min: number, max: number) {
-  let state: { startX: number; startWidth: number } | null = null
-  return {
-    start(e: MouseEvent) {
-      state = { startX: e.clientX, startWidth: width.value }
-      document.body.style.cursor = 'col-resize'
-      document.body.style.userSelect = 'none'
-    },
-    move(e: MouseEvent) {
-      if (!state) return
-      const delta = e.clientX - state.startX
-      width.value = Math.min(max, Math.max(min, state.startWidth + delta))
-    },
-    stop() {
-      state = null
-      document.body.style.cursor = ''
-      document.body.style.userSelect = ''
-    },
-  }
-}
-
 const sideWidth = ref(300)
 const sideResize = makeSideResizer(sideWidth, 220, 560)
 
@@ -187,6 +168,18 @@ onMounted(() => {
     // ignore corrupt storage
   }
 
+  // Restore the inspector's visibility and width.
+  try {
+    const raw = localStorage.getItem(UI_KEY)
+    if (raw) {
+      const parsed = JSON.parse(raw)
+      if (parsed && typeof parsed.open === 'boolean') store.setInspector({ open: parsed.open })
+      if (parsed && typeof parsed.width === 'number') store.setInspector({ width: parsed.width })
+    }
+  } catch {
+    // ignore corrupt storage
+  }
+
   // Persist request history (debounced).
   let saveTimer: ReturnType<typeof setTimeout> | null = null
   offs.push(
@@ -195,6 +188,7 @@ onMounted(() => {
       saveTimer = setTimeout(() => {
         try {
           localStorage.setItem(HISTORY_KEY, JSON.stringify(state.requests.slice(0, MAX_HISTORY)))
+          localStorage.setItem(UI_KEY, JSON.stringify({ open: state.inspector.open, width: state.inspector.width }))
         } catch {
           // ignore quota errors
         }

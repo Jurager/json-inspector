@@ -18,6 +18,10 @@ const props = defineProps<{
 const emit = defineEmits<{
   (e: 'jump', key: string): void
   (e: 'fetch', url: string): void
+  // Fires whenever a relationship chip is clicked, so the parent can point
+  // the inspector at that relationship. No payload — the parent already knows
+  // the relationship name from its own v-for loop.
+  (e: 'inspect'): void
 }>()
 
 const targets = computed(() => relIdentifiers(props.rel))
@@ -25,6 +29,16 @@ const targets = computed(() => relIdentifiers(props.rel))
 function labelFor(type: string, id: string): string {
   const r = props.index.get(resourceKey(type, id))
   return r ? resourceLabel(r) : `${type}/${id}`
+}
+
+function onJump(key: string) {
+  emit('jump', key)
+  emit('inspect')
+}
+
+function onFetch(url: string) {
+  emit('fetch', url)
+  emit('inspect')
 }
 </script>
 
@@ -36,7 +50,7 @@ function labelFor(type: string, id: string): string {
         v-if="index.has(resourceKey(t.type, t.id))"
         class="rel-chip in-doc"
         :title="resourceKey(t.type, t.id)"
-        @click="emit('jump', resourceKey(t.type, t.id))"
+        @click="onJump(resourceKey(t.type, t.id))"
       >
         {{ labelFor(t.type, t.id) }}
       </button>
@@ -44,7 +58,7 @@ function labelFor(type: string, id: string): string {
         v-else-if="href(rel.links?.related)"
         class="rel-chip fetchable"
         :title="`fetch ${href(rel.links?.related)}`"
-        @click="emit('fetch', href(rel.links?.related))"
+        @click="onFetch(href(rel.links?.related))"
       >
         {{ t.type }}/{{ t.id }}<Icon name="arrow-up-right" :size="12" />
       </button>

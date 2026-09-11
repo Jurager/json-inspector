@@ -66,6 +66,7 @@ export const useRequestsStore = defineStore('requests', {
     // Incremented by "Открыть в «Запросе»" to nudge RequestBuilder to focus its
     // URL field after it remounts.
     focusUrlTick: 0,
+    inspector: { open: false, path: null as string | null, width: 300 },
   }),
   getters: {
     manualSelected(state): RequestRecord | null {
@@ -132,6 +133,9 @@ export const useRequestsStore = defineStore('requests', {
     },
     requestFocusUrl() {
       this.focusUrlTick++
+    },
+    setInspector(partial: Partial<{ open: boolean; path: string | null; width: number }>) {
+      this.inspector = { ...this.inspector, ...partial }
     },
     // Fills the draft from a captured record without sending it — the
     // "Открыть в «Запросе»" action turns a read-only captured request back into

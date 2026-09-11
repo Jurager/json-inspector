@@ -14,6 +14,7 @@ import { dataResources, href, isJsonApi, resourceMatchesQuery, type JsonApiDocum
 import JsonApiTree from './JsonApiTree.vue'
 import JsonTree from './JsonTree.vue'
 import SchemaMap from './SchemaMap.vue'
+import NodeInspector from './NodeInspector.vue'
 import { Fetch } from '../../wailsjs/go/main/App'
 import { useRequestsStore } from '../stores/requests'
 import { copyToClipboard, exportRequest, type ExportFormat } from '../lib/export'
@@ -125,6 +126,14 @@ function onTreeFetch(url: string) {
 
 function onTreeSelect(key: string) {
   highlightKey.value = key
+}
+
+function onInspect(path: string) {
+  store.setInspector({ path, open: true })
+}
+
+function toggleInspector() {
+  store.setInspector({ open: !store.inspector.open })
 }
 
 function onMapSelect(key: string) {
@@ -302,6 +311,11 @@ async function copyHeaders() {
 }
 
 function onWindowKeydown(e: KeyboardEvent) {
+  if (e.altKey && (e.key === 'i' || e.key === 'I')) {
+    e.preventDefault()
+    toggleInspector()
+    return
+  }
   if (activeTab.value === 'raw') {
     if ((e.metaKey || e.ctrlKey) && e.code === 'KeyF') {
       e.preventDefault()
@@ -406,7 +420,7 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocClick))
           </button>
         </div>
       </div>
-      <button class="resp-action" disabled title="Инспектор узла — скоро">Инспектор <kbd class="keycap">⌥I</kbd></button>
+      <button class="resp-action" title="Инспектор узла (⌥I)" @click="toggleInspector">Инспектор <kbd class="keycap">⌥I</kbd></button>
     </div>
 
     <div v-if="record.error" class="resp-error">Ошибка: {{ record.error }}</div>
@@ -421,7 +435,8 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocClick))
       <button class="tab" :class="{ active: activeTab === 'request' }" @click="activeTab = 'request'">Запрос</button>
     </div>
 
-    <div class="resp-content">
+    <div class="resp-main">
+      <div class="resp-content">
       <template v-if="activeTab === 'body'">
         <div v-if="doc" class="toolbar">
           <template v-if="bodySearchVisible">
@@ -452,7 +467,7 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocClick))
           <span class="head-spacer"></span>
           <button class="btn open-in-request" @click="openInRequest">Открыть в «Запросе»</button>
         </div>
-        <JsonApiTree v-if="doc" :doc="doc" :query="bodyQuery" :highlight-key="highlightKey" @select="onTreeSelect" @fetch="onTreeFetch" />
+        <JsonApiTree v-if="doc" :doc="doc" :query="bodyQuery" :highlight-key="highlightKey" @select="onTreeSelect" @inspect="onInspect" @fetch="onTreeFetch" />
         <div v-else-if="isJson" class="jt-wrap"><JsonTree :value="jsonValue" /></div>
         <pre v-else class="code resp-pad">{{ record.responseBody }}</pre>
       </template>
@@ -526,6 +541,8 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocClick))
           <pre v-if="record.requestBody" class="code" v-html="highlightJson(record.requestBody)"></pre>
         </div>
       </template>
+      </div>
+      <NodeInspector v-if="store.inspector.open" :doc="doc" @close="store.setInspector({ open: false })" @fetch="follow" />
     </div>
   </div>
 </template>
@@ -580,6 +597,10 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocClick))
 
 .resp-error {
   @apply py-2.5 px-3 text-red bg-red-soft text-xs;
+}
+
+.resp-main {
+  @apply flex flex-1 min-h-0;
 }
 
 .resp-content {

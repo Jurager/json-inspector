@@ -24,12 +24,25 @@ const props = withDefaults(
 const emit = defineEmits<{
   (e: 'fetch', url: string): void
   (e: 'select', key: string): void
+  (e: 'inspect', path: string): void
 }>()
 
 const index = computed(() => buildIndex(props.doc))
 const data = computed(() => dataResources(props.doc))
 const included = computed(() => props.doc.included ?? [])
 const errors = computed(() => props.doc.errors ?? [])
+
+// Flat index in doc.included, so a grouped resource still gets a stable
+// "included[j]" path for the inspector.
+const includedFlatIndex = computed(() => {
+  const map = new Map<string, number>()
+  included.value.forEach((r, i) => map.set(r.type + '/' + r.id, i))
+  return map
+})
+
+function includedPath(r: Resource): string {
+  return 'included[' + (includedFlatIndex.value.get(r.type + '/' + r.id) ?? 0) + ']'
+}
 
 const highlightedKey = ref<string | null>(null)
 
@@ -178,13 +191,15 @@ const noResults = computed(
     <template v-if="filteredData.length">
       <div class="ja-section-title">data</div>
       <ResourceNode
-        v-for="r in filteredData"
+        v-for="(r, i) in filteredData"
         :key="r.type + '/' + r.id"
         :resource="r"
         :index="index"
+        :path="'data[' + i + ']'"
         :highlighted="isHighlighted(r.type + '/' + r.id)"
         @jump="jumpTo"
         @fetch="(u) => emit('fetch', u)"
+        @inspect="(p) => emit('inspect', p)"
       />
     </template>
 
@@ -221,9 +236,11 @@ const noResults = computed(
             :key="r.type + '/' + r.id"
             :resource="r"
             :index="index"
+            :path="includedPath(r)"
             :highlighted="isHighlighted(r.type + '/' + r.id)"
             @jump="jumpTo"
             @fetch="(u) => emit('fetch', u)"
+            @inspect="(p) => emit('inspect', p)"
           />
         </div>
       </div>

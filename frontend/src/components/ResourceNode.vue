@@ -9,14 +9,25 @@ const props = defineProps<{
   resource: Resource
   index: Map<string, Resource>
   highlighted?: boolean
+  path: string
 }>()
 
 const emit = defineEmits<{
   (e: 'jump', key: string): void
   (e: 'fetch', url: string): void
+  (e: 'inspect', path: string): void
 }>()
 
 const open = ref(false)
+
+function toggleOpen() {
+  open.value = !open.value
+  emit('inspect', props.path)
+}
+
+function relPath(name: string): string {
+  return props.path + '.relationships.' + name
+}
 
 // When the parent highlights this node (e.g. jump from the map), expand it so
 // the resource is actually visible, not just its header.
@@ -90,7 +101,7 @@ async function copyVal(k: string, v: unknown) {
 
 <template>
   <div class="ja-resource" :id="rid" :class="{ highlight: highlighted }">
-    <button class="ja-resource-head" @click="open = !open">
+    <button class="ja-resource-head" @click="toggleOpen">
       <span class="ja-caret" :class="{ open }">
         <Icon name="chevron-right" :size="10" />
       </span>
@@ -116,7 +127,7 @@ async function copyVal(k: string, v: unknown) {
         <div class="ja-section-title" style="padding-left: 0">relationships</div>
         <div v-for="[name, rel] in relationships" :key="name" class="ja-rel">
           <span class="ja-rel-name">{{ name }}</span>
-          <RelationshipLink :rel="rel" :index="index" @jump="(k) => emit('jump', k)" @fetch="(u) => emit('fetch', u)" />
+          <RelationshipLink :rel="rel" :index="index" @jump="(k) => emit('jump', k)" @fetch="(u) => emit('fetch', u)" @inspect="emit('inspect', relPath(name))" />
         </div>
       </template>
     </div>
