@@ -11,16 +11,8 @@ import (
 	"json-inspector/internal/update"
 )
 
-//go:embed all:frontend/dist
 var assets embed.FS
-
-// The app icon, handed to the OS (macOS dock/About, Windows taskbar).
-//
-//go:embed build/appicon.png
 var appIcon []byte
-
-// version is overridden at build time via -ldflags "-X main.version=…", which
-// the per-OS BUILD_FLAGS in build/*/Taskfile.yml inject.
 var version = "dev"
 
 func main() {
@@ -41,9 +33,6 @@ func main() {
 		Mac: application.MacOptions{
 			ApplicationShouldTerminateAfterLastWindowClosed: true,
 		},
-		// Without this a second launch (or a json-inspector:// link while the app
-		// is already running) starts a whole new process, which then fails to
-		// bind the bridge port and sits there with a dead extension socket.
 		SingleInstance: &application.SingleInstanceOptions{
 			UniqueID:               "com.jurager.json-inspector",
 			EncryptionKey:          singleInstanceKey,
@@ -69,14 +58,10 @@ func main() {
 	})
 	appService.setMainWindow(mainWin)
 
-	// The frontend subscribes to events while mounting; anything emitted before
-	// that is dropped, so this is the moment the buffered payloads can go out.
 	mainWin.OnWindowEvent(events.Common.WindowRuntimeReady, func(*application.WindowEvent) {
 		appService.markReady()
 	})
 
-	// First launch via json-inspector://. Later launches arrive through
-	// SingleInstance.OnSecondInstanceLaunch instead — see handleUrlOpen.
 	app.Event.OnApplicationEvent(events.Common.ApplicationLaunchedWithUrl, func(e *application.ApplicationEvent) {
 		appService.handleUrlOpen(e.Context().URL())
 	})
@@ -95,10 +80,9 @@ func main() {
 		}
 	}()
 
-	// The native app menu is only used on macOS, where it renders in the
-	// system-wide menu bar and looks native. On Windows/Linux the app is
-	// frameless and draws its own title bar; an empty menu keeps Wails from
-	// installing its default one there.
+	// The native app menu is only used on macOS.
+	// Where it renders in the system-wide menu bar and looks native.
+	// On Windows/Linux the app is frameless and draws its own title bar.
 	if useCustomTitlebar() {
 		app.Menu.Set(app.NewMenu())
 	} else {
