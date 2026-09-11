@@ -36,12 +36,6 @@ function agoLabel(at) {
   return `последний ${Math.round(min / 60)} ч назад`;
 }
 
-function hueOf(text) {
-  let h = 0;
-  for (let i = 0; i < text.length; i++) h = (h * 31 + text.charCodeAt(i)) >>> 0;
-  return h % 360;
-}
-
 // A tab is identified by its favicon when there is one, and by a lettered tile
 // when there isn't (or when the icon fails to load).
 function buildIcon(favIconUrl, label) {
@@ -52,7 +46,6 @@ function buildIcon(favIconUrl, label) {
   const avatar = document.createElement('span');
   avatar.className = 'avatar';
   avatar.textContent = initial;
-  avatar.style.background = `hsl(${hueOf(label || initial)}, 45%, 45%)`;
   // Exactly one of the two is visible: a fresh element is visible by default,
   // so the avatar has to be hidden explicitly whenever an icon is expected.
   avatar.hidden = Boolean(favIconUrl);
@@ -166,14 +159,27 @@ function renderCurrentTab(state) {
   const agoEl = $('current-ago');
   const arrow = $('current-arrow');
 
+  // While the app is away the warning card and the buffer line carry the
+  // message, and the tab card shrinks to just the switch — as in the reference.
+  foot.hidden = !state.appRunning;
+  if (foot.hidden) {
+    foot.classList.remove('actionable');
+    foot.onclick = null;
+    return;
+  }
+
   if (!capturing) {
     countEl.textContent = '';
     agoEl.textContent = 'Запросы этой вкладки не пишутся. Включите, и они появятся в приложении.';
     arrow.hidden = true;
     foot.classList.remove('actionable');
+    // Prose, not columns: it wraps instead of being cut with an ellipsis.
+    foot.classList.add('text');
     foot.onclick = null;
     return;
   }
+
+  foot.classList.remove('text');
 
   if (count === 0) {
     countEl.textContent = '';
@@ -269,10 +275,7 @@ $('enabled').addEventListener('change', async (e) => {
 $('open-app').addEventListener('click', () => chrome.runtime.sendMessage({ type: 'openApp' }));
 $('warn-launch').addEventListener('click', () => chrome.runtime.sendMessage({ type: 'openApp' }));
 
-$('open-settings').addEventListener('click', () => {
-  document.body.classList.add('settings');
-  $('settings-version').textContent = 'Версия ' + chrome.runtime.getManifest().version;
-});
+$('open-settings').addEventListener('click', () => document.body.classList.add('settings'));
 $('close-settings').addEventListener('click', () => document.body.classList.remove('settings'));
 
 $('port').addEventListener('change', async (e) => {
@@ -301,6 +304,10 @@ function stopPolling() {
   if (pollTimer) clearInterval(pollTimer);
   pollTimer = null;
 }
+
+// Written once at load rather than when the gear is pressed, so the footer is
+// never blank.
+$('settings-version').textContent = 'Версия ' + chrome.runtime.getManifest().version;
 
 refresh().then(startPolling);
 window.addEventListener('unload', stopPolling);

@@ -53,6 +53,16 @@
   box-sizing: border-box;
 }
 
+/* `hidden` has to win over every `display` in this file. Without it any element
+   that is laid out with flex (the warning card, the action row, the buffer
+   line) keeps showing after the script hides it — which is how "приложение не
+   запущено" ends up on screen while the app is answering. */
+[hidden] {
+  display: none !important;
+}
+
+/* The popup itself is the panel: in the reference it is the white card, and
+   the current-tab box reads as a bordered/tinted box on top of it. */
 body {
   width: 340px;
   margin: 0;
@@ -60,7 +70,7 @@ body {
     "Helvetica Neue", Arial, sans-serif;
   font-size: 13px;
   color: var(--text);
-  background: var(--bg);
+  background: var(--card);
   -webkit-font-smoothing: antialiased;
   user-select: none;
 }
@@ -120,6 +130,24 @@ body.settings .view-settings {
 
 .pop-port {
   color: var(--text-tertiary);
+}
+
+/* The 6px status dot next to "Подключено" — green when the app is up, orange
+   when it isn't. */
+.dot {
+  width: 6px;
+  height: 6px;
+  flex: none;
+  border-radius: 50%;
+  background: var(--text-tertiary);
+}
+
+.dot.ok {
+  background: var(--green);
+}
+
+.dot.warn {
+  background: var(--orange);
 }
 
 .icon-btn {
@@ -241,6 +269,9 @@ body.settings .view-settings {
   display: none;
 }
 
+/* Fallback when a tab has no favicon: a neutral tile with its first letter, not
+   a per-site colour — the reference uses one quiet grey for every tab, so the
+   only colour in the card stays the recording state. */
 .avatar {
   width: 20px;
   height: 20px;
@@ -251,8 +282,8 @@ body.settings .view-settings {
   justify-content: center;
   font-size: 10px;
   font-weight: 700;
-  color: #fff;
-  background: var(--text-tertiary);
+  color: var(--text-secondary);
+  background: var(--inset);
   text-transform: uppercase;
 }
 
@@ -299,12 +330,33 @@ body.settings .view-settings {
   border-top-color: var(--green-line);
 }
 
+.current-foot[hidden] {
+  display: none;
+}
+
 .current-foot.actionable {
   cursor: pointer;
 }
 
+/* The explanation state is a sentence, so it wraps like one. */
+.current-foot.text {
+  display: block;
+  line-height: 1.45;
+}
+
+.current-foot.text .current-ago {
+  white-space: normal;
+  overflow: visible;
+}
+
 .current-foot.actionable:hover {
   background: var(--hover);
+}
+
+/* The action row belongs to the green card, so its hover stays in that colour
+   rather than introducing a grey of its own. */
+.current.on .current-foot.actionable:hover {
+  background: color-mix(in srgb, var(--green) 10%, transparent);
 }
 
 .current-count {

@@ -34,14 +34,14 @@
           Расширение продолжает копить запросы, но показать их некому: приложение на порту
           <span class="mono" id="warn-port">38761</span> не отвечает.
         </div>
-        <button class="btn-primary btn-small" id="warn-launch">Запустить приложение</button>
+        <button class="btn-primary" id="warn-launch">Запустить приложение</button>
       </div>
 
       <!-- The main object of the popup: the tab the user is standing on -->
       <div class="card current" id="current-card">
         <div class="current-top">
-          <img class="favicon" id="current-favicon" alt="" />
-          <span class="avatar" id="current-avatar" hidden></span>
+          <!-- The icon slot is built by popup.js: a placeholder <img> here would
+               linger as an empty box next to the letter tile. -->
           <div class="current-text">
             <div class="current-title" id="current-title"></div>
             <div class="mono current-host" id="current-host"></div>
