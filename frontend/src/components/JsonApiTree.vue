@@ -5,8 +5,10 @@ import {
   dataResources,
   resourceMatchesQuery,
   type JsonApiDocument,
+  type Resource,
 } from '../lib/jsonapi'
 import ResourceNode from './ResourceNode.vue'
+import Icon from './Icon.vue'
 
 const props = withDefaults(
   defineProps<{
@@ -31,8 +33,43 @@ const errors = computed(() => props.doc.errors ?? [])
 
 const highlightedKey = ref<string | null>(null)
 
+// Included can be a 94-resource flat list — unreadable — so it's grouped by
+// type. Groups collapse only when there are enough resources to matter; search
+// and a selected type chip always force them open.
+const typeFilter = ref<string | null>(null)
+const expandedGroups = ref<Set<string>>(new Set())
+const showAllTypes = ref(false)
+
+function toggleTypeFilter(type: string) {
+  typeFilter.value = typeFilter.value === type ? null : type
+}
+
+function isGroupOpen(type: string): boolean {
+  if (props.query.trim() || typeFilter.value) return true
+  if (included.value.length <= 20) return true
+  return expandedGroups.value.has(type)
+}
+
+function toggleGroup(type: string) {
+  const next = new Set(expandedGroups.value)
+  if (next.has(type)) next.delete(type)
+  else next.add(type)
+  expandedGroups.value = next
+}
+
+function forceExpand(type: string) {
+  if (!expandedGroups.value.has(type)) {
+    const next = new Set(expandedGroups.value)
+    next.add(type)
+    expandedGroups.value = next
+  }
+}
+
 function highlightAndScroll(key: string) {
   highlightedKey.value = key
+  // A relationship can jump into a collapsed group — expand it so the scroll
+  // target actually exists.
+  forceExpand(key.split('/')[0])
   nextTick(() => {
     const el = document.getElementById('res-' + key)
     el?.scrollIntoView({ behavior: 'smooth', block: 'start' })
@@ -89,6 +126,31 @@ const filteredIncluded = computed(() => {
   return included.value.filter((r) => resourceMatchesQuery(r, q))
 })
 
+// Type summary chips in the included header — most populous types first.
+const typeCounts = computed(() => {
+  const map = new Map<string, number>()
+  for (const r of filteredIncluded.value) {
+    map.set(r.type, (map.get(r.type) ?? 0) + 1)
+  }
+  return Array.from(map.entries())
+    .map(([type, count]) => ({ type, count }))
+    .sort((a, b) => b.count - a.count)
+})
+
+const visibleTypeChips = computed(() => (showAllTypes.value ? typeCounts.value : typeCounts.value.slice(0, 4)))
+const moreTypes = computed(() => Math.max(0, typeCounts.value.length - 4))
+
+const includedGroups = computed(() => {
+  const map = new Map<string, Resource[]>()
+  for (const r of filteredIncluded.value) {
+    if (typeFilter.value && r.type !== typeFilter.value) continue
+    const list = map.get(r.type) ?? []
+    list.push(r)
+    map.set(r.type, list)
+  }
+  return Array.from(map.entries()).map(([type, resources]) => ({ type, resources }))
+})
+
 const noResults = computed(
   () => isFiltering.value && filteredData.value.length === 0 && filteredIncluded.value.length === 0
 )
@@ -127,18 +189,44 @@ const noResults = computed(
     </template>
 
     <template v-if="filteredIncluded.length">
-      <div class="ja-section-title">
-        included {{ isFiltering ? `(${filteredIncluded.length} / ${included.length})` : `(${included.length})` }}
+      <div class="ja-section-title ja-included-head">
+        <span>included ({{ filteredIncluded.length }})</span>
+        <span v-if="typeCounts.length" class="type-chips">
+          <button
+            v-for="tc in visibleTypeChips"
+            :key="tc.type"
+            class="type-chip"
+            :class="{ active: typeFilter === tc.type }"
+            @click="toggleTypeFilter(tc.type)"
+          >
+            {{ tc.type }} {{ tc.count }}
+          </button>
+          <button v-if="moreTypes && !showAllTypes" class="type-chip more" @click="showAllTypes = true">
+            ещё {{ moreTypes }}
+          </button>
+        </span>
       </div>
-      <ResourceNode
-        v-for="r in filteredIncluded"
-        :key="r.type + '/' + r.id"
-        :resource="r"
-        :index="index"
-        :highlighted="isHighlighted(r.type + '/' + r.id)"
-        @jump="jumpTo"
-        @fetch="(u) => emit('fetch', u)"
-      />
+
+      <div v-for="g in includedGroups" :key="g.type" class="included-group">
+        <button class="included-group-head" @click="toggleGroup(g.type)">
+          <span class="ja-caret" :class="{ open: isGroupOpen(g.type) }">
+            <Icon name="chevron-right" :size="10" />
+          </span>
+          <span class="ja-type-badge">{{ g.type }}</span>
+          <span class="group-res-count">{{ g.resources.length }} ресурсов</span>
+        </button>
+        <div v-if="isGroupOpen(g.type)">
+          <ResourceNode
+            v-for="r in g.resources"
+            :key="r.type + '/' + r.id"
+            :resource="r"
+            :index="index"
+            :highlighted="isHighlighted(r.type + '/' + r.id)"
+            @jump="jumpTo"
+            @fetch="(u) => emit('fetch', u)"
+          />
+        </div>
+      </div>
     </template>
   </div>
 </template>
@@ -148,5 +236,45 @@ const noResults = computed(
 
 .ja-no-results {
   @apply p-4 text-center text-text-tertiary text-xs;
+}
+
+.ja-included-head {
+  @apply flex items-center gap-2 flex-wrap;
+}
+
+.type-chips {
+  @apply inline-flex flex-wrap gap-1;
+}
+
+.type-chip {
+  @apply text-[10.5px] text-purple py-px px-[7px] rounded-sm border-0 cursor-pointer;
+  font-family: var(--mono);
+  background: color-mix(in srgb, var(--purple) 14%, transparent);
+}
+
+.type-chip.active {
+  outline: 1px solid var(--purple);
+}
+
+.type-chip.more {
+  color: var(--text-secondary);
+  background: var(--bg-hover);
+}
+
+.included-group {
+  @apply mb-1;
+}
+
+.included-group-head {
+  @apply flex items-center gap-2 w-full py-1.5 px-4 border-none bg-transparent text-left cursor-pointer select-none;
+  --wails-draggable: no-drag;
+}
+
+.included-group-head:hover {
+  @apply bg-bg-hover;
+}
+
+.group-res-count {
+  @apply text-xs text-text-secondary;
 }
 </style>
