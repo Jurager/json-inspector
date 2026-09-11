@@ -37,11 +37,29 @@ const filteredVars = computed(() => {
   return vars.value.filter((v) => v.name.toLowerCase().includes(q))
 })
 
-const showSecrets = ref(false)
+// Secrets open one row at a time: a shared switch would put every credential
+// on screen at once just to read one. The set is component state, so closing
+// the sheet (which unmounts it) hides everything again.
+const revealed = ref<Set<string>>(new Set())
 
-function displayValue(v: Variable): string {
+function isRevealed(v: Variable): boolean {
+  return revealed.value.has(v.id)
+}
+
+function toggleReveal(v: Variable) {
+  const next = new Set(revealed.value)
+  if (next.has(v.id)) next.delete(v.id)
+  else next.add(v.id)
+  revealed.value = next
+}
+
+function isSecretMasked(v: Variable): boolean {
+  return v.kind === 'secret' && !isRevealed(v)
+}
+
+function displayValue(v: Variable, scope: string | null): string {
   if (v.kind !== 'secret') return v.value
-  return showSecrets.value ? envStore.varValue(envId.value, v) : '••••'
+  return isRevealed(v) ? envStore.varValue(scope, v) : '••••'
 }
 
 // --- Inline editing ---------------------------------------------------------
@@ -408,12 +426,6 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
               <span class="toolbar-note">Окружение только для чтения</span>
               <button class="btn tile-btn" @click="envStore.unlock(envStore.sheetEnvId as string)">Разблокировать</button>
             </template>
-            <template v-else>
-              <span class="toolbar-note">{{ showSecrets ? 'Значения секретов показаны' : 'Значения секретов скрыты' }}</span>
-              <button class="btn tile-btn" @click="showSecrets = !showSecrets">
-                {{ showSecrets ? 'Скрыть' : 'Показать' }}
-              </button>
-            </template>
           </div>
 
           <div class="table-head">
@@ -447,16 +459,24 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
                   :ref="setCellInput"
                   v-model="draft"
                   class="cell-input mono"
+                  :type="isSecretMasked(v) ? 'password' : 'text'"
                   spellcheck="false"
                   @keydown="onCellKeydown($event, v, 'value')"
                   @blur="commitFrom(v, 'value')"
                 />
-                <span
-                  v-else
-                  class="cell-text mono"
-                  :class="{ masked: v.kind === 'secret' && !showSecrets }"
-                  >{{ displayValue(v) }}</span
-                >
+                <template v-else>
+                  <span class="cell-text mono" :class="{ masked: isSecretMasked(v) }">{{
+                    displayValue(v, envId)
+                  }}</span>
+                  <button
+                    v-if="v.kind === 'secret'"
+                    class="eye-btn"
+                    :title="isRevealed(v) ? 'Скрыть значение' : 'Показать значение'"
+                    @click.stop="toggleReveal(v)"
+                  >
+                    <Icon :name="isRevealed(v) ? 'eye-off' : 'eye'" :size="13" />
+                  </button>
+                </template>
               </div>
 
               <!-- type -->
@@ -565,6 +585,8 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
 
 .sheet {
   @apply flex flex-col rounded-xl overflow-hidden w-[1040px] max-w-[95vw];
+  /* The spec's 548px body, but never taller than the window can show. */
+  max-height: calc(100vh - 72px);
   background: var(--bg-panel);
   box-shadow: 0 24px 60px rgba(0, 0, 0, 0.18), 0 0 0 1px var(--border);
 }
@@ -587,7 +609,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
 }
 
 .sheet-body {
-  @apply flex h-[420px] min-h-0;
+  @apply flex h-[548px] min-h-0;
 }
 
 /* ---- left column ---- */
@@ -753,11 +775,20 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
 }
 
 .cell-text {
-  @apply w-full overflow-hidden text-ellipsis whitespace-nowrap text-[12.5px];
+  @apply flex-1 min-w-0 overflow-hidden text-ellipsis whitespace-nowrap text-[12.5px];
 }
 
 .cell-text.masked {
   @apply text-text-tertiary;
+}
+
+/* Sits right after the dots — the one way to reveal this row's value. */
+.eye-btn {
+  @apply flex-none w-5 h-5 inline-flex items-center justify-center rounded-[5px] border-none bg-transparent text-text-tertiary cursor-pointer;
+}
+
+.eye-btn:hover {
+  @apply bg-bg-hover text-text;
 }
 
 .cell-input {

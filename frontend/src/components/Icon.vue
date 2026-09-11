@@ -27,6 +27,10 @@ import {
   Minus,
   Trash2,
   Search,
+  Eye,
+  EyeOff,
+  CornerDownRight,
+  Pencil,
 } from 'lucide-vue-next'
 
 const props = defineProps<{ name: string; size?: number }>()
@@ -57,6 +61,10 @@ const ICONS: Record<string, Component> = {
   minus: Minus,
   trash: Trash2,
   search: Search,
+  eye: Eye,
+  'eye-off': EyeOff,
+  inherit: CornerDownRight,
+  pencil: Pencil,
 }
 
 const icon = computed(() => ICONS[props.name] ?? ArrowUpRight)
