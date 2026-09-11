@@ -5,10 +5,12 @@ import RequestChipPopover from './RequestChipPopover.vue'
 import VarToken from './VarToken.vue'
 import { SendRequest, CancelRequest } from '../../wailsjs/go/main/App'
 import { useRequestsStore } from '../stores/requests'
+import { useEnvironmentsStore } from '../stores/environments'
 import { shortcut } from '../lib/platform'
 import { segments } from '../lib/vars'
 
 const store = useRequestsStore()
+const envStore = useEnvironmentsStore()
 
 const sendShortcut = computed(() => shortcut('↵'))
 
@@ -63,8 +65,30 @@ function collectHeaders(): Record<string, string> {
   return map
 }
 
+// Sending an unresolved `{{name}}` would put the braces on the wire and come
+// back as a confusing 404, so the send is blocked until the value exists. Both
+// the button and ⌘↵ come through here, so neither can slip past.
+const missing = computed(() => store.missingVars)
+const sendBlocked = computed(() => missing.value.length > 0)
+
+const blockedHint = computed(() =>
+  missing.value.length
+    ? `Неизвестные переменные: ${missing.value.join(', ')}`
+    : undefined
+)
+
+// Creates the missing names in the active environment and drops the user into
+// the editor focused on the first one. With no environment chosen there is
+// nothing to create into — the menu is the way out of that state.
+function createMissing() {
+  const envId = envStore.activeId
+  if (envId === null) return
+  for (const name of missing.value) envStore.addVar(envId, { name })
+  envStore.openSheet({ envId, varName: missing.value[0] ?? '' })
+}
+
 async function send() {
-  if (!store.draft.url.trim() || store.loading) return
+  if (!store.draft.url.trim() || store.loading || sendBlocked.value) return
   store.loading = true
   const requestHeaders = collectHeaders()
   try {
@@ -161,7 +185,7 @@ onBeforeUnmount(() => {
 <template>
   <div class="builder">
     <div ref="requestBarEl" class="request-bar">
-      <div class="url-field">
+      <div class="url-field" :class="{ 'url-field-invalid': sendBlocked }">
         <div ref="methodWrap" class="method-wrap">
           <button class="method-btn" :style="{ color: methodColor, background: methodBg }" @click="methodOpen = !methodOpen">
             <span>{{ store.draft.method }}</span>
@@ -221,7 +245,12 @@ onBeforeUnmount(() => {
         </div>
       </div>
 
-      <button class="btn btn-primary send-btn" :disabled="!store.draft.url.trim()" @click="store.loading ? cancel() : send()">
+      <button
+        class="btn btn-primary send-btn"
+        :disabled="!store.draft.url.trim() || sendBlocked"
+        :title="blockedHint"
+        @click="store.loading ? cancel() : send()"
+      >
         <template v-if="store.loading">
           <Icon name="xmark" :size="14" />
           <span>Отмена</span>
@@ -233,6 +262,32 @@ onBeforeUnmount(() => {
       </button>
 
       <RequestChipPopover v-if="store.openChip" :chip="store.openChip" />
+    </div>
+
+    <!-- The one thing allowed to add height to the command line: an unresolved
+         variable blocks the request outright, and the fix is one click away. -->
+    <div v-if="sendBlocked" class="missing-row">
+      <span class="missing-text">
+        <template v-if="envStore.activeId === null">
+          Окружение не выбрано — переменные
+          <span class="missing-name mono" v-for="n in missing" :key="n">{{ n }}</span>
+          не подставляются. Отправка заблокирована.
+        </template>
+        <template v-else>
+          В окружении <b>{{ envStore.active?.name }}</b> нет
+          {{ missing.length === 1 ? 'переменной' : 'переменных' }}:
+          <span class="missing-name mono" v-for="n in missing" :key="n">{{ n }}</span>
+          Отправка заблокирована.
+        </template>
+      </span>
+      <button
+        class="btn btn-primary missing-create"
+        :disabled="envStore.activeId === null"
+        :title="envStore.activeId === null ? 'Сначала выберите окружение в шапке' : undefined"
+        @click="createMissing"
+      >
+        {{ missing.length === 1 ? 'Создать' : 'Создать все' }}
+      </button>
     </div>
   </div>
 </template>
@@ -258,6 +313,34 @@ onBeforeUnmount(() => {
 .url-field:focus-within {
   border-color: var(--accent);
   box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+/* An unresolved variable is a hard stop, so the field keeps its red edge even
+   while focused — the accent ring would read as "all good". */
+.url-field.url-field-invalid,
+.url-field.url-field-invalid:focus-within {
+  border-color: color-mix(in srgb, var(--red) 45%, transparent);
+}
+
+.url-field.url-field-invalid:focus-within {
+  box-shadow: 0 0 0 3px var(--red-soft);
+}
+
+.missing-row {
+  @apply flex-none flex items-center gap-3 mx-4 mb-3 py-2 px-2.5 rounded-lg text-[12.5px];
+  background: color-mix(in srgb, var(--red) 7%, transparent);
+}
+
+.missing-text {
+  @apply flex-1 min-w-0;
+}
+
+.missing-name {
+  @apply text-red mx-1;
+}
+
+.missing-create {
+  @apply flex-none text-xs;
 }
 
 .method-wrap {

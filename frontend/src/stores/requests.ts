@@ -1,5 +1,6 @@
 import { defineStore } from 'pinia'
 import type { RequestRecord } from '../lib/types'
+import { useEnvironmentsStore } from './environments'
 
 let counter = 0
 function nextId(): string {
@@ -67,6 +68,20 @@ export const useRequestsStore = defineStore('requests', {
     },
     browserSelected(state): RequestRecord | null {
       return state.requests.find((r) => r.id === state.browserId) ?? null
+    },
+    // Every variable the draft references but can't resolve. Only what would
+    // actually be sent counts — a disabled row is not part of the request, so
+    // an unknown token in one must not block the send.
+    missingVars(state): string[] {
+      const envs = useEnvironmentsStore()
+      const parts = [
+        state.draft.url,
+        ...state.draft.params.filter((p) => p.enabled).map((p) => `${p.name}\n${p.value}`),
+        ...state.draft.headers.filter((h) => h.enabled).map((h) => `${h.name}\n${h.value}`),
+        state.draft.body,
+        state.draft.auth.token,
+      ]
+      return envs.missingIn(parts.join('\n'))
     },
   },
   actions: {

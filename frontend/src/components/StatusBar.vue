@@ -10,6 +10,7 @@ import {
   type JsonApiDocument,
 } from '../lib/jsonapi'
 import { tryParseJson, formatBytes } from '../lib/json'
+import { useEnvironmentsStore } from '../stores/environments'
 
 interface UpdateInfo {
   available: boolean
@@ -21,10 +22,28 @@ const props = defineProps<{ update: UpdateInfo | null }>()
 const emit = defineEmits<{ (e: 'open-update'): void }>()
 
 const store = useRequestsStore()
+const envStore = useEnvironmentsStore()
 
-// Environments aren't implemented yet — a stub so the left side of the bar
-// has a stable shape to slot them into later.
-const environment = computed(() => 'Local · dev')
+// The active environment, or the explicit "nothing is being substituted" state.
+const environment = computed(() => envStore.active?.name ?? 'Без окружения')
+
+// Only the manual draft can be sent, so only it can be blocked by an
+// unresolved variable; a captured request is already on the wire.
+const missingCount = computed(() =>
+  store.activeView === 'request' ? store.missingVars.length : 0
+)
+
+function plural(n: number, forms: [string, string, string]): string {
+  const m10 = n % 10
+  const m100 = n % 100
+  if (m10 === 1 && m100 !== 11) return forms[0]
+  if (m10 >= 2 && m10 <= 4 && (m100 < 12 || m100 > 14)) return forms[1]
+  return forms[2]
+}
+
+const missingLabel = computed(
+  () => `${missingCount.value} ${plural(missingCount.value, ['переменная', 'переменные', 'переменных'])} не найдено`
+)
 
 const selected = computed(() =>
   store.activeView === 'request' ? store.manualSelected : store.browserSelected
@@ -101,6 +120,10 @@ const captureDotClass = computed(() => {
   <div class="status-bar">
     <template v-if="store.activeView === 'request'">
       <span>{{ environment }}</span>
+      <template v-if="missingCount > 0">
+        <span class="divider"></span>
+        <span class="missing">{{ missingLabel }}</span>
+      </template>
     </template>
     <template v-else>
       <span :class="captureDotClass"></span>
@@ -129,6 +152,14 @@ const captureDotClass = computed(() => {
 
 .spacer {
   @apply flex-1;
+}
+
+.missing {
+  @apply text-red;
+}
+
+.divider {
+  @apply w-px h-3 bg-border flex-none;
 }
 
 .dot {
