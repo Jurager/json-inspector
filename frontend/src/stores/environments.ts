@@ -1,10 +1,13 @@
 import { defineStore } from 'pinia'
 import {
   missing as missingTokens,
+  parseTokens,
   substitute as substituteTokens,
+  SECRET_MASK,
   type ResolveFn,
   type VarKind,
 } from '../lib/vars'
+import { SecretSet, SecretGet, SecretDelete } from '../../wailsjs/go/main/App'
 
 export interface Variable {
   id: string
@@ -91,9 +94,13 @@ export const useEnvironmentsStore = defineStore('environments', {
     // on purpose: editing an environment shouldn't silently change what the
     // whole window substitutes.
     sheetEnvId: null as string | null,
-    // Secret values, keyed `<envId|globals>:<name>`. Never serialised; on
-    // startup the keyring refills it (see step A7).
+    // Secret values, keyed `<envId|globals>:<name>`. Never serialised; the
+    // keychain refills it on startup.
     secretValues: {} as Record<string, string>,
+    // False once a keychain call has failed, which is the honest answer on a
+    // platform without one (or when access was denied). The app keeps working
+    // with in-memory secrets and the editor says they won't survive a restart.
+    keychainAvailable: true,
   }),
 
   getters: {
@@ -131,6 +138,25 @@ export const useEnvironmentsStore = defineStore('environments', {
     substitute(): (text: string) => string {
       return (text: string) => substituteTokens(text, this.resolve)
     },
+
+    // Same substitution, but a secret comes out as dots. Used for anything that
+    // outlives the moment of sending — the request preview and the exports —
+    // so a credential can't ride along in a screenshot or a copied snippet.
+    masked(): (text: string) => string {
+      return (text: string) => {
+        const tokens = parseTokens(text)
+        if (tokens.length === 0) return text
+        let out = ''
+        let last = 0
+        for (const t of tokens) {
+          const r = this.resolve(t.name)
+          out += text.slice(last, t.start)
+          out += r ? (r.kind === 'secret' ? SECRET_MASK : r.value) : t.raw
+          last = t.end
+        }
+        return out + text.slice(last)
+      }
+    },
   },
 
   actions: {
@@ -166,6 +192,7 @@ export const useEnvironmentsStore = defineStore('environments', {
     },
 
     removeEnv(id: string) {
+      const doomed = this.environments.find((e) => e.id === id)
       this.environments = this.environments.filter((e) => e.id !== id)
       // Dropping the active environment falls back to "Без окружения" rather
       // than silently promoting a neighbour the user didn't choose.
@@ -173,6 +200,11 @@ export const useEnvironmentsStore = defineStore('environments', {
       this.unlocked = this.unlocked.filter((x) => x !== id)
       for (const k of Object.keys(this.secretValues)) {
         if (k.startsWith(id + ':')) delete this.secretValues[k]
+      }
+      // An environment's secrets go with it — a deleted environment must not
+      // leave credentials behind in the keychain.
+      for (const v of doomed?.vars ?? []) {
+        if (v.kind === 'secret') this.dropSecret(id, v.name)
       }
       this.persist()
     },
@@ -207,20 +239,27 @@ export const useEnvironmentsStore = defineStore('environments', {
     updateVar(envId: string | null, varId: string, patch: Partial<Variable>) {
       const v = this.varsOf(envId).find((x) => x.id === varId)
       if (!v) return
+      const wasKind = v.kind
+      const wasName = v.name
       const nextName = patch.name ?? v.name
       const nextKind = patch.kind ?? v.kind
-      const key = secretKey(envId, v.name)
+      const key = secretKey(envId, wasName)
       const nextKey = secretKey(envId, nextName)
 
-      if (v.kind === 'secret' && nextKind === 'secret' && nextName !== v.name) {
+      const renamingSecret = wasKind === 'secret' && nextKind === 'secret' && nextName !== wasName
+      let carried: string | undefined
+
+      if (renamingSecret) {
         // A renamed secret takes its value along, or the vault entry is orphaned
         // and the variable silently reads as empty.
-        this.secretValues[nextKey] = this.secretValues[key] ?? ''
+        carried = this.secretValues[key] ?? ''
+        this.secretValues[nextKey] = carried
         delete this.secretValues[key]
-      } else if (v.kind !== 'secret' && nextKind === 'secret') {
+      } else if (wasKind !== 'secret' && nextKind === 'secret') {
         // Promotion: the plaintext leaves the model entirely.
         this.secretValues[nextKey] = v.value
-      } else if (v.kind === 'secret' && nextKind !== 'secret') {
+        carried = v.value
+      } else if (wasKind === 'secret' && nextKind !== 'secret') {
         // Demotion: hand the value back to the model so the field isn't
         // mysteriously blank, and drop the vault entry.
         if (patch.value === undefined) patch = { ...patch, value: this.secretValues[key] ?? '' }
@@ -228,11 +267,28 @@ export const useEnvironmentsStore = defineStore('environments', {
       }
 
       const clean = { ...patch }
+      let written = carried
       if (nextKind === 'secret') {
-        if (clean.value !== undefined) this.secretValues[nextKey] = clean.value
+        if (clean.value !== undefined) {
+          this.secretValues[nextKey] = clean.value
+          written = clean.value
+        }
         clean.value = ''
       }
       Object.assign(v, clean)
+
+      // Keep the keychain in step with the model: a secret's value belongs
+      // there and nowhere else, and leaving it behind after a demotion would
+      // keep a credential alive the user just turned into a plain field. A
+      // rename has to rewrite it too — the keychain addresses items by name, so
+      // moving the vault entry alone would strand the stored copy under the old
+      // name and lose the value on the next start.
+      if (nextKind === 'secret' && written !== undefined) {
+        this.storeSecret(envId, nextName, written)
+      }
+      if (wasKind === 'secret' && (nextKind !== 'secret' || renamingSecret)) {
+        this.dropSecret(envId, wasName)
+      }
       this.persist()
     },
 
@@ -240,16 +296,62 @@ export const useEnvironmentsStore = defineStore('environments', {
       const list = this.varsOf(envId)
       const v = list.find((x) => x.id === varId)
       if (!v) return
-      if (v.kind === 'secret') delete this.secretValues[secretKey(envId, v.name)]
+      if (v.kind === 'secret') {
+        delete this.secretValues[secretKey(envId, v.name)]
+        this.dropSecret(envId, v.name)
+      }
       const at = list.indexOf(v)
       if (at !== -1) list.splice(at, 1)
       this.persist()
     },
 
     setSecret(envId: string | null, name: string, value: string) {
-      // Memory-only on purpose: the keyring (step A7) is what makes secrets
-      // outlive the session, and it writes them itself.
       this.secretValues[secretKey(envId, name)] = value
+      this.storeSecret(envId, name, value)
+    },
+
+    // The keychain lives on the Go side. Writes are fire-and-forget so the
+    // editor never blocks on a system dialog; a failure flips `keychainAvailable`
+    // and the footer stops promising persistence.
+    storeSecret(envId: string | null, name: string, value: string) {
+      try {
+        SecretSet(envId ?? 'globals', name, value).catch(() => {
+          this.keychainAvailable = false
+        })
+      } catch {
+        this.keychainAvailable = false
+      }
+    },
+
+    dropSecret(envId: string | null, name: string) {
+      try {
+        SecretDelete(envId ?? 'globals', name).catch(() => {
+          this.keychainAvailable = false
+        })
+      } catch {
+        this.keychainAvailable = false
+      }
+    },
+
+    // Pulls stored secrets back into the session. Called once at startup,
+    // before the first request can need one.
+    async hydrateSecrets() {
+      const targets: { envId: string | null; name: string }[] = []
+      for (const e of this.environments) {
+        for (const v of e.vars) if (v.kind === 'secret') targets.push({ envId: e.id, name: v.name })
+      }
+      for (const v of this.globals) if (v.kind === 'secret') targets.push({ envId: null, name: v.name })
+
+      for (const t of targets) {
+        try {
+          const value = await SecretGet(t.envId ?? 'globals', t.name)
+          if (value) this.secretValues[secretKey(t.envId, t.name)] = value
+        } catch {
+          // One failure is enough to know this machine can't store secrets.
+          this.keychainAvailable = false
+          return
+        }
+      }
     },
 
     // The value a cell should edit — including the vault, which the model

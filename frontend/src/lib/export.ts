@@ -1,9 +1,37 @@
 // Generates copy-paste representations of an HTTP request for various tools.
 
+import { parseTokens, SECRET_MASK, type ResolveFn } from './vars'
+
 export type ExportFormat = 'curl' | 'fetch' | 'wget' | 'httpie' | 'powershell'
+
+export interface ExportOptions {
+  // Resolves `{{tokens}}` in the request. Without it the text is exported
+  // verbatim, which is what a request that was already sent looks like.
+  resolve?: ResolveFn
+  // Leave the tokens in place instead of substituting — the "оставить токены"
+  // variant, for sharing a request without its values.
+  keepTokens?: boolean
+}
 
 function quote(s: string): string {
   return `'${s.replace(/'/g, `'\\''`)}'`
+}
+
+// Substitution for exports: like the send path, but a secret never comes out —
+// an export is shared, pasted and screenshotted, so it carries the dots.
+function render(text: string, opts?: ExportOptions): string {
+  if (!opts?.resolve || opts.keepTokens) return text
+  const tokens = parseTokens(text)
+  if (tokens.length === 0) return text
+  let out = ''
+  let last = 0
+  for (const t of tokens) {
+    const r = opts.resolve(t.name)
+    out += text.slice(last, t.start)
+    out += r ? (r.kind === 'secret' ? SECRET_MASK : r.value) : t.raw
+    last = t.end
+  }
+  return out + text.slice(last)
 }
 
 export function exportRequest(
@@ -11,8 +39,14 @@ export function exportRequest(
   method: string,
   url: string,
   headers: Record<string, string>,
-  body: string
+  body: string,
+  opts?: ExportOptions
 ): string {
+  url = render(url, opts)
+  body = render(body, opts)
+  const resolved: Record<string, string> = {}
+  for (const [k, v] of Object.entries(headers)) resolved[render(k, opts)] = render(v, opts)
+  headers = resolved
   const entries = Object.entries(headers)
   switch (format) {
     case 'curl': {

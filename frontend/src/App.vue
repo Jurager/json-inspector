@@ -244,6 +244,10 @@ onMounted(() => {
     // ignore corrupt storage
   }
 
+  // Secrets are kept in the keychain, not in localStorage, so they have to be
+  // pulled back into the session before the first request needs one.
+  envStore.hydrateSecrets()
+
   // Persist request history (debounced).
   let saveTimer: ReturnType<typeof setTimeout> | null = null
   offs.push(

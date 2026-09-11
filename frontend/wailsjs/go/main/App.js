@@ -26,6 +26,18 @@ export function PauseCapture() {
   return window['go']['main']['App']['PauseCapture']();
 }
 
+export function SecretDelete(arg1, arg2) {
+  return window['go']['main']['App']['SecretDelete'](arg1, arg2);
+}
+
+export function SecretGet(arg1, arg2) {
+  return window['go']['main']['App']['SecretGet'](arg1, arg2);
+}
+
+export function SecretSet(arg1, arg2, arg3) {
+  return window['go']['main']['App']['SecretSet'](arg1, arg2, arg3);
+}
+
 export function SendRequest(arg1, arg2, arg3, arg4) {
   return window['go']['main']['App']['SendRequest'](arg1, arg2, arg3, arg4);
 }

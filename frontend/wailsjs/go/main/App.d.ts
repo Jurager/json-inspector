@@ -16,6 +16,12 @@ export function Fetch(arg1:string,arg2:Record<string, string>):Promise<main.Resp
 
 export function PauseCapture():Promise<void>;
 
+export function SecretDelete(arg1:string,arg2:string):Promise<void>;
+
+export function SecretGet(arg1:string,arg2:string):Promise<string>;
+
+export function SecretSet(arg1:string,arg2:string,arg3:string):Promise<void>;
+
 export function SendRequest(arg1:string,arg2:string,arg3:Record<string, string>,arg4:string):Promise<main.ResponseResult>;
 
 export function ShowAbout():Promise<void>;

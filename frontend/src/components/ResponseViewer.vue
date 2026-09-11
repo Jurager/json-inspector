@@ -20,12 +20,14 @@ import TimingsTab from './TimingsTab.vue'
 import TestsTab from './TestsTab.vue'
 import { Fetch } from '../../wailsjs/go/main/App'
 import { useRequestsStore } from '../stores/requests'
+import { useEnvironmentsStore } from '../stores/environments'
 import { copyToClipboard, exportRequest, type ExportFormat } from '../lib/export'
 import { shortcut } from '../lib/platform'
 
 const props = defineProps<{ record: RequestRecord }>()
 
 const store = useRequestsStore()
+const envStore = useEnvironmentsStore()
 
 function escapeHtml(s: string): string {
   return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
@@ -370,14 +372,18 @@ const copyMenuOpen = ref(false)
 const copied = ref(false)
 const copyWrapEl = ref<HTMLElement | null>(null)
 
-async function copyAs(format: ExportFormat) {
+async function copyAs(format: ExportFormat, keepTokens = false) {
   copyMenuOpen.value = false
+  // Values are substituted by default (the request is what it is); the variant
+  // with tokens is for sharing a snippet without its values. Either way a
+  // secret only ever leaves as dots — see lib/export.ts.
   const text = exportRequest(
     format,
     props.record.method,
     props.record.url,
     props.record.requestHeaders,
-    props.record.requestBody
+    props.record.requestBody,
+    { resolve: envStore.resolve, keepTokens }
   )
   if (await copyToClipboard(text)) {
     copied.value = true
@@ -448,6 +454,8 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocClick))
           <button v-for="f in COPY_FORMATS" :key="f.id" class="menu-item" @click="copyAs(f.id)">
             {{ f.label }}
           </button>
+          <div class="copy-menu-sep"></div>
+          <button class="menu-item" @click="copyAs('curl', true)">cURL с токенами</button>
         </div>
       </div>
       <button class="resp-action" title="Инспектор узла (⌥I)" @click="toggleInspector">Инспектор <kbd class="keycap">⌥I</kbd></button>
@@ -698,6 +706,10 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocClick))
 .copy-menu {
   @apply absolute right-0;
   top: calc(100% + 4px);
+}
+
+.copy-menu-sep {
+  @apply h-px mx-1.5 my-1 bg-border;
 }
 
 .params-row {

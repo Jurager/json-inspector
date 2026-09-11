@@ -364,6 +364,9 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
 
           <div class="sheet-foot">
             <span v-if="error" class="foot-error">{{ error }}</span>
+            <span v-else-if="!envStore.keychainAvailable" class="foot-warn">
+              Связка ключей недоступна — секреты не сохранятся после выхода
+            </span>
             <span v-else>Секреты хранятся в связке ключей macOS и не попадают в экспорт коллекции</span>
           </div>
         </div>
@@ -647,6 +650,10 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
 
 .foot-error {
   @apply text-red;
+}
+
+.foot-warn {
+  @apply text-orange;
 }
 
 /* ---- confirm ---- */

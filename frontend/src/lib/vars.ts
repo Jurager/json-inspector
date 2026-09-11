@@ -7,6 +7,10 @@
 
 export type VarKind = 'text' | 'secret'
 
+// What a secret looks like anywhere it isn't being deliberately revealed:
+// tooltips, the request preview, exports.
+export const SECRET_MASK = '••••'
+
 // What a resolver hands back for one name. `source` and `kind` travel with the
 // value because the tooltip has to name where a value came from ("Local · dev →
 // baseUrl") and has to know whether it may show it at all.

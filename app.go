@@ -15,6 +15,7 @@ import (
 
 	"json-inspector/internal/bridge"
 	"json-inspector/internal/jsonapi"
+	"json-inspector/internal/secrets"
 	"json-inspector/internal/update"
 )
 
@@ -262,6 +263,26 @@ func (a *App) Analyze(body string) *jsonapi.Analysis {
 // the empty state can name it without hardcoding the number in the template.
 func (a *App) BridgePort() int {
 	return bridge.DefaultPort
+}
+
+// The secret methods below are the frontend's only way to the keychain. They
+// return the error untouched so the UI can tell "no keychain on this platform"
+// apart from "this variable has no stored value" (the latter is an empty string
+// with a nil error, see secrets.Get).
+
+// SecretSet stores one environment secret.
+func (a *App) SecretSet(envID, name, value string) error {
+	return secrets.Set(envID, name, value)
+}
+
+// SecretGet reads one environment secret; "" means nothing is stored.
+func (a *App) SecretGet(envID, name string) (string, error) {
+	return secrets.Get(envID, name)
+}
+
+// SecretDelete removes one environment secret.
+func (a *App) SecretDelete(envID, name string) error {
+	return secrets.Delete(envID, name)
 }
 
 // PauseCapture tells the extension to stop capturing every tab. It is the

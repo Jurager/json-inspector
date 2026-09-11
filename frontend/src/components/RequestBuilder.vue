@@ -68,6 +68,17 @@ function collectHeaders(): Record<string, string> {
   return map
 }
 
+// The same headers as they may be shown: secrets replaced by dots. The record
+// is what the preview and the exports read, so the credential must not be in it.
+function maskedHeaders(): Record<string, string> {
+  const map: Record<string, string> = {}
+  for (const h of store.draft.headers) {
+    const name = envStore.masked(h.name.trim())
+    if (name && h.enabled) map[name] = envStore.masked(h.value)
+  }
+  return map
+}
+
 // Sending an unresolved `{{name}}` would put the braces on the wire and come
 // back as a confusing 404, so the send is blocked until the value exists. Both
 // the button and ⌘↵ come through here, so neither can slip past.
@@ -96,16 +107,19 @@ async function send() {
   const requestHeaders = collectHeaders()
   const url = envStore.substitute(store.draft.url.trim())
   const body = envStore.substitute(store.draft.body)
+  // What the record keeps: resolved like the real request, except that a secret
+  // stays masked — the preview and every copy action read this.
+  const recordUrl = envStore.masked(store.draft.url.trim())
+  const recordBody = envStore.masked(store.draft.body)
+  const recordHeaders = maskedHeaders()
   try {
     const res = await SendRequest(store.draft.method, url, requestHeaders, body)
     if (res.cancelled) return
-    // The record keeps the resolved request, not the template: the "Запрос"
-    // tab is there to show what really left the machine.
     store.add({
       method: store.draft.method,
-      url,
-      requestHeaders,
-      requestBody: body,
+      url: recordUrl,
+      requestHeaders: recordHeaders,
+      requestBody: recordBody,
       status: res.status,
       statusText: res.statusText,
       responseHeaders: res.headers,
