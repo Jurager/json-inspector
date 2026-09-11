@@ -1,0 +1,135 @@
+<script setup lang="ts">
+// The app's own button — reka-ui has none, and this one carries no behaviour,
+// only the handoff's metrics in one place instead of a class zoo per component.
+//
+// Sizes follow the handoff: md is its canonical button (26px tall, 7px radius,
+// 12px text, the one "Готово" is drawn with), lg is the command line's send
+// button (32px, 8px radius, 12.5px/500), sm is the 6px-radius small button the
+// handoff reserves for tight rows. Variants: outline (default), primary (the
+// accent), ghost (an accent text button) and quiet (a muted one) — those two
+// size themselves by padding, see the variant rules below.
+withDefaults(
+  defineProps<{
+    variant?: 'outline' | 'primary' | 'ghost' | 'quiet'
+    size?: 'sm' | 'md' | 'lg'
+  }>(),
+  { variant: 'outline', size: 'md' }
+)
+</script>
+
+<template>
+  <button type="button" :class="['btn', `btn--${variant}`, `btn--${size}`]">
+    <slot />
+  </button>
+</template>
+
+<style scoped>
+@reference "../../../style.css";
+
+.btn {
+  /* flex-none: in a toolbar the buttons keep their width and let the spacer
+     take the slack, which is what every hand-rolled one did. */
+  @apply inline-flex flex-none items-center justify-center cursor-pointer whitespace-nowrap bg-bg-panel text-text;
+  border: 1px solid var(--border-strong);
+  box-shadow: var(--shadow-btn);
+  font: inherit;
+  transition: background 0.12s ease, border-color 0.12s ease, filter 0.12s ease;
+  --wails-draggable: no-drag;
+}
+
+.btn:hover:not(:disabled) {
+  @apply bg-bg-hover;
+}
+
+.btn:active:not(:disabled) {
+  @apply bg-bg-active;
+}
+
+.btn:disabled {
+  @apply opacity-50 cursor-default shadow-none;
+}
+
+.btn:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+/* gap is the handoff's own per-size value: 6px at 26px, 5px at 24px, 7px at 32px. */
+.btn--md {
+  gap: 6px;
+  height: 26px;
+  padding: 0 12px;
+  border-radius: 7px;
+  font-size: 12px;
+}
+
+.btn--sm {
+  gap: 5px;
+  height: 24px;
+  padding: 0 9px;
+  border-radius: 6px;
+  font-size: 11.5px;
+}
+
+.btn--lg {
+  gap: 7px;
+  height: 32px;
+  padding: 0 14px;
+  border-radius: 8px;
+  font-size: 12.5px;
+  font-weight: 500;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.18);
+}
+
+.btn--primary {
+  @apply bg-accent border-accent text-accent-text;
+}
+
+.btn--primary:hover:not(:disabled) {
+  @apply bg-accent border-accent brightness-110;
+}
+
+.btn--primary:active:not(:disabled) {
+  @apply brightness-95;
+}
+
+/* Text buttons: no frame, no shadow. The handoff draws «+ Параметр» as
+   padding 3px 4px on a 5px radius and «Очистить» as 4px 8px on a 6px radius,
+   both at 12px — so these two size by padding and ignore the height above. */
+.btn.btn--ghost,
+.btn.btn--quiet {
+  @apply border-transparent bg-transparent shadow-none;
+  height: auto;
+  font-size: 12px;
+}
+
+.btn--ghost {
+  @apply text-accent;
+  padding: 3px 4px;
+  border-radius: 5px;
+}
+
+.btn--ghost.btn--md,
+.btn--quiet.btn--md {
+  padding: 4px 8px;
+  border-radius: 6px;
+}
+
+.btn--quiet {
+  @apply text-text-secondary;
+  padding: 4px 8px;
+  border-radius: 6px;
+}
+
+.btn--ghost:hover:not(:disabled) {
+  @apply bg-accent-soft;
+}
+
+.btn--ghost:active:not(:disabled) {
+  @apply bg-accent-soft brightness-95;
+}
+
+.btn--quiet:hover:not(:disabled) {
+  @apply bg-bg-hover text-text;
+}
+</style>

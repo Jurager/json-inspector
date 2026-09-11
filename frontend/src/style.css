@@ -65,6 +65,11 @@
   --shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
   --shadow-btn: 0 1px 2px rgba(0, 0, 0, 0.18);
   --mono: ui-monospace, "SF Mono", Menlo, Monaco, "Cascadia Mono", Consolas, monospace;
+  /* Hints (ui/Tooltip) — a dark card with light text in either theme, which is
+     what a tooltip is. Inverted (--text on --bg) it would turn into a *light*
+     card in the dark theme. */
+  --tip-bg: #1d1d1f;
+  --tip-text: #f5f5f7;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -81,7 +86,11 @@
     --text-secondary: #a1a1a6;
     --text-tertiary: #86868b;
     --accent: #0a84ff;
-    --accent-soft: rgba(10, 132, 255, 0.2);
+    /* 0.3, not 0.2: on a dark panel a 20% accent wash reads as another grey, and
+       a selected row then looks like a hovered one (--bg-hover is neutral).
+       Only the dark theme needs this — in the light one the handoff's 12% is
+       already clearly blue against its 5% black. */
+    --accent-soft: rgba(10, 132, 255, 0.3);
     --accent-text: #ffffff;
     --green: #30d158;
     --green-soft: rgba(48, 209, 88, 0.16);
@@ -97,6 +106,10 @@
     --tok-null: #98989d;
     --shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
     --shadow-btn: 0 1px 2px rgba(0, 0, 0, 0.6);
+    /* Lifted off --bg-panel (#2a2a2e) so the card reads as a layer above it
+       rather than as a panel of its own. */
+    --tip-bg: #3a3a3c;
+    --tip-text: #f5f5f7;
   }
 }
 
@@ -185,30 +198,6 @@ body {
   @apply relative;
 }
 
-.titlebar-btn {
-  @apply inline-flex items-center gap-1.5 h-[26px] px-2.5 rounded-md text-xs cursor-pointer;
-  border: 1px solid var(--border-strong);
-  background: var(--bg-panel);
-  color: var(--text);
-  box-shadow: var(--shadow);
-  --wails-draggable: no-drag;
-}
-
-.titlebar-btn:hover {
-  @apply bg-bg-hover;
-}
-
-.titlebar-search {
-  color: var(--text-secondary);
-}
-
-.titlebar-key {
-  @apply text-[10.5px] leading-none px-1 py-0.5 rounded-sm text-text-tertiary;
-  font-family: var(--mono);
-  background: var(--bg-inset);
-  border: 1px solid var(--border);
-}
-
 .env-dot {
   @apply w-[7px] h-[7px] rounded-full flex-none;
   background: var(--green);
@@ -293,19 +282,6 @@ body {
   @apply relative w-full pb-1 mb-1 flex justify-center border-b border-border;
 }
 
-.rail-menu-btn {
-  @apply flex items-center justify-center w-9 h-9 border-none rounded-[9px] bg-transparent text-text-secondary cursor-pointer;
-  --wails-draggable: no-drag;
-}
-
-.rail-menu-btn:hover {
-  @apply bg-bg-hover text-text;
-}
-
-.rail-menu-dropdown {
-  @apply absolute top-0 left-full ml-1;
-}
-
 /* Geometry from the reference: 9/7px padding, 9px radius, 5px between the icon
    and its label. `relative` is what the unread badge is positioned against. */
 .rail-item {
@@ -342,26 +318,115 @@ body {
   @apply flex-1;
 }
 
-/* A 36×36 square, not a full-width tile: it carries no label, and the
-   reference draws it at the size of the hamburger above. */
-.rail-settings {
-  @apply flex-none text-text-tertiary;
-}
-
 /* ---- Dropdown menus (rail menu, copy/export menus) ---- */
+/* Menus are portalled to <body>, so they no longer live inside the titlebar's
+   stacking context: z-20 used to be enough when they did, but the titlebar
+   itself is z-100, and it would paint over the menu's top edge — eating the
+   rounding, the top padding and the first row. Above the titlebar (100), well
+   below the sheet and dialogs (1500). */
 .menu {
-  @apply z-20 rounded-lg p-1 min-w-[200px];
+  @apply z-200 rounded-lg p-1 min-w-[200px];
   background: var(--bg-panel);
   border: 1px solid var(--border);
   box-shadow: var(--shadow);
+}
+
+/* Panels that hang off a control (ui/Popover). Same stacking rule as .menu:
+   portalled to <body>, so it has to clear the titlebar's z-100.
+   Radius and shadow are the handoff's popover values (README: "10px — поповер"),
+   not the menu's. */
+.popover {
+  @apply z-200;
+  border-radius: 10px;
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.16);
+}
+
+/* Hints (ui/Tooltip). Global for the same reason as .menu and .popover, and
+   above them all (2000): a hint can be triggered from inside the sheet and the
+   dialogs (1500). The card is --tip-bg on --tip-text, a dark plaque in either
+   theme — see the tokens. Callers add layout only (display, gap), never
+   colours. */
+.tooltip {
+  @apply z-2000 rounded-md pointer-events-none;
+  padding: 6px 9px;
+  background: var(--tip-bg);
+  color: var(--tip-text);
+  font-size: 11.5px;
+  border: 1px solid var(--border-strong);
+  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.28);
+}
+
+/* ---- Panel-level classes for portalled content ----
+   A panel rendered by a primitive (ui/Popover, ui/Dialog, ui/dropdown-menu) is
+   built by reka-ui inside a Teleport, so it does not carry the *calling*
+   component's scope attribute — Vue puts that on the root of its immediate
+   child only, and the chain runs through the primitive. A scoped
+   `.chip-popover` in that component therefore matches nothing, the panel is
+   left without a width and collapses to its content. Classes that style the
+   panel itself live here, where nothing is scoped; everything inside the panel
+   is slot content and keeps working scoped. */
+
+/* Command-line chip panel: 460px (auth 380px), 10px padding, 2px rhythm,
+   8px where the panel holds a control. From the handoff. */
+.chip-popover {
+  @apply p-2.5 flex flex-col gap-[2px];
+  width: 460px;
+}
+
+.chip-popover.auth {
+  width: 380px;
+}
+
+.chip-popover.spaced {
+  gap: 8px;
+}
+
+/* Environment switcher in the titlebar. */
+.env-menu {
+  @apply w-[280px] p-1.5 rounded-[11px];
+}
+
+/* Parameters of a captured request. */
+.params-menu {
+  @apply w-[360px] max-h-64 overflow-auto;
+}
+
+/* Type list of the schema map. */
+.export-menu {
+  @apply max-w-80 max-h-75 overflow-auto;
+}
+
+/* Schema comparison dialog. */
+.compare-modal {
+  @apply w-140 max-w-[90%] max-h-[80vh] flex flex-col overflow-hidden;
+}
+
+/* .env import review — its own header and footer sit flush, so no padding. */
+.import-panel {
+  @apply flex flex-col w-[620px] max-h-[70vh] overflow-hidden p-0;
 }
 
 .menu-item {
   @apply flex items-center gap-2 w-full text-left py-1.5 px-2.5 border-none bg-transparent text-text text-xs rounded-md cursor-pointer;
 }
 
-.menu-item:hover {
+/* reka-ui highlights the item the keyboard is on, so the hover rule has to
+   answer to both — otherwise arrow keys move an invisible selection. */
+.menu-item:hover,
+.menu-item[data-highlighted] {
   @apply bg-bg-hover;
+  outline: none;
+}
+
+.menu-separator {
+  @apply h-px my-1 bg-border;
+}
+
+.menu-label {
+  @apply px-2.5 pt-1.5 pb-1 text-[10px] uppercase tracking-[0.08em] text-text-tertiary;
+  font-family: var(--mono);
 }
 
 /* ---- Content toolbar (Raw, Тело, headers) — a persistent row of actions
@@ -414,78 +479,6 @@ button {
   @apply text-red bg-red-soft;
 }
 
-.btn {
-  @apply px-3.5 py-1.5 rounded-md text-[13px] cursor-pointer;
-  border: 1px solid var(--border-strong);
-  background: var(--bg-panel);
-  color: var(--text);
-  box-shadow: var(--shadow-btn);
-  transition: background 0.12s ease, border-color 0.12s ease, box-shadow 0.12s ease, filter 0.12s ease;
-  --wails-draggable: no-drag;
-}
-
-.btn:not(.btn-primary):hover {
-  @apply bg-bg-hover;
-}
-
-.btn:not(.btn-primary):active {
-  @apply bg-bg-active;
-}
-
-.btn-primary {
-  @apply bg-accent border-accent text-accent-text;
-}
-
-.btn-primary:hover {
-  @apply brightness-110;
-}
-
-.btn-primary:active {
-  @apply brightness-95;
-}
-
-.btn:disabled {
-  @apply opacity-50 cursor-default shadow-none;
-}
-
-.btn-inline {
-  @apply inline-flex items-center gap-1.5;
-}
-
-.icon-btn {
-  @apply inline-flex items-center justify-center py-0.5 px-2;
-}
-
-/* Bare close/utility button — no border, just a muted glyph that turns dark on
-   a grey hover, used by inspector and modal headers (unlike .btn, which draws
-   a border and shadow). */
-.x-btn {
-  @apply inline-flex items-center justify-center w-6 h-6 border-none bg-transparent text-text-tertiary rounded-md cursor-pointer;
-  --wails-draggable: no-drag;
-}
-
-.x-btn:hover {
-  @apply bg-bg-hover text-text;
-}
-
-/* Compact toolbar action (24px) — the smaller button used in map/response
-   toolbars, versus the taller .btn reserved for dialogs and forms. */
-.btn-sm {
-  @apply inline-flex items-center gap-1.5 h-6 px-2.5 rounded-md text-[11.5px] cursor-pointer;
-  border: 1px solid var(--border-strong);
-  background: var(--bg-panel);
-  color: var(--text);
-  --wails-draggable: no-drag;
-}
-
-.btn-sm:hover {
-  @apply bg-bg-hover;
-}
-
-.btn-sm:disabled {
-  @apply opacity-50 cursor-default;
-}
-
 .keycap {
   @apply text-[9px] font-medium leading-tight px-1.5 rounded-sm text-text-secondary;
   font-family: inherit;
@@ -504,39 +497,10 @@ button {
   @apply w-7 h-7 border-[3px];
 }
 
-.btn-primary .spinner {
-  border-color: rgba(255, 255, 255, 0.35);
-  border-top-color: #fff;
-}
-
 @keyframes spin {
   to {
     transform: rotate(360deg);
   }
-}
-
-.input,
-.select,
-.textarea {
-  @apply text-[13px] text-text rounded-md py-1.5 px-2.5 outline-none;
-  font-family: inherit;
-  background: var(--bg-inset);
-  border: 1px solid var(--border);
-  transition: border-color 0.12s ease, box-shadow 0.12s ease;
-  --wails-draggable: no-drag;
-}
-
-.input:hover,
-.select:hover,
-.textarea:hover {
-  border-color: var(--border-strong);
-}
-
-.input:focus,
-.select:focus,
-.textarea:focus {
-  border-color: var(--accent);
-  box-shadow: 0 0 0 3px var(--accent-soft);
 }
 
 .textarea {
@@ -741,7 +705,10 @@ mark.search-match.current {
   @apply text-text;
 }
 
-.tab.active {
+/* reka-ui marks the chosen trigger with data-state; the class is kept for any
+   strip that is still hand-rolled. Handoff: accent, 500, 2px accent underline. */
+.tab.active,
+.tab[data-state='active'] {
   @apply text-accent font-medium;
   border-bottom-color: var(--accent);
 }

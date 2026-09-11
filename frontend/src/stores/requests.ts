@@ -148,6 +148,13 @@ export const useRequestsStore = defineStore('requests', {
     requestFocusUrl() {
       this.focusUrlTick++
     },
+    // Global search has no index yet, so it points at the command line: switch
+    // to "Запрос" and focus the URL field. Both the ⌘K shortcut and the
+    // titlebar button go through here.
+    focusSearch() {
+      this.activeView = 'request'
+      this.requestFocusUrl()
+    },
     setInspector(partial: Partial<{ open: boolean; path: string | null; width: number }>) {
       this.inspector = { ...this.inspector, ...partial }
     },
