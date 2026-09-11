@@ -9,8 +9,6 @@ import (
 	"syscall"
 )
 
-// swapAndRelaunch installs a downloaded .tar.gz archive containing the single
-// binary, atomically replacing the running executable and exec-ing into it.
 func swapAndRelaunch(archivePath string) error {
 	exe, err := os.Executable()
 	if err != nil {
@@ -37,7 +35,6 @@ func swapAndRelaunch(archivePath string) error {
 		return err
 	}
 
-	// Atomic swap over the running binary (the kernel keeps the old inode).
 	if err := os.Rename(newExe, exe); err != nil {
 		return fmt.Errorf("could not replace %s: %w", exe, err)
 	}

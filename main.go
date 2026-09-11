@@ -11,9 +11,20 @@ import (
 	"json-inspector/internal/update"
 )
 
+//go:embed all:frontend/dist
 var assets embed.FS
+
+// The app icon, handed to the OS (macOS dock/About, Windows taskbar).
+//
+//go:embed build/appicon.png
 var appIcon []byte
+
 var version = "dev"
+
+const (
+	appName        = "JSON Inspector"
+	appDescription = "Просмотр JSON:API: подстановка переменных окружения, карта схемы, перехват запросов из браузера."
+)
 
 func main() {
 	update.Current = version
@@ -21,8 +32,8 @@ func main() {
 	appService := NewApp()
 
 	app := application.New(application.Options{
-		Name:        product.Name,
-		Description: product.Description,
+		Name:        appName,
+		Description: appDescription,
 		Icon:        appIcon,
 		Services: []application.Service{
 			application.NewService(appService),
@@ -43,7 +54,7 @@ func main() {
 
 	mainWin := app.Window.NewWithOptions(application.WebviewWindowOptions{
 		Name:             windowMain,
-		Title:            product.Name,
+		Title:            appName,
 		Width:            1280,
 		Height:           820,
 		MinWidth:         900,
@@ -80,9 +91,6 @@ func main() {
 		}
 	}()
 
-	// The native app menu is only used on macOS.
-	// Where it renders in the system-wide menu bar and looks native.
-	// On Windows/Linux the app is frameless and draws its own title bar.
 	if useCustomTitlebar() {
 		app.Menu.Set(app.NewMenu())
 	} else {

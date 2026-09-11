@@ -1,0 +1,35 @@
+name: Setup
+description: Go, Node, Task and the Wails pinned by go.mod
+
+inputs:
+  go-version:
+    description: Go toolchain
+    default: '1.26'
+  node-version:
+    description: Node toolchain
+    default: '22'
+  task-version:
+    description: go-task/task release to install
+    default: v3.53.1
+
+runs:
+  using: composite
+  steps:
+    - uses: actions/setup-go@v6
+      with:
+        go-version: ${{ inputs.go-version }}
+    - uses: actions/setup-node@v5
+      with:
+        node-version: ${{ inputs.node-version }}
+        cache: npm
+        cache-dependency-path: frontend/package-lock.json
+    - uses: actions/cache@v5
+      with:
+        path: ~/go/bin
+        key: ${{ runner.os }}-gobin-${{ hashFiles('go.mod') }}
+    - name: Install Task and Wails
+      shell: bash
+      run: |
+        WAILS_VERSION=$(go list -m github.com/wailsapp/wails/v3 | awk '{print $2}')
+        command -v wails3 >/dev/null || go install github.com/wailsapp/wails/v3/cmd/wails3@${WAILS_VERSION}
+        command -v task   >/dev/null || go install github.com/go-task/task/v3/cmd/task@${{ inputs.task-version }}

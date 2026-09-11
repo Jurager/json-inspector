@@ -14,7 +14,6 @@ import Icon from './components/Icon.vue'
 import logoUrl from './assets/logo.svg'
 import { buildSampleRecord } from './lib/sample'
 import { shortcut, useCustomTitlebar } from './lib/platform'
-import product from './product.json'
 import { makeSideResizer } from './lib/resize'
 import { Application, Events, Window } from '@wailsio/runtime'
 import { App as Backend } from '../bindings/json-inspector'
@@ -50,6 +49,7 @@ const UI_KEY = 'ji-ui-v1'
 const MAX_HISTORY = 200
 
 const isMaximised = ref(false)
+const appName = ref('')
 
 interface UpdateInfo {
   available: boolean
@@ -67,6 +67,16 @@ let toastTimer: ReturnType<typeof setTimeout> | null = null
 
 function openUpdate() {
   updateModalOpen.value = true
+}
+
+// The name is the backend's, not a constant here, so it cannot drift from the
+// window title and the macOS menu bar. It arrives a beat after the first paint.
+async function loadAppName() {
+  try {
+    appName.value = (await Backend.Name()) ?? ''
+  } catch {
+    // Nothing else depends on the name; the title bar just stays empty.
+  }
 }
 
 async function refreshMaximised() {
@@ -226,6 +236,8 @@ watch(
 )
 
 onMounted(() => {
+  loadAppName()
+
   // Restore request history from the previous session.
   try {
     const raw = localStorage.getItem(HISTORY_KEY)
@@ -349,9 +361,9 @@ onBeforeUnmount(() => {
     <header class="titlebar" :class="{ 'titlebar-custom': useCustomTitlebar }" @dblclick="Backend.ToggleMaximize">
       <div v-if="useCustomTitlebar" class="titlebar-appicon">
         <img :src="logoUrl" alt="" class="titlebar-logo" draggable="false" />
-        <span class="titlebar-title">{{ product.name }}</span>
+        <span class="titlebar-title">{{ appName }}</span>
       </div>
-      <span v-else class="titlebar-title">{{ product.name }}</span>
+      <span v-else class="titlebar-title">{{ appName }}</span>
 
       <div v-if="useCustomTitlebar" class="titlebar-spacer"></div>
 

@@ -21,77 +21,49 @@ import (
 	"json-inspector/internal/update"
 )
 
-// App is the Wails service backing the whole UI.
-// Its exported methods are callable from the frontend through the generated bindings.
-//
-// In v3 a service is a singleton shared by every window (the main window today,
-// the environment editor later), so anything mutable lives under mu.
 type App struct {
 	mu        sync.Mutex
 	cancelReq context.CancelFunc
 
-	// bridge is the loopback WS server the extension connects to; it lets the
-	// app push control messages back (pause) in the opposite direction.
 	bridge *bridge.Server
 
-	// Set before app.Run(). Nothing here is a package-level global any more:
-	// every event and window action names its target explicitly. The About
-	// window is not cached — it is looked up by name, so a closed one is
-	// recreated rather than resurrected from a stale pointer.
 	app  *application.App
 	main *application.WebviewWindow
 
-	// ready flips on events.Common.WindowRuntimeReady, i.e. once the frontend
-	// has actually subscribed. Anything emitted before that is dropped silently,
-	// so the two payloads that would be lost for good are buffered instead: a
-	// deep link (open-tab) and an available update (StartupCheck only runs once
-	// a day, so dropping it means the user waits until tomorrow).
 	ready         atomic.Bool
 	pendingTab    int
 	pendingUpdate *update.Update
 }
 
-// setBridge wires the bridge server so PauseCapture can reach the extension.
 func (a *App) setBridge(s *bridge.Server) {
 	a.bridge = s
 }
 
-// setApp hands the service the application handle it needs to open windows.
 func (a *App) setApp(app *application.App) {
 	a.app = app
 }
 
-// setMainWindow registers the primary window. Events are addressed to it rather
-// than to the app, which keeps a future environment-editor window out of the
-// captured-request stream.
 func (a *App) setMainWindow(w *application.WebviewWindow) {
 	a.mu.Lock()
 	a.main = w
 	a.mu.Unlock()
 }
 
-// NewApp creates a new App application struct.
 func NewApp() *App {
 	return &App{}
 }
 
-// mainWindow returns the primary window, or nil if it does not exist yet.
 func (a *App) mainWindow() *application.WebviewWindow {
 	a.mu.Lock()
 	defer a.mu.Unlock()
 	return a.main
 }
 
-// ServiceStartup runs once at start-up. Returning an error here aborts the whole
-// application, so nothing that can fail may run inline — the update check goes
-// to a goroutine.
 func (a *App) ServiceStartup(_ context.Context, _ application.ServiceOptions) error {
 	a.startUpdateCheck()
 	return nil
 }
 
-// markReady is called on WindowRuntimeReady, the precise moment the frontend
-// has subscribed. It flushes whatever arrived while we were still booting.
 func (a *App) markReady() {
 	a.ready.Store(true)
 
@@ -108,9 +80,6 @@ func (a *App) markReady() {
 	}
 }
 
-// emit sends a window-scoped event. It is a no-op until the frontend has
-// subscribed, which is what keeps early bridge callbacks from vanishing into a
-// window that isn't listening yet.
 func (a *App) emit(name string, data ...any) {
 	if !a.ready.Load() {
 		return
@@ -120,8 +89,6 @@ func (a *App) emit(name string, data ...any) {
 	}
 }
 
-// emitOpenTab delivers a "jump to this browser tab" request, or parks it until
-// the UI is ready to receive it.
 func (a *App) emitOpenTab(tab int) {
 	if !a.ready.Load() {
 		a.mu.Lock()
@@ -132,16 +99,12 @@ func (a *App) emitOpenTab(tab int) {
 	a.emit("open-tab", tab)
 }
 
-// focusMain brings the main window to the front. Showing is unconditional: a
-// link this app can't interpret further is still a request to come forward.
 func (a *App) focusMain() {
 	if win := a.mainWindow(); win != nil {
 		bringToFront(win)
 	}
 }
 
-// startUpdateCheck runs the once-a-day background version check and tells the
-// UI when a newer version is available.
 func (a *App) startUpdateCheck() {
 	go func() {
 		u := update.StartupCheck()
@@ -158,22 +121,20 @@ func (a *App) startUpdateCheck() {
 	}()
 }
 
-// Version returns the running version.
 func (a *App) Version() string {
 	return update.Current
 }
 
-// ToggleMaximize toggles the window zoom (double-click on the title bar).
+func (a *App) Name() string {
+	return appName
+}
+
 func (a *App) ToggleMaximize() {
 	if win := a.mainWindow(); win != nil {
 		win.ToggleMaximise()
 	}
 }
 
-// handleUrlOpen is called when the app is opened via the json-inspector://
-// custom URL scheme (e.g. the Chrome extension's "Open app" button). It brings
-// the window to the front and, when the link names a browser tab
-// (json-inspector://open?tab=42), asks the UI to jump to that tab's requests.
 func (a *App) handleUrlOpen(rawURL string) {
 	a.focusMain()
 	if tabID, ok := tabFromURL(rawURL); ok {
@@ -181,11 +142,6 @@ func (a *App) handleUrlOpen(rawURL string) {
 	}
 }
 
-// onSecondInstance is how every launch except the first arrives on all three
-// platforms: the OS protocol handoff, or the user starting the binary again
-// while the app is already running. The URL is carried in the args, and
-// ApplicationLaunchedWithUrl does NOT fire on this path — so both have to end
-// up in handleUrlOpen or deep links would only work with the app closed.
 func (a *App) onSecondInstance(data application.SecondInstanceData) {
 	for _, arg := range data.Args {
 		if strings.HasPrefix(arg, deepLinkScheme+"://") {
@@ -196,9 +152,6 @@ func (a *App) onSecondInstance(data application.SecondInstanceData) {
 	a.focusMain()
 }
 
-// tabFromURL pulls the tab id out of json-inspector://open?tab=42. A link
-// without one — or with something unparsable — is still a valid "show the
-// window", so this reports ok=false instead of an error.
 func tabFromURL(rawURL string) (int, bool) {
 	u, err := url.Parse(rawURL)
 	if err != nil {
@@ -215,7 +168,6 @@ func tabFromURL(rawURL string) (int, bool) {
 	return id, true
 }
 
-// CheckForUpdates queries the registry immediately and reports the result.
 func (a *App) CheckForUpdates() (*update.Update, error) {
 	u, err := update.Check()
 	if err != nil {
@@ -224,12 +176,10 @@ func (a *App) CheckForUpdates() (*update.Update, error) {
 	return &u, nil
 }
 
-// UpdateNow downloads, verifies and installs the given version, then restarts.
 func (a *App) UpdateNow(version string) error {
 	return update.Apply(version)
 }
 
-// checkForUpdatesFromMenu handles the native "Check for Updates…" menu item.
 func (a *App) checkForUpdatesFromMenu() {
 	u, err := update.Check()
 	if err != nil {
@@ -243,7 +193,6 @@ func (a *App) checkForUpdatesFromMenu() {
 	}
 }
 
-// ResponseResult is the outcome of an HTTP request, returned to the frontend.
 type ResponseResult struct {
 	Status      int               `json:"status"`
 	StatusText  string            `json:"statusText"`
@@ -260,19 +209,14 @@ type ResponseResult struct {
 	DownloadMs  int64             `json:"downloadMs,omitempty"`
 }
 
-// SendRequest performs an HTTP request and returns the full result. It is used
-// by the manual request builder.
 func (a *App) SendRequest(method, url string, headers map[string]string, body string) *ResponseResult {
 	return a.do(method, url, headers, body)
 }
 
-// Fetch performs a GET request; used to follow related and pagination links.
-// The headers of the request being followed are carried over (e.g. auth).
 func (a *App) Fetch(url string, headers map[string]string) *ResponseResult {
 	return a.do(http.MethodGet, url, headers, "")
 }
 
-// CancelRequest cancels the in-flight HTTP request, if any.
 func (a *App) CancelRequest() {
 	a.mu.Lock()
 	cancel := a.cancelReq
@@ -286,9 +230,6 @@ func (a *App) do(method, url string, headers map[string]string, body string) *Re
 	res := &ResponseResult{}
 	start := time.Now()
 
-	// Phase timestamps for the "Тайминги" tab, captured via httptrace. Each
-	// pair is zero until the corresponding callback fires, so diffMs below
-	// turns "didn't happen" (e.g. no TLS on plain HTTP) into 0.
 	var (
 		dnsStart, dnsDone   time.Time
 		connStart, connDone time.Time
@@ -347,8 +288,6 @@ func (a *App) do(method, url string, headers map[string]string, body string) *Re
 	}
 	end := time.Now()
 
-	// "Ожидание" is measured from the moment the connection is ready (after
-	// TLS, when there is one) to the first response byte.
 	ready := tlsDone
 	if ready.IsZero() {
 		ready = connDone
@@ -373,8 +312,6 @@ func (a *App) do(method, url string, headers map[string]string, body string) *Re
 	return res
 }
 
-// diffMs returns the elapsed milliseconds between two timestamps, or 0 when
-// either side is missing (the phase never happened).
 func diffMs(start, end time.Time) int64 {
 	if start.IsZero() || end.IsZero() || end.Before(start) {
 		return 0
@@ -382,69 +319,46 @@ func diffMs(start, end time.Time) int64 {
 	return end.Sub(start).Milliseconds()
 }
 
-// BridgePort returns the loopback port the browser extension connects to, so
-// the empty state can name it without hardcoding the number in the template.
 func (a *App) BridgePort() int {
 	return bridge.DefaultPort
 }
 
-// The secret methods below are the frontend's only way to the keychain. They
-// return the error untouched so the UI can tell "no keychain on this platform"
-// apart from "this variable has no stored value" (the latter is an empty string
-// with a nil error, see secrets.Get).
-
-// SecretSet stores one environment secret.
 func (a *App) SecretSet(envID, name, value string) error {
 	return secrets.Set(envID, name, value)
 }
 
-// SecretGet reads one environment secret; "" means nothing is stored.
 func (a *App) SecretGet(envID, name string) (string, error) {
 	return secrets.Get(envID, name)
 }
 
-// SecretDelete removes one environment secret.
 func (a *App) SecretDelete(envID, name string) error {
 	return secrets.Delete(envID, name)
 }
 
-// PauseCapture tells the extension to stop capturing every tab. It is the
-// "Приостановить перехват" action in the browser view; the extension stops its
-// interceptors and replies with a fresh capture-state message.
 func (a *App) PauseCapture() {
 	if a.bridge != nil {
 		a.bridge.Broadcast([]byte(`{"type":"pause"}`))
 	}
 }
 
-// ResumeCapture is the other half: the extension re-injects into the tabs it
-// had been recording before the pause.
 func (a *App) ResumeCapture() {
 	if a.bridge != nil {
 		a.bridge.Broadcast([]byte(`{"type":"resume"}`))
 	}
 }
 
-// onCapturedRequest is the bridge handler: it forwards browser-captured
-// requests to the frontend as a Wails event.
 func (a *App) onCapturedRequest(req bridge.CapturedRequest) {
 	a.emit("captured-request", req)
 }
 
-// onCaptureState forwards the extension's live capture status to the status bar.
 func (a *App) onCaptureState(s bridge.CaptureState) {
 	a.emit("capture-state", s)
 }
 
-// onCaptureDisconnected fires when the extension's socket drops, so the status
-// bar stops claiming the extension is still connected.
 func (a *App) onCaptureDisconnected() {
 	a.emit("capture-disconnected")
 }
 
-// onFocusRequest brings the window forward for the extension's "open this
-// request" action. The extension asks over the live socket, so this path works
-// whether or not the OS protocol handoff does.
 func (a *App) onFocusRequest(req bridge.FocusRequest) {
 	a.focusMain()
 	if req.Tab > 0 {

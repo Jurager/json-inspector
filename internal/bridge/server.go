@@ -11,23 +11,14 @@ import (
 	"github.com/gorilla/websocket"
 )
 
-// Handler is called for every validated request received over the WebSocket.
 type Handler func(CapturedRequest)
 
-// StateHandler is called for every capture-state message from the extension.
 type StateHandler func(CaptureState)
 
-// DisconnectHandler is called when the extension's WebSocket drops, so the UI
-// can stop claiming the extension is still connected.
 type DisconnectHandler func()
 
-// FocusHandler is called when the extension asks the app to come to the front,
-// optionally on one of its tabs.
 type FocusHandler func(FocusRequest)
 
-// Server is a loopback WebSocket server that receives captured requests from
-// the Chrome extension and forwards them to the UI. It also keeps the live
-// socket so the app can push control messages back to the extension (pause).
 type Server struct {
 	port              int
 	handler           Handler
@@ -40,7 +31,6 @@ type Server struct {
 	clients map[*websocket.Conn]struct{}
 }
 
-// NewServer creates a server listening on 127.0.0.1:port.
 func NewServer(port int, handler Handler, stateHandler StateHandler, disconnectHandler DisconnectHandler, focusHandler FocusHandler) *Server {
 	s := &Server{
 		port:              port,
@@ -54,8 +44,6 @@ func NewServer(port int, handler Handler, stateHandler StateHandler, disconnectH
 	return s
 }
 
-// Broadcast sends a message to every currently connected extension. It is the
-// app → extension direction (the opposite of the requests the extension pushes).
 func (s *Server) Broadcast(payload []byte) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -64,10 +52,6 @@ func (s *Server) Broadcast(payload []byte) {
 	}
 }
 
-// checkOrigin limits connections to trusted origins: non-browser clients
-// (empty Origin), the extension, and the app's own webview/dev origins. This
-// prevents arbitrary websites from opening a socket to localhost and either
-// reading or injecting requests.
 func (s *Server) checkOrigin(r *http.Request) bool {
 	origin := r.Header.Get("Origin")
 	if origin == "" {
@@ -83,7 +67,6 @@ func (s *Server) checkOrigin(r *http.Request) bool {
 	return false
 }
 
-// Start begins serving and blocks until the server fails.
 func (s *Server) Start() error {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/health", s.handleHealth)
@@ -96,10 +79,6 @@ func (s *Server) Start() error {
 func (s *Server) handleHealth(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.Header().Set("Access-Control-Allow-Origin", "*")
-	// Chrome's Private Network Access check can preflight a request from an
-	// extension page to a loopback address; without this header the extension's
-	// availability probe fails even while the app is running, and the popup
-	// tells the user to launch something that is already up.
 	w.Header().Set("Access-Control-Allow-Private-Network", "true")
 	if r.Method == http.MethodOptions {
 		w.Header().Set("Access-Control-Allow-Methods", "GET, OPTIONS")

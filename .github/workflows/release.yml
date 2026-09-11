@@ -8,38 +8,17 @@ on:
 permissions:
   contents: write
 
-env:
-  TASK_VERSION: v3.53.1
-
 jobs:
   build-macos:
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v5
-      - uses: actions/setup-go@v6
-        with:
-          go-version: '1.26'
-      - uses: actions/setup-node@v5
-        with:
-          node-version: '22'
-          cache: npm
-          cache-dependency-path: frontend/package-lock.json
-      - name: Resolve the Wails version
-        run: echo "WAILS_VERSION=$(go list -m github.com/wailsapp/wails/v3 | awk '{print $2}')" >> $GITHUB_ENV
-      - uses: actions/cache@v5
-        with:
-          path: ~/go/bin
-          key: ${{ runner.os }}-gobin-${{ hashFiles('go.mod') }}
-      - name: Install Wails
-        run: |
-          command -v wails3 >/dev/null || go install github.com/wailsapp/wails/v3/cmd/wails3@${WAILS_VERSION}
-          command -v task   >/dev/null || go install github.com/go-task/task/v3/cmd/task@${TASK_VERSION}
-      - name: Sync product version from the tag
-        run: |
-          sed -i '' "s/^  version: .*/  version: \"${GITHUB_REF_NAME#v}\"/" build/config.yml
-      - name: Build
-        run: make package-darwin VERSION="${GITHUB_REF_NAME}"
+      - uses: ./.github/actions/setup
+      - name: Sync the version from the tag
+        run: task set:version VERSION="${GITHUB_REF_NAME#v}"
+      - run: task package:darwin VERSION="${GITHUB_REF_NAME}"
         env:
+          # Unsigned: there is no Developer ID certificate for this project yet.
           CODE_SIGN_IDENTITY: '-'
       - uses: actions/upload-artifact@v6
         with:
@@ -50,33 +29,14 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
-      - uses: actions/setup-go@v6
-        with:
-          go-version: '1.26'
-      - uses: actions/setup-node@v5
-        with:
-          node-version: '22'
-          cache: npm
-          cache-dependency-path: frontend/package-lock.json
-      - name: Resolve the Wails version
-        run: echo "WAILS_VERSION=$(go list -m github.com/wailsapp/wails/v3 | awk '{print $2}')" >> $GITHUB_ENV
-      - uses: actions/cache@v5
-        with:
-          path: ~/go/bin
-          key: ${{ runner.os }}-gobin-${{ hashFiles('go.mod') }}
-      - name: Install GUI Dependencies
+      - uses: ./.github/actions/setup
+      - name: Install GUI dependencies
         run: |
           sudo apt-get update
           sudo apt-get install -y libgtk-4-dev libwebkitgtk-6.0-dev build-essential pkg-config
-      - name: Install Wails v3 CLI and Task
-        run: |
-          command -v wails3 >/dev/null || go install github.com/wailsapp/wails/v3/cmd/wails3@${WAILS_VERSION}
-          command -v task   >/dev/null || go install github.com/go-task/task/v3/cmd/task@${TASK_VERSION}
-      - name: Sync product version from the tag
-        run: |
-          sed -i "s/^  version: .*/  version: \"${GITHUB_REF_NAME#v}\"/" build/config.yml
-      - name: Build
-        run: make package-linux VERSION="${GITHUB_REF_NAME}"
+      - name: Sync the version from the tag
+        run: task set:version VERSION="${GITHUB_REF_NAME#v}"
+      - run: task package:linux VERSION="${GITHUB_REF_NAME}"
       - uses: actions/upload-artifact@v6
         with:
           name: dist-linux
@@ -84,40 +44,19 @@ jobs:
 
   build-windows:
     runs-on: windows-latest
+    defaults:
+      run:
+        shell: bash
     steps:
       - uses: actions/checkout@v5
-      - uses: actions/setup-go@v6
-        with:
-          go-version: '1.26'
-      - uses: actions/setup-node@v5
-        with:
-          node-version: '22'
-          cache: npm
-          cache-dependency-path: frontend/package-lock.json
-      - name: Resolve the Wails version
-        run: echo "WAILS_VERSION=$(go list -m github.com/wailsapp/wails/v3 | awk '{print $2}')" >> $GITHUB_ENV
-        shell: bash
-      - uses: actions/cache@v5
-        with:
-          path: ~/go/bin
-          key: ${{ runner.os }}-gobin-${{ hashFiles('go.mod') }}
+      - uses: ./.github/actions/setup
       - name: Install NSIS
         run: |
           choco install nsis --no-progress -y
           echo "C:\Program Files (x86)\NSIS" >> $GITHUB_PATH
-        shell: bash
-      - name: Install Wails
-        run: |
-          command -v wails3 >/dev/null || go install github.com/wailsapp/wails/v3/cmd/wails3@${WAILS_VERSION}
-          command -v task   >/dev/null || go install github.com/go-task/task/v3/cmd/task@${TASK_VERSION}
-        shell: bash
-      - name: Sync product version
-        run: |
-          sed -i "s/^  version: .*/  version: \"${GITHUB_REF_NAME#v}\"/" build/config.yml
-        shell: bash
-      - name: Build
-        run: make package-windows VERSION="${GITHUB_REF_NAME}"
-        shell: bash
+      - name: Sync the version from the tag
+        run: task set:version VERSION="${GITHUB_REF_NAME#v}"
+      - run: task package:windows VERSION="${GITHUB_REF_NAME}"
       - uses: actions/upload-artifact@v6
         with:
           name: dist-windows

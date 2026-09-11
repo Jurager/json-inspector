@@ -53,6 +53,14 @@ export function Fetch(url: string, headers: { [_ in string]?: string } | null): 
 }
 
 /**
+ * Name returns the display name, which the frontend draws in its title bar and
+ * About window.
+ */
+export function Name(): $CancellablePromise<string> {
+    return $Call.ByID(257522798);
+}
+
+/**
  * PauseCapture tells the extension to stop capturing every tab. It is the
  * "Приостановить перехват" action in the browser view; the extension stops its
  * interceptors and replies with a fresh capture-state message.

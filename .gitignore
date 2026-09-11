@@ -1,21 +1,11 @@
-# Build output. Wails v3 writes to bin/. Unlike v2, build/ is no longer throwaway:
-# it holds the Taskfiles, config.yml, per-OS packaging assets and icons, and is
-# tracked in full.
 bin/
 .task/
 dist/
-
-# Frontend
 frontend/dist/
 frontend/node_modules/
 node_modules/
-
-# Build-time downloads / intermediates
-build/linux/appimage/build/
 build/windows/nsis/MicrosoftEdgeWebview2Setup.exe
 build/linux/*.desktop
 *.syso
-
-# OS / IDE
 .DS_Store
 .idea/

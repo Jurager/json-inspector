@@ -3,10 +3,10 @@ import { onMounted, ref } from 'vue'
 import { Window } from '@wailsio/runtime'
 import { App as Backend } from '../../bindings/json-inspector'
 import { useCustomTitlebar } from '../lib/platform'
-import product from '../product.json'
 import logoUrl from '../assets/logo.svg'
 
 const version = ref('')
+const appName = ref('')
 const year = new Date().getFullYear()
 
 onMounted(async () => {
@@ -15,6 +15,11 @@ onMounted(async () => {
   } catch {
     // The window is still useful without a version number.
     version.value = ''
+  }
+  try {
+    appName.value = (await Backend.Name()) ?? ''
+  } catch {
+    // ...and without the name, which leaves the heading and the icon's alt empty.
   }
 })
 </script>
@@ -34,8 +39,8 @@ onMounted(async () => {
     </header>
 
     <div class="about-body">
-      <img class="about-icon" :src="logoUrl" :alt="product.name" draggable="false" />
-      <div class="about-name">{{ product.name }}</div>
+      <img class="about-icon" :src="logoUrl" :alt="appName" draggable="false" />
+      <div class="about-name">{{ appName }}</div>
       <div class="about-version">Версия {{ version || '…' }}</div>
       <p class="about-desc">
         Инструмент для работы с JSON и JSON:API: подстановка переменных окружения,

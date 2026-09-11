@@ -10,8 +10,6 @@ import (
 	"path/filepath"
 )
 
-// extractZip unpacks a .zip archive into destDir, preserving the executable
-// bit where it is set. Used for the Windows .exe archive.
 func extractZip(src, destDir string) error {
 	r, err := zip.OpenReader(src)
 	if err != nil {
@@ -52,8 +50,6 @@ func extractZipFile(f *zip.File, destDir string) error {
 	return out.Close()
 }
 
-// extractTarGz unpacks a .tar.gz archive into destDir. Used for the Linux
-// binary archive.
 func extractTarGz(src, destDir string) error {
 	f, err := os.Open(src)
 	if err != nil {

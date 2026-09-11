@@ -5,7 +5,7 @@ import "github.com/wailsapp/wails/v3/pkg/application"
 func buildMenu(a *App) *application.Menu {
 	menu := application.NewMenu()
 
-	appMenu := menu.AddSubmenu(product.Name)
+	appMenu := menu.AddSubmenu(appName)
 	appMenu.Add("О программе").OnClick(func(*application.Context) { a.ShowAbout() })
 	appMenu.AddSeparator()
 	appMenu.AddRole(application.ServicesMenu)

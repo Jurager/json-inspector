@@ -91,13 +91,23 @@ go install github.com/go-task/task/v3/cmd/task@latest
 ### Сборка
 
 ```bash
-make build          # бинарник в bin/
-make package-darwin # → dist/*.app.zip и dist/*.dmg
-make package-windows # → dist/*.exe.zip и dist/*-installer.exe
-make package-linux  # → dist/*.tar.gz
+task build             # бинарник в bin/
+task run               # запустить собранное
+task dev               # режим разработки с пересборкой на лету
+task package           # → dist/ для текущей ОС
 ```
 
-Команда собирает приложение для текущей платформы. Упаковка доступна только на «своей» ОС: DMG собирается на macOS, установщик NSIS — на Windows (нужен `makensis`).
+Команда собирает приложение для текущей платформы. Упаковка доступна только на «своей» ОС: DMG собирается на macOS, установщик NSIS — на Windows (нужен `makensis`), `.deb`/`.rpm`/AppImage — на Linux.
+
+`task package` кладёт в `dist/` два вида артефактов: то, что скачивает встроенный апдейтер (имена — контракт с `internal/update/assetName()`), и установщики для людей:
+
+| ОС | для апдейтера | для установки руками |
+| --- | --- | --- |
+| macOS | `*.app.zip` (universal, под обоими именами архитектур) | `*.dmg` |
+| Windows | `*.exe.zip` | `*-installer.exe` |
+| Linux | `*.tar.gz` | `.deb`, `.rpm`, `.AppImage` |
+
+Весь билд — один корневой `Taskfile.yml`; `task --list` показывает доступные задачи. Версия бинарника приходит из `-X main.version` — её передаёт тег. Версии, которые читают упаковщики (`build/config.yml`, оба `Info.plist`, `nfpm.yaml`, `info.json`), проставляет `task set:version VERSION=0.1.3`; в релизном workflow это тоже делает тег.
 
 ## Публикация релиза
 
@@ -118,14 +128,13 @@ CI собирает приложения для macOS, Windows и Linux, фор�
 ├── app.go                     # сервис с bound-методами
 ├── window.go                  # имена окон, deep-link схема, ShowAbout
 ├── menu.go                    # нативное меню (только macOS)
-├── build/                     # Taskfile-ы, config.yml, иконки, упаковка
+├── build/                     # config.yml, иконки, ассеты упаковки (plist, nsi, nfpm)
 ├── internal/bridge/           # WebSocket-сервер для браузерного расширения
 ├── internal/update/           # автообновление через GitHub Releases
+├── internal/tools/            # build-утилиты (проставление версии в ассеты)
 ├── frontend/                  # Vue 3 + TypeScript
 │   ├── bindings/              # сгенерировано `wails3 generate bindings` (коммитится)
 │   ├── src/lib/jsonapi.ts     # разбор JSON:API на стороне интерфейса
 │   └── src/windows/           # отдельные окна (About), своя точка входа Vite
 └── extension/                 # Chrome-расширение (MV3)
 ```
-
-Биндинги и иконки генерируются, но коммитятся — как сгенерированный код в `frontend/bindings/`, так и `build/{windows/icon.ico,darwin/icons.icns}`. Исходником иконок остаётся единственный `build/appicon.png`.

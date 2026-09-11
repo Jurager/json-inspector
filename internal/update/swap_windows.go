@@ -10,9 +10,6 @@ import (
 	"syscall"
 )
 
-// swapAndRelaunch installs a downloaded .exe archive. A running exe cannot be
-// replaced in place on Windows, so the swap is deferred to a hidden child cmd
-// that waits for this process to exit.
 func swapAndRelaunch(archivePath string) error {
 	exe, err := os.Executable()
 	if err != nil {
@@ -36,7 +33,6 @@ func swapAndRelaunch(archivePath string) error {
 		return fmt.Errorf("archive does not contain json-inspector.exe")
 	}
 
-	// move /y overwrites the running exe after a short delay; start relaunches it.
 	script := fmt.Sprintf(
 		`ping -n 2 127.0.0.1 >nul & move /y "%s" "%s" & start "" "%s"`,
 		newExe, exe, exe,

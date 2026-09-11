@@ -1,13 +1,9 @@
 package bridge
 
-// DefaultPort is the loopback port the app listens on for the browser
-// extension. Both the app and the extension use this value by default.
 const DefaultPort = 38761
 
-// CapturedRequest is a request captured by the browser extension and pushed
-// over the WebSocket. It is the wire format used by the "browser" mode.
 type CapturedRequest struct {
-	Type            string            `json:"type"` // always "request"
+	Type            string            `json:"type"`
 	ID              string            `json:"id"`
 	Method          string            `json:"method"`
 	URL             string            `json:"url"`
@@ -25,21 +21,14 @@ type CapturedRequest struct {
 	FavIconURL      string            `json:"favIconUrl"`
 }
 
-// CaptureState is the second wire-format message, sent by the extension to
-// report its live capture status (how many tabs, whether recording, which
-// browser) so the status bar doesn't have to guess from badge counts.
 type CaptureState struct {
-	Type      string `json:"type"` // always "state"
+	Type      string `json:"type"`
 	Recording bool   `json:"recording"`
 	Tabs      int    `json:"tabs"`
 	Browser   string `json:"browser"`
 }
 
-// FocusRequest asks the running app to come to the front, optionally showing a
-// particular browser tab. It is the extension's "open this request" action:
-// since the app is already connected, this needs no OS protocol handoff — no
-// launch confirmation, no leftover tab.
 type FocusRequest struct {
-	Type string `json:"type"` // always "focus"
+	Type string `json:"type"`
 	Tab  int    `json:"tab"`
 }
