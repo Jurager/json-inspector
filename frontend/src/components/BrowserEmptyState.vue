@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
-import { BridgePort } from '../../wailsjs/go/main/App'
-import { BrowserOpenURL } from '../../wailsjs/runtime/runtime'
+import { App as Backend } from '../../bindings/json-inspector'
+import { Browser } from '@wailsio/runtime'
 import { useRequestsStore } from '../stores/requests'
 
 const store = useRequestsStore()
@@ -10,7 +10,7 @@ const port = ref('')
 
 onMounted(async () => {
   try {
-    port.value = String(await BridgePort())
+    port.value = String(await Backend.BridgePort())
   } catch {
     // ignore — runtime not ready yet
   }
@@ -28,7 +28,7 @@ const statusText = computed(() => {
 
 // The instruction lives in the repository README (extension/ setup steps).
 function openInstructions() {
-  BrowserOpenURL('https://github.com/Jurager/json-inspector')
+  Browser.OpenURL('https://github.com/Jurager/json-inspector')
 }
 </script>
 

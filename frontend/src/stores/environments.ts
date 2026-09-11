@@ -7,7 +7,7 @@ import {
   type ResolveFn,
   type VarKind,
 } from '../lib/vars'
-import { SecretSet, SecretGet, SecretDelete } from '../../wailsjs/go/main/App'
+import { App as Backend } from '../../bindings/json-inspector'
 
 export interface Variable {
   id: string
@@ -377,7 +377,7 @@ export const useEnvironmentsStore = defineStore('environments', {
     // and the footer stops promising persistence.
     storeSecret(envId: string | null, name: string, value: string) {
       try {
-        SecretSet(envId ?? 'globals', name, value).catch(() => {
+        Backend.SecretSet(envId ?? 'globals', name, value).catch(() => {
           this.keychainAvailable = false
         })
       } catch {
@@ -387,7 +387,7 @@ export const useEnvironmentsStore = defineStore('environments', {
 
     dropSecret(envId: string | null, name: string) {
       try {
-        SecretDelete(envId ?? 'globals', name).catch(() => {
+        Backend.SecretDelete(envId ?? 'globals', name).catch(() => {
           this.keychainAvailable = false
         })
       } catch {
@@ -406,7 +406,7 @@ export const useEnvironmentsStore = defineStore('environments', {
 
       for (const t of targets) {
         try {
-          const value = await SecretGet(t.envId ?? 'globals', t.name)
+          const value = await Backend.SecretGet(t.envId ?? 'globals', t.name)
           if (value) this.secretValues[secretKey(t.envId, t.name)] = value
         } catch {
           // One failure is enough to know this machine can't store secrets.

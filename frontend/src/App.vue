@@ -14,15 +14,10 @@ import Icon from './components/Icon.vue'
 import logoUrl from './assets/logo.svg'
 import { buildSampleRecord } from './lib/sample'
 import { shortcut, useCustomTitlebar } from './lib/platform'
+import product from './product.json'
 import { makeSideResizer } from './lib/resize'
-import {
-  EventsOn,
-  WindowMinimise,
-  WindowToggleMaximise,
-  WindowIsMaximised,
-  Quit,
-} from '../wailsjs/runtime/runtime'
-import { ToggleMaximize, CheckForUpdates, UpdateNow } from '../wailsjs/go/main/App'
+import { Application, Events, Window } from '@wailsio/runtime'
+import { App as Backend } from '../bindings/json-inspector'
 
 const store = useRequestsStore()
 const envStore = useEnvironmentsStore()
@@ -31,9 +26,7 @@ const envStore = useEnvironmentsStore()
 // active one and is the only way in (no rail section, by design).
 const activeEnvName = computed(() => envStore.active?.name ?? 'Без окружения')
 
-// Shortcut hints have to be reactive: the platform resolves asynchronously (see
-// lib/platform.ts), so a plain constant would capture the macOS default before
-// Windows is known and print "⌘" in the titlebar.
+// Reactive: the platform resolves shortly after load (see lib/platform.ts).
 const searchHint = computed(() => shortcut('K'))
 const envSheetHint = computed(() => shortcut('E'))
 
@@ -78,7 +71,7 @@ function openUpdate() {
 
 async function refreshMaximised() {
   try {
-    isMaximised.value = await WindowIsMaximised()
+    isMaximised.value = await Window.IsMaximised()
   } catch {
     // ignore — runtime not ready yet
   }
@@ -87,6 +80,11 @@ async function refreshMaximised() {
 function openBrowser() {
   store.activeView = 'browser'
   store.markBrowserRead()
+}
+
+// Opens (or focuses) the About window; the window itself is created in Go.
+function openAbout() {
+  Backend.ShowAbout()
 }
 
 function loadSample() {
@@ -105,7 +103,10 @@ async function checkUpdates() {
   if (checking.value) return
   checking.value = true
   try {
-    const u = await CheckForUpdates()
+    const u = await Backend.CheckForUpdates()
+    // The binding types the Go pointer as nullable; CheckForUpdates returns a
+    // result or an error, never nil.
+    if (!u) return
     if (u.available) {
       update.value = u
       // A manual check gives immediate feedback, unlike the silent startup
@@ -124,7 +125,7 @@ async function doUpdate() {
   updating.value = true
   const v = update.value.latest
   try {
-    await UpdateNow(v)
+    await Backend.UpdateNow(v)
   } catch (e) {
     showToast(`Не удалось обновиться: ${e}`, 'error')
   } finally {
@@ -138,9 +139,9 @@ async function doUpdate() {
 const railMenuOpen = ref(false)
 const railMenuEl = ref<HTMLElement | null>(null)
 
-// Environment switcher in the titlebar. Environments aren't implemented yet, so
-// it is a single-entry dropdown ("Local · dev"); the dropdown exists so the
-// control has its final shape.
+// Environment switcher in the titlebar — the only way in, by design: there is
+// no rail section for environments. The chip names the active one and opens
+// EnvironmentMenu.
 const envOpen = ref(false)
 const envWrapEl = ref<HTMLElement | null>(null)
 
@@ -210,9 +211,9 @@ interface Captured {
 
 const offs: (() => void)[] = []
 
-// useCustomTitlebar resolves asynchronously (it waits on Wails' own
-// Environment() call, in lib/platform.ts) — watch it rather than checking
-// once, so the maximize-state listener still gets wired up once it lands.
+// The maximize state is only shown by our own caption buttons, which exist on
+// the frameless platforms only. The platform resolves asynchronously, so watch
+// for it rather than checking once.
 watch(
   useCustomTitlebar,
   (custom) => {
@@ -268,8 +269,10 @@ onMounted(() => {
     })
   )
 
+  // v3 handlers receive a WailsEvent envelope; the payload is on .data.
   offs.push(
-    EventsOn('captured-request', (c: Captured) => {
+    Events.On('captured-request', (ev) => {
+      const c = ev.data as Captured
       const headers = c.responseHeaders ?? {}
       store.addCaptured({
         method: c.method,
@@ -290,12 +293,13 @@ onMounted(() => {
     })
   )
   offs.push(
-    EventsOn('capture-state', (s: { recording: boolean; tabs: number }) => {
+    Events.On('capture-state', (ev) => {
+      const s = ev.data as { recording: boolean; tabs: number }
       store.setCaptureState({ connected: true, recording: s.recording, tabs: s.tabs })
     })
   )
   offs.push(
-    EventsOn('capture-disconnected', () => {
+    Events.On('capture-disconnected', () => {
       store.setCaptureState({ connected: false, recording: false, tabs: 0 })
     })
   )
@@ -303,23 +307,24 @@ onMounted(() => {
   // the browser list because the list isn't always mounted, and the link must
   // still switch the rail even when there is nothing captured yet.
   offs.push(
-    EventsOn('open-tab', (tabId: number) => {
-      store.focusBrowserTab(tabId)
+    Events.On('open-tab', (ev) => {
+      store.focusBrowserTab(ev.data as number)
     })
   )
   offs.push(
-    EventsOn('update-available', (u: UpdateInfo) => {
-      update.value = u
+    Events.On('update-available', (ev) => {
+      update.value = ev.data as UpdateInfo
     })
   )
   offs.push(
-    EventsOn('update-up-to-date', (u: UpdateInfo) => {
+    Events.On('update-up-to-date', (ev) => {
+      const u = ev.data as UpdateInfo
       showToast(`У вас последняя версия (${u.latest})`)
     })
   )
   offs.push(
-    EventsOn('update-error', (msg: string) => {
-      showToast(msg, 'error')
+    Events.On('update-error', (ev) => {
+      showToast(ev.data as string, 'error')
     })
   )
 
@@ -341,12 +346,12 @@ onBeforeUnmount(() => {
 
 <template>
   <div class="app">
-    <header class="titlebar" :class="{ 'titlebar-custom': useCustomTitlebar }" @dblclick="ToggleMaximize">
+    <header class="titlebar" :class="{ 'titlebar-custom': useCustomTitlebar }" @dblclick="Backend.ToggleMaximize">
       <div v-if="useCustomTitlebar" class="titlebar-appicon">
         <img :src="logoUrl" alt="" class="titlebar-logo" draggable="false" />
-        <span class="titlebar-title">JSON Inspector</span>
+        <span class="titlebar-title">{{ product.name }}</span>
       </div>
-      <span v-else class="titlebar-title">JSON Inspector</span>
+      <span v-else class="titlebar-title">{{ product.name }}</span>
 
       <div v-if="useCustomTitlebar" class="titlebar-spacer"></div>
 
@@ -370,17 +375,17 @@ onBeforeUnmount(() => {
       </div>
 
       <div v-if="useCustomTitlebar" class="titlebar-controls">
-        <button class="cap-btn" title="Свернуть" @click="WindowMinimise">
+        <button class="cap-btn" title="Свернуть" @click="Window.Minimise()">
           <span class="cap-icon cap-icon-minus"></span>
         </button>
-        <button class="cap-btn" title="Развернуть" @click="WindowToggleMaximise">
+        <button class="cap-btn" title="Развернуть" @click="Window.ToggleMaximise()">
           <span v-if="!isMaximised" class="cap-icon cap-icon-square"></span>
           <span v-else class="cap-icon cap-icon-restore">
             <span class="cap-icon-restore-back"></span>
             <span class="cap-icon-restore-front"></span>
           </span>
         </button>
-        <button class="cap-btn cap-close" title="Закрыть" @click="Quit">
+        <button class="cap-btn cap-close" title="Закрыть" @click="Application.Quit()">
           <span class="cap-icon cap-icon-close">
             <span class="cap-icon-close-bar cap-icon-close-bar-1"></span>
             <span class="cap-icon-close-bar cap-icon-close-bar-2"></span>
@@ -401,6 +406,10 @@ onBeforeUnmount(() => {
             </button>
             <button class="menu-item" @click="checkUpdates(); railMenuOpen = false">
               <Icon name="arrow-down" :size="14" /> {{ checking ? 'Проверка…' : 'Проверить обновления' }}
+            </button>
+            <!-- On macOS this lives in the native app menu instead. -->
+            <button v-if="useCustomTitlebar" class="menu-item" @click="openAbout(); railMenuOpen = false">
+              <Icon name="info" :size="14" /> О программе
             </button>
           </div>
         </div>

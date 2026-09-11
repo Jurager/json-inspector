@@ -3,14 +3,9 @@ package main
 import (
 	"embed"
 	"log"
-	goruntime "runtime"
 
-	"github.com/wailsapp/wails/v2"
-	"github.com/wailsapp/wails/v2/pkg/options"
-	"github.com/wailsapp/wails/v2/pkg/options/assetserver"
-	"github.com/wailsapp/wails/v2/pkg/options/linux"
-	"github.com/wailsapp/wails/v2/pkg/options/mac"
-	"github.com/wailsapp/wails/v2/pkg/options/windows"
+	"github.com/wailsapp/wails/v3/pkg/application"
+	"github.com/wailsapp/wails/v3/pkg/events"
 
 	"json-inspector/internal/bridge"
 	"json-inspector/internal/update"
@@ -19,85 +14,98 @@ import (
 //go:embed all:frontend/dist
 var assets embed.FS
 
-// The app icon, handed to the native macOS "About" panel.
+// The app icon, handed to the OS (macOS dock/About, Windows taskbar).
 //
 //go:embed build/appicon.png
 var appIcon []byte
 
-// version is overridden at build time via -ldflags "-X main.version=…".
+// version is overridden at build time via -ldflags "-X main.version=…", which
+// the per-OS BUILD_FLAGS in build/*/Taskfile.yml inject.
 var version = "dev"
 
 func main() {
 	update.Current = version
 
-	app := NewApp()
+	appService := NewApp()
+
+	app := application.New(application.Options{
+		Name:        product.Name,
+		Description: product.Description,
+		Icon:        appIcon,
+		Services: []application.Service{
+			application.NewService(appService),
+		},
+		Assets: application.AssetOptions{
+			Handler: application.AssetFileServerFS(assets),
+		},
+		Mac: application.MacOptions{
+			ApplicationShouldTerminateAfterLastWindowClosed: true,
+		},
+		// Without this a second launch (or a json-inspector:// link while the app
+		// is already running) starts a whole new process, which then fails to
+		// bind the bridge port and sits there with a dead extension socket.
+		SingleInstance: &application.SingleInstanceOptions{
+			UniqueID:               "com.jurager.json-inspector",
+			EncryptionKey:          singleInstanceKey,
+			OnSecondInstanceLaunch: appService.onSecondInstance,
+		},
+	})
+	appService.setApp(app)
+
+	mainWin := app.Window.NewWithOptions(application.WebviewWindowOptions{
+		Name:             windowMain,
+		Title:            product.Name,
+		Width:            1280,
+		Height:           820,
+		MinWidth:         900,
+		MinHeight:        600,
+		Frameless:        useCustomTitlebar(),
+		BackgroundColour: application.NewRGB(30, 30, 30),
+		URL:              "/",
+		Mac: application.MacWindow{
+			TitleBar:                application.MacTitleBarHiddenInset,
+			InvisibleTitleBarHeight: 50,
+		},
+	})
+	appService.setMainWindow(mainWin)
+
+	// The frontend subscribes to events while mounting; anything emitted before
+	// that is dropped, so this is the moment the buffered payloads can go out.
+	mainWin.OnWindowEvent(events.Common.WindowRuntimeReady, func(*application.WindowEvent) {
+		appService.markReady()
+	})
+
+	// First launch via json-inspector://. Later launches arrive through
+	// SingleInstance.OnSecondInstanceLaunch instead — see handleUrlOpen.
+	app.Event.OnApplicationEvent(events.Common.ApplicationLaunchedWithUrl, func(e *application.ApplicationEvent) {
+		appService.handleUrlOpen(e.Context().URL())
+	})
 
 	bridgeServer := bridge.NewServer(
 		bridge.DefaultPort,
-		app.onCapturedRequest,
-		app.onCaptureState,
-		app.onCaptureDisconnected,
-		app.onFocusRequest,
+		appService.onCapturedRequest,
+		appService.onCaptureState,
+		appService.onCaptureDisconnected,
+		appService.onFocusRequest,
 	)
-	app.setBridge(bridgeServer)
+	appService.setBridge(bridgeServer)
 	go func() {
 		if err := bridgeServer.Start(); err != nil {
 			log.Printf("[bridge] error: %v", err)
 		}
 	}()
 
-	// Neither Windows nor Linux have an equivalent of macOS's hidden-inset
-	// title bar, and the native menu strip Wails would otherwise draw doesn't
-	// follow the app's theme there (it renders as a plain, unstyled bar). So
-	// on those platforms we go fully frameless and let the frontend draw its
-	// own title bar, complete with its own caption buttons; the native app
-	// menu is only used on macOS, where it renders in the system-wide menu
-	// bar and looks native.
-	useCustomTitlebar := goruntime.GOOS == "windows" || goruntime.GOOS == "linux"
-
-	appOptions := &options.App{
-		Title:     "JSON Inspector",
-		Width:     1280,
-		Height:    820,
-		MinWidth:  900,
-		MinHeight: 600,
-		AssetServer: &assetserver.Options{
-			Assets: assets,
-		},
-		BackgroundColour: &options.RGBA{R: 30, G: 30, B: 30, A: 1},
-		OnStartup:        app.startup,
-		Frameless:        useCustomTitlebar,
-		Bind: []interface{}{
-			app,
-		},
-		Windows: &windows.Options{
-			WebviewIsTransparent: false,
-			WindowIsTranslucent:  false,
-		},
-		Linux: &linux.Options{
-			WindowIsTranslucent: false,
-		},
-		Mac: &mac.Options{
-			TitleBar:  mac.TitleBarHiddenInset(),
-			OnUrlOpen: app.handleUrlOpen,
-			// Enables the system About panel (app menu → About JSON Inspector).
-			// The in-app «О программе» window stays as it is — this one is the
-			// OS's own, with the real version number.
-			About: &mac.AboutInfo{
-				Title:   "JSON Inspector",
-				Message: "Просмотр JSON:API: подстановка переменных окружения, карта схемы, перехват запросов из браузера.\nВерсия " + update.Current,
-				Icon:    appIcon,
-			},
-		},
+	// The native app menu is only used on macOS, where it renders in the
+	// system-wide menu bar and looks native. On Windows/Linux the app is
+	// frameless and draws its own title bar; an empty menu keeps Wails from
+	// installing its default one there.
+	if useCustomTitlebar() {
+		app.Menu.Set(app.NewMenu())
+	} else {
+		app.Menu.Set(buildMenu(appService))
 	}
 
-	if !useCustomTitlebar {
-		appOptions.Menu = buildMenu(app)
-	}
-
-	err := wails.Run(appOptions)
-
-	if err != nil {
-		println("Error:", err.Error())
+	if err := app.Run(); err != nil {
+		log.Fatal(err)
 	}
 }

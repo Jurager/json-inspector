@@ -19,7 +19,7 @@ const scopeLabel = computed(() => {
   return r.source === 'env' ? (store.active?.name ?? 'Окружение') : 'Глобальные'
 })
 
-const modifier = computed(() => (isMac.value ? '⌥клик' : 'Alt+клик'))
+const modifier = computed(() => (isMac ? '⌥клик' : 'Alt+клик'))
 
 // Fixed coordinates from the token's own box rather than an absolutely
 // positioned child: the field clips its overflow for the ellipsis, and a

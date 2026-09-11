@@ -11,27 +11,44 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
-	"github.com/wailsapp/wails/v2/pkg/runtime"
+	"github.com/wailsapp/wails/v3/pkg/application"
 
 	"json-inspector/internal/bridge"
-	"json-inspector/internal/jsonapi"
 	"json-inspector/internal/secrets"
 	"json-inspector/internal/update"
 )
 
-// App is the Wails application.
+// App is the Wails service backing the whole UI.
 // Its exported methods are callable from the frontend through the generated bindings.
+//
+// In v3 a service is a singleton shared by every window (the main window today,
+// the environment editor later), so anything mutable lives under mu.
 type App struct {
-	ctx context.Context
-
 	mu        sync.Mutex
 	cancelReq context.CancelFunc
 
 	// bridge is the loopback WS server the extension connects to; it lets the
 	// app push control messages back (pause) in the opposite direction.
 	bridge *bridge.Server
+
+	// Set before app.Run(). Nothing here is a package-level global any more:
+	// every event and window action names its target explicitly. The About
+	// window is not cached — it is looked up by name, so a closed one is
+	// recreated rather than resurrected from a stale pointer.
+	app  *application.App
+	main *application.WebviewWindow
+
+	// ready flips on events.Common.WindowRuntimeReady, i.e. once the frontend
+	// has actually subscribed. Anything emitted before that is dropped silently,
+	// so the two payloads that would be lost for good are buffered instead: a
+	// deep link (open-tab) and an available update (StartupCheck only runs once
+	// a day, so dropping it means the user waits until tomorrow).
+	ready         atomic.Bool
+	pendingTab    int
+	pendingUpdate *update.Update
 }
 
 // setBridge wires the bridge server so PauseCapture can reach the extension.
@@ -39,25 +56,105 @@ func (a *App) setBridge(s *bridge.Server) {
 	a.bridge = s
 }
 
+// setApp hands the service the application handle it needs to open windows.
+func (a *App) setApp(app *application.App) {
+	a.app = app
+}
+
+// setMainWindow registers the primary window. Events are addressed to it rather
+// than to the app, which keeps a future environment-editor window out of the
+// captured-request stream.
+func (a *App) setMainWindow(w *application.WebviewWindow) {
+	a.mu.Lock()
+	a.main = w
+	a.mu.Unlock()
+}
+
 // NewApp creates a new App application struct.
 func NewApp() *App {
 	return &App{}
 }
 
-// startup is called when the app starts. The context is saved so runtime
-// methods (events) can be called later.
-func (a *App) startup(ctx context.Context) {
-	a.ctx = ctx
+// mainWindow returns the primary window, or nil if it does not exist yet.
+func (a *App) mainWindow() *application.WebviewWindow {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	return a.main
+}
+
+// ServiceStartup runs once at start-up. Returning an error here aborts the whole
+// application, so nothing that can fail may run inline — the update check goes
+// to a goroutine.
+func (a *App) ServiceStartup(_ context.Context, _ application.ServiceOptions) error {
 	a.startUpdateCheck()
+	return nil
+}
+
+// markReady is called on WindowRuntimeReady, the precise moment the frontend
+// has subscribed. It flushes whatever arrived while we were still booting.
+func (a *App) markReady() {
+	a.ready.Store(true)
+
+	a.mu.Lock()
+	tab, u := a.pendingTab, a.pendingUpdate
+	a.pendingTab, a.pendingUpdate = 0, nil
+	a.mu.Unlock()
+
+	if u != nil {
+		a.emit("update-available", u)
+	}
+	if tab > 0 {
+		a.emit("open-tab", tab)
+	}
+}
+
+// emit sends a window-scoped event. It is a no-op until the frontend has
+// subscribed, which is what keeps early bridge callbacks from vanishing into a
+// window that isn't listening yet.
+func (a *App) emit(name string, data ...any) {
+	if !a.ready.Load() {
+		return
+	}
+	if win := a.mainWindow(); win != nil {
+		win.EmitEvent(name, data...)
+	}
+}
+
+// emitOpenTab delivers a "jump to this browser tab" request, or parks it until
+// the UI is ready to receive it.
+func (a *App) emitOpenTab(tab int) {
+	if !a.ready.Load() {
+		a.mu.Lock()
+		a.pendingTab = tab
+		a.mu.Unlock()
+		return
+	}
+	a.emit("open-tab", tab)
+}
+
+// focusMain brings the main window to the front. Showing is unconditional: a
+// link this app can't interpret further is still a request to come forward.
+func (a *App) focusMain() {
+	if win := a.mainWindow(); win != nil {
+		bringToFront(win)
+	}
 }
 
 // startUpdateCheck runs the once-a-day background version check and tells the
 // UI when a newer version is available.
 func (a *App) startUpdateCheck() {
 	go func() {
-		if u := update.StartupCheck(); u != nil {
-			runtime.EventsEmit(a.ctx, "update-available", u)
+		u := update.StartupCheck()
+		if u == nil {
+			return
 		}
+		if !a.ready.Load() {
+			a.mu.Lock()
+			a.pendingUpdate = u
+			a.mu.Unlock()
+			return
+		}
+		a.emit("update-available", u)
 	}()
 }
 
@@ -66,10 +163,11 @@ func (a *App) Version() string {
 	return update.Current
 }
 
-// ToggleMaximize toggles the window zoom (native macOS double-click on the
-// title bar).
+// ToggleMaximize toggles the window zoom (double-click on the title bar).
 func (a *App) ToggleMaximize() {
-	runtime.WindowToggleMaximise(a.ctx)
+	if win := a.mainWindow(); win != nil {
+		win.ToggleMaximise()
+	}
 }
 
 // handleUrlOpen is called when the app is opened via the json-inspector://
@@ -77,16 +175,25 @@ func (a *App) ToggleMaximize() {
 // the window to the front and, when the link names a browser tab
 // (json-inspector://open?tab=42), asks the UI to jump to that tab's requests.
 func (a *App) handleUrlOpen(rawURL string) {
-	if a.ctx == nil {
-		return
-	}
-	// Showing the window is unconditional: a link this app can't interpret any
-	// further is still a request to come to the front.
-	runtime.WindowShow(a.ctx)
-	runtime.WindowUnminimise(a.ctx)
+	a.focusMain()
 	if tabID, ok := tabFromURL(rawURL); ok {
-		runtime.EventsEmit(a.ctx, "open-tab", tabID)
+		a.emitOpenTab(tabID)
 	}
+}
+
+// onSecondInstance is how every launch except the first arrives on all three
+// platforms: the OS protocol handoff, or the user starting the binary again
+// while the app is already running. The URL is carried in the args, and
+// ApplicationLaunchedWithUrl does NOT fire on this path — so both have to end
+// up in handleUrlOpen or deep links would only work with the app closed.
+func (a *App) onSecondInstance(data application.SecondInstanceData) {
+	for _, arg := range data.Args {
+		if strings.HasPrefix(arg, deepLinkScheme+"://") {
+			a.handleUrlOpen(arg)
+			return
+		}
+	}
+	a.focusMain()
 }
 
 // tabFromURL pulls the tab id out of json-inspector://open?tab=42. A link
@@ -126,13 +233,13 @@ func (a *App) UpdateNow(version string) error {
 func (a *App) checkForUpdatesFromMenu() {
 	u, err := update.Check()
 	if err != nil {
-		runtime.EventsEmit(a.ctx, "update-error", err.Error())
+		a.emit("update-error", err.Error())
 		return
 	}
 	if u.Available {
-		runtime.EventsEmit(a.ctx, "update-available", &u)
+		a.emit("update-available", &u)
 	} else {
-		runtime.EventsEmit(a.ctx, "update-up-to-date", &u)
+		a.emit("update-up-to-date", &u)
 	}
 }
 
@@ -275,12 +382,6 @@ func diffMs(start, end time.Time) int64 {
 	return end.Sub(start).Milliseconds()
 }
 
-// Analyze inspects a response body, reporting whether it is JSON:API and, if
-// so, building the object graph used by the map view.
-func (a *App) Analyze(body string) *jsonapi.Analysis {
-	return jsonapi.Analyze([]byte(body))
-}
-
 // BridgePort returns the loopback port the browser extension connects to, so
 // the empty state can name it without hardcoding the number in the template.
 func (a *App) BridgePort() int {
@@ -327,39 +428,26 @@ func (a *App) ResumeCapture() {
 // onCapturedRequest is the bridge handler: it forwards browser-captured
 // requests to the frontend as a Wails event.
 func (a *App) onCapturedRequest(req bridge.CapturedRequest) {
-	if a.ctx == nil {
-		return
-	}
-	runtime.EventsEmit(a.ctx, "captured-request", req)
+	a.emit("captured-request", req)
 }
 
 // onCaptureState forwards the extension's live capture status to the status bar.
 func (a *App) onCaptureState(s bridge.CaptureState) {
-	if a.ctx == nil {
-		return
-	}
-	runtime.EventsEmit(a.ctx, "capture-state", s)
+	a.emit("capture-state", s)
 }
 
 // onCaptureDisconnected fires when the extension's socket drops, so the status
 // bar stops claiming the extension is still connected.
 func (a *App) onCaptureDisconnected() {
-	if a.ctx == nil {
-		return
-	}
-	runtime.EventsEmit(a.ctx, "capture-disconnected")
+	a.emit("capture-disconnected")
 }
 
 // onFocusRequest brings the window forward for the extension's "open this
 // request" action. The extension asks over the live socket, so this path works
 // whether or not the OS protocol handoff does.
 func (a *App) onFocusRequest(req bridge.FocusRequest) {
-	if a.ctx == nil {
-		return
-	}
-	runtime.WindowShow(a.ctx)
-	runtime.WindowUnminimise(a.ctx)
+	a.focusMain()
 	if req.Tab > 0 {
-		runtime.EventsEmit(a.ctx, "open-tab", req.Tab)
+		a.emitOpenTab(req.Tab)
 	}
 }

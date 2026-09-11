@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useRequestsStore } from '../stores/requests'
-import { PauseCapture, ResumeCapture } from '../../wailsjs/go/main/App'
+import { App as Backend } from '../../bindings/json-inspector'
 
 const store = useRequestsStore()
 
@@ -18,8 +18,8 @@ const sourceLabel = computed(() => {
 const recording = computed(() => store.capture.recording)
 
 async function toggleCapture() {
-  if (recording.value) await PauseCapture()
-  else await ResumeCapture()
+  if (recording.value) await Backend.PauseCapture()
+  else await Backend.ResumeCapture()
 }
 </script>
 

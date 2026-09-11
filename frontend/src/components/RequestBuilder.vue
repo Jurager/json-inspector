@@ -3,11 +3,12 @@ import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import Icon from './Icon.vue'
 import RequestChipPopover from './RequestChipPopover.vue'
 import VarToken from './VarToken.vue'
-import { SendRequest, CancelRequest } from '../../wailsjs/go/main/App'
+import { App as Backend } from '../../bindings/json-inspector'
 import { useRequestsStore } from '../stores/requests'
 import { useEnvironmentsStore } from '../stores/environments'
 import { shortcut } from '../lib/platform'
 import { segments } from '../lib/vars'
+import { normalizeHeaders } from '../lib/http'
 
 const store = useRequestsStore()
 const envStore = useEnvironmentsStore()
@@ -113,8 +114,10 @@ async function send() {
   const recordBody = envStore.masked(store.draft.body)
   const recordHeaders = maskedHeaders()
   try {
-    const res = await SendRequest(store.draft.method, url, requestHeaders, body)
-    if (res.cancelled) return
+    const res = await Backend.SendRequest(store.draft.method, url, requestHeaders, body)
+    // The binding types the Go pointer as nullable; the Go side always returns
+    // a result, so this is a type guard rather than a real branch.
+    if (!res || res.cancelled) return
     store.add({
       method: store.draft.method,
       url: recordUrl,
@@ -122,7 +125,7 @@ async function send() {
       requestBody: recordBody,
       status: res.status,
       statusText: res.statusText,
-      responseHeaders: res.headers,
+      responseHeaders: normalizeHeaders(res.headers),
       responseBody: res.body,
       durationMs: res.durationMs,
       contentType: res.contentType,
@@ -140,7 +143,7 @@ async function send() {
 }
 
 async function cancel() {
-  await CancelRequest()
+  await Backend.CancelRequest()
 }
 
 // Focus the URL field when "Открыть в «Запросе»" asks for it — the field only

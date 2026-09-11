@@ -6,7 +6,7 @@
 
 **JSON Inspector** превращает такой ответ в удобное интерактивное представление, где связанные ресурсы можно быстро просматривать, исследовать и визуализировать.
 
-Стек: **Go + Wails v2 + Vue 3 (TypeScript)**.
+Стек: **Go + Wails v3 + Vue 3 (TypeScript)**.
 
 ## Возможности
 
@@ -21,19 +21,21 @@
 
 ## Установка
 
-Скачайте нужный архив со страницы [Releases](https://github.com/Jurager/json-inspector/releases).
+Скачайте нужный файл со страницы [Releases](https://github.com/Jurager/json-inspector/releases).
 
 ### macOS
 
-Скачайте `json-inspector-darwin-arm64.app.zip`, распакуйте архив и переместите `json-inspector.app` в `~/Applications` или `/Applications`.
+`json-inspector-darwin-universal.dmg` — откройте образ и перетащите `json-inspector.app` в «Программы». Сборка универсальная: работает и на Apple Silicon, и на Intel.
 
 ### Windows
 
-Скачайте `json-inspector-windows-amd64.exe.zip` и распакуйте `json-inspector.exe`.
+`json-inspector-windows-amd64-installer.exe` — запустите установщик. Он ставится в профиль пользователя (права администратора не нужны) и регистрирует схему `json-inspector://`, по которой расширение открывает приложение на нужной вкладке.
 
 ### Linux
 
-Скачайте `json-inspector-linux-amd64.tar.gz` и распакуйте бинарный файл.
+Пакет `.deb`, `.rpm` или `.AppImage`. Пакет ставит `.desktop`-файл и регистрирует схему `json-inspector://` через xdg-mime — из `tar.gz` этого не происходит, там просто бинарник, и ссылки из расширения работать не будут. Требуется GTK4 и WebKitGTK 6.0: Ubuntu 24.04+, Debian 13+, Fedora 41+.
+
+Рядом с установщиками в релизе лежат те же сборки в виде архивов (`…-darwin-{arm64,amd64}.app.zip`, `…-windows-amd64.exe.zip`, `…-linux-amd64.tar.gz`) — их скачивает встроенное автообновление. Для macOS публикуются оба имени архитектур с одной и той же универсальной сборкой, чтобы обновление находилось и на Intel.
 
 ## Использование
 
@@ -75,23 +77,27 @@
 
 ### Требования
 
-* Go ≥ 1.22
+* Go ≥ 1.25
 * Node.js
-* Wails v2 CLI
-
-Установка Wails:
+* Wails v3 CLI и раннер Taskfile
 
 ```bash
-go install github.com/wailsapp/wails/v2/cmd/wails@latest
+go install github.com/wailsapp/wails/v3/cmd/wails3@v3.0.0-beta.20
+go install github.com/go-task/task/v3/cmd/task@latest
 ```
+
+Версия `wails3` должна совпадать с версией `github.com/wailsapp/wails/v3` в `go.mod` и с `@wailsio/runtime` в `frontend/package.json`: они общаются по одному IPC-протоколу, и при расхождении окно открывается пустым без внятной ошибки. Wails v3 пока в статусе beta — версия пинится точно, обновление выносится в отдельный коммит с прогоном ручного чек-листа.
 
 ### Сборка
 
 ```bash
-make build
+make build          # бинарник в bin/
+make package-darwin # → dist/*.app.zip и dist/*.dmg
+make package-windows # → dist/*.exe.zip и dist/*-installer.exe
+make package-linux  # → dist/*.tar.gz
 ```
 
-Команда собирает приложение для текущей платформы. На macOS результатом будет `.app` в `build/bin`.
+Команда собирает приложение для текущей платформы. Упаковка доступна только на «своей» ОС: DMG собирается на macOS, установщик NSIS — на Windows (нужен `makensis`).
 
 ## Публикация релиза
 
@@ -108,10 +114,18 @@ CI собирает приложения для macOS, Windows и Linux, фор�
 
 ```text
 .
-├── main.go / app.go / menu.go # вход Wails, bound-методы, нативное меню
-├── internal/jsonapi/          # парсинг JSON:API, индекс и граф связей
+├── main.go                    # вход Wails v3: приложение, окна, меню
+├── app.go                     # сервис с bound-методами
+├── window.go                  # имена окон, deep-link схема, ShowAbout
+├── menu.go                    # нативное меню (только macOS)
+├── build/                     # Taskfile-ы, config.yml, иконки, упаковка
 ├── internal/bridge/           # WebSocket-сервер для браузерного расширения
 ├── internal/update/           # автообновление через GitHub Releases
 ├── frontend/                  # Vue 3 + TypeScript
+│   ├── bindings/              # сгенерировано `wails3 generate bindings` (коммитится)
+│   ├── src/lib/jsonapi.ts     # разбор JSON:API на стороне интерфейса
+│   └── src/windows/           # отдельные окна (About), своя точка входа Vite
 └── extension/                 # Chrome-расширение (MV3)
 ```
+
+Биндинги и иконки генерируются, но коммитятся — как сгенерированный код в `frontend/bindings/`, так и `build/{windows/icon.ico,darwin/icons.icns}`. Исходником иконок остаётся единственный `build/appicon.png`.

@@ -5,10 +5,12 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "vue-tsc --noEmit && vite build",
+    "build": "vue-tsc --noEmit && vite build --mode production",
+    "build:dev": "vue-tsc --noEmit && vite build --minify false --mode development",
     "preview": "vite preview"
   },
   "dependencies": {
+    "@wailsio/runtime": "3.0.0-beta.20",
     "@codemirror/lang-json": "^6.0.2",
     "@codemirror/language": "^6.12.4",
     "@codemirror/state": "^6.7.4",

@@ -18,11 +18,12 @@ import NodeInspector from './NodeInspector.vue'
 import CookiesTab from './CookiesTab.vue'
 import TimingsTab from './TimingsTab.vue'
 import TestsTab from './TestsTab.vue'
-import { Fetch } from '../../wailsjs/go/main/App'
+import { App as Backend } from '../../bindings/json-inspector'
 import { useRequestsStore } from '../stores/requests'
 import { useEnvironmentsStore } from '../stores/environments'
 import { copyToClipboard, exportRequest, type ExportFormat } from '../lib/export'
 import { shortcut } from '../lib/platform'
+import { normalizeHeaders } from '../lib/http'
 
 const props = defineProps<{ record: RequestRecord }>()
 
@@ -122,8 +123,10 @@ async function follow(url: string) {
   store.loading = true
   store.manualId = null
   try {
-    const res = await Fetch(url, headers)
-    if (res.cancelled) return
+    const res = await Backend.Fetch(url, headers)
+    // The binding types the Go pointer as nullable; the Go side always returns
+    // a result, so this is a type guard rather than a real branch.
+    if (!res || res.cancelled) return
     store.add({
       method: 'GET',
       url,
@@ -131,7 +134,7 @@ async function follow(url: string) {
       requestBody: '',
       status: res.status,
       statusText: res.statusText,
-      responseHeaders: res.headers,
+      responseHeaders: normalizeHeaders(res.headers),
       responseBody: res.body,
       durationMs: res.durationMs,
       contentType: res.contentType,

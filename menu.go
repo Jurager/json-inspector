@@ -1,25 +1,29 @@
 package main
 
-import (
-	"github.com/wailsapp/wails/v2/pkg/menu"
-	"github.com/wailsapp/wails/v2/pkg/menu/keys"
-)
+import "github.com/wailsapp/wails/v3/pkg/application"
 
-func buildMenu(app *App) *menu.Menu {
-	// The app menu is the standard macOS one (menu.AppMenu) rather than a
-	// hand-built list: Wails only contributes the native "About <app>" item —
-	// the system panel configured in main.go — when the menu comes from that
-	// role. Hide and Quit come with it.
-	help := &menu.MenuItem{
-		Label: "Справка",
-		SubMenu: menu.NewMenuFromItems(
-			&menu.MenuItem{
-				Label:       "Проверить обновления…",
-				Accelerator: keys.CmdOrCtrl("u"),
-				Click:       func(*menu.CallbackData) { app.checkForUpdatesFromMenu() },
-			},
-		),
-	}
+func buildMenu(a *App) *application.Menu {
+	menu := application.NewMenu()
 
-	return menu.NewMenuFromItems(menu.AppMenu(), help, menu.EditMenu(), menu.WindowMenu())
+	appMenu := menu.AddSubmenu(product.Name)
+	appMenu.Add("О программе").OnClick(func(*application.Context) { a.ShowAbout() })
+	appMenu.AddSeparator()
+	appMenu.AddRole(application.ServicesMenu)
+	appMenu.AddSeparator()
+	appMenu.AddRole(application.Hide)
+	appMenu.AddRole(application.HideOthers)
+	appMenu.AddRole(application.UnHide)
+	appMenu.AddSeparator()
+	appMenu.AddRole(application.Quit)
+
+	helpMenu := menu.AddSubmenu("Справка")
+	helpMenu.Add("Проверить обновления…").
+		SetAccelerator("CmdOrCtrl+U").
+		OnClick(func(*application.Context) { a.checkForUpdatesFromMenu() })
+
+	// The stock Edit and Window menus bring the standard roles along with them.
+	menu.AddRole(application.EditMenu)
+	menu.AddRole(application.WindowMenu)
+
+	return menu
 }

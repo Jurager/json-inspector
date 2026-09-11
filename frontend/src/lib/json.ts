@@ -71,16 +71,6 @@ export function highlightJson(text: string): string {
   return out.join('')
 }
 
-// decodeUrl decodes percent-encoding for display (human-readable), returning
-// the original string when it is not validly encoded.
-export function decodeUrl(url: string): string {
-  try {
-    return decodeURIComponent(url)
-  } catch {
-    return url
-  }
-}
-
 export function formatBytes(n: number): string {
   if (!n) return '0 B'
   const units = ['B', 'KB', 'MB', 'GB']
@@ -102,8 +92,4 @@ export function statusClass(status: number): string {
   if (status >= 200 && status < 300) return 'badge-status-2xx'
   if (status >= 300 && status < 400) return 'badge-status-3xx'
   return 'badge-status-4xx'
-}
-
-export function methodClass(method: string): string {
-  return 'badge-method'
 }

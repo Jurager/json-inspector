@@ -1,0 +1,58 @@
+# Project configuration for the Wails v3 build assets.
+# After changing `info` or `protocols`, run: wails3 task common:update:build-assets
+# Note that this overwrites the generated assets (Info.plist, NSIS script,
+# Linux .desktop, Windows manifests) — edit this file, not those.
+version: '3'
+
+# This information is used to generate the build assets.
+info:
+  companyName: "Yuri Gerasimov"
+  productName: "JSON Inspector"
+  productIdentifier: "com.jurager.json-inspector"
+  description: "Просмотр JSON:API: подстановка переменных окружения, карта схемы, перехват запросов из браузера."
+  copyright: "© 2026, Yuri Gerasimov"
+  comments: "JSON Inspector"
+  # Kept in step with the release tag by the release workflow; the Go-side
+  # version comes from -ldflags (see Taskfile.yml VERSION).
+  version: "0.1.2"
+  # cfBundleIconName is deliberately unset: it points macOS at Assets.car, and
+  # the only Icon Composer bundle the template ships is Wails' logo. Without it
+  # the .app uses CFBundleIconFile (icons.icns), which is generated from our own
+  # appicon.png. Set it only alongside a real appicon.icon of our own.
+
+# Custom URL scheme used by the Chrome extension's "Открыть приложение" button.
+# On macOS this becomes CFBundleURLTypes in Info.plist; on Windows the NSIS
+# installer writes it to HKCU; on Linux a .desktop mime handler is generated.
+# Without this the scheme only worked on macOS (v2 registered it from the .app).
+protocols:
+  - scheme: json-inspector
+    description: JSON Inspector Protocol
+
+# Dev mode configuration
+dev_mode:
+  root_path: .
+  log_level: warn
+  debounce: 1000
+  ignore:
+    dir:
+      - .git
+      - node_modules
+      - frontend
+      - bin
+    file:
+      - .DS_Store
+      - .gitignore
+      - .gitkeep
+      - "*_test.go"
+    watched_extension:
+      - "*.go"
+      - "*.js" # Watch for changes to JS/TS files included using the //wails:include directive.
+      - "*.ts" # The frontend directory will be excluded entirely by the setting above.
+    git_ignore: true
+  executes:
+    - cmd: wails3 build DEV=true
+      type: blocking
+    - cmd: wails3 task common:dev:frontend
+      type: background
+    - cmd: wails3 task run
+      type: primary

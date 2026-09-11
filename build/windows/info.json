@@ -1,0 +1,15 @@
+{
+	"fixed": {
+		"file_version": "0.1.2"
+	},
+	"info": {
+		"0000": {
+			"ProductVersion": "0.1.2",
+			"CompanyName": "Yuri Gerasimov",
+			"FileDescription": "Просмотр JSON:API: подстановка переменных окружения, карта схемы, перехват запросов из браузера.",
+			"LegalCopyright": "© 2026, Yuri Gerasimov",
+			"ProductName": "JSON Inspector",
+			"Comments": "JSON Inspector"
+		}
+	}
+}
