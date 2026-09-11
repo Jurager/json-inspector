@@ -110,6 +110,13 @@ async function isAppRunning(port) {
 
 async function connect(port) {
   clearTimeout(reconnectTimer);
+  // Already talking to the app: re-dialling would drop a working socket only to
+  // re-check the health probe, and a failed probe at that moment would leave
+  // nothing connected at all.
+  if (socket && socket.readyState === WebSocket.OPEN) {
+    connected = true;
+    return;
+  }
   if (socket) {
     try { socket.close(); } catch (_) {}
     socket = null;
@@ -168,7 +175,9 @@ function scheduleReconnect() {
   refreshIndicator();
   reconnectTimer = setTimeout(async () => {
     const { port } = await readState();
-    if (captureTabIds.size > 0) connect(port);
+    // A paused extension still needs its connection: that socket is the only
+    // way the app can ask to resume.
+    if (captureTabIds.size > 0 || paused) connect(port);
   }, RECONNECT_MS);
 }
 
@@ -256,18 +265,22 @@ async function startCapture() {
   return { ok: true, tabId: tab.id };
 }
 
-async function stopCaptureFor(tabId) {
+// `keepConnection` is for the pause: the app's "Возобновить перехват" arrives
+// over this very socket, so closing it would leave the button with nothing to
+// talk to. A stopped-by-hand tab still says goodbye as before.
+async function stopCaptureFor(tabId, keepConnection = false) {
   await disableInTab(tabId);
   setCaptureIcon(tabId, 'normal');
   setCaptureTitle(tabId, 'JSON Inspector');
   // Forget the origin only when no other captured tab is still on it —
   // otherwise stopping one tab would silently drop the memory for the rest.
+  // A pause keeps them too: they are what the resume restores.
   const forgotten = captureTabMeta.get(tabId);
   captureTabIds.delete(tabId);
   captureTabMeta.delete(tabId);
   capturedCounts.delete(tabId);
   capturedLastAt.delete(tabId);
-  if (forgotten && forgotten.url) {
+  if (!keepConnection && forgotten && forgotten.url) {
     const origin = await originOf(forgotten.url);
     const stillUsed = await Promise.all(
       Array.from(captureTabIds).map(async (id) => {
@@ -282,7 +295,7 @@ async function stopCaptureFor(tabId) {
     if (!stillUsed.some(Boolean)) await forgetOrigin(origin);
   }
   await persistCapture();
-  if (captureTabIds.size === 0) {
+  if (captureTabIds.size === 0 && !keepConnection) {
     chrome.alarms.clear(KEEPALIVE);
     disconnect();
   }
@@ -329,7 +342,11 @@ async function captureByOrigins(origins) {
   chrome.alarms.create(KEEPALIVE, { periodInMinutes: 0.4 });
   refreshIndicator();
   const { port } = await readState();
-  connect(port);
+  await connect(port);
+  // Reported explicitly: when a socket is already open `connect` returns
+  // without re-opening, so `onopen` won't fire and the app would never hear
+  // that recording is back on.
+  sendState();
   return captureTabIds.size;
 }
 
@@ -343,13 +360,16 @@ async function pauseAll() {
   }
   pausedOrigins = origins;
   paused = true;
+  // Kept where a restarted service worker can still find them: without this,
+  // the resume would have no origins to restore and would silently do nothing.
+  await chrome.storage.session.set({ pausedOrigins: origins });
+
   for (const id of Array.from(captureTabIds)) {
-    await stopCaptureFor(id);
+    await stopCaptureFor(id, true);
   }
 
-  // Stopping the last tab closes the socket, which is how a normal "stop" says
-  // goodbye — but while paused the app still needs a way back in, so the
-  // connection is reopened and the keepalive keeps it that way.
+  // The socket was left open by `keepConnection`; the alarm is what keeps the
+  // worker (and with it the socket) alive while nothing is being recorded.
   chrome.alarms.create(KEEPALIVE, { periodInMinutes: 0.4 });
   const { port } = await readState();
   if (!(socket && socket.readyState === WebSocket.OPEN)) connect(port);
@@ -360,11 +380,17 @@ async function pauseAll() {
 // the remembered origins, so resuming still works after the worker was
 // restarted and lost the in-memory list.
 async function resumeAll() {
+  const session = await chrome.storage.session.get('pausedOrigins');
+  const remembered = await chrome.storage.local.get('captureOrigins');
   const origins = pausedOrigins.length
     ? pausedOrigins
-    : ((await chrome.storage.local.get('captureOrigins')).captureOrigins || []);
+    : session.pausedOrigins?.length
+      ? session.pausedOrigins
+      : remembered.captureOrigins || [];
+
   pausedOrigins = [];
   paused = false;
+  await chrome.storage.session.set({ pausedOrigins: [] });
   await captureByOrigins(origins);
 }
 
@@ -598,8 +624,21 @@ chrome.runtime.onStartup.addListener(async () => {
   await captureByOrigins(captureOrigins);
 });
 
+// A paused extension has to come back paused: the app is still showing
+// "Возобновить перехват", and that command needs this side connected to land.
+chrome.storage.session.get(['captureTabIds', 'pausedOrigins']).then(({ pausedOrigins: pausedList, captureTabIds: ids }) => {
+  if (pausedList && pausedList.length) {
+    paused = true;
+    pausedOrigins = pausedList;
+    chrome.alarms.create(KEEPALIVE, { periodInMinutes: 0.4 });
+    readState().then(({ port }) => connect(port));
+    return;
+  }
+  restoreCaptured(ids || []);
+});
+
 // Restore capture state if the service worker was killed and restarted.
-chrome.storage.session.get('captureTabIds').then(({ captureTabIds: ids }) => {
+function restoreCaptured(ids) {
   if (!ids || !ids.length) return;
   for (const id of ids) {
     captureTabIds.add(id);
@@ -608,7 +647,7 @@ chrome.storage.session.get('captureTabIds').then(({ captureTabIds: ids }) => {
     setCaptureTitle(id, 'Перехват: приложение недоступно');
   }
   readState().then(({ port }) => connect(port));
-});
+}
 
 // If a captured tab closes, remove it from the capture set.
 chrome.tabs.onRemoved.addListener((tabId) => {
