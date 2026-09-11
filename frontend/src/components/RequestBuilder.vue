@@ -79,6 +79,11 @@ async function send() {
       durationMs: res.durationMs,
       contentType: res.contentType,
       error: res.error,
+      dnsMs: res.dnsMs,
+      connectMs: res.connectMs,
+      tlsMs: res.tlsMs,
+      waitMs: res.waitMs,
+      downloadMs: res.downloadMs,
       source: 'manual',
     })
   } finally {

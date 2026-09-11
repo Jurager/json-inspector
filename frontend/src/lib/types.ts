@@ -15,6 +15,11 @@ export interface RequestRecord {
   source: 'manual' | 'browser'
   contentType?: string
   error?: string
+  dnsMs?: number
+  connectMs?: number
+  tlsMs?: number
+  waitMs?: number
+  downloadMs?: number
   tabTitle?: string
   tabURL?: string
   tabId?: number

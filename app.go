@@ -2,9 +2,11 @@ package main
 
 import (
 	"context"
+	"crypto/tls"
 	"errors"
 	"io"
 	"net/http"
+	"net/http/httptrace"
 	"strings"
 	"sync"
 	"time"
@@ -112,6 +114,11 @@ type ResponseResult struct {
 	ContentType string            `json:"contentType"`
 	Error       string            `json:"error,omitempty"`
 	Cancelled   bool              `json:"cancelled,omitempty"`
+	DNSMs       int64             `json:"dnsMs,omitempty"`
+	ConnectMs   int64             `json:"connectMs,omitempty"`
+	TLSMs       int64             `json:"tlsMs,omitempty"`
+	WaitMs      int64             `json:"waitMs,omitempty"`
+	DownloadMs  int64             `json:"downloadMs,omitempty"`
 }
 
 // SendRequest performs an HTTP request and returns the full result. It is used
@@ -140,7 +147,27 @@ func (a *App) do(method, url string, headers map[string]string, body string) *Re
 	res := &ResponseResult{}
 	start := time.Now()
 
+	// Phase timestamps for the "Тайминги" tab, captured via httptrace. Each
+	// pair is zero until the corresponding callback fires, so diffMs below
+	// turns "didn't happen" (e.g. no TLS on plain HTTP) into 0.
+	var (
+		dnsStart, dnsDone   time.Time
+		connStart, connDone time.Time
+		tlsStart, tlsDone   time.Time
+		firstByte           time.Time
+	)
+	trace := &httptrace.ClientTrace{
+		DNSStart:             func(httptrace.DNSStartInfo) { dnsStart = time.Now() },
+		DNSDone:              func(httptrace.DNSDoneInfo) { dnsDone = time.Now() },
+		ConnectStart:         func(_, _ string) { connStart = time.Now() },
+		ConnectDone:          func(_, _ string, _ error) { connDone = time.Now() },
+		TLSHandshakeStart:    func() { tlsStart = time.Now() },
+		TLSHandshakeDone:     func(tls.ConnectionState, error) { tlsDone = time.Now() },
+		GotFirstResponseByte: func() { firstByte = time.Now() },
+	}
+
 	ctx, cancel := context.WithCancel(context.Background())
+	ctx = httptrace.WithClientTrace(ctx, trace)
 	a.mu.Lock()
 	a.cancelReq = cancel
 	a.mu.Unlock()
@@ -179,8 +206,21 @@ func (a *App) do(method, url string, headers map[string]string, body string) *Re
 		res.Error = err.Error()
 		return res
 	}
+	end := time.Now()
 
-	res.DurationMs = time.Since(start).Milliseconds()
+	// "Ожидание" is measured from the moment the connection is ready (after
+	// TLS, when there is one) to the first response byte.
+	ready := tlsDone
+	if ready.IsZero() {
+		ready = connDone
+	}
+
+	res.DurationMs = end.Sub(start).Milliseconds()
+	res.DNSMs = diffMs(dnsStart, dnsDone)
+	res.ConnectMs = diffMs(connStart, connDone)
+	res.TLSMs = diffMs(tlsStart, tlsDone)
+	res.WaitMs = diffMs(ready, firstByte)
+	res.DownloadMs = diffMs(firstByte, end)
 	res.Status = resp.StatusCode
 	res.StatusText = resp.Status
 	res.ContentType = resp.Header.Get("Content-Type")
@@ -192,6 +232,15 @@ func (a *App) do(method, url string, headers map[string]string, body string) *Re
 	}
 	res.Body = string(data)
 	return res
+}
+
+// diffMs returns the elapsed milliseconds between two timestamps, or 0 when
+// either side is missing (the phase never happened).
+func diffMs(start, end time.Time) int64 {
+	if start.IsZero() || end.IsZero() || end.Before(start) {
+		return 0
+	}
+	return end.Sub(start).Milliseconds()
 }
 
 // Analyze inspects a response body, reporting whether it is JSON:API and, if

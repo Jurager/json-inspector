@@ -16,6 +16,7 @@ import JsonTree from './JsonTree.vue'
 import SchemaMap from './SchemaMap.vue'
 import NodeInspector from './NodeInspector.vue'
 import CookiesTab from './CookiesTab.vue'
+import TimingsTab from './TimingsTab.vue'
 import { Fetch } from '../../wailsjs/go/main/App'
 import { useRequestsStore } from '../stores/requests'
 import { copyToClipboard, exportRequest, type ExportFormat } from '../lib/export'
@@ -62,7 +63,7 @@ function renderWithMarks(
   return html
 }
 
-type Tab = 'body' | 'map' | 'raw' | 'headers' | 'cookies' | 'request'
+type Tab = 'body' | 'map' | 'raw' | 'headers' | 'cookies' | 'timings' | 'request'
 const activeTab = ref<Tab>('body')
 
 const parsed = computed(() => tryParseJson(props.record.responseBody))
@@ -169,6 +170,11 @@ async function follow(url: string) {
       durationMs: res.durationMs,
       contentType: res.contentType,
       error: res.error,
+      dnsMs: res.dnsMs,
+      connectMs: res.connectMs,
+      tlsMs: res.tlsMs,
+      waitMs: res.waitMs,
+      downloadMs: res.downloadMs,
       source: 'manual',
     })
   } finally {
@@ -438,6 +444,7 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocClick))
       <button class="tab" :class="{ active: activeTab === 'raw' }" @click="activeTab = 'raw'">Raw</button>
       <button class="tab" :class="{ active: activeTab === 'headers' }" @click="activeTab = 'headers'">Заголовки</button>
       <button v-if="hasCookies" class="tab" :class="{ active: activeTab === 'cookies' }" @click="activeTab = 'cookies'">Cookies</button>
+      <button class="tab" :class="{ active: activeTab === 'timings' }" @click="activeTab = 'timings'">Тайминги</button>
       <button class="tab" :class="{ active: activeTab === 'request' }" @click="activeTab = 'request'">Запрос</button>
     </div>
 
@@ -528,6 +535,10 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocClick))
 
       <template v-else-if="activeTab === 'cookies'">
         <CookiesTab :headers="record.responseHeaders" />
+      </template>
+
+      <template v-else-if="activeTab === 'timings'">
+        <TimingsTab :record="record" />
       </template>
 
       <template v-else>

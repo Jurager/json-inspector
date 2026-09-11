@@ -120,6 +120,11 @@ export namespace main {
 	    contentType: string;
 	    error?: string;
 	    cancelled?: boolean;
+	    dnsMs?: number;
+	    connectMs?: number;
+	    tlsMs?: number;
+	    waitMs?: number;
+	    downloadMs?: number;
 	
 	    static createFrom(source: any = {}) {
 	        return new ResponseResult(source);
@@ -135,6 +140,11 @@ export namespace main {
 	        this.contentType = source["contentType"];
 	        this.error = source["error"];
 	        this.cancelled = source["cancelled"];
+	        this.dnsMs = source["dnsMs"];
+	        this.connectMs = source["connectMs"];
+	        this.tlsMs = source["tlsMs"];
+	        this.waitMs = source["waitMs"];
+	        this.downloadMs = source["downloadMs"];
 	    }
 	}
 
