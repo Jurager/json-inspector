@@ -707,59 +707,6 @@ mark.search-match.current {
   @apply text-text-tertiary italic;
 }
 
-/* ---- Generic JSON tree ---- */
-.jt-node {
-  @apply text-xs select-text;
-  font-family: var(--mono);
-}
-
-.jt-toggle {
-  @apply cursor-pointer text-text-tertiary select-none inline-block w-3;
-}
-
-.jt-key,
-.jt-value {
-  @apply cursor-pointer rounded-xs py-0 px-0.5 -mx-0.5;
-}
-
-.jt-key:hover,
-.jt-value:hover {
-  @apply bg-bg-hover;
-}
-
-.jt-key.copied,
-.jt-value.copied {
-  @apply bg-accent-soft;
-}
-
-.jt-key {
-  @apply text-accent;
-}
-
-.jt-preview {
-  @apply text-accent opacity-45;
-}
-
-.jt-bracket {
-  @apply text-text-tertiary;
-}
-
-.jt-string {
-  @apply text-tok-str;
-}
-
-.jt-number,
-.jt-boolean {
-  @apply text-tok-num;
-}
-
-.jt-null {
-  @apply text-tok-null;
-}
-
-.jt-children {
-  @apply pl-[18px] border-l border-border ml-1.5;
-}
 
 /* ---- Tabs ---- */
 .tabs {

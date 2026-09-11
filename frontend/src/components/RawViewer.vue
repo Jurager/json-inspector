@@ -37,7 +37,10 @@ const appTheme = EditorView.theme({
   '&': { backgroundColor: 'transparent', height: '100%', fontSize: '12px' },
   '&.cm-focused': { outline: 'none' },
   '.cm-scroller': { fontFamily: 'var(--mono)', lineHeight: '1.65' },
-  '.cm-content': { padding: '10px 0' },
+  // The app turns selection off globally (drag on chrome shouldn't select
+  // labels), and that reaches in here by inheritance — a response is text and
+  // has to be selectable and copyable.
+  '.cm-content': { padding: '10px 0', userSelect: 'text', WebkitUserSelect: 'text' },
   '.cm-line': { padding: '0 16px' },
   '.cm-gutters': {
     backgroundColor: 'transparent',

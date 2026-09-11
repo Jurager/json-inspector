@@ -12,8 +12,7 @@ import {
 } from '../lib/json'
 import { dataResources, href, isJsonApi, resourceMatchesQuery, type JsonApiDocument } from '../lib/jsonapi'
 import JsonApiTree from './JsonApiTree.vue'
-import RawViewer from './RawViewer.vue'
-import JsonTree from './JsonTree.vue'
+import TextViewerTab from './TextViewerTab.vue'
 import SchemaMap from './SchemaMap.vue'
 import NodeInspector from './NodeInspector.vue'
 import CookiesTab from './CookiesTab.vue'
@@ -211,55 +210,8 @@ function openInRequest() {
 }
 
 const prettyRaw = computed(() => (isJson.value ? prettyJson(jsonValue.value) : props.record.responseBody))
-// --- Raw search (Cmd/Ctrl+F) ---
-//
-// The query is handed to RawViewer, which drives CodeMirror's own search: it
-// highlights the matches and reports back how many there are and which one the
-// cursor is on, so the toolbar can still show "3 / 12".
-const rawSearchQuery = ref('')
-const rawSearchVisible = ref(false)
-const rawSearchInputRef = ref<HTMLInputElement | null>(null)
+// The search field's shortcut, used by the JSON:API tree toolbar below.
 const searchShortcut = computed(() => shortcut('F'))
-
-const rawViewer = ref<{ next: () => void; prev: () => void; focusFirst: () => void } | null>(null)
-const rawStats = ref({ count: 0, index: 0 })
-
-function onRawStats(s: { count: number; index: number }) {
-  rawStats.value = s
-}
-
-function nextMatch() {
-  rawViewer.value?.next()
-}
-
-function prevMatch() {
-  rawViewer.value?.prev()
-}
-
-function onSearchEnter(e: KeyboardEvent) {
-  e.preventDefault()
-  if (e.shiftKey) prevMatch()
-  else nextMatch()
-}
-
-function openRawSearch() {
-  rawSearchVisible.value = true
-  nextTick(() => rawSearchInputRef.value?.focus())
-}
-
-function closeRawSearch() {
-  rawSearchVisible.value = false
-  rawSearchQuery.value = ''
-}
-
-const rawCopied = ref(false)
-
-async function copyRaw() {
-  if (await copyToClipboard(prettyRaw.value)) {
-    rawCopied.value = true
-    setTimeout(() => (rawCopied.value = false), 1500)
-  }
-}
 
 const bodyCopied = ref(false)
 
@@ -286,14 +238,7 @@ function onWindowKeydown(e: KeyboardEvent) {
     toggleInspector()
     return
   }
-  if (activeTab.value === 'raw') {
-    if ((e.metaKey || e.ctrlKey) && e.code === 'KeyF') {
-      e.preventDefault()
-      openRawSearch()
-    } else if (e.key === 'Escape' && rawSearchVisible.value) {
-      closeRawSearch()
-    }
-  } else if (activeTab.value === 'body' && doc.value) {
+  if (activeTab.value === 'body' && doc.value) {
     if ((e.metaKey || e.ctrlKey) && e.code === 'KeyF') {
       e.preventDefault()
       openBodySearch()
@@ -459,11 +404,18 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocClick))
           <span class="head-spacer"></span>
           <button class="resp-action open-in-request" @click="openInRequest">Открыть в «Запросе»</button>
         </div>
-        <div class="resp-content">
-          <JsonApiTree v-if="doc" :doc="doc" :query="bodyQuery" :highlight-key="highlightKey" @select="onTreeSelect" @inspect="onInspect" @fetch="onTreeFetch" />
-          <div v-else-if="isJson" class="jt-wrap"><JsonTree :value="jsonValue" /></div>
-          <pre v-else class="code resp-pad">{{ record.responseBody }}</pre>
+        <div v-if="doc" class="resp-content">
+          <JsonApiTree :doc="doc" :query="bodyQuery" :highlight-key="highlightKey" @select="onTreeSelect" @inspect="onInspect" @fetch="onTreeFetch" />
         </div>
+        <!-- Anything that isn't JSON:API is read as text, with the same viewer
+             and the same search as the Raw tab — one implementation, so the two
+             tabs can't drift apart. -->
+        <TextViewerTab
+          v-else
+          :text="prettyRaw"
+          :show-open-in-request="record.source === 'browser'"
+          @open-in-request="openInRequest"
+        />
       </template>
 
       <template v-else-if="activeTab === 'map'">
@@ -471,30 +423,7 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocClick))
       </template>
 
       <template v-else-if="activeTab === 'raw'">
-        <div class="toolbar">
-          <template v-if="rawSearchVisible">
-            <input
-              ref="rawSearchInputRef"
-              v-model="rawSearchQuery"
-              class="input mono flex-1 min-w-0"
-              placeholder="Поиск…"
-              spellcheck="false"
-              @keydown.enter="onSearchEnter"
-              @keydown.esc="closeRawSearch"
-            />
-            <span class="search-count">
-              {{ rawStats.count ? `${rawStats.index + 1} / ${rawStats.count}` : 'нет совпадений' }}
-            </span>
-            <button class="resp-action icon" title="Предыдущее (Shift+Enter)" @click="prevMatch"><Icon name="chevron-up" :size="14" /></button>
-            <button class="resp-action icon" title="Следующее (Enter)" @click="nextMatch"><Icon name="chevron-down" :size="14" /></button>
-            <button class="resp-action icon" title="Закрыть (Esc)" @click="closeRawSearch"><Icon name="xmark" :size="14" /></button>
-          </template>
-          <template v-else>
-            <button class="resp-action" @click="copyRaw"><Icon v-if="rawCopied" name="check" :size="12" /><span>{{ rawCopied ? 'Скопировано' : 'Копировать' }}</span></button>
-            <button class="resp-action" @click="openRawSearch"><span>Поиск</span><kbd class="keycap">{{ searchShortcut }}</kbd></button>
-          </template>
-        </div>
-        <RawViewer ref="rawViewer" :text="prettyRaw" :query="rawSearchQuery" @stats="onRawStats" />
+        <TextViewerTab :text="prettyRaw" />
       </template>
 
       <template v-else-if="activeTab === 'headers'">
@@ -636,10 +565,6 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocClick))
 
 .resp-pad {
   @apply py-3 px-4 m-0;
-}
-
-.jt-wrap {
-  @apply py-3 px-4;
 }
 
 .kv-table {
