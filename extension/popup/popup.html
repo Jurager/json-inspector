@@ -5,47 +5,129 @@
   <link rel="stylesheet" href="popup.css" />
 </head>
 <body>
-  <header class="header">
-    <svg class="logo" viewBox="0 0 1024 1024" aria-hidden="true">
-      <rect x="48" y="48" width="928" height="928" rx="210" fill="#20B889"/>
-      <path d="M385 285h-55c-42 0-62 21-62 63v105c0 38-16 57-50 57 34 0 50 19 50 57v105c0 42 20 63 62 63h55" fill="none" stroke="#fff" stroke-width="48" stroke-linecap="round"/>
-      <path d="M639 285h55c42 0 62 21 62 63v105c0 38 16 57 50 57-34 0-50 19-50 57v105c0 42-20 63-62 63h-55" fill="none" stroke="#fff" stroke-width="48" stroke-linecap="round"/>
-      <path d="M465 512h94" stroke="#fff" stroke-width="44" stroke-linecap="round"/>
-    </svg>
-    <div class="header-text">
-      <div class="title">JSON Inspector</div>
-      <div class="subtitle">Перехват запросов браузера</div>
+  <!-- Main view: the popup answers one question — is this tab being recorded? -->
+  <div class="view view-main">
+    <header class="pop-head">
+      <svg class="logo" viewBox="0 0 1024 1024" aria-hidden="true">
+        <rect x="48" y="48" width="928" height="928" rx="210" fill="#20B889"/>
+        <path d="M385 285h-55c-42 0-62 21-62 63v105c0 38-16 57-50 57 34 0 50 19 50 57v105c0 42 20 63 62 63h55" fill="none" stroke="#fff" stroke-width="48" stroke-linecap="round"/>
+        <path d="M639 285h55c42 0 62 21 62 63v105c0 38 16 57 50 57-34 0-50 19-50 57v105c0 42-20 63-62 63h-55" fill="none" stroke="#fff" stroke-width="48" stroke-linecap="round"/>
+        <path d="M465 512h94" stroke="#fff" stroke-width="44" stroke-linecap="round"/>
+      </svg>
+      <div class="pop-head-text">
+        <div class="pop-title">JSON Inspector</div>
+        <div class="pop-status">
+          <span class="dot" id="status-dot"></span>
+          <span id="status-text"></span>
+          <span class="mono pop-port" id="status-port"></span>
+        </div>
+      </div>
+      <button class="icon-btn" id="open-settings" title="Настройки" aria-label="Настройки">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><circle cx="12" cy="12" r="3.2" /><path d="M12 3v2.2M12 18.8V21M3 12h2.2M18.8 12H21M5.6 5.6l1.6 1.6M16.8 16.8l1.6 1.6M18.4 5.6l-1.6 1.6M7.2 16.8l-1.6 1.6" /></svg>
+      </button>
+    </header>
+
+    <div class="pop-body">
+      <!-- Raised into the body only when there is something to do about it -->
+      <div class="card warn" id="warn-card" hidden>
+        <div class="warn-text">
+          Расширение продолжает копить запросы, но показать их некому: приложение на порту
+          <span class="mono" id="warn-port">38761</span> не отвечает.
+        </div>
+        <button class="btn-primary btn-small" id="warn-launch">Запустить приложение</button>
+      </div>
+
+      <!-- The main object of the popup: the tab the user is standing on -->
+      <div class="card current" id="current-card">
+        <div class="current-top">
+          <img class="favicon" id="current-favicon" alt="" />
+          <span class="avatar" id="current-avatar" hidden></span>
+          <div class="current-text">
+            <div class="current-title" id="current-title"></div>
+            <div class="mono current-host" id="current-host"></div>
+          </div>
+          <label class="switch">
+            <input type="checkbox" id="enabled" />
+            <span class="slider"></span>
+          </label>
+        </div>
+        <div class="current-foot" id="current-foot">
+          <span class="current-count" id="current-count"></span>
+          <span class="current-ago" id="current-ago"></span>
+          <span class="current-arrow" id="current-arrow">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6" /></svg>
+          </span>
+        </div>
+      </div>
+
+      <div class="buffered" id="buffered-line" hidden>
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M12 8v5" /><path d="M12 16.5v.01" /><circle cx="12" cy="12" r="9" /></svg>
+        <span id="buffered-text"></span>
+      </div>
+
+      <section class="more" id="more-section" hidden>
+        <div class="section-label">Ещё перехватывается</div>
+        <div id="more-list"></div>
+      </section>
     </div>
-  </header>
 
-  <div class="card toggle-card">
-    <div class="toggle-info">
-      <div class="toggle-label">Перехватывать вкладку</div>
+    <button class="open-app" id="open-app">Открыть приложение</button>
+  </div>
+
+  <!-- Second "page" of the same document, switched by a class on <body> -->
+  <div class="view view-settings">
+    <header class="settings-head">
+      <button class="icon-btn" id="close-settings" title="Назад" aria-label="Назад">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 6-6 6 6 6" /></svg>
+      </button>
+      <div class="settings-title">Настройки</div>
+    </header>
+
+    <div class="settings-body">
+      <div class="setting">
+        <div class="setting-text">
+          <div class="setting-name">Порт приложения</div>
+          <div class="setting-hint">По умолчанию 38761</div>
+        </div>
+        <input type="number" id="port" min="1" max="65535" spellcheck="false" />
+      </div>
+
+      <div class="setting">
+        <div class="setting-text">
+          <div class="setting-name">Помнить вкладки</div>
+          <div class="setting-hint">Включать перехват на тех же адресах после перезапуска</div>
+        </div>
+        <label class="switch switch-sm">
+          <input type="checkbox" id="set-rememberTabs" />
+          <span class="slider"></span>
+        </label>
+      </div>
+
+      <div class="setting">
+        <div class="setting-text">
+          <div class="setting-name">Только XHR и fetch</div>
+          <div class="setting-hint">Пропускать картинки, стили и шрифты</div>
+        </div>
+        <label class="switch switch-sm">
+          <input type="checkbox" id="set-xhrOnly" />
+          <span class="slider"></span>
+        </label>
+      </div>
+
+      <div class="setting">
+        <div class="setting-text">
+          <div class="setting-name">Чистить историю при выходе</div>
+          <div class="setting-hint">Не хранить перехваченные тела запросов</div>
+        </div>
+        <label class="switch switch-sm">
+          <input type="checkbox" id="set-clearOnExit" />
+          <span class="slider"></span>
+        </label>
+      </div>
+
+      <div class="settings-foot mono" id="settings-version"></div>
     </div>
-    <label class="switch">
-      <input type="checkbox" id="enabled" />
-      <span class="slider"></span>
-    </label>
   </div>
-
-  <div class="status-list">
-    <div class="status-row">
-      <span class="dot" id="app-dot"></span>
-      <span class="status-text" id="app-status"></span>
-    </div>
-  </div>
-
-  <div class="tabs-section" id="tabs-section">
-    <div class="tabs-heading">Перехватываемые вкладки</div>
-    <div class="tabs-list" id="tabs-list"></div>
-  </div>
-
-  <div class="card port-card">
-    <label class="port-label" for="port">Порт</label>
-    <input type="number" id="port" min="1" max="65535" spellcheck="false" />
-  </div>
-
-  <a class="open-app primary" id="open-app" href="json-inspector://open">Открыть приложение</a>
 
   <script src="popup.js"></script>
 </body>
