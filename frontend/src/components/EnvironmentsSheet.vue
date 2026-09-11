@@ -157,9 +157,55 @@ function toggleKind(v: Variable) {
   envStore.updateVar(envId.value, v.id, { kind: v.kind === 'secret' ? 'text' : 'secret' })
 }
 
+// --- Environments themselves -------------------------------------------------
+//
+// Names are editable in place, and a brand-new environment starts in edit mode
+// so it can be named straight away instead of being stuck as "Новое окружение".
+const renamingId = ref<string | null>(null)
+const envDraft = ref('')
+const renameInput = ref<HTMLInputElement | null>(null)
+
+function setRenameInput(el: Element | ComponentPublicInstance | null) {
+  renameInput.value = (el as HTMLInputElement | null) ?? null
+}
+
 function addEnv() {
   const id = envStore.addEnv()
   envStore.selectSheetEnv(id)
+  startRename(id)
+}
+
+function startRename(id: string) {
+  const target = envStore.environments.find((e) => e.id === id)
+  if (!target) return
+  renamingId.value = id
+  envDraft.value = target.name
+  error.value = ''
+  nextTick(() => renameInput.value?.focus())
+}
+
+function commitRename() {
+  const id = renamingId.value
+  if (!id) return
+  const name = envDraft.value.trim()
+  const others = envStore.environments.filter((e) => e.id !== id)
+  if (!name) {
+    // Refusing rather than writing an empty row keeps the list clickable.
+    error.value = 'Имя окружения не может быть пустым'
+    return
+  }
+  if (others.some((e) => e.name === name)) {
+    error.value = 'Окружение с таким именем уже есть'
+    return
+  }
+  envStore.renameEnv(id, name)
+  renamingId.value = null
+  error.value = ''
+}
+
+function cancelRename() {
+  renamingId.value = null
+  error.value = ''
 }
 
 // --- Removing an environment ------------------------------------------------
@@ -242,6 +288,10 @@ function onKeydown(e: KeyboardEvent) {
     cancel()
     return
   }
+  if (renamingId.value) {
+    cancelRename()
+    return
+  }
   if (importEntries.value) {
     importEntries.value = null
     return
@@ -270,18 +320,36 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
         <!-- Left: environments + globals -->
         <div class="sheet-side">
           <div class="side-label">Окружения</div>
-          <button
+          <!-- Rows are divs, not buttons: an environment's name turns into an
+               input in place, and interactive content can't live in a <button>. -->
+          <div
             v-for="e in envStore.environments"
             :key="e.id"
             class="side-row"
             :class="{ active: e.id === envStore.sheetEnvId }"
+            role="button"
+            tabindex="0"
+            title="Двойной клик — переименовать"
             @click="envStore.selectSheetEnv(e.id)"
+            @keydown.enter="envStore.selectSheetEnv(e.id)"
+            @dblclick="startRename(e.id)"
           >
             <span class="side-dot" :class="{ on: e.id === envStore.activeId }"></span>
-            <span class="side-name">{{ e.name }}</span>
+            <input
+              v-if="renamingId === e.id"
+              :ref="setRenameInput"
+              v-model="envDraft"
+              class="side-rename mono"
+              spellcheck="false"
+              @click.stop
+              @keydown.enter="commitRename"
+              @keydown.esc="cancelRename"
+              @blur="commitRename"
+            />
+            <span v-else class="side-name">{{ e.name }}</span>
             <Icon v-if="e.readonly" name="lock" :size="11" class="side-lock" />
             <span v-else class="side-count mono">{{ e.vars.length }}</span>
-          </button>
+          </div>
 
           <div class="side-divider"></div>
 
@@ -358,7 +426,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
           <div class="table-body">
             <div v-for="v in filteredVars" :key="v.id" class="row">
               <!-- name -->
-              <div class="cell cell-name">
+              <div class="cell cell-name" @click="startEdit(v, 'name')">
                 <input
                   v-if="editing && editing.varId === v.id && editing.field === 'name'"
                   :ref="setCellInput"
@@ -369,11 +437,11 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
                   @keydown="onCellKeydown($event, v, 'name')"
                   @blur="commitFrom(v, 'name')"
                 />
-                <span v-else class="cell-text mono" :title="v.name" @click="startEdit(v, 'name')">{{ v.name }}</span>
+                <span v-else class="cell-text mono" :title="v.name">{{ v.name }}</span>
               </div>
 
               <!-- value -->
-              <div class="cell cell-value">
+              <div class="cell cell-value" @click="startEdit(v, 'value')">
                 <input
                   v-if="editing && editing.varId === v.id && editing.field === 'value'"
                   :ref="setCellInput"
@@ -387,7 +455,6 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
                   v-else
                   class="cell-text mono"
                   :class="{ masked: v.kind === 'secret' && !showSecrets }"
-                  @click="startEdit(v, 'value')"
                   >{{ displayValue(v) }}</span
                 >
               </div>
@@ -560,6 +627,13 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
   @apply flex-1 min-w-0 overflow-hidden text-ellipsis whitespace-nowrap;
 }
 
+.side-rename {
+  @apply flex-1 min-w-0 text-[13px] px-1 py-0.5 rounded-sm outline-none;
+  background: var(--bg-panel);
+  border: 1px solid var(--accent);
+  color: var(--text);
+}
+
 .side-count {
   @apply flex-none text-[10.5px] text-text-tertiary;
 }
@@ -640,9 +714,11 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
   @apply h-[26px] py-0 text-xs whitespace-nowrap;
 }
 
+/* Cells stretch to the row's full height: an empty value renders zero-height
+   text, and a click on it has to land on the cell rather than fall through. */
 .table-head,
 .row {
-  @apply grid items-center gap-0 px-3.5;
+  @apply grid items-stretch gap-0 px-3.5;
   grid-template-columns: 200px minmax(0, 1fr) 96px 34px;
 }
 
@@ -665,7 +741,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
 }
 
 .cell {
-  @apply min-w-0 flex items-center;
+  @apply min-w-0 flex items-center cursor-text;
 }
 
 .cell-name {
@@ -677,7 +753,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
 }
 
 .cell-text {
-  @apply w-full overflow-hidden text-ellipsis whitespace-nowrap text-[12.5px] cursor-text;
+  @apply w-full overflow-hidden text-ellipsis whitespace-nowrap text-[12.5px];
 }
 
 .cell-text.masked {

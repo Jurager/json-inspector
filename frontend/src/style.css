@@ -121,8 +121,11 @@ body {
 }
 
 /* ---- Title bar (native look, full-width, draggable) ---- */
+/* z-index keeps the titlebar's dropdowns (the environment menu) above the
+   content below it — the titlebar is earlier in the DOM, so without a stacking
+   context of its own the body's popovers would paint over it. */
 .titlebar {
-  @apply relative h-13 flex-none flex items-center justify-center bg-bg-sidebar border-b border-border select-none;
+  @apply relative z-[100] h-13 flex-none flex items-center justify-center bg-bg-sidebar border-b border-border select-none;
   --wails-draggable: drag;
 }
 

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useRequestsStore } from '../stores/requests'
-import { PauseCapture } from '../../wailsjs/go/main/App'
+import { PauseCapture, ResumeCapture } from '../../wailsjs/go/main/App'
 
 const store = useRequestsStore()
 
@@ -11,10 +11,15 @@ const sourceLabel = computed(() => {
   return t ? `Источник: вкладка «${t}»` : 'Источник: браузер'
 })
 
-// Stops capture on every tab via the reverse WS channel; the extension replies
-// with a fresh capture-state message that updates the status bar.
-async function pause() {
-  await PauseCapture()
+// One control, two states: with recording on it stops every tab, and once
+// stopped it puts back the tabs that were being recorded. The label follows the
+// live capture state the extension reports rather than what was last clicked,
+// so it can't drift out of sync with reality.
+const recording = computed(() => store.capture.recording)
+
+async function toggleCapture() {
+  if (recording.value) await PauseCapture()
+  else await ResumeCapture()
 }
 </script>
 
@@ -23,7 +28,13 @@ async function pause() {
     <span class="capture-source">{{ sourceLabel }}</span>
     <span class="capture-spacer"></span>
     <span class="capture-hint">Только чтение — запросы уже выполнены</span>
-    <button class="capture-pause" title="Приостановить перехват" @click="pause">Приостановить перехват</button>
+    <button
+      class="capture-pause"
+      :title="recording ? 'Остановить перехват на всех вкладках' : 'Вернуть перехват на прежние вкладки'"
+      @click="toggleCapture"
+    >
+      {{ recording ? 'Приостановить перехват' : 'Возобновить перехват' }}
+    </button>
   </div>
 </template>
 

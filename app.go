@@ -321,6 +321,14 @@ func (a *App) PauseCapture() {
 	}
 }
 
+// ResumeCapture is the other half: the extension re-injects into the tabs it
+// had been recording before the pause.
+func (a *App) ResumeCapture() {
+	if a.bridge != nil {
+		a.bridge.Broadcast([]byte(`{"type":"resume"}`))
+	}
+}
+
 // onCapturedRequest is the bridge handler: it forwards browser-captured
 // requests to the frontend as a Wails event.
 func (a *App) onCapturedRequest(req bridge.CapturedRequest) {

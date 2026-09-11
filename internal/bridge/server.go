@@ -90,6 +90,17 @@ func (s *Server) Start() error {
 func (s *Server) handleHealth(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.Header().Set("Access-Control-Allow-Origin", "*")
+	// Chrome's Private Network Access check can preflight a request from an
+	// extension page to a loopback address; without this header the extension's
+	// availability probe fails even while the app is running, and the popup
+	// tells the user to launch something that is already up.
+	w.Header().Set("Access-Control-Allow-Private-Network", "true")
+	if r.Method == http.MethodOptions {
+		w.Header().Set("Access-Control-Allow-Methods", "GET, OPTIONS")
+		w.Header().Set("Access-Control-Allow-Headers", "*")
+		w.WriteHeader(http.StatusNoContent)
+		return
+	}
 	_ = json.NewEncoder(w).Encode(map[string]string{
 		"status":  "ok",
 		"name":    "json-inspector",

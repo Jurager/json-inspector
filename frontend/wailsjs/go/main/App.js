@@ -26,6 +26,10 @@ export function PauseCapture() {
   return window['go']['main']['App']['PauseCapture']();
 }
 
+export function ResumeCapture() {
+  return window['go']['main']['App']['ResumeCapture']();
+}
+
 export function SecretDelete(arg1, arg2) {
   return window['go']['main']['App']['SecretDelete'](arg1, arg2);
 }
