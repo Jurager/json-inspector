@@ -1,5 +1,5 @@
 import type { JsonApiDocument, Resource } from './jsonapi'
-import { dataResources, href, relIdentifiers } from './jsonapi'
+import { buildIndex, dataResources, href, relIdentifiers } from './jsonapi'
 
 export interface RelInfo {
   name: string
@@ -134,4 +134,63 @@ export function diffSchemas(base: TypeInfo[], target: TypeInfo[]): TypeDiff[] {
     }
   }
   return diffs.sort((a, b) => a.label.localeCompare(b.label))
+}
+
+export interface SchemaCheck {
+  status: 'ok' | 'warn' | 'error'
+  message: string
+  path: string
+}
+
+// validateDocument runs a handful of JSON:API structural checks against the
+// document and returns one entry per problem (with the path where it lives),
+// so the "Тесты" tab can render a flat, scannable list.
+export function validateDocument(doc: JsonApiDocument): SchemaCheck[] {
+  const checks: SchemaCheck[] = []
+  const data = dataResources(doc)
+  const included = doc.included ?? []
+  const all = [...data, ...included]
+  const paths = [
+    ...data.map((_, i) => `data[${i}]`),
+    ...included.map((_, i) => `included[${i}]`),
+  ]
+
+  // Required fields + duplicate type/id.
+  const seen = new Map<string, string>()
+  all.forEach((r, i) => {
+    const path = paths[i]
+    if (!r.type) checks.push({ status: 'error', message: 'отсутствует type', path })
+    if (!r.id) checks.push({ status: 'error', message: 'отсутствует id', path })
+    if (r.type && r.id) {
+      const key = `${r.type}/${r.id}`
+      if (seen.has(key)) checks.push({ status: 'warn', message: `дубликат ${key}`, path })
+      else seen.set(key, path)
+    }
+  })
+
+  // Broken relationship references + which keys are referenced at all.
+  const index = buildIndex(doc)
+  const refs = new Set<string>()
+  all.forEach((r, i) => {
+    const path = paths[i]
+    for (const [name, rel] of Object.entries(r.relationships ?? {})) {
+      for (const ri of relIdentifiers(rel)) {
+        const key = `${ri.type}/${ri.id}`
+        refs.add(key)
+        if (!index.has(key)) {
+          checks.push({ status: 'warn', message: `битая ссылка ${key}`, path: `${path}.relationships.${name}` })
+        }
+      }
+    }
+  })
+
+  // Included resources nothing points at.
+  included.forEach((r, i) => {
+    const key = `${r.type}/${r.id}`
+    if (!refs.has(key)) {
+      checks.push({ status: 'warn', message: `не используется: ${key}`, path: `included[${i}]` })
+    }
+  })
+
+  return checks
 }
