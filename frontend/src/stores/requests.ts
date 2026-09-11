@@ -179,7 +179,11 @@ export const useRequestsStore = defineStore('requests', {
       for (const p of this.draft.params) {
         if (p.enabled && p.name.trim()) sp.append(p.name.trim(), p.value)
       }
-      const qs = sp.toString()
+      // URLSearchParams percent-encodes braces, so `{{tenant}}` would come back
+      // as `%7B%7Btenant%7D%7D` and silently stop being a token the first time
+      // any parameter row is touched. The delimiters are restored; everything
+      // else stays encoded.
+      const qs = sp.toString().replace(/%7B%7B/g, '{{').replace(/%7D%7D/g, '}}')
       this.draft.url = qs ? `${base}?${qs}` : base
     },
     addParam() {

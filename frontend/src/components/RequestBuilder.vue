@@ -56,11 +56,14 @@ function toggleChip(chip: 'params' | 'headers' | 'auth' | 'body') {
   store.setOpenChip(store.openChip === chip ? null : chip)
 }
 
+// The values that actually go on the wire: tokens replaced by the active
+// environment's values. The draft itself keeps the tokens, so switching
+// environments changes what is sent without touching the saved request.
 function collectHeaders(): Record<string, string> {
   const map: Record<string, string> = {}
   for (const h of store.draft.headers) {
-    const name = h.name.trim()
-    if (name && h.enabled) map[name] = h.value
+    const name = envStore.substitute(h.name.trim())
+    if (name && h.enabled) map[name] = envStore.substitute(h.value)
   }
   return map
 }
@@ -91,14 +94,18 @@ async function send() {
   if (!store.draft.url.trim() || store.loading || sendBlocked.value) return
   store.loading = true
   const requestHeaders = collectHeaders()
+  const url = envStore.substitute(store.draft.url.trim())
+  const body = envStore.substitute(store.draft.body)
   try {
-    const res = await SendRequest(store.draft.method, store.draft.url.trim(), requestHeaders, store.draft.body)
+    const res = await SendRequest(store.draft.method, url, requestHeaders, body)
     if (res.cancelled) return
+    // The record keeps the resolved request, not the template: the "Запрос"
+    // tab is there to show what really left the machine.
     store.add({
       method: store.draft.method,
-      url: store.draft.url.trim(),
+      url,
       requestHeaders,
-      requestBody: store.draft.body,
+      requestBody: body,
       status: res.status,
       statusText: res.statusText,
       responseHeaders: res.headers,
