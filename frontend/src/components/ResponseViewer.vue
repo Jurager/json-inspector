@@ -398,16 +398,18 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocClick))
 
       <!-- URL is shown only for captured requests: for manual ones it already
            sits in the command line, so repeating it here would be noise. -->
-      <span v-if="record.source === 'browser'" class="resp-url mono" :title="record.url">{{ hostPath(record.url) }}</span>
-      <div v-if="record.source === 'browser' && browserParams.length" ref="paramsWrapEl" class="params-row">
-        <button class="resp-action" @click="paramsOpen = !paramsOpen">Параметры {{ browserParams.length }}</button>
-        <div v-if="paramsOpen" class="menu params-menu">
-          <div v-for="p in browserParams" :key="p.name" class="params-item">
-            <span class="params-name mono">{{ p.name }}</span>
-            <span class="params-value mono">{{ p.value }}</span>
+      <template v-if="record.source === 'browser'">
+        <span class="resp-url mono" :title="record.url">{{ hostPath(record.url) }}</span>
+        <div v-if="browserParams.length" ref="paramsWrapEl" class="params-row">
+          <button class="resp-action" @click="paramsOpen = !paramsOpen">Параметры {{ browserParams.length }}</button>
+          <div v-if="paramsOpen" class="menu params-menu">
+            <div v-for="p in browserParams" :key="p.name" class="params-item">
+              <span class="params-name mono">{{ p.name }}</span>
+              <span class="params-value mono">{{ p.value }}</span>
+            </div>
           </div>
         </div>
-      </div>
+      </template>
       <template v-else>
         <span class="divider"></span>
         <span class="resp-meta">{{ formatDuration(record.durationMs) }}</span>
@@ -418,6 +420,13 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocClick))
       </template>
 
       <span class="resp-spacer"></span>
+
+      <!-- Captured requests still report their outcome on the right — duration
+           and size must not vanish when the URL has query params (the reference
+           keeps "742 мс · 35,1 КБ" here). -->
+      <span v-if="record.source === 'browser'" class="resp-meta">
+        {{ formatDuration(record.durationMs) }} · {{ formatBytes(bodySize) }}
+      </span>
 
       <button class="resp-action" disabled title="Сравнение ответов — скоро">Сравнить</button>
       <div ref="copyWrapEl" class="copy-row">

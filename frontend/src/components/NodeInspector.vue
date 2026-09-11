@@ -22,7 +22,9 @@ const width = computed({
   get: () => store.inspector.width,
   set: (v: number) => store.setInspector({ width: v }),
 })
-const resize = makeSideResizer(width, 220, 520)
+// The inspector's handle is on its left edge (it is the right-hand column),
+// so dragging right must shrink it — the opposite of the left-hand list.
+const resize = makeSideResizer(width, 220, 520, -1)
 
 const path = computed(() => store.inspector.path ?? '')
 

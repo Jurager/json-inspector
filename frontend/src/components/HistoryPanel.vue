@@ -164,7 +164,11 @@ function groupHue(key: string): number {
       <span class="empty-hint">{{ emptyHint }}</span>
     </div>
 
-    <div v-else-if="isEmptyFiltered" class="no-results">Ничего не найдено</div>
+    <!-- "Ничего не найдено" only makes sense when there *is* something to
+         filter. With zero browser records the list stays blank — the centered
+         BrowserEmptyState already explains the next step, so a second message
+         here would just repeat it. -->
+    <div v-else-if="records.length > 0 && isEmptyFiltered" class="no-results">Ничего не найдено</div>
 
     <ul v-else-if="source === 'manual'" class="list">
       <li

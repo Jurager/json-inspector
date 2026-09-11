@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import Icon from './Icon.vue'
+import RequestChipPopover from './RequestChipPopover.vue'
 import { SendRequest, CancelRequest } from '../../wailsjs/go/main/App'
 import { useRequestsStore } from '../stores/requests'
 import { shortcut } from '../lib/platform'
