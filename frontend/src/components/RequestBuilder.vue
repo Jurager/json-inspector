@@ -3,7 +3,6 @@ import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import Icon from './Icon.vue'
 import { SendRequest, CancelRequest } from '../../wailsjs/go/main/App'
 import { useRequestsStore } from '../stores/requests'
-import { buildSampleRecord } from '../lib/sample'
 import { shortcut } from '../lib/platform'
 
 const store = useRequestsStore()
@@ -12,24 +11,59 @@ const sendShortcut = computed(() => shortcut('↵'))
 
 const METHODS = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD', 'OPTIONS']
 
+const METHOD_COLORS: Record<string, string> = {
+  GET: 'var(--green)',
+  POST: 'var(--orange)',
+  PUT: 'var(--purple)',
+  PATCH: 'var(--purple)',
+  DELETE: 'var(--red)',
+  HEAD: 'var(--text-tertiary)',
+  OPTIONS: 'var(--text-tertiary)',
+}
+
 const method = ref('GET')
 const url = ref('')
 const body = ref('')
-type BuilderPanel = 'headers' | 'body'
-const openPanel = ref<BuilderPanel | null>(null)
 
-function togglePanel(panel: BuilderPanel) {
-  openPanel.value = openPanel.value === panel ? null : panel
+const methodColor = computed(() => METHOD_COLORS[method.value] ?? 'var(--accent)')
+
+const methodBg = computed(() => {
+  const c = METHOD_COLORS[method.value] ?? 'var(--accent)'
+  return `color-mix(in srgb, ${c} 14%, transparent)`
+})
+
+const methodOpen = ref(false)
+const methodWrap = ref<HTMLElement | null>(null)
+
+function selectMethod(m: string) {
+  method.value = m
+  methodOpen.value = false
 }
 
-interface HeaderRow {
+function onDocClick(e: MouseEvent) {
+  if (methodWrap.value && !methodWrap.value.contains(e.target as Node)) {
+    methodOpen.value = false
+  }
+}
+
+type BuilderTab = 'params' | 'headers' | 'body'
+const activeTab = ref<BuilderTab>('headers')
+
+interface KeyValue {
   name: string
   value: string
 }
 
-const headers = ref<HeaderRow[]>([
-  { name: 'Accept', value: 'application/vnd.api+json' },
-])
+const params = ref<KeyValue[]>([])
+const headers = ref<KeyValue[]>([{ name: 'Accept', value: 'application/vnd.api+json' }])
+
+function addParam() {
+  params.value.push({ name: '', value: '' })
+}
+
+function removeParam(i: number) {
+  params.value.splice(i, 1)
+}
 
 function addHeader() {
   headers.value.push({ name: '', value: '' })
@@ -48,16 +82,27 @@ function collectHeaders(): Record<string, string> {
   return map
 }
 
+function buildUrl(): string {
+  const base = url.value.trim()
+  const active = params.value.filter((p) => p.name.trim())
+  if (active.length === 0) return base
+  const qs = active
+    .map((p) => `${encodeURIComponent(p.name.trim())}=${encodeURIComponent(p.value)}`)
+    .join('&')
+  return base.includes('?') ? `${base}&${qs}` : `${base}?${qs}`
+}
+
 async function send() {
   if (!url.value.trim() || store.loading) return
   store.loading = true
   const requestHeaders = collectHeaders()
+  const finalUrl = buildUrl()
   try {
-    const res = await SendRequest(method.value, url.value.trim(), requestHeaders, body.value)
+    const res = await SendRequest(method.value, finalUrl, requestHeaders, body.value)
     if (res.cancelled) return
     store.add({
       method: method.value,
-      url: url.value.trim(),
+      url: finalUrl,
       requestHeaders,
       requestBody: body.value,
       status: res.status,
@@ -78,10 +123,6 @@ async function cancel() {
   await CancelRequest()
 }
 
-function loadSample() {
-  store.add(buildSampleRecord())
-}
-
 function onWindowKeydown(e: KeyboardEvent) {
   if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
     e.preventDefault()
@@ -89,23 +130,46 @@ function onWindowKeydown(e: KeyboardEvent) {
   }
 }
 
-onMounted(() => window.addEventListener('keydown', onWindowKeydown))
-onBeforeUnmount(() => window.removeEventListener('keydown', onWindowKeydown))
+onMounted(() => {
+  window.addEventListener('keydown', onWindowKeydown)
+  document.addEventListener('click', onDocClick)
+})
+
+onBeforeUnmount(() => {
+  window.removeEventListener('keydown', onWindowKeydown)
+  document.removeEventListener('click', onDocClick)
+})
 </script>
 
 <template>
   <div class="builder">
-    <div class="builder-row">
-      <select v-model="method" class="select method-select">
-        <option v-for="m in METHODS" :key="m" :value="m">{{ m }}</option>
-      </select>
-      <input
-        v-model="url"
-        class="input url-input mono"
-        placeholder="https://api.example.com/articles?include=author"
-        spellcheck="false"
-        @keydown.enter="send"
-      />
+    <div class="request-bar">
+      <div class="url-field">
+        <div ref="methodWrap" class="method-wrap">
+          <button class="method-btn" :style="{ color: methodColor, background: methodBg }" @click="methodOpen = !methodOpen">
+            <span>{{ method }}</span>
+            <Icon name="chevron-down" :size="10" />
+          </button>
+          <div v-if="methodOpen" class="method-menu">
+            <button
+              v-for="m in METHODS"
+              :key="m"
+              class="method-item"
+              :style="{ color: METHOD_COLORS[m] ?? 'var(--accent)' }"
+              @click="selectMethod(m)"
+            >
+              {{ m }}
+            </button>
+          </div>
+        </div>
+        <input
+          v-model="url"
+          class="url-input mono"
+          placeholder="https://api.example.com/articles?include=author"
+          spellcheck="false"
+          @keydown.enter="send"
+        />
+      </div>
       <button class="btn btn-primary send-btn" :disabled="!url.trim()" @click="store.loading ? cancel() : send()">
         <template v-if="store.loading">
           <Icon name="xmark" :size="14" />
@@ -116,27 +180,26 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onWindowKeydown))
           <kbd class="send-hint">{{ sendShortcut }}</kbd>
         </template>
       </button>
-      <button class="btn" title="Загрузить пример JSON:API" @click="loadSample">Образец</button>
     </div>
 
-    <div class="builder-options">
-      <button
-        class="opt-toggle"
-        :class="{ active: openPanel === 'headers' }"
-        @click="togglePanel('headers')"
-      >
+    <div class="tabs">
+      <button class="tab" :class="{ active: activeTab === 'params' }" @click="activeTab = 'params'">Параметры</button>
+      <button class="tab" :class="{ active: activeTab === 'headers' }" @click="activeTab = 'headers'">
         Заголовки ({{ headers.filter((h) => h.name.trim()).length }})
       </button>
-      <button
-        class="opt-toggle"
-        :class="{ active: openPanel === 'body' }"
-        @click="togglePanel('body')"
-      >
-        Тело
-      </button>
+      <button class="tab" :class="{ active: activeTab === 'body' }" @click="activeTab = 'body'">Тело</button>
     </div>
 
-    <div v-if="openPanel === 'headers'" class="builder-panel">
+    <div v-if="activeTab === 'params'" class="builder-panel">
+      <div v-for="(p, i) in params" :key="i" class="header-row">
+        <input v-model="p.name" class="input header-name mono" placeholder="Ключ" spellcheck="false" />
+        <input v-model="p.value" class="input header-value mono" placeholder="Значение" spellcheck="false" />
+        <button class="btn icon-btn" title="Удалить" @click="removeParam(i)"><Icon name="xmark" :size="14" /></button>
+      </div>
+      <button class="btn" @click="addParam">+ Добавить параметр</button>
+    </div>
+
+    <div v-if="activeTab === 'headers'" class="builder-panel">
       <div v-for="(h, i) in headers" :key="i" class="header-row">
         <input v-model="h.name" class="input header-name mono" placeholder="Header" spellcheck="false" />
         <input v-model="h.value" class="input header-value mono" placeholder="Value" spellcheck="false" />
@@ -145,7 +208,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onWindowKeydown))
       <button class="btn" @click="addHeader">+ Добавить заголовок</button>
     </div>
 
-    <div v-if="openPanel === 'body'" class="builder-panel">
+    <div v-if="activeTab === 'body'" class="builder-panel">
       <textarea v-model="body" class="textarea body-input" placeholder="{ ... JSON body ... }" spellcheck="false"></textarea>
     </div>
   </div>
@@ -155,39 +218,67 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onWindowKeydown))
 @reference "../style.css";
 
 .builder {
-  @apply flex-none border-b border-border bg-bg-panel p-3;
+  @apply flex-none border-b border-border bg-bg-panel;
 }
 
-.builder-row {
-  @apply flex gap-2 items-center;
+.request-bar {
+  @apply flex gap-2 items-center px-3 pt-2;
 }
 
-.method-select {
-  @apply flex-none font-semibold text-accent;
+.url-field {
+  @apply flex-1 flex items-stretch rounded-lg border border-border bg-bg-inset;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.url-field:focus-within {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+.method-wrap {
+  @apply relative flex items-center flex-none p-1;
+}
+
+.method-btn {
+  @apply flex items-center gap-1 rounded-md border-0 font-semibold text-xs cursor-pointer outline-none;
+  padding: 4px 10px;
+}
+
+.method-menu {
+  @apply absolute top-full left-0 mt-1 z-30 bg-bg-panel border border-border rounded-lg p-1 min-w-24;
+  box-shadow: var(--shadow);
+}
+
+.method-item {
+  @apply block w-full text-left px-2.5 py-1 rounded-md border-0 bg-transparent font-semibold text-xs cursor-pointer;
+}
+
+.method-item:hover {
+  @apply bg-bg-hover;
 }
 
 .url-input {
-  @apply flex-1 min-w-0;
+  @apply flex-1 min-w-0 bg-transparent border-0 outline-none py-0 px-2;
 }
 
-.builder-options {
-  @apply flex gap-1 mt-2.5;
+.url-input:focus,
+.url-input:focus-visible {
+  border: 0;
+  box-shadow: none;
 }
 
-.opt-toggle {
-  @apply border-none bg-transparent text-text-secondary text-xs py-1 px-2 rounded-md cursor-pointer;
+.send-btn {
+  @apply flex-none inline-flex items-center justify-center gap-1.5;
 }
 
-.opt-toggle:hover {
-  @apply bg-bg-hover text-text;
-}
-
-.opt-toggle.active {
-  @apply bg-accent-soft text-accent;
+.send-hint {
+  @apply text-[10px] font-medium leading-normal py-0 px-1.5 ml-1 rounded-sm text-white;
+  font-family: inherit;
+  background: rgba(255, 255, 255, 0.22);
 }
 
 .builder-panel {
-  @apply mt-2 p-2.5 rounded-lg flex flex-col gap-1.5;
+  @apply mx-3 mb-3 p-2.5 rounded-lg flex flex-col gap-1.5;
   background: var(--bg-inset);
   border: 1px solid var(--border);
 }
@@ -206,15 +297,5 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onWindowKeydown))
 
 .body-input {
   @apply w-full min-h-35;
-}
-
-.send-btn {
-  @apply min-w-22 inline-flex items-center justify-center;
-}
-
-.send-hint {
-  @apply text-[10px] font-medium leading-normal py-0 px-1.5 ml-1.5 rounded-sm text-white;
-  font-family: inherit;
-  background: rgba(255, 255, 255, 0.22);
 }
 </style>

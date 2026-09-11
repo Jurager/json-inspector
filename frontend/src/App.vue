@@ -4,10 +4,10 @@ import { useRequestsStore } from './stores/requests'
 import RequestBuilder from './components/RequestBuilder.vue'
 import ResponseViewer from './components/ResponseViewer.vue'
 import HistoryPanel from './components/HistoryPanel.vue'
-import Updater from './components/Updater.vue'
 import AboutModal from './components/AboutModal.vue'
 import Icon from './components/Icon.vue'
 import logoUrl from './assets/logo.svg'
+import { buildSampleRecord } from './lib/sample'
 import { useCustomTitlebar } from './lib/platform'
 import {
   EventsOn,
@@ -16,7 +16,7 @@ import {
   WindowIsMaximised,
   Quit,
 } from '../wailsjs/runtime/runtime'
-import { ToggleMaximize } from '../wailsjs/go/main/App'
+import { ToggleMaximize, CheckForUpdates, UpdateNow } from '../wailsjs/go/main/App'
 
 const store = useRequestsStore()
 
@@ -25,6 +25,19 @@ const MAX_HISTORY = 200
 
 const aboutOpen = ref(false)
 const isMaximised = ref(false)
+
+interface UpdateInfo {
+  available: boolean
+  current: string
+  latest: string
+}
+
+const checking = ref(false)
+const updating = ref(false)
+const update = ref<UpdateInfo | null>(null)
+const toast = ref('')
+const toastType = ref<'info' | 'error'>('info')
+let toastTimer: ReturnType<typeof setTimeout> | null = null
 
 async function refreshMaximised() {
   try {
@@ -37,6 +50,45 @@ async function refreshMaximised() {
 function openBrowser() {
   store.activeView = 'browser'
   store.markBrowserRead()
+}
+
+function loadSample() {
+  store.activeView = 'request'
+  store.add(buildSampleRecord())
+}
+
+function showToast(msg: string, type: 'info' | 'error' = 'info') {
+  toast.value = msg
+  toastType.value = type
+  if (toastTimer) clearTimeout(toastTimer)
+  toastTimer = setTimeout(() => (toast.value = ''), 5000)
+}
+
+async function checkUpdates() {
+  if (checking.value) return
+  checking.value = true
+  try {
+    const u = await CheckForUpdates()
+    if (u.available) update.value = u
+    else showToast(`У вас последняя версия (${u.latest})`)
+  } catch {
+    showToast('Не удалось проверить обновления', 'error')
+  } finally {
+    checking.value = false
+  }
+}
+
+async function doUpdate() {
+  if (!update.value || updating.value) return
+  updating.value = true
+  const v = update.value.latest
+  try {
+    await UpdateNow(v)
+  } catch (e) {
+    showToast(`Не удалось обновиться: ${e}`, 'error')
+  } finally {
+    updating.value = false
+  }
 }
 
 // Rail menu (hamburger at the top of the icon rail) — app-level actions that
@@ -164,6 +216,21 @@ onMounted(() => {
       aboutOpen.value = true
     })
   )
+  offs.push(
+    EventsOn('update-available', (u: UpdateInfo) => {
+      update.value = u
+    })
+  )
+  offs.push(
+    EventsOn('update-up-to-date', (u: UpdateInfo) => {
+      showToast(`У вас последняя версия (${u.latest})`)
+    })
+  )
+  offs.push(
+    EventsOn('update-error', (msg: string) => {
+      showToast(msg, 'error')
+    })
+  )
 
   window.addEventListener('mousemove', sideResize.move)
   window.addEventListener('mouseup', sideResize.stop)
@@ -217,10 +284,15 @@ onBeforeUnmount(() => {
             <Icon name="menu" :size="18" />
           </button>
           <div v-if="railMenuOpen" class="menu rail-menu-dropdown">
+            <button class="menu-item" @click="loadSample(); railMenuOpen = false">
+              <Icon name="sparkles" :size="14" /> Загрузить образец
+            </button>
             <button class="menu-item" @click="aboutOpen = true; railMenuOpen = false">
               <Icon name="info" :size="14" /> О программе
             </button>
-            <Updater />
+            <button class="menu-item" @click="checkUpdates(); railMenuOpen = false">
+              <Icon name="arrow-down" :size="14" /> {{ checking ? 'Проверка…' : 'Проверить обновления' }}
+            </button>
           </div>
         </div>
 
@@ -260,7 +332,7 @@ onBeforeUnmount(() => {
               </div>
               <div v-else class="empty">
                 <span class="empty-title">Отправьте запрос</span>
-                <span>Или нажмите «Образец», чтобы увидеть JSON:API-документ.</span>
+                <span>Или загрузите образец JSON:API из меню.</span>
               </div>
             </template>
             <template v-else>
@@ -277,6 +349,26 @@ onBeforeUnmount(() => {
   </div>
 
   <AboutModal v-if="aboutOpen" @close="aboutOpen = false" />
+
+  <transition name="fade">
+    <div v-if="toast" class="toast" :class="toastType">{{ toast }}</div>
+  </transition>
+
+  <div v-if="update" class="modal-overlay" @click.self="update = null">
+    <div class="modal">
+      <div class="modal-title">Доступна новая версия</div>
+      <div class="modal-body">
+        Версия <b>{{ update.latest }}</b> (у вас {{ update.current }}).<br />
+        Обновить сейчас? Приложение перезапустится.
+      </div>
+      <div class="modal-actions">
+        <button class="btn" @click="update = null">Позже</button>
+        <button class="btn btn-primary" :disabled="updating" @click="doUpdate">
+          {{ updating ? 'Обновление…' : 'Обновить' }}
+        </button>
+      </div>
+    </div>
+  </div>
 </template>
 
 <style scoped>
@@ -309,5 +401,55 @@ onBeforeUnmount(() => {
 
 .side-main > :last-child {
   @apply flex-1 min-h-0;
+}
+
+.toast {
+  @apply fixed bottom-4 left-1/2 px-4 py-2 rounded-lg text-xs z-2000 max-w-[80%];
+  transform: translateX(-50%);
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow);
+}
+
+.toast.error {
+  @apply text-red;
+}
+
+.toast.info {
+  @apply text-text;
+}
+
+.modal-overlay {
+  @apply fixed inset-0 flex items-center justify-center z-1500;
+  background: rgba(0, 0, 0, 0.4);
+}
+
+.modal {
+  @apply w-90 max-w-[90%] rounded-xl p-4.5;
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow);
+}
+
+.modal-title {
+  @apply text-[15px] font-semibold mb-2;
+}
+
+.modal-body {
+  @apply text-[13px] text-text-secondary mb-4;
+}
+
+.modal-actions {
+  @apply flex justify-end gap-2;
+}
+
+.fade-enter-active,
+.fade-leave-active {
+  transition: opacity 0.2s ease;
+}
+
+.fade-enter-from,
+.fade-leave-to {
+  opacity: 0;
 }
 </style>
