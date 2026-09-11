@@ -15,6 +15,7 @@ import JsonApiTree from './JsonApiTree.vue'
 import JsonTree from './JsonTree.vue'
 import SchemaMap from './SchemaMap.vue'
 import NodeInspector from './NodeInspector.vue'
+import CookiesTab from './CookiesTab.vue'
 import { Fetch } from '../../wailsjs/go/main/App'
 import { useRequestsStore } from '../stores/requests'
 import { copyToClipboard, exportRequest, type ExportFormat } from '../lib/export'
@@ -61,7 +62,7 @@ function renderWithMarks(
   return html
 }
 
-type Tab = 'body' | 'map' | 'raw' | 'headers' | 'request'
+type Tab = 'body' | 'map' | 'raw' | 'headers' | 'cookies' | 'request'
 const activeTab = ref<Tab>('body')
 
 const parsed = computed(() => tryParseJson(props.record.responseBody))
@@ -200,6 +201,10 @@ const browserParams = computed(() => {
 
 const paramsOpen = ref(false)
 const paramsWrapEl = ref<HTMLElement | null>(null)
+
+const hasCookies = computed(() =>
+  Object.keys(props.record.responseHeaders ?? {}).some((k) => k.toLowerCase() === 'set-cookie')
+)
 
 const responseHeaderEntries = computed(() => Object.entries(props.record.responseHeaders ?? {}))
 const requestHeaderEntries = computed(() => Object.entries(props.record.requestHeaders ?? {}))
@@ -432,6 +437,7 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocClick))
       </button>
       <button class="tab" :class="{ active: activeTab === 'raw' }" @click="activeTab = 'raw'">Raw</button>
       <button class="tab" :class="{ active: activeTab === 'headers' }" @click="activeTab = 'headers'">Заголовки</button>
+      <button v-if="hasCookies" class="tab" :class="{ active: activeTab === 'cookies' }" @click="activeTab = 'cookies'">Cookies</button>
       <button class="tab" :class="{ active: activeTab === 'request' }" @click="activeTab = 'request'">Запрос</button>
     </div>
 
@@ -518,6 +524,10 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocClick))
             </tr>
           </tbody>
         </table>
+      </template>
+
+      <template v-else-if="activeTab === 'cookies'">
+        <CookiesTab :headers="record.responseHeaders" />
       </template>
 
       <template v-else>
