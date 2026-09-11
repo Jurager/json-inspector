@@ -192,10 +192,6 @@ function groupHue(key: string): number {
       <span class="empty-hint">{{ emptyHint }}</span>
     </div>
 
-    <!-- "Ничего не найдено" only makes sense when there *is* something to
-         filter. With zero browser records the list stays blank — the centered
-         BrowserEmptyState already explains the next step, so a second message
-         here would just repeat it. -->
     <div v-else-if="records.length > 0 && isEmptyFiltered" class="no-results">Ничего не найдено</div>
 
     <ul v-else-if="source === 'manual'" class="list">
@@ -313,7 +309,7 @@ function groupHue(key: string): number {
 }
 
 .date-sep {
-  @apply text-[10px] uppercase tracking-[0.08em] text-text-tertiary pt-1.5 px-3.5 pb-1;
+  @apply text-[10px] uppercase tracking-[0.08em] text-text-tertiary pt-1.5 px-2 pb-1;
   font-family: var(--mono);
 }
 
