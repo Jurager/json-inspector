@@ -28,17 +28,40 @@ const DISCONNECTED_ICON = {
   128: 'icons/disconnected-icon128.png',
 };
 
+// Everything the settings screen can change. `xhrOnly` is the one that affects
+// the capture path, so it is read synchronously from this module-level copy.
+const DEFAULT_SETTINGS = {
+  rememberTabs: true,
+  xhrOnly: true,
+  clearOnExit: false,
+};
+
 let socket = null;
 let reconnectTimer = null;
 let pending = [];
 let captureTabIds = new Set(); // tabs currently being captured
 let captureTabMeta = new Map(); // tabId -> { title }
 let capturedCounts = new Map(); // tabId -> number of captured requests
+let capturedLastAt = new Map(); // tabId -> timestamp of the last one
+let settings = { ...DEFAULT_SETTINGS };
 let connected = false;
+
+// Read once when the service worker spins up, then kept in step by the storage
+// listener below — the capture handler can't await a storage read per request.
+chrome.storage.local.get('settings').then(({ settings: stored }) => {
+  settings = { ...DEFAULT_SETTINGS, ...(stored || {}) };
+});
+
+chrome.storage.onChanged.addListener((changes, area) => {
+  if (area === 'local' && changes.settings) {
+    settings = { ...DEFAULT_SETTINGS, ...(changes.settings.newValue || {}) };
+  }
+});
 
 async function readState() {
   const sess = await chrome.storage.session.get('captureTabIds');
-  const local = await chrome.storage.local.get('port');
+  const local = await chrome.storage.local.get({ port: DEFAULT_PORT, settings: DEFAULT_SETTINGS });
+  settings = { ...DEFAULT_SETTINGS, ...(local.settings || {}) };
   return { captureTabIds: sess.captureTabIds ?? [], port: local.port || DEFAULT_PORT };
 }
 
@@ -208,8 +231,9 @@ async function startCapture() {
   if (!captureTabIds.has(tab.id)) {
     await injectInto(tab.id);
     captureTabIds.add(tab.id);
-    captureTabMeta.set(tab.id, { title: tab.title || '' });
+    captureTabMeta.set(tab.id, { title: tab.title || '', url: tab.url || '' });
     capturedCounts.set(tab.id, 0);
+    if (settings.rememberTabs) await rememberOrigin(await originOf(tab.url));
     await persistCapture();
   }
 
@@ -231,9 +255,27 @@ async function stopCaptureFor(tabId) {
   await disableInTab(tabId);
   setCaptureIcon(tabId, 'normal');
   setCaptureTitle(tabId, 'JSON Inspector');
+  // Forget the origin only when no other captured tab is still on it —
+  // otherwise stopping one tab would silently drop the memory for the rest.
+  const forgotten = captureTabMeta.get(tabId);
   captureTabIds.delete(tabId);
   captureTabMeta.delete(tabId);
   capturedCounts.delete(tabId);
+  capturedLastAt.delete(tabId);
+  if (forgotten && forgotten.url) {
+    const origin = await originOf(forgotten.url);
+    const stillUsed = await Promise.all(
+      Array.from(captureTabIds).map(async (id) => {
+        try {
+          const t = await chrome.tabs.get(id);
+          return (await originOf(t.url)) === origin;
+        } catch (_) {
+          return false;
+        }
+      })
+    );
+    if (!stillUsed.some(Boolean)) await forgetOrigin(origin);
+  }
   await persistCapture();
   if (captureTabIds.size === 0) {
     chrome.alarms.clear(KEEPALIVE);
@@ -261,14 +303,86 @@ function makeId() {
   return Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 8);
 }
 
+// --- xhrOnly ---------------------------------------------------------------
+// The hook only ever sees fetch/XHR, so "skip pictures, styles and fonts" means
+// skipping the ones loaded *through* those APIs — a beacon misused as an image
+// loader, an SPA fetching a sprite. The URL suffix and the Accept header are
+// what's available without a webRequest listener.
+const ASSET_URL = /\.(png|jpe?g|gif|webp|svg|ico|bmp|avif|css|woff2?|ttf|otf|eot|mp4|webm|mp3|wav|ogg|pdf)([?#]|$)/i;
+
+function looksLikeAsset(msg) {
+  if (ASSET_URL.test(msg.url || '')) return true;
+  const headers = msg.requestHeaders || {};
+  const accept = String(headers.Accept || headers.accept || '').toLowerCase();
+  return accept.startsWith('image/') || accept.startsWith('font/') || accept.startsWith('text/css');
+}
+
+// --- remembered origins ----------------------------------------------------
+// "Помнить вкладки" restores capture by origin after a browser restart, because
+// tab ids never survive one.
+async function originOf(url) {
+  try {
+    return new URL(url).origin;
+  } catch (_) {
+    return '';
+  }
+}
+
+async function rememberOrigin(origin) {
+  if (!origin) return;
+  const { captureOrigins = [] } = await chrome.storage.local.get('captureOrigins');
+  if (!captureOrigins.includes(origin)) {
+    captureOrigins.push(origin);
+    await chrome.storage.local.set({ captureOrigins });
+  }
+}
+
+async function forgetOrigin(origin) {
+  if (!origin) return;
+  const { captureOrigins = [] } = await chrome.storage.local.get('captureOrigins');
+  const next = captureOrigins.filter((o) => o !== origin);
+  if (next.length !== captureOrigins.length) await chrome.storage.local.set({ captureOrigins: next });
+}
+
+// --- tab description for the popup ----------------------------------------
+async function describeTab(tab) {
+  if (!tab || tab.id == null) return null;
+  return {
+    tabId: tab.id,
+    title: tab.title || '',
+    url: tab.url || '',
+    favIconUrl: tab.favIconUrl || '',
+    count: capturedCounts.get(tab.id) || 0,
+    lastAt: capturedLastAt.get(tab.id) || 0,
+    capturing: captureTabIds.has(tab.id),
+  };
+}
+
+// Hands `json-inspector://open[?tab=N]` to the OS. The extra tab Chrome opens
+// for an external protocol is closed right after — otherwise the user is left
+// with a blank tab per click.
+async function openApp(tabId) {
+  const url = 'json-inspector://open' + (tabId != null ? `?tab=${encodeURIComponent(tabId)}` : '');
+  try {
+    const created = await chrome.tabs.create({ url, active: false });
+    setTimeout(() => {
+      if (created && created.id != null) chrome.tabs.remove(created.id).catch(() => {});
+    }, 1200);
+  } catch (_) {
+    // Nothing else to try — the popup's own anchor still works.
+  }
+}
+
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   if (!msg) return false;
 
   // Fire-and-forget from the content bridge — no response expected.
   if (msg.type === 'captured') {
     if (!sender.tab || !captureTabIds.has(sender.tab.id)) return false;
+    if (settings.xhrOnly && looksLikeAsset(msg)) return false;
     const id = sender.tab.id;
     capturedCounts.set(id, (capturedCounts.get(id) || 0) + 1);
+    capturedLastAt.set(id, Date.now());
     if (connected) setCaptureTitle(id, captureTitleText(id));
     enqueue({
       type: 'request',
@@ -276,11 +390,13 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
       method: msg.method,
       url: msg.url,
       requestHeaders: msg.requestHeaders || {},
-      requestBody: msg.requestBody || '',
+      // "Чистить историю при выходе" means the bodies never leave the page —
+      // dropping them here also keeps them out of the reconnect buffer.
+      requestBody: settings.clearOnExit ? '' : msg.requestBody || '',
       status: msg.status,
       statusText: msg.statusText || '',
       responseHeaders: msg.responseHeaders || {},
-      responseBody: msg.responseBody || '',
+      responseBody: settings.clearOnExit ? '' : msg.responseBody || '',
       durationMs: msg.durationMs || 0,
       startedAt: Date.now(),
       tabId: id,
@@ -322,9 +438,29 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
           port,
           appRunning,
           capturedTabs,
+          currentTab: await describeTab(tab),
+          // Requests caught while the app was away; they go out on reconnect.
+          bufferedCount: pending.length,
+          settings: { ...settings },
         });
         break;
       }
+      case 'setSetting': {
+        const key = String(msg.key || '');
+        if (key in DEFAULT_SETTINGS) {
+          settings = { ...settings, [key]: Boolean(msg.value) };
+          await chrome.storage.local.set({ settings });
+          if (key === 'rememberTabs' && !settings.rememberTabs) {
+            await chrome.storage.local.set({ captureOrigins: [] });
+          }
+        }
+        sendResponse({ ok: true, settings: { ...settings } });
+        break;
+      }
+      case 'openApp':
+        await openApp(msg.tabId);
+        sendResponse({ ok: true });
+        break;
       case 'startCapture':
         sendResponse(await startCapture());
         break;
@@ -372,8 +508,40 @@ chrome.webNavigation.onCommitted.addListener((details) => {
   refreshIndicator();
   injectInto(details.tabId).catch(() => {});
   chrome.tabs.get(details.tabId).then((t) => {
-    if (captureTabIds.has(details.tabId)) captureTabMeta.set(details.tabId, { title: t.title || '' });
+    if (captureTabIds.has(details.tabId)) {
+      captureTabMeta.set(details.tabId, { title: t.title || '', url: t.url || '' });
+    }
   }).catch(() => {});
+});
+
+// "Помнить вкладки": tab ids are gone after a restart, so capture is restored
+// by origin instead — every tab on a remembered origin starts recording again.
+chrome.runtime.onStartup.addListener(async () => {
+  await readState();
+  if (!settings.rememberTabs) return;
+  const { captureOrigins = [] } = await chrome.storage.local.get('captureOrigins');
+  if (!captureOrigins.length) return;
+
+  const tabs = await chrome.tabs.query({});
+  for (const tab of tabs) {
+    if (tab.id == null || !tab.url || captureTabIds.has(tab.id)) continue;
+    if (!captureOrigins.includes(await originOf(tab.url))) continue;
+    try {
+      await injectInto(tab.id);
+    } catch (_) {
+      continue; // restricted page (chrome://, the web store) — skip it
+    }
+    captureTabIds.add(tab.id);
+    captureTabMeta.set(tab.id, { title: tab.title || '', url: tab.url || '' });
+    capturedCounts.set(tab.id, 0);
+  }
+
+  if (captureTabIds.size === 0) return;
+  await persistCapture();
+  chrome.alarms.create(KEEPALIVE, { periodInMinutes: 0.4 });
+  refreshIndicator();
+  const { port } = await readState();
+  connect(port);
 });
 
 // Restore capture state if the service worker was killed and restarted.
@@ -381,7 +549,7 @@ chrome.storage.session.get('captureTabIds').then(({ captureTabIds: ids }) => {
   if (!ids || !ids.length) return;
   for (const id of ids) {
     captureTabIds.add(id);
-    captureTabMeta.set(id, { title: '' });
+    captureTabMeta.set(id, { title: '', url: '' });
     setCaptureIcon(id, 'disconnected');
     setCaptureTitle(id, 'Перехват: приложение недоступно');
   }
@@ -394,6 +562,7 @@ chrome.tabs.onRemoved.addListener((tabId) => {
   captureTabIds.delete(tabId);
   captureTabMeta.delete(tabId);
   capturedCounts.delete(tabId);
+  capturedLastAt.delete(tabId);
   persistCapture();
   if (captureTabIds.size === 0) {
     chrome.alarms.clear(KEEPALIVE);
