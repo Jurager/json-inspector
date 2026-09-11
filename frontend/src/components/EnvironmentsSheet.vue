@@ -28,13 +28,22 @@ const isGlobals = computed(() => envId.value === null)
 // explicit unlock (see closeSheet — the lift never outlives the sheet).
 const locked = computed(() => Boolean(env.value?.readonly) && !envStore.unlocked.includes(envId.value as string))
 
-const vars = computed(() => envStore.varsOf(envId.value))
+const rows = computed(() => envStore.rowsFor(envId.value))
+const vars = computed(() => rows.value.own)
 
 const filter = ref('')
-const filteredVars = computed(() => {
+const matches = (v: Variable) => v.name.toLowerCase().includes(filter.value.trim().toLowerCase())
+
+const filteredOwn = computed(() => {
   const q = filter.value.trim().toLowerCase()
-  if (!q) return vars.value
-  return vars.value.filter((v) => v.name.toLowerCase().includes(q))
+  return q ? vars.value.filter(matches) : vars.value
+})
+
+// The inherited group filters the same way, so a search doesn't leave its rows
+// behind as a stale block under a shortened list.
+const filteredInherited = computed(() => {
+  const q = filter.value.trim().toLowerCase()
+  return q ? rows.value.inherited.filter(matches) : rows.value.inherited
 })
 
 // Secrets open one row at a time: a shared switch would put every credential
@@ -66,6 +75,9 @@ function displayValue(v: Variable, scope: string | null): string {
 // One cell at a time, so a single draft ref is enough. Enter commits, Esc
 // discards, Tab commits and moves on — the table behaves like a spreadsheet.
 interface Editing {
+  // Which scope the row belongs to: an environment, or globals (null). The
+  // inherited group is edited through the same cells.
+  scope: string | null
   varId: string
   field: 'name' | 'value'
 }
@@ -81,14 +93,14 @@ function setCellInput(el: Element | ComponentPublicInstance | null) {
   cellInput.value = (el as HTMLInputElement | null) ?? null
 }
 
-function startEdit(v: Variable, field: 'name' | 'value') {
+function startEdit(v: Variable, field: 'name' | 'value', scope: string | null = envId.value) {
   if (locked.value) return
-  editing.value = { varId: v.id, field }
+  editing.value = { scope, varId: v.id, field }
   error.value = ''
   // Editing a secret starts from its real value, so committing doesn't wipe it;
   // the alternative (editing a placeholder) would destroy the stored secret on
   // the first keystroke.
-  draft.value = field === 'name' ? v.name : envStore.varValue(envId.value, v)
+  draft.value = field === 'name' ? v.name : envStore.varValue(scope, v)
   nextTick(() => cellInput.value?.focus())
 }
 
@@ -101,10 +113,17 @@ function commitFrom(v: Variable, field: 'name' | 'value') {
   commit()
 }
 
+// A row this cell is currently editing.
+function editingCell(v: Variable, field: 'name' | 'value', scope: string | null): boolean {
+  const ed = editing.value
+  return Boolean(ed && ed.varId === v.id && ed.field === field && ed.scope === scope)
+}
+
 function commit(): boolean {
   const ed = editing.value
   if (!ed) return false
-  const v = vars.value.find((x) => x.id === ed.varId)
+  const scopeVars = envStore.varsOf(ed.scope)
+  const v = scopeVars.find((x) => x.id === ed.varId)
   if (!v) {
     editing.value = null
     return false
@@ -115,13 +134,13 @@ function commit(): boolean {
       error.value = 'Имя не может быть пустым'
       return false
     }
-    if (vars.value.some((x) => x.id !== v.id && x.name === name)) {
-      error.value = 'Такое имя уже есть в этом окружении'
+    if (scopeVars.some((x) => x.id !== v.id && x.name === name)) {
+      error.value = ed.scope === null ? 'Такое имя уже есть в глобальных' : 'Такое имя уже есть в этом окружении'
       return false
     }
-    envStore.updateVar(envId.value, v.id, { name })
+    envStore.updateVar(ed.scope, v.id, { name })
   } else {
-    envStore.updateVar(envId.value, v.id, { value: draft.value })
+    envStore.updateVar(ed.scope, v.id, { value: draft.value })
   }
   editing.value = null
   error.value = ''
@@ -136,21 +155,21 @@ function cancel() {
 // Tab walks name → value → next row's name, so a whole environment can be
 // filled without touching the mouse.
 function moveTo(v: Variable, field: 'name' | 'value') {
-  const at = filteredVars.value.indexOf(v)
-  const next = filteredVars.value[at + 1]
+  const at = filteredOwn.value.indexOf(v)
+  const next = filteredOwn.value[at + 1]
   if (field === 'value' && next) startEdit(next, 'name')
   else if (field === 'value') cancel()
   else startEdit(v, 'value')
 }
 
-function onCellKeydown(e: KeyboardEvent, v: Variable, field: 'name' | 'value') {
+function onCellKeydown(e: KeyboardEvent, v: Variable, field: 'name' | 'value', scope: string | null) {
   if (e.key === 'Enter') {
     e.preventDefault()
-    if (commit()) if (field === 'name') startEdit(v, 'value')
+    if (commit() && field === 'name') startEdit(v, 'value', scope)
   } else if (e.key === 'Escape') {
     e.preventDefault()
     cancel()
-  } else if (e.key === 'Tab') {
+  } else if (e.key === 'Tab' && scope !== null) {
     e.preventDefault()
     if (commit()) moveTo(v, field)
   }
@@ -182,48 +201,96 @@ function toggleKind(v: Variable) {
 const renamingId = ref<string | null>(null)
 const envDraft = ref('')
 const renameInput = ref<HTMLInputElement | null>(null)
+// A name that can't be saved keeps the field open with a red frame, so a
+// duplicate is fixed in place instead of silently bouncing the row back.
+const renameInvalid = ref(false)
 
 function setRenameInput(el: Element | ComponentPublicInstance | null) {
   renameInput.value = (el as HTMLInputElement | null) ?? null
 }
 
+// Finder's pattern: `+` makes a row that is already in edit mode with its name
+// selected, so the environment is created and named in one gesture.
 function addEnv() {
   const id = envStore.addEnv()
   envStore.selectSheetEnv(id)
-  startRename(id)
+  startRename(id, true)
 }
 
-function startRename(id: string) {
+function startRename(id: string, selectAll = false) {
   const target = envStore.environments.find((e) => e.id === id)
   if (!target) return
   renamingId.value = id
   envDraft.value = target.name
   error.value = ''
-  nextTick(() => renameInput.value?.focus())
+  renameInvalid.value = false
+  nextTick(() => {
+    renameInput.value?.focus()
+    if (selectAll) renameInput.value?.select()
+  })
 }
 
-function commitRename() {
+function commitRename(): boolean {
   const id = renamingId.value
-  if (!id) return
+  if (!id) return false
   const name = envDraft.value.trim()
   const others = envStore.environments.filter((e) => e.id !== id)
-  if (!name) {
-    // Refusing rather than writing an empty row keeps the list clickable.
-    error.value = 'Имя окружения не может быть пустым'
-    return
-  }
-  if (others.some((e) => e.name === name)) {
-    error.value = 'Окружение с таким именем уже есть'
-    return
+  if (!name || others.some((e) => e.name === name)) {
+    renameInvalid.value = true
+    error.value = !name ? 'Имя окружения не может быть пустым' : 'Окружение с таким именем уже есть'
+    renameInput.value?.focus()
+    return false
   }
   envStore.renameEnv(id, name)
   renamingId.value = null
+  renameInvalid.value = false
   error.value = ''
+  return true
+}
+
+// Unmounting the previous input fires its blur, and by then `renamingId` may
+// already point at the row we just opened — a blind commit there would rename
+// the fresh row and close it immediately. Only the input being edited commits.
+function commitRenameFrom(id: string) {
+  if (renamingId.value !== id) return
+  commitRename()
 }
 
 function cancelRename() {
   renamingId.value = null
+  renameInvalid.value = false
   error.value = ''
+}
+
+// Tab moves to the next environment's name, still in edit mode.
+function renameNext(dir: 1 | -1) {
+  const list = envStore.environments
+  const at = list.findIndex((e) => e.id === renamingId.value)
+  const next = list[at + dir]
+  if (!next) {
+    cancelRename()
+    return
+  }
+  if (commitRename()) startRename(next.id, true)
+}
+
+function onRenameKeydown(e: KeyboardEvent) {
+  if (e.key === 'Enter') {
+    e.preventDefault()
+    commitRename()
+  } else if (e.key === 'Escape') {
+    e.preventDefault()
+    cancelRename()
+  } else if (e.key === 'Tab') {
+    e.preventDefault()
+    renameNext(e.shiftKey ? -1 : 1)
+  }
+}
+
+// Enter on the already-selected row renames it, the way Finder does.
+function onEnvRowEnter(id: string) {
+  if (envStore.sheetEnvId === id) startRename(id, true)
+  else envStore.selectSheetEnv(id)
 }
 
 // --- Removing an environment ------------------------------------------------
@@ -347,22 +414,23 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
             :class="{ active: e.id === envStore.sheetEnvId }"
             role="button"
             tabindex="0"
-            title="Двойной клик — переименовать"
+            title="Двойной клик или Enter — переименовать"
             @click="envStore.selectSheetEnv(e.id)"
-            @keydown.enter="envStore.selectSheetEnv(e.id)"
-            @dblclick="startRename(e.id)"
+            @keydown.enter="onEnvRowEnter(e.id)"
+            @dblclick="startRename(e.id, true)"
           >
             <span class="side-dot" :class="{ on: e.id === envStore.activeId }"></span>
             <input
               v-if="renamingId === e.id"
               :ref="setRenameInput"
               v-model="envDraft"
-              class="side-rename mono"
+              class="side-rename"
+              :class="{ invalid: renameInvalid }"
+              maxlength="40"
               spellcheck="false"
               @click.stop
-              @keydown.enter="commitRename"
-              @keydown.esc="cancelRename"
-              @blur="commitRename"
+              @keydown="onRenameKeydown"
+              @blur="commitRenameFrom(e.id)"
             />
             <span v-else class="side-name">{{ e.name }}</span>
             <Icon v-if="e.readonly" name="lock" :size="11" class="side-lock" />
@@ -436,17 +504,17 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
           </div>
 
           <div class="table-body">
-            <div v-for="v in filteredVars" :key="v.id" class="row">
+            <div v-for="v in filteredOwn" :key="v.id" class="row">
               <!-- name -->
               <div class="cell cell-name" @click="startEdit(v, 'name')">
                 <input
-                  v-if="editing && editing.varId === v.id && editing.field === 'name'"
+                  v-if="editingCell(v, 'name', envId)"
                   :ref="setCellInput"
                   v-model="draft"
                   class="cell-input mono"
                   :class="{ invalid: error }"
                   spellcheck="false"
-                  @keydown="onCellKeydown($event, v, 'name')"
+                  @keydown="onCellKeydown($event, v, 'name', envId)"
                   @blur="commitFrom(v, 'name')"
                 />
                 <span v-else class="cell-text mono" :title="v.name">{{ v.name }}</span>
@@ -455,13 +523,13 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
               <!-- value -->
               <div class="cell cell-value" @click="startEdit(v, 'value')">
                 <input
-                  v-if="editing && editing.varId === v.id && editing.field === 'value'"
+                  v-if="editingCell(v, 'value', envId)"
                   :ref="setCellInput"
                   v-model="draft"
                   class="cell-input mono"
                   :type="isSecretMasked(v) ? 'password' : 'text'"
                   spellcheck="false"
-                  @keydown="onCellKeydown($event, v, 'value')"
+                  @keydown="onCellKeydown($event, v, 'value', envId)"
                   @blur="commitFrom(v, 'value')"
                 />
                 <template v-else>
@@ -501,7 +569,10 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
               </div>
             </div>
 
-            <div v-if="filteredVars.length === 0" class="table-empty">
+            <div v-if="filteredOwn.length === 0 && !isGlobals" class="table-empty">
+              {{ vars.length === 0 ? 'Своих переменных пока нет' : 'Ничего не найдено' }}
+            </div>
+            <div v-else-if="filteredOwn.length === 0" class="table-empty">
               {{ vars.length === 0 ? 'Переменных пока нет' : 'Ничего не найдено' }}
             </div>
 
@@ -509,6 +580,48 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
               <Icon name="plus" :size="13" />
               <span>Новая переменная</span>
             </button>
+
+            <!-- Inherited globals, shown right here so nobody has to guess
+                 where `locale` came from. -->
+            <template v-if="filteredInherited.length">
+              <div class="group-head">
+                <span class="group-title">Наследуется из глобальных</span>
+                <span class="group-count mono">{{ filteredInherited.length }}</span>
+                <span class="group-hint">действуют во всех окружениях</span>
+              </div>
+              <div
+                v-for="g in filteredInherited"
+                :key="g.id"
+                class="row inherited"
+                :class="{ overridden: g.overridden }"
+              >
+                <div class="cell cell-name">
+                  <Icon name="inherit" :size="11" class="inherit-icon" />
+                  <span class="cell-text mono" :title="g.overridden ? 'Перекрыта переменной окружения' : g.name">{{
+                    g.name
+                  }}</span>
+                </div>
+                <div class="cell cell-value">
+                  <span class="cell-text mono">{{ displayValue(g, null) }}</span>
+                </div>
+                <div class="cell">
+                  <span v-if="g.overridden" class="tag tag-overridden">перекрыта</span>
+                  <span v-else class="tag tag-global">глобальная</span>
+                </div>
+                <div class="cell cell-action">
+                  <!-- Editing the global itself: the change lands everywhere,
+                       and the row can't be deleted from an environment. -->
+                  <button
+                    v-if="!locked"
+                    class="row-del"
+                    title="Править глобальную переменную"
+                    @click="startEdit(g, 'name', null)"
+                  >
+                    <Icon name="pencil" :size="13" />
+                  </button>
+                </div>
+              </div>
+            </template>
           </div>
 
           <div class="sheet-foot">
@@ -624,7 +737,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
 }
 
 .side-row {
-  @apply flex items-center gap-2 w-full py-[7px] px-2 border-none rounded-md bg-transparent text-text text-[13px] text-left cursor-pointer;
+  @apply flex items-center gap-2 w-full h-[30px] px-2 border-none rounded-md bg-transparent text-text text-[13px] text-left cursor-pointer;
   font: inherit;
   --wails-draggable: no-drag;
 }
@@ -635,6 +748,13 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
 
 .side-row.active {
   @apply bg-accent-soft font-semibold;
+}
+
+/* Enter on an already-selected row starts renaming, so the row keeps its
+   keyboard affordance visible. */
+.side-row:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
 }
 
 .side-dot {
@@ -649,11 +769,23 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
   @apply flex-1 min-w-0 overflow-hidden text-ellipsis whitespace-nowrap;
 }
 
+/* The input has to sit in the row's rhythm, not stretch it: same 30px row,
+   26px field, and a negative margin that puts its text on the very same
+   vertical line as the names beside it (border 1px + padding 7px = 8px back). */
 .side-rename {
-  @apply flex-1 min-w-0 text-[13px] px-1 py-0.5 rounded-sm outline-none;
-  background: var(--bg-panel);
+  @apply flex-1 min-w-0 h-[26px] box-border text-[13px] outline-none;
+  margin-left: -8px;
+  padding: 0 7px;
+  border-radius: 6px;
   border: 1px solid var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+  background: var(--bg-panel);
   color: var(--text);
+}
+
+.side-rename.invalid {
+  border-color: color-mix(in srgb, var(--red) 45%, transparent);
+  box-shadow: 0 0 0 3px var(--red-soft);
 }
 
 .side-count {
@@ -818,6 +950,57 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
 .tag-global {
   @apply text-purple;
   background: color-mix(in srgb, var(--purple) 13%, transparent);
+}
+
+.tag-overridden {
+  @apply text-text-tertiary;
+  background: var(--bg-hover);
+}
+
+/* ---- Inherited globals ---- */
+.group-head {
+  @apply flex items-center gap-2 h-[30px] px-3.5;
+  background: var(--bg-inset);
+}
+
+.group-title {
+  @apply text-[10px] uppercase tracking-[0.08em] text-text-secondary;
+  font-family: var(--mono);
+}
+
+.group-count {
+  @apply text-[10.5px] text-text-tertiary;
+}
+
+.group-hint {
+  @apply flex-1 text-right text-[11.5px] text-text-tertiary;
+}
+
+.row.inherited {
+  background: color-mix(in srgb, var(--purple) 3%, transparent);
+}
+
+.row.inherited:hover {
+  background: color-mix(in srgb, var(--purple) 7%, transparent);
+}
+
+.inherit-icon {
+  @apply flex-none mr-1.5 text-purple;
+}
+
+/* A variable of the same name wins, so the inherited one below is out of play:
+   struck through, grey, and labelled rather than removed — it comes back the
+   moment the own row is deleted. */
+.row.inherited.overridden .cell-text {
+  @apply text-text-tertiary line-through;
+}
+
+.row.inherited.overridden .inherit-icon {
+  @apply opacity-40;
+}
+
+.row.inherited .cell-text {
+  @apply text-text-secondary;
 }
 
 .cell-action {

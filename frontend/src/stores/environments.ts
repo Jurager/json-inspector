@@ -20,6 +20,12 @@ export interface Variable {
   enabled: boolean
 }
 
+// A global as seen from inside an environment: the same row, plus whether the
+// environment has a variable of that name shadowing it.
+export interface InheritedVariable extends Variable {
+  overridden: boolean
+}
+
 export interface Environment {
   id: string
   name: string
@@ -168,6 +174,24 @@ export const useEnvironmentsStore = defineStore('environments', {
         return null
       }
     },
+
+    // The editor's table: an environment's own variables plus the globals it
+    // inherits. The override comparison lives here rather than in the component
+    // so the rule and the resolution chain stay in one place.
+    rowsFor:
+      (state) =>
+      (envId: string | null): { own: Variable[]; inherited: InheritedVariable[] } => {
+        const own = envId === null ? state.globals : (state.environments.find((e) => e.id === envId)?.vars ?? [])
+        // Edited in the "Глобальные" scope itself, so nothing is inherited
+        // there — the group would just repeat the table above it.
+        if (envId === null) return { own, inherited: [] }
+
+        const ownNames = new Set(own.map((v) => v.name))
+        return {
+          own,
+          inherited: state.globals.map((g) => ({ ...g, overridden: ownNames.has(g.name) })),
+        }
+      },
 
     missingIn(): (text: string) => string[] {
       return (text: string) => missingTokens(text, this.resolve)
