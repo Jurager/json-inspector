@@ -1,0 +1,162 @@
+<script setup lang="ts">
+import { computed } from 'vue'
+import { useRequestsStore } from '../stores/requests'
+import {
+  buildIndex,
+  dataResources,
+  isJsonApi,
+  relIdentifiers,
+  resourceKey,
+  type JsonApiDocument,
+} from '../lib/jsonapi'
+import { tryParseJson, formatBytes } from '../lib/json'
+
+interface UpdateInfo {
+  available: boolean
+  current: string
+  latest: string
+}
+
+const props = defineProps<{ update: UpdateInfo | null }>()
+const emit = defineEmits<{ (e: 'open-update'): void }>()
+
+const store = useRequestsStore()
+
+// Environments aren't implemented yet — a stub so the left side of the bar
+// has a stable shape to slot them into later.
+const environment = computed(() => 'Local · dev')
+
+const selected = computed(() =>
+  store.activeView === 'request' ? store.manualSelected : store.browserSelected
+)
+
+const doc = computed<JsonApiDocument | null>(() => {
+  const r = selected.value
+  if (!r) return null
+  const p = tryParseJson(r.responseBody)
+  return p.ok && isJsonApi(p.value) ? (p.value as JsonApiDocument) : null
+})
+
+function jsonapiVersion(d: JsonApiDocument): string {
+  const j = d.jsonapi
+  if (j && typeof j === 'object' && !Array.isArray(j)) {
+    const v = (j as Record<string, unknown>).version
+    if (typeof v === 'string' && v) return v
+  }
+  return ''
+}
+
+// Counts relationship references whose target isn't present in data + included
+// — the "незагруженные связи" shown in the summary.
+function countMissing(d: JsonApiDocument): number {
+  const idx = buildIndex(d)
+  let n = 0
+  for (const r of [...dataResources(d), ...(d.included ?? [])]) {
+    for (const rel of Object.values(r.relationships ?? {})) {
+      for (const ri of relIdentifiers(rel)) {
+        if (!idx.has(resourceKey(ri.type, ri.id))) n++
+      }
+    }
+  }
+  return n
+}
+
+const summary = computed(() => {
+  const r = selected.value
+  if (!r) return ''
+  if (doc.value) {
+    const d = doc.value
+    const version = jsonapiVersion(d)
+    const total = dataResources(d).length + (d.included ?? []).length
+    const missing = countMissing(d)
+    const parts: string[] = []
+    if (version) parts.push(`JSON:API ${version}`)
+    parts.push(`${total} ресурсов`)
+    if (missing > 0) parts.push(`${missing} связи не загружены`)
+    return parts.join(' · ')
+  }
+  const ct = r.contentType || ''
+  const size = formatBytes(new Blob([r.responseBody]).size)
+  return ct ? `${ct} · ${size}` : size
+})
+
+const capture = computed(() => store.capture)
+
+const captureLabel = computed(() => {
+  const c = capture.value
+  if (c.recording) return `Запись · ${c.tabs} вкладок под перехватом`
+  if (c.connected) return 'Расширение подключено'
+  return 'Перехват не запущен · ожидание расширения'
+})
+
+const captureDotClass = computed(() => {
+  const c = capture.value
+  if (c.recording) return 'dot dot-red'
+  if (c.connected) return 'dot dot-green'
+  return 'dot dot-orange'
+})
+</script>
+
+<template>
+  <div class="status-bar">
+    <template v-if="store.activeView === 'request'">
+      <span>{{ environment }}</span>
+    </template>
+    <template v-else>
+      <span :class="captureDotClass"></span>
+      <span>{{ captureLabel }}</span>
+    </template>
+
+    <span class="spacer"></span>
+
+    <button v-if="update" class="update-link" @click="emit('open-update')">
+      Доступна версия {{ update.latest }}
+    </button>
+
+    <span v-if="summary" class="summary">{{ summary }}</span>
+  </div>
+</template>
+
+<style scoped>
+@reference "../style.css";
+
+.status-bar {
+  @apply flex-none flex items-center gap-2.5 h-7 px-3.5 text-[11.5px];
+  border-top: 1px solid var(--border);
+  background: var(--bg-sidebar);
+  color: var(--text-secondary);
+}
+
+.spacer {
+  @apply flex-1;
+}
+
+.dot {
+  @apply w-[7px] h-[7px] rounded-full flex-none;
+}
+
+.dot-red {
+  background: var(--red);
+}
+
+.dot-green {
+  background: var(--green);
+}
+
+.dot-orange {
+  background: var(--orange);
+}
+
+.update-link {
+  @apply text-accent bg-transparent border-none cursor-pointer p-0 text-[11.5px];
+  font: inherit;
+}
+
+.update-link:hover {
+  text-decoration: underline;
+}
+
+.summary {
+  @apply whitespace-nowrap;
+}
+</style>

@@ -5,6 +5,7 @@ import RequestBuilder from './components/RequestBuilder.vue'
 import ResponseViewer from './components/ResponseViewer.vue'
 import HistoryPanel from './components/HistoryPanel.vue'
 import AboutModal from './components/AboutModal.vue'
+import StatusBar from './components/StatusBar.vue'
 import Icon from './components/Icon.vue'
 import logoUrl from './assets/logo.svg'
 import { buildSampleRecord } from './lib/sample'
@@ -35,9 +36,14 @@ interface UpdateInfo {
 const checking = ref(false)
 const updating = ref(false)
 const update = ref<UpdateInfo | null>(null)
+const updateModalOpen = ref(false)
 const toast = ref('')
 const toastType = ref<'info' | 'error'>('info')
 let toastTimer: ReturnType<typeof setTimeout> | null = null
+
+function openUpdate() {
+  updateModalOpen.value = true
+}
 
 async function refreshMaximised() {
   try {
@@ -69,8 +75,12 @@ async function checkUpdates() {
   checking.value = true
   try {
     const u = await CheckForUpdates()
-    if (u.available) update.value = u
-    else showToast(`У вас последняя версия (${u.latest})`)
+    if (u.available) {
+      update.value = u
+      // A manual check gives immediate feedback, unlike the silent startup
+      // check which only lights up the status-bar link.
+      updateModalOpen.value = true
+    } else showToast(`У вас последняя версия (${u.latest})`)
   } catch {
     showToast('Не удалось проверить обновления', 'error')
   } finally {
@@ -209,6 +219,7 @@ onMounted(() => {
         tabId: c.tabId,
         favIconUrl: c.favIconUrl,
       })
+      store.setCaptureState({ connected: true, recording: true })
     })
   )
   offs.push(
@@ -346,6 +357,7 @@ onBeforeUnmount(() => {
         </div>
       </main>
     </div>
+    <StatusBar :update="update" @open-update="openUpdate" />
   </div>
 
   <AboutModal v-if="aboutOpen" @close="aboutOpen = false" />
@@ -354,7 +366,7 @@ onBeforeUnmount(() => {
     <div v-if="toast" class="toast" :class="toastType">{{ toast }}</div>
   </transition>
 
-  <div v-if="update" class="modal-overlay" @click.self="update = null">
+  <div v-if="update && updateModalOpen" class="modal-overlay" @click.self="updateModalOpen = false">
     <div class="modal">
       <div class="modal-title">Доступна новая версия</div>
       <div class="modal-body">
@@ -362,7 +374,7 @@ onBeforeUnmount(() => {
         Обновить сейчас? Приложение перезапустится.
       </div>
       <div class="modal-actions">
-        <button class="btn" @click="update = null">Позже</button>
+        <button class="btn" @click="updateModalOpen = false">Позже</button>
         <button class="btn btn-primary" :disabled="updating" @click="doUpdate">
           {{ updating ? 'Обновление…' : 'Обновить' }}
         </button>
