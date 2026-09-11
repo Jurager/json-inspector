@@ -57,6 +57,10 @@ export const useRequestsStore = defineStore('requests', {
       body: '',
     } as DraftState,
     openChip: null as 'params' | 'headers' | 'auth' | 'body' | null,
+    // A tab the extension asked us to show (json-inspector://open?tab=42).
+    // Consumed by the browser list, which expands that group and selects its
+    // newest request; null while there is nothing pending.
+    focusTabId: null as number | null,
     // Incremented by "Открыть в «Запросе»" to nudge RequestBuilder to focus its
     // URL field after it remounts.
     focusUrlTick: 0,
@@ -126,6 +130,14 @@ export const useRequestsStore = defineStore('requests', {
     },
     markBrowserRead() {
       this.unreadCount = 0
+    },
+    // Switching to the browser view and recording which tab to land on. The
+    // panel does the landing, because only it knows whether that tab has
+    // produced anything yet.
+    focusBrowserTab(tabId: number) {
+      this.activeView = 'browser'
+      this.unreadCount = 0
+      this.focusTabId = tabId
     },
     setCaptureState(partial: Partial<CaptureState>) {
       this.capture = { ...this.capture, ...partial }

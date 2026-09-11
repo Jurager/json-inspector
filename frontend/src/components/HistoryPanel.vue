@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 import Icon from './Icon.vue'
 import { useRequestsStore } from '../stores/requests'
 import type { RequestRecord } from '../lib/types'
@@ -175,6 +175,30 @@ function groupHue(key: string): number {
   for (let i = 0; i < key.length; i++) h = (h * 31 + key.charCodeAt(i)) >>> 0
   return h % 360
 }
+
+// A deep link from the extension asks for one tab's requests. If that tab has
+// nothing yet the request is kept: the link is usually clicked right after the
+// page loads, and the first request often lands a moment later.
+function applyDeepLink() {
+  if (props.source !== 'browser') return
+  const tabId = store.focusTabId
+  if (tabId == null) return
+  const g = groups.value.find((x) => x.key === String(tabId))
+  if (!g || g.items.length === 0) return
+  const next = new Set(collapsed.value)
+  next.delete(g.key)
+  collapsed.value = next
+  // Items are newest-first, so the first one is the request just made.
+  store.selectBrowser(g.items[0].id)
+  store.focusTabId = null
+}
+
+// Watches the source too, because the link both switches the rail and asks for
+// a tab; and runs immediately, because the list isn't rendered at all while
+// nothing has been captured — the link can arrive before the panel exists.
+watch(() => [store.focusTabId, store.requests.length, props.source] as const, applyDeepLink, {
+  immediate: true,
+})
 </script>
 
 <template>

@@ -295,6 +295,14 @@ onMounted(() => {
       store.setCaptureState({ connected: false, recording: false, tabs: 0 })
     })
   )
+  // The extension's "open this tab" deep link. Subscribed here rather than in
+  // the browser list because the list isn't always mounted, and the link must
+  // still switch the rail even when there is nothing captured yet.
+  offs.push(
+    EventsOn('open-tab', (tabId: number) => {
+      store.focusBrowserTab(tabId)
+    })
+  )
   offs.push(
     EventsOn('show-about', () => {
       aboutOpen.value = true

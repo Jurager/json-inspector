@@ -7,6 +7,8 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptrace"
+	"net/url"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -77,13 +79,38 @@ func (a *App) ShowAbout() {
 
 // handleUrlOpen is called when the app is opened via the json-inspector://
 // custom URL scheme (e.g. the Chrome extension's "Open app" button). It brings
-// the window to the front.
-func (a *App) handleUrlOpen(_ string) {
+// the window to the front and, when the link names a browser tab
+// (json-inspector://open?tab=42), asks the UI to jump to that tab's requests.
+func (a *App) handleUrlOpen(rawURL string) {
 	if a.ctx == nil {
 		return
 	}
+	// Showing the window is unconditional: a link this app can't interpret any
+	// further is still a request to come to the front.
 	runtime.WindowShow(a.ctx)
 	runtime.WindowUnminimise(a.ctx)
+	if tabID, ok := tabFromURL(rawURL); ok {
+		runtime.EventsEmit(a.ctx, "open-tab", tabID)
+	}
+}
+
+// tabFromURL pulls the tab id out of json-inspector://open?tab=42. A link
+// without one — or with something unparsable — is still a valid "show the
+// window", so this reports ok=false instead of an error.
+func tabFromURL(rawURL string) (int, bool) {
+	u, err := url.Parse(rawURL)
+	if err != nil {
+		return 0, false
+	}
+	value := u.Query().Get("tab")
+	if value == "" {
+		return 0, false
+	}
+	id, err := strconv.Atoi(value)
+	if err != nil || id <= 0 {
+		return 0, false
+	}
+	return id, true
 }
 
 // CheckForUpdates queries the registry immediately and reports the result.
