@@ -12,6 +12,7 @@ import {
 } from '../lib/json'
 import { dataResources, href, isJsonApi, resourceMatchesQuery, type JsonApiDocument } from '../lib/jsonapi'
 import JsonApiTree from './JsonApiTree.vue'
+import RawViewer from './RawViewer.vue'
 import JsonTree from './JsonTree.vue'
 import SchemaMap from './SchemaMap.vue'
 import NodeInspector from './NodeInspector.vue'
@@ -28,43 +29,6 @@ const props = defineProps<{ record: RequestRecord }>()
 
 const store = useRequestsStore()
 const envStore = useEnvironmentsStore()
-
-function escapeHtml(s: string): string {
-  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
-}
-
-function escapeRegex(s: string): string {
-  return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-}
-
-function findMatches(text: string, query: string): { start: number; end: number }[] {
-  if (!query) return []
-  const re = new RegExp(escapeRegex(query), 'gi')
-  const out: { start: number; end: number }[] = []
-  let m: RegExpExecArray | null
-  while ((m = re.exec(text)) !== null) {
-    out.push({ start: m.index, end: m.index + m[0].length })
-    if (m.index === re.lastIndex) re.lastIndex++
-  }
-  return out
-}
-
-function renderWithMarks(
-  text: string,
-  matches: { start: number; end: number }[],
-  current: number
-): string {
-  let html = ''
-  let last = 0
-  matches.forEach((m, i) => {
-    html += escapeHtml(text.slice(last, m.start))
-    const cls = i === current ? 'search-match current' : 'search-match'
-    html += `<mark class="${cls}">${escapeHtml(text.slice(m.start, m.end))}</mark>`
-    last = m.end
-  })
-  html += escapeHtml(text.slice(last))
-  return html
-}
 
 type Tab = 'body' | 'map' | 'raw' | 'headers' | 'cookies' | 'timings' | 'tests' | 'request'
 const activeTab = ref<Tab>('body')
@@ -247,38 +211,29 @@ function openInRequest() {
 }
 
 const prettyRaw = computed(() => (isJson.value ? prettyJson(jsonValue.value) : props.record.responseBody))
-const rawHtml = computed(() => highlightJson(prettyRaw.value))
-
 // --- Raw search (Cmd/Ctrl+F) ---
+//
+// The query is handed to RawViewer, which drives CodeMirror's own search: it
+// highlights the matches and reports back how many there are and which one the
+// cursor is on, so the toolbar can still show "3 / 12".
 const rawSearchQuery = ref('')
 const rawSearchVisible = ref(false)
-const rawCurrentMatch = ref(0)
 const rawSearchInputRef = ref<HTMLInputElement | null>(null)
 const searchShortcut = computed(() => shortcut('F'))
 
-const rawMatches = computed(() => findMatches(prettyRaw.value, rawSearchQuery.value))
+const rawViewer = ref<{ next: () => void; prev: () => void; focusFirst: () => void } | null>(null)
+const rawStats = ref({ count: 0, index: 0 })
 
-const rawRender = computed(() => {
-  if (!rawSearchVisible.value || rawSearchQuery.value === '') {
-    return rawHtml.value
-  }
-  return renderWithMarks(prettyRaw.value, rawMatches.value, rawCurrentMatch.value)
-})
-
-watch(rawMatches, (m) => {
-  if (rawCurrentMatch.value >= m.length) rawCurrentMatch.value = 0
-})
+function onRawStats(s: { count: number; index: number }) {
+  rawStats.value = s
+}
 
 function nextMatch() {
-  if (rawMatches.value.length === 0) return
-  rawCurrentMatch.value = (rawCurrentMatch.value + 1) % rawMatches.value.length
-  scrollToCurrentMatch()
+  rawViewer.value?.next()
 }
 
 function prevMatch() {
-  if (rawMatches.value.length === 0) return
-  rawCurrentMatch.value = (rawCurrentMatch.value - 1 + rawMatches.value.length) % rawMatches.value.length
-  scrollToCurrentMatch()
+  rawViewer.value?.prev()
 }
 
 function onSearchEnter(e: KeyboardEvent) {
@@ -287,22 +242,14 @@ function onSearchEnter(e: KeyboardEvent) {
   else nextMatch()
 }
 
-function scrollToCurrentMatch() {
-  nextTick(() => {
-    document.querySelector('.search-match.current')?.scrollIntoView({ block: 'center' })
-  })
-}
-
 function openRawSearch() {
   rawSearchVisible.value = true
-  rawCurrentMatch.value = 0
   nextTick(() => rawSearchInputRef.value?.focus())
 }
 
 function closeRawSearch() {
   rawSearchVisible.value = false
   rawSearchQuery.value = ''
-  rawCurrentMatch.value = 0
 }
 
 const rawCopied = ref(false)
@@ -477,7 +424,10 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocClick))
     </div>
 
     <div class="resp-main">
-      <div class="resp-content">
+      <!-- One column per tab: its toolbar is a sibling of the scrolling body
+           rather than a child of it, so pagination/search/copy stay put while
+           the response scrolls. -->
+      <div class="resp-tab">
       <template v-if="activeTab === 'body'">
         <div v-if="doc" class="toolbar">
           <template v-if="bodySearchVisible">
@@ -509,9 +459,11 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocClick))
           <span class="head-spacer"></span>
           <button class="resp-action open-in-request" @click="openInRequest">Открыть в «Запросе»</button>
         </div>
-        <JsonApiTree v-if="doc" :doc="doc" :query="bodyQuery" :highlight-key="highlightKey" @select="onTreeSelect" @inspect="onInspect" @fetch="onTreeFetch" />
-        <div v-else-if="isJson" class="jt-wrap"><JsonTree :value="jsonValue" /></div>
-        <pre v-else class="code resp-pad">{{ record.responseBody }}</pre>
+        <div class="resp-content">
+          <JsonApiTree v-if="doc" :doc="doc" :query="bodyQuery" :highlight-key="highlightKey" @select="onTreeSelect" @inspect="onInspect" @fetch="onTreeFetch" />
+          <div v-else-if="isJson" class="jt-wrap"><JsonTree :value="jsonValue" /></div>
+          <pre v-else class="code resp-pad">{{ record.responseBody }}</pre>
+        </div>
       </template>
 
       <template v-else-if="activeTab === 'map'">
@@ -531,7 +483,7 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocClick))
               @keydown.esc="closeRawSearch"
             />
             <span class="search-count">
-              {{ rawMatches.length ? `${rawCurrentMatch + 1} / ${rawMatches.length}` : 'нет совпадений' }}
+              {{ rawStats.count ? `${rawStats.index + 1} / ${rawStats.count}` : 'нет совпадений' }}
             </span>
             <button class="resp-action icon" title="Предыдущее (Shift+Enter)" @click="prevMatch"><Icon name="chevron-up" :size="14" /></button>
             <button class="resp-action icon" title="Следующее (Enter)" @click="nextMatch"><Icon name="chevron-down" :size="14" /></button>
@@ -542,43 +494,51 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocClick))
             <button class="resp-action" @click="openRawSearch"><span>Поиск</span><kbd class="keycap">{{ searchShortcut }}</kbd></button>
           </template>
         </div>
-        <pre class="code resp-pad" v-html="rawRender"></pre>
+        <RawViewer ref="rawViewer" :text="prettyRaw" :query="rawSearchQuery" @stats="onRawStats" />
       </template>
 
       <template v-else-if="activeTab === 'headers'">
         <div class="toolbar">
           <button class="resp-action" @click="copyHeaders"><Icon v-if="headersCopied" name="check" :size="12" /><span>{{ headersCopied ? 'Скопировано' : 'Копировать' }}</span></button>
         </div>
-        <table class="kv-table">
-          <tbody>
-            <tr v-for="[k, v] in responseHeaderEntries" :key="k">
-              <td class="kv-key mono">{{ k }}</td>
-              <td class="kv-val mono">{{ v }}</td>
-            </tr>
-            <tr v-if="responseHeaderEntries.length === 0">
-              <td class="kv-key">Нет заголовков ответа</td>
-            </tr>
-          </tbody>
-        </table>
+        <div class="resp-content">
+          <table class="kv-table">
+            <tbody>
+              <tr v-for="[k, v] in responseHeaderEntries" :key="k">
+                <td class="kv-key mono">{{ k }}</td>
+                <td class="kv-val mono">{{ v }}</td>
+              </tr>
+              <tr v-if="responseHeaderEntries.length === 0">
+                <td class="kv-key">Нет заголовков ответа</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
       </template>
 
       <template v-else-if="activeTab === 'cookies'">
-        <CookiesTab :headers="record.responseHeaders" />
+        <div class="resp-content">
+          <CookiesTab :headers="record.responseHeaders" />
+        </div>
       </template>
 
       <template v-else-if="activeTab === 'timings'">
-        <TimingsTab :record="record" />
+        <div class="resp-content">
+          <TimingsTab :record="record" />
+        </div>
       </template>
 
       <template v-else-if="activeTab === 'tests'">
-        <TestsTab v-if="doc" :doc="doc" />
+        <div class="resp-content">
+          <TestsTab v-if="doc" :doc="doc" />
+        </div>
       </template>
 
       <template v-else>
         <div class="toolbar">
           <span class="request-caption">Показаны после подстановки переменных окружения</span>
         </div>
-        <div class="resp-pad">
+        <div class="resp-content resp-pad">
           <div class="kv-row"><span class="kv-label">Метод</span><span class="mono">{{ record.method }}</span></div>
           <div class="kv-row"><span class="kv-label">URL</span><span class="mono break">{{ record.url }}</span></div>
           <div class="ja-section-title" style="padding-left: 0">Заголовки запроса</div>
@@ -657,6 +617,13 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocClick))
 
 .resp-error {
   @apply py-2.5 px-3 text-red bg-red-soft text-xs;
+}
+
+/* One tab's column: its toolbar stays put at the top and only the body below
+   scrolls. `flex-1` is what makes the column fill the row — without it the
+   width collapses to the content. */
+.resp-tab {
+  @apply flex-1 min-w-0 min-h-0 flex flex-col;
 }
 
 .resp-main {

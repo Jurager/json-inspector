@@ -469,16 +469,18 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocClick))
 <style scoped>
 @reference "../style.css";
 
+/* Fills the tab's column and scrolls its body only, so the head with поиск,
+   сравнение и экспорт stays put — the same rule as every other tab. */
 .schema {
-  @apply flex flex-col min-h-full;
+  @apply flex flex-col h-full min-h-0;
 }
 
 .schema-head {
-  @apply flex items-center gap-2 py-2 px-3 border-b border-border bg-bg-panel;
+  @apply flex-none flex items-center gap-2 py-2 px-3 border-b border-border bg-bg-panel;
 }
 
 .schema-body {
-  @apply pt-3.5 px-4 pb-5;
+  @apply flex-1 min-h-0 overflow-auto pt-3.5 px-4 pb-5;
 }
 
 .compare-wrap,
