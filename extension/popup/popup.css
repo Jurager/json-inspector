@@ -1,6 +1,3 @@
-/* Same palette as the app (frontend/src/style.css), so the popup and the
-   window it feeds look like one product. Dark mode mirrors the app's roles
-   rather than inverting them. */
 :root {
   color-scheme: light dark;
 
@@ -53,16 +50,10 @@
   box-sizing: border-box;
 }
 
-/* `hidden` has to win over every `display` in this file. Without it any element
-   that is laid out with flex (the warning card, the action row, the buffer
-   line) keeps showing after the script hides it — which is how "приложение не
-   запущено" ends up on screen while the app is answering. */
 [hidden] {
   display: none !important;
 }
 
-/* The popup itself is the panel: in the reference it is the white card, and
-   the current-tab box reads as a bordered/tinted box on top of it. */
 body {
   width: 340px;
   margin: 0;
@@ -79,8 +70,6 @@ body {
   font-family: var(--mono);
 }
 
-/* Two "pages" in one document: the settings view is shown by flipping a class
-   on <body>, so there is no second page to load or keep in sync. */
 .view {
   display: none;
 }
@@ -132,8 +121,6 @@ body.settings .view-settings {
   color: var(--text-tertiary);
 }
 
-/* The 6px status dot next to "Подключено" — green when the app is up, orange
-   when it isn't. */
 .dot {
   width: 6px;
   height: 6px;
@@ -184,7 +171,6 @@ body.settings .view-settings {
   border-radius: 11px;
 }
 
-/* ---- Warning: the app isn't answering ---- */
 .warn {
   display: flex;
   flex-direction: column;
@@ -218,13 +204,11 @@ body.settings .view-settings {
   filter: brightness(1.08);
 }
 
-/* ---- Current tab: the main object of the popup ---- */
 .current {
   overflow: hidden;
   transition: opacity 0.15s ease, border-color 0.15s ease, background 0.15s ease;
 }
 
-/* Green means one thing only: this tab is being written. */
 .current.on {
   border-color: var(--green-line);
   background: var(--green-soft);
@@ -235,7 +219,6 @@ body.settings .view-settings {
   background: var(--card);
 }
 
-/* Dimmed but still operable while the app is away — capture goes on. */
 .current.muted {
   opacity: 0.55;
 }
@@ -247,8 +230,6 @@ body.settings .view-settings {
   padding: 11px 12px;
 }
 
-/* Holds exactly one of .favicon / .avatar, so the row's spacing doesn't shift
-   when the icon is missing. */
 .icon-slot {
   width: 20px;
   height: 20px;
@@ -269,9 +250,6 @@ body.settings .view-settings {
   display: none;
 }
 
-/* Fallback when a tab has no favicon: a neutral tile with its first letter, not
-   a per-site colour — the reference uses one quiet grey for every tab, so the
-   only colour in the card stays the recording state. */
 .avatar {
   width: 20px;
   height: 20px;
@@ -315,7 +293,6 @@ body.settings .view-settings {
   white-space: nowrap;
 }
 
-/* The bottom row is the way into the app for this tab when there is data */
 .current-foot {
   display: flex;
   align-items: center;
@@ -338,7 +315,6 @@ body.settings .view-settings {
   cursor: pointer;
 }
 
-/* The explanation state is a sentence, so it wraps like one. */
 .current-foot.text {
   display: block;
   line-height: 1.45;
@@ -353,8 +329,6 @@ body.settings .view-settings {
   background: var(--hover);
 }
 
-/* The action row belongs to the green card, so its hover stays in that colour
-   rather than introducing a grey of its own. */
 .current.on .current-foot.actionable:hover {
   background: color-mix(in srgb, var(--green) 10%, transparent);
 }
@@ -384,7 +358,8 @@ body.settings .view-settings {
 }
 
 /* ---- Buffer note ---- */
-.buffered {
+.buffered,
+.action-error {
   display: flex;
   align-items: center;
   gap: 8px;
@@ -393,8 +368,13 @@ body.settings .view-settings {
   color: var(--text-tertiary);
 }
 
-.buffered[hidden] {
+.buffered[hidden],
+.action-error[hidden] {
   display: none;
+}
+
+.action-error {
+  color: var(--orange);
 }
 
 /* ---- Other captured tabs ---- */
@@ -500,7 +480,6 @@ body.settings .view-settings {
   filter: brightness(1.08);
 }
 
-/* Already running and nothing is being recorded: no need to shout. */
 .open-app.secondary {
   background: var(--card);
   color: var(--text);

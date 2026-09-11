@@ -317,6 +317,46 @@ function sendState() {
   );
 }
 
+const BLOCKED_SCHEMES = [
+  'chrome:',
+  'chrome-untrusted:',
+  'chrome-extension:',
+  'edge:',
+  'devtools:',
+  'about:',
+  'view-source:',
+];
+
+function isBlockedPage(url) {
+  let parsed = null;
+
+  try {
+    parsed = new URL(url || '');
+  } catch {
+    return false;
+  }
+
+  return (
+      BLOCKED_SCHEMES.includes(parsed.protocol) ||
+      parsed.hostname === 'chromewebstore.google.com' ||
+      (parsed.hostname === 'chrome.google.com' &&
+          parsed.pathname.startsWith('/webstore'))
+  );
+}
+
+function injectionFailure(tab, err) {
+  console.warn(
+      '[json-inspector] injection into',
+      tab?.url || '(unknown)',
+      'failed:',
+      err
+  );
+
+  return isBlockedPage(tab?.url)
+      ? 'Chrome не разрешает перехват на этой странице'
+      : 'Не удалось подключиться к странице';
+}
+
 async function injectInto(tabId) {
   await chrome.scripting.executeScript({
     target: { tabId },
@@ -373,10 +413,17 @@ async function startCapture() {
     };
   }
 
-  paused = false;
-
   if (!captureTabIds.has(tab.id)) {
-    await injectInto(tab.id);
+    try {
+      await injectInto(tab.id);
+    } catch (err) {
+      return {
+        ok: false,
+        error: injectionFailure(tab, err),
+      };
+    }
+
+    paused = false;
     addCaptureTab(tab);
 
     if (settings.rememberTabs) {
@@ -749,6 +796,21 @@ function handleCapturedRequest(message, sender) {
 }
 
 async function handleRuntimeMessage(message, sendResponse) {
+  try {
+    await respond(message, sendResponse);
+  } catch (err) {
+    console.warn(
+        '[json-inspector] message', message?.type, 'failed:', err
+    );
+
+    sendResponse({
+      ok: false,
+      error: 'Сбой в расширении: ' + String(err?.message || err || 'неизвестная ошибка'),
+    });
+  }
+}
+
+async function respond(message, sendResponse) {
   switch (message.type) {
     case 'getState':
       sendResponse(await getState());
@@ -786,7 +848,10 @@ async function handleRuntimeMessage(message, sendResponse) {
       break;
 
     default:
-      sendResponse({ ok: false });
+      sendResponse({
+        ok: false,
+        error: 'неизвестная команда: ' + String(message.type),
+      });
       break;
   }
 }

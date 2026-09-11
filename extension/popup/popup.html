@@ -5,7 +5,6 @@
   <link rel="stylesheet" href="popup.css" />
 </head>
 <body>
-  <!-- Main view: the popup answers one question — is this tab being recorded? -->
   <div class="view view-main">
     <header class="pop-head">
       <svg class="logo" viewBox="0 0 1024 1024" aria-hidden="true">
@@ -28,7 +27,6 @@
     </header>
 
     <div class="pop-body">
-      <!-- Raised into the body only when there is something to do about it -->
       <div class="card warn" id="warn-card" hidden>
         <div class="warn-text">
           Расширение продолжает копить запросы, но показать их некому: приложение на порту
@@ -37,11 +35,8 @@
         <button class="btn-primary" id="warn-launch">Запустить приложение</button>
       </div>
 
-      <!-- The main object of the popup: the tab the user is standing on -->
       <div class="card current" id="current-card">
         <div class="current-top">
-          <!-- The icon slot is built by popup.js: a placeholder <img> here would
-               linger as an empty box next to the letter tile. -->
           <div class="current-text">
             <div class="current-title" id="current-title"></div>
             <div class="mono current-host" id="current-host"></div>
@@ -60,6 +55,11 @@
         </div>
       </div>
 
+      <div class="action-error" id="error-line" hidden>
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M12 8v5" /><path d="M12 16.5v.01" /><circle cx="12" cy="12" r="9" /></svg>
+        <span id="error-text"></span>
+      </div>
+
       <div class="buffered" id="buffered-line" hidden>
         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M12 8v5" /><path d="M12 16.5v.01" /><circle cx="12" cy="12" r="9" /></svg>
         <span id="buffered-text"></span>
@@ -74,7 +74,6 @@
     <button class="open-app" id="open-app">Открыть приложение</button>
   </div>
 
-  <!-- Second "page" of the same document, switched by a class on <body> -->
   <div class="view view-settings">
     <header class="settings-head">
       <button class="icon-btn" id="close-settings" title="Назад" aria-label="Назад">

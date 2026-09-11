@@ -3,21 +3,21 @@ version: '3'
 vars:
   APP_NAME: json-inspector
   BIN_DIR: bin
+  APP_PATH: '{{.BIN_DIR}}/{{.APP_NAME}}'
   VITE_PORT: '{{.WAILS_VITE_PORT | default 9245}}'
   VERSION: '{{.VERSION | default "dev"}}'
 
   PRODUCT_NAME: "JSON Inspector"
-  PRODUCT_DESCRIPTION: "Просмотр JSON:API: подстановка переменных окружения, карта схемы, перехват запросов из браузера."
+  PRODUCT_DESCRIPTION: "Inspect JSON with environment variables, schema mapping, and browser request interception."
 
   LDFLAGS: '-w -s -X main.version={{.VERSION}}'
-  LDFLAGS_WINDOWS: '-w -s -H windowsgui -X main.version={{.VERSION}}'
   BUILD_FLAGS: '{{if eq .DEV "true"}}-buildvcs=false -gcflags=all="-l"{{else}}-tags production -trimpath -buildvcs=false -ldflags="{{.LDFLAGS}}"{{end}}'
 
 tasks:
   # ─── Public ───────────────────────────────────────────────────────────────
 
   build:
-    desc: Builds the app for the current OS
+    desc: Build the app for the current OS
     cmds:
       - task: darwin:build
         platforms: [darwin]
@@ -27,7 +27,7 @@ tasks:
         platforms: [windows]
 
   run:
-    desc: Runs the built app
+    desc: Run the built app
     cmds:
       - task: darwin:run
         platforms: [darwin]
@@ -37,12 +37,12 @@ tasks:
         platforms: [windows]
 
   dev:
-    desc: Runs the app in development mode, rebuilding on change
+    desc: Run the app in dev mode, rebuilding on every change
     cmds:
       - wails3 dev -config ./build/config.yml -port {{.VITE_PORT}}
 
   package:
-    desc: Packages a release build for the current OS.
+    desc: Package a release build for the current OS
     cmds:
       - task: darwin:package
         platforms: [darwin]
@@ -52,7 +52,7 @@ tasks:
         platforms: [windows]
 
   verify:
-    desc: Checks that go.mod and frontend/package.json pin the same Wails version
+    desc: Check that go.mod and frontend/package.json pin the same Wails version
     cmds:
       - |
         set -euo pipefail
@@ -72,12 +72,12 @@ tasks:
         echo "Wails version OK: $GO_VER"
 
   set:version:
-    desc: Writes the release version into the files the packagers read.
+    desc: Stamp the release version into the files the packagers read
     cmds:
       - go run ./internal/tools/stamp -version {{.VERSION}}
 
   clean:
-    desc: Removes build output
+    desc: Remove all build output
     cmds:
       - rm -rf dist bin .task
       - rm -f build/linux/*.desktop
@@ -85,7 +85,7 @@ tasks:
   # ─── Frontend ─────────────────────────────────────────────────────────────
 
   install:frontend:deps:
-    desc: Installs frontend dependencies
+    desc: Install frontend dependencies
     dir: frontend
     sources:
       - package.json
@@ -99,7 +99,7 @@ tasks:
       - npm install
 
   build:frontend:
-    desc: Builds the frontend
+    desc: Build the frontend
     run: once
     dir: frontend
     sources:
@@ -116,7 +116,7 @@ tasks:
       PRODUCTION: '{{if eq .DEV "true"}}false{{else}}true{{end}}'
 
   dev:frontend:
-    desc: Runs the vite dev server
+    desc: Run the Vite dev server
     dir: frontend
     deps:
       - task: install:frontend:deps
@@ -126,14 +126,14 @@ tasks:
   # ─── Generation ───────────────────────────────────────────────────────────
 
   go:mod:tidy:
-    desc: Runs `go mod tidy`
+    desc: Run `go mod tidy`
     internal: true
     run: once
     cmds:
       - go mod tidy
 
   generate:bindings:
-    desc: Generates the TypeScript bindings the frontend imports
+    desc: Generate the TypeScript bindings the frontend imports
     run: once
     deps:
       - task: go:mod:tidy
@@ -148,7 +148,7 @@ tasks:
       - wails3 generate bindings -clean=true -ts -i
 
   generate:icons:
-    desc: Generates the icons from build/appicon.png
+    desc: Generate app icons from build/appicon.png
     run: once
     dir: build
     sources:
@@ -162,7 +162,7 @@ tasks:
   # ─── macOS ────────────────────────────────────────────────────────────────
 
   darwin:build:
-    desc: Builds the macOS binary
+    desc: Build the macOS binary
     platforms: [darwin]
     deps:
       - task: go:mod:tidy
@@ -171,7 +171,7 @@ tasks:
     cmds:
       - 'go build {{.BUILD_FLAGS}} -o "{{.OUTPUT}}"'
     vars:
-      OUTPUT: '{{.OUTPUT | default (printf "%s/%s" .BIN_DIR .APP_NAME)}}'
+      OUTPUT: '{{.OUTPUT | default .APP_PATH}}'
     env:
       GOOS: darwin
       CGO_ENABLED: 1
@@ -181,39 +181,44 @@ tasks:
       MACOSX_DEPLOYMENT_TARGET: "12.0"
 
   darwin:build:universal:
-    desc: Builds arm64 and amd64 and lipos them into one binary
+    desc: Build arm64 and amd64 binaries and lipo them into one universal binary
     platforms: [darwin]
     deps:
       - task: darwin:build
         vars:
           ARCH: amd64
-          OUTPUT: '{{.BIN_DIR}}/{{.APP_NAME}}-amd64'
+          OUTPUT: '{{.APP_PATH}}-amd64'
       - task: darwin:build
         vars:
           ARCH: arm64
-          OUTPUT: '{{.BIN_DIR}}/{{.APP_NAME}}-arm64'
+          OUTPUT: '{{.APP_PATH}}-arm64'
     cmds:
-      - lipo -create -output "{{.BIN_DIR}}/{{.APP_NAME}}" "{{.BIN_DIR}}/{{.APP_NAME}}-amd64" "{{.BIN_DIR}}/{{.APP_NAME}}-arm64"
-      - rm -f "{{.BIN_DIR}}/{{.APP_NAME}}-amd64" "{{.BIN_DIR}}/{{.APP_NAME}}-arm64"
+      - lipo -create -output "{{.APP_PATH}}" "{{.APP_PATH}}-amd64" "{{.APP_PATH}}-arm64"
+      - rm -f "{{.APP_PATH}}-amd64" "{{.APP_PATH}}-arm64"
 
-  darwin:app:bundle:
-    desc: Assembles app around the built binary
+  darwin:bundle:
+    desc: Assemble a .app bundle around the built binary
     internal: true
     platforms: [darwin]
+    vars:
+      APP_DIR: '{{.BIN_DIR}}/{{.APP_NAME}}{{.SUFFIX}}.app'
     cmds:
-      - mkdir -p "{{.BIN_DIR}}/{{.APP_NAME}}.app/Contents/MacOS"
-      - mkdir -p "{{.BIN_DIR}}/{{.APP_NAME}}.app/Contents/Resources"
-      - cp build/darwin/icons.icns "{{.BIN_DIR}}/{{.APP_NAME}}.app/Contents/Resources"
-      - cp "{{.BIN_DIR}}/{{.APP_NAME}}" "{{.BIN_DIR}}/{{.APP_NAME}}.app/Contents/MacOS"
-      - cp build/darwin/Info.plist "{{.BIN_DIR}}/{{.APP_NAME}}.app/Contents"
+      - mkdir -p "{{.APP_DIR}}/Contents/MacOS"
+      - mkdir -p "{{.APP_DIR}}/Contents/Resources"
+      - cp build/darwin/icons.icns "{{.APP_DIR}}/Contents/Resources"
+      - cp "{{.APP_PATH}}" "{{.APP_DIR}}/Contents/MacOS"
+      - cp "{{.INFO_PLIST}}" "{{.APP_DIR}}/Contents/Info.plist"
 
   darwin:package:
-    desc: Packages the macOS app
+    desc: Package the macOS app — codesign, zip, and dmg — into dist/
     platforms: [darwin]
     deps:
       - task: darwin:build:universal
     cmds:
-      - task: darwin:app:bundle
+      - task: darwin:bundle
+        vars:
+          SUFFIX: ""
+          INFO_PLIST: build/darwin/Info.plist
       - codesign --force --deep --sign "{{.CODE_SIGN_IDENTITY}}" "{{.BIN_DIR}}/{{.APP_NAME}}.app"
       - mkdir -p dist
       - cd {{.BIN_DIR}} && ditto -c -k --keepParent "{{.APP_NAME}}.app" "../dist/{{.APP_NAME}}-darwin-arm64.app.zip"
@@ -225,7 +230,7 @@ tasks:
       CODE_SIGN_IDENTITY: '{{.CODE_SIGN_IDENTITY | default "-"}}'
 
   darwin:dmg:
-    desc: Creates dmg from the app bundle
+    desc: Create a .dmg from the app bundle
     internal: true
     platforms: [darwin]
     cmds:
@@ -234,21 +239,21 @@ tasks:
         --volume-icon "build/darwin/icons.icns" --window-width 540 --window-height 380
 
   darwin:run:
-    desc: Wraps the binary in a .dev.app bundle and launches it
+    desc: Wrap the binary in a .dev.app bundle and launch it
     platforms: [darwin]
+    deps:
+      - task: darwin:bundle
+        vars:
+          SUFFIX: ".dev"
+          INFO_PLIST: build/darwin/Info.dev.plist
     cmds:
-      - mkdir -p "{{.BIN_DIR}}/{{.APP_NAME}}.dev.app/Contents/MacOS"
-      - mkdir -p "{{.BIN_DIR}}/{{.APP_NAME}}.dev.app/Contents/Resources"
-      - cp build/darwin/icons.icns "{{.BIN_DIR}}/{{.APP_NAME}}.dev.app/Contents/Resources"
-      - cp "{{.BIN_DIR}}/{{.APP_NAME}}" "{{.BIN_DIR}}/{{.APP_NAME}}.dev.app/Contents/MacOS"
-      - cp build/darwin/Info.dev.plist "{{.BIN_DIR}}/{{.APP_NAME}}.dev.app/Contents/Info.plist"
       - codesign --force --deep --sign - "{{.BIN_DIR}}/{{.APP_NAME}}.dev.app"
       - '"{{.BIN_DIR}}/{{.APP_NAME}}.dev.app/Contents/MacOS/{{.APP_NAME}}"'
 
   # ─── Linux ────────────────────────────────────────────────────────────────
 
   linux:build:
-    desc: Builds the Linux binary
+    desc: Build the Linux binary
     platforms: [linux]
     run: once
     deps:
@@ -256,14 +261,14 @@ tasks:
       - task: build:frontend
       - task: generate:icons
     cmds:
-      - 'go build {{.BUILD_FLAGS}} -o "{{.BIN_DIR}}/{{.APP_NAME}}"'
+      - 'go build {{.BUILD_FLAGS}} -o "{{.APP_PATH}}"'
     env:
       GOOS: linux
       CGO_ENABLED: 1
       GOARCH: '{{.ARCH | default ARCH}}'
 
   linux:dotdesktop:
-    desc: Generates build/linux/json-inspector.desktop
+    desc: Generate build/linux/json-inspector.desktop
     internal: true
     platforms: [linux]
     run: once
@@ -280,7 +285,7 @@ tasks:
         -outputfile "{{.ROOT_DIR}}/build/linux/{{.APP_NAME}}.desktop"
 
   linux:package:
-    desc: Packages the Linux artefacts — .tar.gz, .deb, .rpm, .AppImage — into dist/
+    desc: Package the Linux artifacts — .tar.gz, .deb, .rpm, .AppImage — into dist/
     platforms: [linux]
     deps:
       - task: linux:build
@@ -288,53 +293,49 @@ tasks:
     cmds:
       - mkdir -p dist
       - cd {{.BIN_DIR}} && tar -czf "../dist/{{.APP_NAME}}-linux-{{.ARCH | default ARCH}}.tar.gz" "{{.APP_NAME}}"
-      - task: linux:deb
-      - task: linux:rpm
+      - task: linux:nfpm
+        vars:
+          FORMAT: deb
+      - task: linux:nfpm
+        vars:
+          FORMAT: rpm
       - task: linux:appimage
-      - cp bin/*.deb bin/*.rpm bin/*.AppImage dist/
+      - cp {{.BIN_DIR}}/*.deb {{.BIN_DIR}}/*.rpm {{.BIN_DIR}}/*.AppImage dist/
       - ls -la dist
 
-  linux:deb:
-    desc: Creates a .deb package
+  linux:nfpm:
+    desc: Create a .deb or .rpm package via nfpm
+    internal: true
     platforms: [linux]
     deps:
       - task: linux:build
       - task: linux:dotdesktop
     cmds:
-      - wails3 tool package -name "{{.APP_NAME}}" -format deb -config ./build/linux/nfpm/nfpm.yaml -out {{.ROOT_DIR}}/bin
-
-  linux:rpm:
-    desc: Creates a .rpm package
-    platforms: [linux]
-    deps:
-      - task: linux:build
-      - task: linux:dotdesktop
-    cmds:
-      - wails3 tool package -name "{{.APP_NAME}}" -format rpm -config ./build/linux/nfpm/nfpm.yaml -out {{.ROOT_DIR}}/bin
+      - wails3 tool package -name "{{.APP_NAME}}" -format {{.FORMAT}} -config ./build/linux/nfpm/nfpm.yaml -out {{.ROOT_DIR}}/{{.BIN_DIR}}
 
   linux:appimage:
-    desc: Creates an AppImage
+    desc: Create an AppImage
     platforms: [linux]
     deps:
       - task: linux:build
       - task: linux:dotdesktop
     cmds:
       - >-
-        wails3 generate appimage -binary "{{.ROOT_DIR}}/{{.BIN_DIR}}/{{.APP_NAME}}"
+        wails3 generate appimage -binary "{{.ROOT_DIR}}/{{.APP_PATH}}"
         -icon "{{.ROOT_DIR}}/build/appicon.png"
         -desktopfile "{{.ROOT_DIR}}/build/linux/{{.APP_NAME}}.desktop"
         -outputdir "{{.ROOT_DIR}}/{{.BIN_DIR}}"
 
   linux:run:
-    desc: Runs the built binary
+    desc: Run the built binary
     platforms: [linux]
     cmds:
-      - '{{.BIN_DIR}}/{{.APP_NAME}}'
+      - '{{.APP_PATH}}'
 
   # ─── Windows ──────────────────────────────────────────────────────────────
 
   windows:build:
-    desc: Builds the Windows executable into bin/
+    desc: Build the Windows executable into bin/
     platforms: [windows]
     deps:
       - task: go:mod:tidy
@@ -342,17 +343,17 @@ tasks:
       - task: generate:icons
     cmds:
       - task: windows:syso
-      - 'go build {{.BUILD_FLAGS}} -o "{{.BIN_DIR}}/{{.APP_NAME}}.exe"'
+      - 'go build {{.BUILD_FLAGS}} -o "{{.APP_PATH}}.exe"'
       - rm -f wails_windows_*.syso
     vars:
-      BUILD_FLAGS: '{{if eq .DEV "true"}}-buildvcs=false -gcflags=all="-l"{{else}}-tags production -trimpath -buildvcs=false -ldflags="{{.LDFLAGS_WINDOWS}}"{{end}}'
+      BUILD_FLAGS: '{{if eq .DEV "true"}}-buildvcs=false -gcflags=all="-l"{{else}}-tags production -trimpath -buildvcs=false -ldflags="{{.LDFLAGS}} -H windowsgui"{{end}}'
     env:
       GOOS: windows
       CGO_ENABLED: 0
       GOARCH: '{{.ARCH | default ARCH}}'
 
   windows:syso:
-    desc: Generates the .syso carrying the icon, manifest and version info
+    desc: Generate the .syso carrying the icon, manifest, and version info
     internal: true
     platforms: [windows]
     dir: build
@@ -360,7 +361,7 @@ tasks:
       - wails3 generate syso -arch {{.ARCH | default ARCH}} -icon windows/icon.ico -manifest windows/wails.exe.manifest -info windows/info.json -out ../wails_windows_{{.ARCH | default ARCH}}.syso
 
   windows:package:
-    desc: Packages the Windows artefacts — .exe.zip and installer — into dist/
+    desc: Package the Windows artifacts — .exe.zip and installer — into dist/
     platforms: [windows]
     deps:
       - task: windows:build
@@ -368,13 +369,13 @@ tasks:
       - task: windows:nsis
       - mkdir -p dist
       - >-
-        powershell -Command "Compress-Archive -Path '{{.BIN_DIR}}/{{.APP_NAME}}.exe'
+        powershell -Command "Compress-Archive -Path '{{.APP_PATH}}.exe'
         -DestinationPath 'dist/{{.APP_NAME}}-windows-{{.ARCH | default ARCH}}.exe.zip' -Force"
       - cp "{{.BIN_DIR}}/{{.APP_NAME}}-{{.ARCH | default ARCH}}-installer.exe" "dist/{{.APP_NAME}}-windows-{{.ARCH | default ARCH}}-installer.exe"
       - ls -la dist
 
   windows:nsis:
-    desc: Creates the NSIS installer, which also registers json-inspector://
+    desc: Create the NSIS installer, which also registers json-inspector://
     internal: true
     platforms: [windows]
     dir: build/windows/nsis
@@ -386,7 +387,7 @@ tasks:
         project.nsi
 
   windows:run:
-    desc: Runs the built executable
+    desc: Run the built executable
     platforms: [windows]
     cmds:
-      - '{{.BIN_DIR}}/{{.APP_NAME}}.exe'
+      - '{{.APP_PATH}}.exe'

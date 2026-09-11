@@ -1,9 +1,15 @@
 const DEFAULT_PORT = 38761;
 
 async function getState() {
-  return chrome.runtime.sendMessage({
+  const state = await chrome.runtime.sendMessage({
     type: 'getState',
   });
+
+  if (!state || state.ok === false) {
+    throw new Error(state?.error || 'нет состояния');
+  }
+
+  return state;
 }
 
 function $(id) {
@@ -162,12 +168,10 @@ function buildMoreRow(tab) {
     stop.disabled = true;
 
     try {
-      await chrome.runtime.sendMessage({
+      await runAction({
         type: 'stopCaptureTab',
         tabId: tab.tabId,
       });
-
-      await refresh();
     } finally {
       stop.disabled = false;
     }
@@ -334,6 +338,16 @@ function renderWarning(state) {
   }
 }
 
+function renderActionError() {
+  const line = $('error-line');
+
+  line.hidden = !actionError;
+
+  if (actionError) {
+    $('error-text').textContent = actionError;
+  }
+}
+
 function renderOtherTabs(state) {
   const section = $('more-section');
   const list = $('more-list');
@@ -402,6 +416,7 @@ function render(state) {
   renderHeader(state);
   renderCurrentTab(state);
   renderWarning(state);
+  renderActionError();
   renderOtherTabs(state);
   renderOpenButton(state);
   renderSettings(state);
@@ -412,6 +427,22 @@ async function refresh() {
     const state = await getState();
     render(state);
   } catch {}
+}
+
+let actionError = '';
+
+async function runAction(message) {
+  try {
+    const res = await chrome.runtime.sendMessage(message);
+
+    actionError = res?.ok
+        ? ''
+        : (res?.error || 'Не удалось выполнить действие');
+  } catch {
+    actionError = 'Расширение не ответило';
+  }
+
+  await refresh();
 }
 
 let actionInProgress = false;
@@ -427,13 +458,11 @@ $('enabled').addEventListener(
       event.target.disabled = true;
 
       try {
-        await chrome.runtime.sendMessage(
+        await runAction(
             event.target.checked
                 ? { type: 'startCapture' }
                 : { type: 'stopCapture' }
         );
-
-        await refresh();
       } finally {
         actionInProgress = false;
         event.target.disabled = false;
