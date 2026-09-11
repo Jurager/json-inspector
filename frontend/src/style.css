@@ -295,8 +295,10 @@ body {
   @apply absolute top-0 left-full ml-1;
 }
 
+/* Geometry from the reference: 9/7px padding, 9px radius, 5px between the icon
+   and its label. `relative` is what the unread badge is positioned against. */
 .rail-item {
-  @apply flex flex-col items-center gap-1 w-full py-2 border-none rounded-lg bg-transparent text-text-secondary cursor-pointer;
+  @apply relative flex flex-col items-center gap-[5px] w-full pt-[9px] pb-[7px] border-none rounded-[9px] bg-transparent text-text-secondary cursor-pointer;
   --wails-draggable: no-drag;
 }
 
@@ -313,11 +315,13 @@ body {
 }
 
 .rail-label {
-  @apply text-[10px] font-medium leading-none;
+  @apply text-[10px] font-semibold leading-none;
 }
 
+/* Sits in the tile's top-right corner (4px/12px from its edges), not on the
+   icon's — that is where the reference puts it. */
 .rail-badge {
-  @apply absolute -top-1.5 -right-2 min-w-[16px] h-4 px-1 rounded-full bg-red text-white text-[10px] font-semibold inline-flex items-center justify-center;
+  @apply absolute top-1 right-3 min-w-4 h-4 px-1 rounded-full bg-red text-white text-[10px] font-semibold inline-flex items-center justify-center;
 }
 
 /* Pushes the settings tile to the bottom of the rail, after the source items. */

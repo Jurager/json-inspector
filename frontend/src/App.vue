@@ -419,11 +419,9 @@ onBeforeUnmount(() => {
           :class="{ active: store.activeView === 'browser' }"
           @click="openBrowser"
         >
-          <span class="rail-icon">
-            <Icon name="record" :size="18" />
-            <span v-if="store.unreadCount > 0" class="rail-badge">{{ store.unreadCount }}</span>
-          </span>
+          <span class="rail-icon"><Icon name="record" :size="18" /></span>
           <span class="rail-label">Браузер</span>
+          <span v-if="store.unreadCount > 0" class="rail-badge">{{ store.unreadCount }}</span>
         </button>
         <button
           class="rail-item"
