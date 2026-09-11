@@ -4,6 +4,10 @@ async function getState() {
   return await chrome.runtime.sendMessage({ type: 'getState' });
 }
 
+function $(id) {
+  return document.getElementById(id);
+}
+
 function hostnameOf(url) {
   try {
     return new URL(url).hostname;
@@ -12,136 +16,291 @@ function hostnameOf(url) {
   }
 }
 
-function formatCount(n) {
+function plural(n, one, few, many) {
   const m10 = n % 10;
   const m100 = n % 100;
-  if (m10 === 1 && m100 !== 11) return n + ' запрос';
-  if (m10 >= 2 && m10 <= 4 && (m100 < 12 || m100 > 14)) return n + ' запроса';
-  return n + ' запросов';
+  if (m10 === 1 && m100 !== 11) return `${n} ${one}`;
+  if (m10 >= 2 && m10 <= 4 && (m100 < 12 || m100 > 14)) return `${n} ${few}`;
+  return `${n} ${many}`;
+}
+
+const requestsLabel = (n) => plural(n, 'запрос', 'запроса', 'запросов');
+
+// "12 с назад" / "3 мин назад" — enough resolution for "is this thing alive".
+function agoLabel(at) {
+  if (!at) return '';
+  const sec = Math.max(0, Math.round((Date.now() - at) / 1000));
+  if (sec < 60) return `последний ${sec} с назад`;
+  const min = Math.round(sec / 60);
+  if (min < 60) return `последний ${min} мин назад`;
+  return `последний ${Math.round(min / 60)} ч назад`;
+}
+
+function hueOf(text) {
+  let h = 0;
+  for (let i = 0; i < text.length; i++) h = (h * 31 + text.charCodeAt(i)) >>> 0;
+  return h % 360;
+}
+
+// A tab is identified by its favicon when there is one, and by a lettered tile
+// when there isn't (or when the icon fails to load).
+function buildIcon(favIconUrl, label) {
+  const wrap = document.createElement('span');
+  wrap.className = 'icon-slot';
+  const initial = (label || '?').trim().charAt(0) || '?';
+
+  const avatar = document.createElement('span');
+  avatar.className = 'avatar';
+  avatar.textContent = initial;
+  avatar.style.background = `hsl(${hueOf(label || initial)}, 45%, 45%)`;
+  // Exactly one of the two is visible: a fresh element is visible by default,
+  // so the avatar has to be hidden explicitly whenever an icon is expected.
+  avatar.hidden = Boolean(favIconUrl);
+
+  if (favIconUrl) {
+    const img = document.createElement('img');
+    img.className = 'favicon';
+    img.src = favIconUrl;
+    img.alt = '';
+    // A broken icon falls back to the letter tile rather than an empty box.
+    img.addEventListener('error', () => {
+      img.classList.add('hidden');
+      avatar.hidden = false;
+    });
+    wrap.appendChild(img);
+  }
+  wrap.appendChild(avatar);
+  return wrap;
+}
+
+function buildMoreRow(t) {
+  const row = document.createElement('div');
+  row.className = 'more-row';
+
+  const host = hostnameOf(t.url);
+  row.appendChild(buildIcon(t.favIconUrl, t.title || host));
+
+  const text = document.createElement('div');
+  text.className = 'more-text';
+  const title = document.createElement('div');
+  title.className = 'more-title';
+  title.textContent = t.title || host || 'Вкладка';
+  const hostEl = document.createElement('div');
+  hostEl.className = 'more-host mono';
+  hostEl.textContent = host;
+  text.append(title, hostEl);
+  row.appendChild(text);
+
+  const count = document.createElement('span');
+  count.className = 'more-count';
+  count.textContent = String(t.count || 0);
+  row.appendChild(count);
+
+  const stop = document.createElement('button');
+  stop.className = 'more-stop';
+  stop.title = 'Остановить перехват этой вкладки';
+  stop.innerHTML =
+    '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg>';
+  stop.addEventListener('click', async (e) => {
+    e.stopPropagation();
+    await chrome.runtime.sendMessage({ type: 'stopCaptureTab', tabId: t.tabId });
+    render(await getState());
+  });
+  row.appendChild(stop);
+
+  // Anywhere else on the row: take me to this tab's requests.
+  row.addEventListener('click', () => chrome.runtime.sendMessage({ type: 'openApp', tabId: t.tabId }));
+  return row;
+}
+
+function renderHeader(state) {
+  const dot = $('status-dot');
+  const text = $('status-text');
+  const port = $('status-port');
+  if (state.appRunning) {
+    dot.className = 'dot ok';
+    text.textContent = 'Подключено';
+    port.textContent = ':' + (state.port || DEFAULT_PORT);
+  } else {
+    dot.className = 'dot warn';
+    text.textContent = 'Приложение не запущено';
+    // The port moves into the warning card, where the number is actionable.
+    port.textContent = '';
+  }
+}
+
+function renderCurrentTab(state) {
+  const card = $('current-card');
+  const tab = state.currentTab;
+  const capturing = Boolean(tab && tab.capturing);
+
+  card.className = 'card current ' + (capturing ? 'on' : 'off') + (state.appRunning ? '' : ' muted');
+
+  if (!tab) {
+    $('current-title').textContent = 'Нет активной вкладки';
+    $('current-host').textContent = '';
+    $('enabled').checked = false;
+    $('current-count').textContent = '';
+    $('current-ago').textContent = '';
+    $('current-arrow').hidden = true;
+    $('current-foot').classList.remove('actionable');
+    return;
+  }
+
+  const host = hostnameOf(tab.url);
+  const label = tab.title || host || 'Вкладка';
+
+  // Rebuild the icon each render: the tab may have navigated, and a stale
+  // favicon is worse than none.
+  const top = card.querySelector('.current-top');
+  top.querySelectorAll('.icon-slot').forEach((n) => n.remove());
+  top.prepend(buildIcon(tab.favIconUrl, label));
+
+  $('current-title').textContent = label;
+  $('current-host').textContent = host;
+  $('enabled').checked = capturing;
+
+  const count = tab.count || 0;
+  const foot = $('current-foot');
+  const countEl = $('current-count');
+  const agoEl = $('current-ago');
+  const arrow = $('current-arrow');
+
+  if (!capturing) {
+    countEl.textContent = '';
+    agoEl.textContent = 'Запросы этой вкладки не пишутся. Включите, и они появятся в приложении.';
+    arrow.hidden = true;
+    foot.classList.remove('actionable');
+    foot.onclick = null;
+    return;
+  }
+
+  if (count === 0) {
+    countEl.textContent = '';
+    agoEl.textContent = 'Ждём первый запрос…';
+    arrow.hidden = true;
+    foot.classList.remove('actionable');
+    foot.onclick = null;
+    return;
+  }
+
+  countEl.textContent = requestsLabel(count);
+  agoEl.textContent = agoLabel(tab.lastAt);
+  arrow.hidden = false;
+  foot.classList.add('actionable');
+  foot.onclick = () => chrome.runtime.sendMessage({ type: 'openApp', tabId: tab.tabId });
+}
+
+function renderWarning(state) {
+  const warn = $('warn-card');
+  warn.hidden = state.appRunning;
+  if (!state.appRunning) $('warn-port').textContent = String(state.port || DEFAULT_PORT);
+
+  const line = $('buffered-line');
+  const buffered = state.bufferedCount || 0;
+  line.hidden = state.appRunning || buffered === 0;
+  if (!line.hidden) {
+    $('buffered-text').textContent = `${requestsLabel(buffered)} в буфере, отдадим после запуска`;
+  }
+}
+
+function renderOtherTabs(state) {
+  const section = $('more-section');
+  const list = $('more-list');
+  list.textContent = '';
+
+  const others = (state.capturedTabs || []).filter((t) => t.tabId !== state.activeTabId);
+  if (others.length === 0) {
+    section.hidden = true;
+    return;
+  }
+  section.hidden = false;
+  for (const t of others) list.appendChild(buildMoreRow(t));
+}
+
+function renderOpenButton(state) {
+  const btn = $('open-app');
+  // Loud when there is a reason to press it; quiet when the app is already up
+  // and nothing is being recorded.
+  const secondary = state.appRunning && !state.capturing;
+  btn.className = 'open-app' + (secondary ? ' secondary' : '');
+}
+
+const SETTING_INPUTS = ['set-rememberTabs', 'set-xhrOnly', 'set-clearOnExit'];
+
+function renderSettings(state) {
+  // Never fight the user for a field they're typing in.
+  const active = document.activeElement;
+  const busy = active && active.closest && active.closest('.view-settings');
+
+  if (!busy) {
+    $('port').value = state.port || DEFAULT_PORT;
+    for (const id of SETTING_INPUTS) {
+      const key = id.replace('set-', '');
+      $(id).checked = Boolean(state.settings && state.settings[key]);
+    }
+  }
 }
 
 function render(state) {
-  const appDot = document.getElementById('app-dot');
-  const appStatus = document.getElementById('app-status');
-  if (state.appRunning) {
-    appDot.className = 'dot ok';
-    appStatus.textContent = 'Приложение запущено';
-  } else {
-    appDot.className = 'dot warn';
-    appStatus.textContent = 'Приложение не запущено';
-  }
+  renderHeader(state);
+  renderCurrentTab(state);
+  renderWarning(state);
+  renderOtherTabs(state);
+  renderOpenButton(state);
+  renderSettings(state);
+}
 
-  document.getElementById('enabled').checked = state.capturing;
-  renderTabs(state.capturedTabs || []);
-
-  const btn = document.getElementById('open-app');
-  if (state.appRunning) {
-    btn.className = 'open-app secondary';
-    btn.textContent = 'Показать приложение';
-  } else {
-    btn.className = 'open-app primary';
-    btn.textContent = 'Открыть приложение';
+async function refresh() {
+  try {
+    render(await getState());
+  } catch (_) {
+    // The worker can be mid-restart; the next poll will pick it up.
   }
 }
 
-function renderTabs(tabs) {
-  const section = document.getElementById('tabs-section');
-  const list = document.getElementById('tabs-list');
-  list.textContent = '';
-  if (tabs.length === 0) {
-    section.style.display = 'none';
-    return;
-  }
-  section.style.display = '';
-  for (const t of tabs) list.appendChild(buildTabItem(t));
-}
+// --- interactions -----------------------------------------------------------
 
-function buildTabItem(t) {
-  const item = document.createElement('div');
-  item.className = 'tab-item';
+$('enabled').addEventListener('change', async (e) => {
+  await chrome.runtime.sendMessage(e.target.checked ? { type: 'startCapture' } : { type: 'stopCapture' });
+  await refresh();
+});
 
-  if (t.favIconUrl) {
-    const img = document.createElement('img');
-    img.className = 'favicon';
-    img.src = t.favIconUrl;
-    img.alt = '';
-    img.addEventListener('error', () => img.classList.add('hidden'));
-    item.appendChild(img);
-  }
+$('open-app').addEventListener('click', () => chrome.runtime.sendMessage({ type: 'openApp' }));
+$('warn-launch').addEventListener('click', () => chrome.runtime.sendMessage({ type: 'openApp' }));
 
-  const host = hostnameOf(t.url);
+$('open-settings').addEventListener('click', () => {
+  document.body.classList.add('settings');
+  $('settings-version').textContent = 'Версия ' + chrome.runtime.getManifest().version;
+});
+$('close-settings').addEventListener('click', () => document.body.classList.remove('settings'));
 
-  const text = document.createElement('div');
-  text.className = 'tab-item-text';
+$('port').addEventListener('change', async (e) => {
+  const p = parseInt(e.target.value, 10);
+  if (p > 0 && p < 65536) await chrome.runtime.sendMessage({ type: 'setPort', port: p });
+  await refresh();
+});
 
-  const title = document.createElement('div');
-  title.className = 'tab-item-title';
-  title.textContent = t.title || host || 'вкладка';
-  text.appendChild(title);
-
-  if (host && t.title && host !== t.title) {
-    const h = document.createElement('div');
-    h.className = 'tab-item-host';
-    h.textContent = host;
-    text.appendChild(h);
-  }
-  item.appendChild(text);
-
-  const count = document.createElement('span');
-  count.className = 'tab-item-count';
-  count.textContent = formatCount(t.count || 0);
-  item.appendChild(count);
-
-  const stop = document.createElement('button');
-  stop.className = 'tab-item-stop';
-  stop.title = 'Остановить перехват этой вкладки';
-  stop.textContent = '×';
-  stop.addEventListener('click', async () => {
-    await chrome.runtime.sendMessage({ type: 'stopCaptureTab', tabId: t.tabId });
-    const state = await getState();
-    render(state);
+for (const id of SETTING_INPUTS) {
+  $(id).addEventListener('change', async (e) => {
+    await chrome.runtime.sendMessage({
+      type: 'setSetting',
+      key: id.replace('set-', ''),
+      value: e.target.checked,
+    });
+    await refresh();
   });
-  item.appendChild(stop);
-
-  return item;
-}
-
-async function init() {
-  const state = await getState();
-  document.getElementById('port').value = state.port || DEFAULT_PORT;
-  render(state);
 }
 
 let pollTimer = null;
 function startPolling() {
   stopPolling();
-  pollTimer = setInterval(async () => {
-    try {
-      const state = await getState();
-      render(state);
-    } catch (_) {}
-  }, 2500);
+  pollTimer = setInterval(refresh, 2500);
 }
 function stopPolling() {
   if (pollTimer) clearInterval(pollTimer);
   pollTimer = null;
 }
 
-document.getElementById('enabled').addEventListener('change', async (e) => {
-  if (e.target.checked) {
-    await chrome.runtime.sendMessage({ type: 'startCapture' });
-  } else {
-    await chrome.runtime.sendMessage({ type: 'stopCapture' });
-  }
-  const state = await getState();
-  render(state);
-});
-
-document.getElementById('port').addEventListener('change', async (e) => {
-  const p = parseInt(e.target.value, 10);
-  if (p > 0 && p < 65536) await chrome.runtime.sendMessage({ type: 'setPort', port: p });
-});
-
-init();
-startPolling();
+refresh().then(startPolling);
 window.addEventListener('unload', stopPolling);
