@@ -205,15 +205,6 @@ body {
   background: var(--green);
 }
 
-.env-menu {
-  @apply absolute right-0 top-full mt-1;
-}
-
-.env-item-active {
-  color: var(--text);
-  background: var(--accent-soft);
-}
-
 .cap-btn {
   @apply flex items-center justify-center w-[46px] h-full border-none bg-transparent text-text cursor-pointer;
 }

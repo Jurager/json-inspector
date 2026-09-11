@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRequestsStore } from './stores/requests'
+import { useEnvironmentsStore } from './stores/environments'
+import EnvironmentMenu from './components/EnvironmentMenu.vue'
 import RequestBuilder from './components/RequestBuilder.vue'
 import ResponseViewer from './components/ResponseViewer.vue'
 import HistoryPanel from './components/HistoryPanel.vue'
@@ -23,6 +25,26 @@ import {
 import { ToggleMaximize, CheckForUpdates, UpdateNow } from '../wailsjs/go/main/App'
 
 const store = useRequestsStore()
+const envStore = useEnvironmentsStore()
+
+// Environment is a property of the window, not of a request: the chip names the
+// active one and is the only way in (no rail section, by design).
+const activeEnvName = computed(() => envStore.active?.name ?? 'Без окружения')
+
+const ENV_DOT_COLORS: Record<string, string> = {
+  green: 'var(--green)',
+  orange: 'var(--orange)',
+  red: 'var(--red)',
+  purple: 'var(--purple)',
+}
+
+const envDotStyle = computed(() => {
+  const env = envStore.active
+  // With no environment there is nothing to colour, so the dot goes neutral
+  // rather than claiming a state.
+  if (!env) return { background: 'var(--text-tertiary)' }
+  return { background: ENV_DOT_COLORS[env.color ?? 'green'] ?? 'var(--green)' }
+})
 
 const HISTORY_KEY = 'ji-history-v1'
 const UI_KEY = 'ji-ui-v1'
@@ -325,17 +347,12 @@ onBeforeUnmount(() => {
         <span class="titlebar-title">JSON Inspector</span>
         <div class="titlebar-actions">
           <div ref="envWrapEl" class="env-wrap">
-            <button class="titlebar-btn" title="Окружение" @click="envOpen = !envOpen">
-              <span class="env-dot"></span>
-              <span>Local · dev</span>
+            <button class="titlebar-btn" :title="`Окружение: ${activeEnvName}`" @click="envOpen = !envOpen">
+              <span class="env-dot" :style="envDotStyle"></span>
+              <span>{{ activeEnvName }}</span>
               <Icon name="chevron-down" :size="11" />
             </button>
-            <div v-if="envOpen" class="menu env-menu">
-              <div class="menu-item env-item-active">
-                <span class="env-dot"></span>
-                <span>Local · dev</span>
-              </div>
-            </div>
+            <EnvironmentMenu v-if="envOpen" @close="envOpen = false" />
           </div>
           <button class="titlebar-btn titlebar-search" title="Глобальный поиск (⌘K)" @click="focusSearch">
             <span>Поиск</span>
