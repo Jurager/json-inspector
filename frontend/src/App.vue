@@ -13,7 +13,7 @@ import BrowserEmptyState from './components/BrowserEmptyState.vue'
 import Icon from './components/Icon.vue'
 import logoUrl from './assets/logo.svg'
 import { buildSampleRecord } from './lib/sample'
-import { useCustomTitlebar } from './lib/platform'
+import { shortcut, useCustomTitlebar } from './lib/platform'
 import { makeSideResizer } from './lib/resize'
 import {
   EventsOn,
@@ -30,6 +30,12 @@ const envStore = useEnvironmentsStore()
 // Environment is a property of the window, not of a request: the chip names the
 // active one and is the only way in (no rail section, by design).
 const activeEnvName = computed(() => envStore.active?.name ?? 'Без окружения')
+
+// Shortcut hints have to be reactive: the platform resolves asynchronously (see
+// lib/platform.ts), so a plain constant would capture the macOS default before
+// Windows is known and print "⌘" in the titlebar.
+const searchHint = computed(() => shortcut('K'))
+const envSheetHint = computed(() => shortcut('E'))
 
 const ENV_DOT_COLORS: Record<string, string> = {
   green: 'var(--green)',
@@ -336,48 +342,51 @@ onBeforeUnmount(() => {
 <template>
   <div class="app">
     <header class="titlebar" :class="{ 'titlebar-custom': useCustomTitlebar }" @dblclick="ToggleMaximize">
-      <template v-if="useCustomTitlebar">
-        <div class="titlebar-appicon">
-          <img :src="logoUrl" alt="" class="titlebar-logo" draggable="false" />
-          <span class="titlebar-title">JSON Inspector</span>
-        </div>
-        <div class="titlebar-spacer"></div>
-        <div class="titlebar-controls">
-          <button class="cap-btn" title="Свернуть" @click="WindowMinimise">
-            <span class="cap-icon cap-icon-minus"></span>
-          </button>
-          <button class="cap-btn" title="Развернуть" @click="WindowToggleMaximise">
-            <span v-if="!isMaximised" class="cap-icon cap-icon-square"></span>
-            <span v-else class="cap-icon cap-icon-restore">
-              <span class="cap-icon-restore-back"></span>
-              <span class="cap-icon-restore-front"></span>
-            </span>
-          </button>
-          <button class="cap-btn cap-close" title="Закрыть" @click="Quit">
-            <span class="cap-icon cap-icon-close">
-              <span class="cap-icon-close-bar cap-icon-close-bar-1"></span>
-              <span class="cap-icon-close-bar cap-icon-close-bar-2"></span>
-            </span>
-          </button>
-        </div>
-      </template>
-      <template v-else>
+      <div v-if="useCustomTitlebar" class="titlebar-appicon">
+        <img :src="logoUrl" alt="" class="titlebar-logo" draggable="false" />
         <span class="titlebar-title">JSON Inspector</span>
-        <div class="titlebar-actions">
-          <div ref="envWrapEl" class="env-wrap">
-            <button class="titlebar-btn" :title="`Окружение: ${activeEnvName}`" @click="envOpen = !envOpen">
-              <span class="env-dot" :style="envDotStyle"></span>
-              <span>{{ activeEnvName }}</span>
-              <Icon name="chevron-down" :size="11" />
-            </button>
-            <EnvironmentMenu v-if="envOpen" @close="envOpen = false" />
-          </div>
-          <button class="titlebar-btn titlebar-search" title="Глобальный поиск (⌘K)" @click="focusSearch">
-            <span>Поиск</span>
-            <kbd class="titlebar-key">⌘K</kbd>
+      </div>
+      <span v-else class="titlebar-title">JSON Inspector</span>
+
+      <div v-if="useCustomTitlebar" class="titlebar-spacer"></div>
+
+      <!-- The environment chip and global search belong to both titlebars: on
+           macOS they float over the native hidden-inset bar (absolute, right),
+           on the frameless Windows/Linux one they sit in the flex row, just
+           before the caption buttons. -->
+      <div class="titlebar-actions" :class="{ 'titlebar-actions-flush': useCustomTitlebar }">
+        <div ref="envWrapEl" class="env-wrap">
+          <button class="titlebar-btn" :title="`Окружение: ${activeEnvName}`" @click="envOpen = !envOpen">
+            <span class="env-dot" :style="envDotStyle"></span>
+            <span>{{ activeEnvName }}</span>
+            <Icon name="chevron-down" :size="11" />
           </button>
+          <EnvironmentMenu v-if="envOpen" @close="envOpen = false" />
         </div>
-      </template>
+        <button class="titlebar-btn titlebar-search" :title="`Глобальный поиск (${searchHint})`" @click="focusSearch">
+          <span>Поиск</span>
+          <kbd class="titlebar-key">{{ searchHint }}</kbd>
+        </button>
+      </div>
+
+      <div v-if="useCustomTitlebar" class="titlebar-controls">
+        <button class="cap-btn" title="Свернуть" @click="WindowMinimise">
+          <span class="cap-icon cap-icon-minus"></span>
+        </button>
+        <button class="cap-btn" title="Развернуть" @click="WindowToggleMaximise">
+          <span v-if="!isMaximised" class="cap-icon cap-icon-square"></span>
+          <span v-else class="cap-icon cap-icon-restore">
+            <span class="cap-icon-restore-back"></span>
+            <span class="cap-icon-restore-front"></span>
+          </span>
+        </button>
+        <button class="cap-btn cap-close" title="Закрыть" @click="Quit">
+          <span class="cap-icon cap-icon-close">
+            <span class="cap-icon-close-bar cap-icon-close-bar-1"></span>
+            <span class="cap-icon-close-bar cap-icon-close-bar-2"></span>
+          </span>
+        </button>
+      </div>
     </header>
 
     <div class="body">
@@ -424,7 +433,7 @@ onBeforeUnmount(() => {
 
         <div class="rail-spacer"></div>
 
-        <button class="rail-menu-btn rail-settings" title="Переменные окружения (⌘E)" @click="envStore.openSheet()">
+        <button class="rail-menu-btn rail-settings" :title="`Переменные окружения (${envSheetHint})`" @click="envStore.openSheet()">
           <Icon name="settings-2" :size="17" />
         </button>
       </aside>

@@ -175,6 +175,12 @@ body {
   --wails-draggable: no-drag;
 }
 
+/* Frameless titlebar: the same cluster drops back into the flex row and stops
+   at the caption buttons instead of floating over a native bar. */
+.titlebar-actions-flush {
+  @apply static translate-y-0 mr-1.5;
+}
+
 .env-wrap {
   @apply relative;
 }
