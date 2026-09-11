@@ -434,8 +434,8 @@ onBeforeUnmount(() => {
 
         <div class="rail-spacer"></div>
 
-        <button class="rail-item rail-settings" title="Настройки" @click="aboutOpen = true">
-          <span class="rail-icon"><Icon name="settings-2" :size="17" /></span>
+        <button class="rail-menu-btn rail-settings" title="Настройки" @click="aboutOpen = true">
+          <Icon name="settings-2" :size="17" />
         </button>
       </aside>
 

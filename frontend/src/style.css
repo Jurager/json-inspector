@@ -274,8 +274,13 @@ body {
 /* ---- Sidebar: narrow icon rail (menu + Запрос/Браузер), Telegram/Slack-
    style rather than the old wide text-row list — icon over label, active
    state as a soft accent fill on the whole tile. ---- */
+/* 85px is what the reference renders: its rail is 72px wide in a content-box
+   layout plus 6px padding and a border, so the tile inside ends up exactly 72 —
+   the same content-box maths has to be written out here because the app sets
+   border-box globally. With a narrower rail the unread badge lands on top of
+   the icon instead of clipping its corner. */
 .sidebar {
-  @apply w-18 flex-none bg-bg-sidebar border-r border-border py-2 px-1.5 flex flex-col items-center gap-1;
+  @apply w-[85px] flex-none bg-bg-sidebar border-r border-border py-2 px-1.5 flex flex-col items-center gap-1;
 }
 
 .rail-menu-wrap {
@@ -283,7 +288,7 @@ body {
 }
 
 .rail-menu-btn {
-  @apply flex items-center justify-center w-9 h-9 border-none rounded-lg bg-transparent text-text-secondary cursor-pointer;
+  @apply flex items-center justify-center w-9 h-9 border-none rounded-[9px] bg-transparent text-text-secondary cursor-pointer;
   --wails-draggable: no-drag;
 }
 
@@ -326,13 +331,15 @@ body {
   @apply absolute top-1 right-3 min-w-6 h-4 px-1 rounded-full bg-red text-white text-[10px] font-semibold inline-flex items-center justify-center;
 }
 
-/* Pushes the settings tile to the bottom of the rail, after the source items. */
+/* Pushes the settings button to the bottom of the rail. */
 .rail-spacer {
   @apply flex-1;
 }
 
+/* A 36×36 square, not a full-width tile: it carries no label, and the
+   reference draws it at the size of the hamburger above. */
 .rail-settings {
-  @apply flex-none;
+  @apply flex-none text-text-tertiary;
 }
 
 /* ---- Dropdown menus (rail menu, copy/export menus) ---- */
