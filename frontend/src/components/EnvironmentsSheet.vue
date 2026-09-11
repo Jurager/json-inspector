@@ -1,7 +1,12 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, type ComponentPublicInstance } from 'vue'
 import Icon from './Icon.vue'
-import { useEnvironmentsStore, type Variable } from '../stores/environments'
+import {
+  parseDotenv,
+  useEnvironmentsStore,
+  type ImportChoice,
+  type Variable,
+} from '../stores/environments'
 import { useRequestsStore } from '../stores/requests'
 import { parseTokens } from '../lib/vars'
 import { shortcut } from '../lib/platform'
@@ -191,11 +196,54 @@ function doRemove(id: string) {
   if (envStore.sheetEnvId === id) envStore.selectSheetEnv(envStore.environments[0]?.id ?? null)
 }
 
+// --- Import .env ------------------------------------------------------------
+//
+// The file is read in the webview (a file input) rather than through a Go
+// binding — nothing about parsing a text file needs the backend.
+const fileInput = ref<HTMLInputElement | null>(null)
+const importEntries = ref<ImportChoice[] | null>(null)
+
+function pickFile() {
+  if (isGlobals.value) return
+  fileInput.value?.click()
+}
+
+async function onFileChosen(e: Event) {
+  const input = e.target as HTMLInputElement
+  const file = input.files?.[0]
+  // Reset immediately, so choosing the same file twice still fires a change.
+  input.value = ''
+  if (!file) return
+  const text = await file.text()
+  // Conflicts default to "skip": an import must never overwrite a value the
+  // user set by hand without saying so on the row.
+  importEntries.value = parseDotenv(text).map((entry) => ({
+    ...entry,
+    mode: existingNames.value.has(entry.name) ? ('skip' as const) : ('replace' as const),
+  }))
+}
+
+const existingNames = computed(() => new Set(vars.value.map((v) => v.name)))
+
+const importCount = computed(
+  () => importEntries.value?.filter((e) => e.mode === 'replace' || !existingNames.value.has(e.name)).length ?? 0
+)
+
+function applyImport() {
+  if (importEntries.value) envStore.importDotenv(envId.value, importEntries.value)
+  importEntries.value = null
+}
+
 function onKeydown(e: KeyboardEvent) {
   if (e.key !== 'Escape') return
-  // Esc backs out one level at a time: first the open cell, then the sheet.
+  // Esc backs out one level at a time: the open cell, then whatever dialog is
+  // on top, then the sheet itself.
   if (editing.value) {
     cancel()
+    return
+  }
+  if (importEntries.value) {
+    importEntries.value = null
     return
   }
   if (confirming.value) {
@@ -262,7 +310,21 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
               <Icon name="minus" :size="14" />
             </button>
             <span class="side-foot-spacer"></span>
-            <button class="side-text-btn" disabled title="Появится на шаге A8">Импорт .env</button>
+            <input
+              ref="fileInput"
+              type="file"
+              accept=".env,text/plain"
+              class="file-input"
+              @change="onFileChosen"
+            />
+            <button
+              class="side-text-btn"
+              :disabled="isGlobals"
+              :title="isGlobals ? 'Импорт идёт в выбранное окружение, не в глобальные' : undefined"
+              @click="pickFile"
+            >
+              Импорт .env
+            </button>
           </div>
         </div>
 
@@ -369,6 +431,42 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
             </span>
             <span v-else>Секреты хранятся в связке ключей macOS и не попадают в экспорт коллекции</span>
           </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Import confirmation: one review pass, then one button -->
+    <div v-if="importEntries" class="confirm-overlay" @click.self="importEntries = null">
+      <div class="import">
+        <div class="import-title">
+          Импорт .env → {{ env?.name ?? 'Глобальные' }}
+        </div>
+        <div class="import-body">
+          <div v-for="e in importEntries" :key="e.name" class="import-row">
+            <button
+              class="import-secret"
+              :class="{ on: e.secret }"
+              :title="e.secret ? 'Импортировать как секрет' : 'Импортировать как обычную переменную'"
+              @click="e.secret = !e.secret"
+            >
+              <Icon v-if="e.secret" name="check" :size="10" />
+            </button>
+            <span class="import-name mono">{{ e.name }}</span>
+            <span class="import-value mono" :class="{ masked: e.secret }">{{ e.secret ? '••••' : e.value }}</span>
+            <span v-if="existingNames.has(e.name)" class="import-conflict">
+              <button class="conflict-btn" :class="{ on: e.mode === 'skip' }" @click="e.mode = 'skip'">пропустить</button>
+              <button class="conflict-btn" :class="{ on: e.mode === 'replace' }" @click="e.mode = 'replace'">заменить</button>
+            </span>
+            <span v-else class="import-new">новая</span>
+          </div>
+          <div v-if="importEntries.length === 0" class="import-empty">
+            В файле не нашлось строк вида KEY=value
+          </div>
+        </div>
+        <div class="import-actions">
+          <span class="import-summary">Будет записано: {{ importCount }}</span>
+          <button class="btn" @click="importEntries = null">Отмена</button>
+          <button class="btn btn-primary" :disabled="importCount === 0" @click="applyImport">Импортировать</button>
         </div>
       </div>
     </div>
@@ -679,5 +777,82 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
 
 .confirm-actions {
   @apply flex justify-end gap-2;
+}
+
+/* ---- import .env ---- */
+.file-input {
+  @apply hidden;
+}
+
+.import {
+  @apply flex flex-col w-[620px] max-w-[90vw] max-h-[70vh] rounded-xl overflow-hidden;
+  background: var(--bg-panel);
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.18), 0 0 0 1px var(--border);
+}
+
+.import-title {
+  @apply flex-none px-3.5 py-3 text-[13px] font-semibold border-b border-border;
+}
+
+.import-body {
+  @apply flex-1 min-h-0 overflow-auto py-1;
+}
+
+.import-row {
+  @apply grid items-center gap-2.5 px-3.5 py-1.5;
+  grid-template-columns: 20px 180px minmax(0, 1fr) auto;
+}
+
+.import-secret {
+  @apply w-[13px] h-[13px] rounded-[3px] border cursor-pointer inline-flex items-center justify-center text-white;
+  border-color: var(--border-strong);
+  background: var(--bg-panel);
+}
+
+.import-secret.on {
+  @apply bg-orange border-orange;
+}
+
+.import-name {
+  @apply text-[12.5px] overflow-hidden text-ellipsis whitespace-nowrap;
+}
+
+.import-value {
+  @apply text-[12.5px] text-text-secondary overflow-hidden text-ellipsis whitespace-nowrap;
+}
+
+.import-value.masked {
+  @apply text-text-tertiary;
+}
+
+.import-new {
+  @apply text-[11px] text-text-tertiary px-2;
+}
+
+.import-conflict {
+  @apply inline-flex gap-0.5 p-0.5 rounded-md;
+  background: var(--bg-inset);
+}
+
+.conflict-btn {
+  @apply text-[11px] py-0.5 px-2 border-none rounded-md bg-transparent text-text-secondary cursor-pointer;
+  font: inherit;
+}
+
+.conflict-btn.on {
+  @apply bg-bg-panel text-text font-medium;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.12);
+}
+
+.import-empty {
+  @apply px-3.5 py-3 text-xs text-text-tertiary;
+}
+
+.import-actions {
+  @apply flex-none flex items-center gap-2 px-3.5 py-2.5 border-t border-border;
+}
+
+.import-summary {
+  @apply flex-1 text-[11.5px] text-text-tertiary;
 }
 </style>

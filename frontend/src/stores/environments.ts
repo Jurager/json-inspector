@@ -82,6 +82,44 @@ function loadState(): Persisted {
   }
 }
 
+export interface DotenvEntry {
+  name: string
+  value: string
+  secret: boolean
+}
+
+// What the confirmation dialog hands back: the parsed row plus the decision for
+// a name that already exists.
+export interface ImportChoice extends DotenvEntry {
+  mode: 'replace' | 'skip'
+}
+
+// Names that usually carry a credential get proposed as secrets. It's a hint
+// the user can flip in the dialog, never a decision made for them.
+const SECRET_HINT = /(TOKEN|SECRET|PASSWORD|KEY|AUTH)/i
+
+// Parses a .env file into variable rows. Anything malformed is skipped rather
+// than reported: an import shouldn't fail as a whole because one line was a
+// stray comment without a `#`.
+export function parseDotenv(text: string): DotenvEntry[] {
+  const out: DotenvEntry[] = []
+  for (const raw of text.split(/\r?\n/)) {
+    const line = raw.trim()
+    if (!line || line.startsWith('#')) continue
+    const body = line.startsWith('export ') ? line.slice(7).trim() : line
+    const eq = body.indexOf('=')
+    if (eq === -1) continue
+    const name = body.slice(0, eq).trim()
+    if (!name) continue
+    let value = body.slice(eq + 1).trim()
+    const quoted =
+      (value.startsWith('"') && value.endsWith('"')) || (value.startsWith("'") && value.endsWith("'"))
+    if (quoted && value.length >= 2) value = value.slice(1, -1)
+    out.push({ name, value, secret: SECRET_HINT.test(name) })
+  }
+  return out
+}
+
 export const useEnvironmentsStore = defineStore('environments', {
   state: () => ({
     ...loadState(),
@@ -362,6 +400,26 @@ export const useEnvironmentsStore = defineStore('environments', {
 
     selectSheetEnv(id: string | null) {
       this.sheetEnvId = id
+    },
+
+    // Applies the dialog's decisions. Everything goes through addVar/updateVar
+    // so a row marked as a secret takes the same path as one typed by hand —
+    // into the vault and the keychain, never into the model.
+    importDotenv(envId: string | null, entries: ImportChoice[]) {
+      for (const e of entries) {
+        const existing = this.varsOf(envId).find((v) => v.name === e.name)
+        if (existing) {
+          if (e.mode === 'skip') continue
+          this.updateVar(envId, existing.id, {
+            value: e.value,
+            kind: e.secret ? 'secret' : existing.kind,
+          })
+          continue
+        }
+        const id = this.addVar(envId, { name: e.name, kind: e.secret ? 'secret' : 'text' })
+        this.updateVar(envId, id, { value: e.value })
+      }
+      this.persist()
     },
 
     openSheet(focus: { envId: string | null; varName: string } | null = null) {
