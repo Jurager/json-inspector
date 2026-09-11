@@ -2,12 +2,7 @@
   "compilerOptions": {
     "target": "ES2022",
     "lib": ["ES2022", "DOM"],
-    // The extension runs in Chrome, so chrome.* is the only ambient library it
-    // needs — and naming it here keeps the editor from resolving those calls
-    // against lib.dom.d.ts instead.
     "types": ["chrome"],
-    // Resolution only: these files are loaded by Chrome, never compiled, so
-    // there is nothing to type-check on the way in.
     "checkJs": false,
     "noEmit": true
   },
