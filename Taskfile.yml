@@ -320,9 +320,10 @@ tasks:
       - task: linux:build
       - task: linux:dotdesktop
     cmds:
+      - cp build/appicon.png {{.APP_PATH}}.png
       - >-
         wails3 generate appimage -binary "{{.ROOT_DIR}}/{{.APP_PATH}}"
-        -icon "{{.ROOT_DIR}}/build/appicon.png"
+        -icon "{{.ROOT_DIR}}/{{.APP_PATH}}.png"
         -desktopfile "{{.ROOT_DIR}}/build/linux/{{.APP_NAME}}.desktop"
         -outputdir "{{.ROOT_DIR}}/{{.BIN_DIR}}"
 
