@@ -312,6 +312,15 @@ async function copyRaw() {
   }
 }
 
+const bodyCopied = ref(false)
+
+async function copyBody() {
+  if (await copyToClipboard(prettyRaw.value)) {
+    bodyCopied.value = true
+    setTimeout(() => (bodyCopied.value = false), 1500)
+  }
+}
+
 const headersCopied = ref(false)
 
 async function copyHeaders() {
@@ -484,6 +493,7 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocClick))
             </template>
             <span class="head-spacer"></span>
             <button v-if="record.source === 'browser'" class="resp-action open-in-request" @click="openInRequest">Открыть в «Запросе»</button>
+            <button class="resp-action" @click="copyBody"><Icon v-if="bodyCopied" name="check" :size="12" /><span>{{ bodyCopied ? 'Скопировано' : 'Копировать' }}</span></button>
             <button class="resp-action" @click="openBodySearch"><span>Поиск</span><kbd class="keycap">{{ searchShortcut }}</kbd></button>
           </template>
         </div>
@@ -558,7 +568,7 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocClick))
 
       <template v-else>
         <div class="toolbar">
-          <span class="request-caption">после подстановки переменных окружения</span>
+          <span class="request-caption">Показаны после подстановки переменных окружения</span>
         </div>
         <div class="resp-pad">
           <div class="kv-row"><span class="kv-label">Метод</span><span class="mono">{{ record.method }}</span></div>

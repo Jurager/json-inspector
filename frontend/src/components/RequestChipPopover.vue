@@ -25,6 +25,13 @@ const isBodyDisabled = computed(() => store.draft.method === 'GET' || store.draf
 const AUTH_TYPES = ['none', 'bearer', 'basic', 'oauth2'] as const
 const AUTH_LABELS: Record<string, string> = { none: 'Нет', bearer: 'Bearer', basic: 'Basic', oauth2: 'OAuth 2' }
 
+// A sliding pill behind the segments: the indicator moves one segment (+ the
+// 2px gap) per step, animated by CSS transition on transform.
+const activeAuthIndex = computed(() => AUTH_TYPES.indexOf(store.draft.auth.type))
+const authIndicatorStyle = computed(() => ({
+  transform: `translateX(calc(${activeAuthIndex.value} * (100% + 2px)))`,
+}))
+
 function close() {
   store.setOpenChip(null)
 }
@@ -92,6 +99,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
 
     <template v-else-if="props.chip === 'auth'">
       <div class="segmented">
+        <span class="seg-indicator" :style="authIndicatorStyle"></span>
         <button
           v-for="t in AUTH_TYPES"
           :key="t"
@@ -220,16 +228,26 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
 }
 
 .segmented {
-  @apply flex gap-0.5 p-0.5 rounded-md bg-bg-inset;
+  @apply relative flex gap-0.5 p-0.5 rounded-md bg-bg-inset;
+}
+
+/* Sliding active pill. Its width is one of four equal segments minus the
+   4px padding and 3×2px gaps; translateX steps it one segment (+gap) at a
+   time, so the highlight glides to the chosen mode instead of jumping. */
+.seg-indicator {
+  @apply absolute top-0.5 bottom-0.5 left-0.5 rounded-md bg-bg-panel;
+  width: calc((100% - 10px) / 4);
+  transition: transform 0.18s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.18), 0 0 0 0.5px var(--border-strong);
 }
 
 .seg {
-  @apply flex-1 text-center text-[11.5px] py-1 rounded-md border-none bg-transparent text-text-secondary cursor-pointer;
+  @apply relative flex-1 text-center text-[11.5px] py-1 rounded-md border-none bg-transparent text-text-secondary cursor-pointer;
+  transition: color 0.18s ease;
 }
 
 .seg.active {
-  @apply bg-bg-panel font-medium text-text;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.18), 0 0 0 0.5px var(--border-strong);
+  @apply font-medium text-text;
 }
 
 .body-area {

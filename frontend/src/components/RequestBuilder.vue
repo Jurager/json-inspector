@@ -179,7 +179,6 @@ onBeforeUnmount(() => {
           <button
             class="chip chip-body"
             :class="{ 'has-body': hasBody, active: store.openChip === 'body' }"
-            :disabled="isBodyDisabled"
             :title="isBodyDisabled ? `${store.draft.method} не отправляет тело` : undefined"
             @click="toggleChip('body')"
           >

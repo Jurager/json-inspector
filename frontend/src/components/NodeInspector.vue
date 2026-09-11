@@ -107,7 +107,7 @@ onBeforeUnmount(() => {
 
     <div class="inspector-head">
       <span class="inspector-title">Инспектор узла</span>
-      <button class="btn icon-btn" title="Закрыть" @click="emit('close')"><Icon name="xmark" :size="14" /></button>
+      <button class="x-btn" title="Закрыть" @click="emit('close')"><Icon name="xmark" :size="14" /></button>
     </div>
 
     <div class="inspector-body">

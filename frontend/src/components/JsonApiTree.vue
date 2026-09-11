@@ -244,6 +244,7 @@ const noResults = computed(
           <span class="ja-type-badge">{{ g.type }}</span>
           <span class="group-res-count">
             {{ g.resources.length }} {{ pluralRu(g.resources.length, ['ресурс', 'ресурса', 'ресурсов']) }}
+            <span v-if="!isGroupOpen(g.type)" class="group-open-hint">— раскрыть группой</span>
           </span>
         </button>
         <div v-if="isGroupOpen(g.type)">
@@ -272,7 +273,7 @@ const noResults = computed(
 }
 
 .ja-included-head {
-  @apply flex items-center gap-2 flex-wrap;
+  @apply flex items-center gap-2 justify-between flex-wrap;
 }
 
 .type-chips {
@@ -302,7 +303,7 @@ const noResults = computed(
    resource card — so the collapsed groups read as peers of the resources they
    contain, not as bare section labels. */
 .included-group-head {
-  @apply flex items-center gap-2 w-full py-2 px-3 rounded-lg text-left cursor-pointer select-none;
+  @apply flex items-center gap-2 py-2 px-3 rounded-lg text-left cursor-pointer select-none;
   margin: 5px 16px;
   border: 1px solid var(--border);
   background: var(--bg-panel);
@@ -315,5 +316,9 @@ const noResults = computed(
 
 .group-res-count {
   @apply text-xs text-text-secondary;
+}
+
+.group-open-hint {
+  @apply text-text-tertiary;
 }
 </style>

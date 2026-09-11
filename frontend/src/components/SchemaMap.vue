@@ -305,23 +305,23 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocClick))
           @keydown.esc="closeSearch"
         />
         <span v-if="query.trim()" class="search-count">{{ filteredTypes.length }} найдено</span>
-        <button class="btn icon-btn" title="Закрыть (Esc)" @click="closeSearch"><Icon name="xmark" :size="14" /></button>
+        <button class="x-btn" title="Закрыть (Esc)" @click="closeSearch"><Icon name="xmark" :size="14" /></button>
       </template>
       <template v-else>
         <span v-if="types.length && !diff" class="summary">{{ types.length }} типов · {{ all.length }} ресурсов</span>
 
         <span class="head-spacer"></span>
 
-        <button class="btn btn-inline" @click="openSearch"><span>Поиск</span><kbd class="keycap">{{ searchShortcut }}</kbd></button>
+        <button class="btn-sm" @click="openSearch"><span>Поиск</span><kbd class="keycap">{{ searchShortcut }}</kbd></button>
 
         <div class="compare-wrap">
-          <button class="btn btn-inline" @click="compareOpen = true">
+          <button class="btn-sm" @click="compareOpen = true">
             <Icon name="compare" :size="14" />
             <span>Сравнить</span>
           </button>
         </div>
         <div ref="exportWrap" class="export-wrap">
-          <button class="btn btn-inline" :disabled="!types.length" @click="exportOpen = !exportOpen">
+          <button class="btn-sm" :disabled="!types.length" @click="exportOpen = !exportOpen">
             <Icon v-if="copied" name="check" :size="12" />
             <span>{{ copied ? 'Скопировано' : 'Экспорт' }}</span>
             <svg viewBox="0 0 10 6" width="10" height="6" fill="none" aria-hidden="true"><path d="M1.5 1.5L5 5L8.5 1.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
@@ -440,7 +440,7 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocClick))
     <div class="compare-modal">
       <div class="compare-modal-head">
         <span class="compare-modal-title">Сравнить схему с…</span>
-        <button class="btn icon-btn" @click="compareOpen = false"><Icon name="xmark" :size="14" /></button>
+        <button class="x-btn" @click="compareOpen = false"><Icon name="xmark" :size="14" /></button>
       </div>
 
       <div class="compare-search">

@@ -99,6 +99,12 @@ export const useRequestsStore = defineStore('requests', {
     },
     selectManual(id: string) {
       this.manualId = id
+      // Selecting a history entry also loads its method/URL/headers/body into
+      // the command line, so the editor and the shown response stay in sync and
+      // the request can be re-sent or edited — the same behaviour as "Открыть в
+      // «Запросе»", minus the view switch.
+      const r = this.requests.find((x) => x.id === id)
+      if (r) this.loadDraft(r)
     },
     selectBrowser(id: string) {
       this.browserId = id
