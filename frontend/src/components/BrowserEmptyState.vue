@@ -37,7 +37,7 @@ function openInstructions() {
     <div class="empty-box">
       <div class="empty-head">
         <div class="empty-title">Подключите расширение, чтобы видеть запросы браузера</div>
-        <div class="empty-subtitle">Перехваченные запросы появятся здесь автоматически — выполнять их повторно не нужно.</div>
+        <div class="empty-subtitle">Перехваченные запросы появятся здесь автоматически.</div>
       </div>
 
       <div class="steps">

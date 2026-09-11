@@ -897,6 +897,504 @@
       </div>
     </div>
   </section>
+
+  <section style="width: 1480px; display: flex; flex-direction: column; gap: 24px;">
+    <div style="display: flex; flex-direction: column; gap: 10px; max-width: 860px;">
+      <div style="font-family: ui-monospace, 'SF Mono', Menlo, monospace; font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: #86868b;">04 · Расширение</div>
+      <h1 style="margin: 0; font-size: 34px; line-height: 1.15; font-weight: 600; letter-spacing: -0.02em;">Поп-ап отвечает на один вопрос: ловится ли эта вкладка</h1>
+      <p style="margin: 0; font-size: 15px; line-height: 1.55; color: #6e6e73; text-wrap: pretty;">Сейчас поп-ап показывает четыре блока одного веса: тумблер, строку состояния, список вкладок и порт. Ни один не назван — тумблер не говорит, какую вкладку он включает, а список не говорит, связан ли он с тумблером. В редизайне поп-ап собран вокруг текущей вкладки: она названа, у неё счётчик перехваченных запросов и вход в приложение. Порт и прочая служебка уходят под шестерёнку.</p>
+    </div>
+
+    <div style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px;">
+      <div style="background: #fff; border: 1px solid rgba(0,0,0,0.1); border-radius: 10px; padding: 14px 16px; display: flex; flex-direction: column; gap: 6px;">
+        <div style="font-size: 13px; font-weight: 600;">Безымянная вкладка</div>
+        <div style="font-size: 12.5px; line-height: 1.5; color: #6e6e73;">«Перехватывать вкладку» — какую? Название текущей страницы в поп-апе не показано.</div>
+      </div>
+      <div style="background: #fff; border: 1px solid rgba(0,0,0,0.1); border-radius: 10px; padding: 14px 16px; display: flex; flex-direction: column; gap: 6px;">
+        <div style="font-size: 13px; font-weight: 600;">Порт на виду</div>
+        <div style="font-size: 12.5px; line-height: 1.5; color: #6e6e73;">Поле, которое меняют раз в жизни, занимает столько же места, сколько главный тумблер.</div>
+      </div>
+      <div style="background: #fff; border: 1px solid rgba(0,0,0,0.1); border-radius: 10px; padding: 14px 16px; display: flex; flex-direction: column; gap: 6px;">
+        <div style="font-size: 13px; font-weight: 600;">Счётчик — тупик</div>
+        <div style="font-size: 12.5px; line-height: 1.5; color: #6e6e73;">«2 запроса» — единственная живая цифра, и на неё нельзя нажать.</div>
+      </div>
+      <div style="background: #fff; border: 1px solid rgba(0,0,0,0.1); border-radius: 10px; padding: 14px 16px; display: flex; flex-direction: column; gap: 6px;">
+        <div style="font-size: 13px; font-weight: 600;">Состояние без выхода</div>
+        <div style="font-size: 12.5px; line-height: 1.5; color: #6e6e73;">«Приложение запущено» — просто надпись; если оно не запущено, поп-ап ничего не предлагает.</div>
+      </div>
+    </div>
+
+    <div style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 24px; align-items: start;">
+
+      <div style="display: flex; flex-direction: column; gap: 10px;">
+        <div style="background: #fff; border-radius: 14px; box-shadow: 0 12px 34px rgba(0,0,0,0.14), 0 0 0 1px rgba(0,0,0,0.08); overflow: hidden;">
+          <div style="display: flex; align-items: center; gap: 10px; padding: 14px 14px 12px;">
+            <span style="width: 34px; height: 34px; flex: none; border-radius: 9px; background: #1aa463; color: #fff; font-family: ui-monospace, 'SF Mono', Menlo, monospace; font-size: 14px; font-weight: 700; display: inline-flex; align-items: center; justify-content: center;">{-}</span>
+            <div style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px;">
+              <div style="font-size: 14.5px; font-weight: 600; letter-spacing: -0.01em;">JSON Inspector</div>
+              <div style="display: flex; align-items: center; gap: 6px; font-size: 11.5px; color: #6e6e73;">
+                <span style="width: 6px; height: 6px; border-radius: 999px; background: #34c759;"></span>
+                <span>Подключено</span>
+                <span style="font-family: ui-monospace, 'SF Mono', Menlo, monospace; color: #86868b;">:38761</span>
+              </div>
+            </div>
+            <button style="width: 28px; height: 28px; flex: none; border: none; border-radius: 7px; background: transparent; color: #86868b; cursor: pointer; display: inline-flex; align-items: center; justify-content: center;" style-hover="background: rgba(0,0,0,0.05); color: #1d1d1f;">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><circle cx="12" cy="12" r="3.2" /><path d="M12 3v2.2M12 18.8V21M3 12h2.2M18.8 12H21M5.6 5.6l1.6 1.6M16.8 16.8l1.6 1.6M18.4 5.6l-1.6 1.6M7.2 16.8l-1.6 1.6" /></svg>
+            </button>
+          </div>
+
+          <div style="padding: 0 12px 12px; display: flex; flex-direction: column; gap: 10px;">
+            <div style="border: 1px solid rgba(52,199,89,0.45); border-radius: 11px; background: rgba(52,199,89,0.06); overflow: hidden;">
+              <div style="display: flex; align-items: center; gap: 10px; padding: 11px 12px;">
+                <span style="width: 20px; height: 20px; flex: none; border-radius: 5px; background: #e8e8ed; color: #6e6e73; font-size: 10px; font-weight: 700; display: inline-flex; align-items: center; justify-content: center;">U</span>
+                <div style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px;">
+                  <div style="font-size: 13px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">Каталог — Ucell</div>
+                  <div style="font-family: ui-monospace, 'SF Mono', Menlo, monospace; font-size: 11px; color: #6e6e73; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">ucell.retail.itl.digital</div>
+                </div>
+                <span style="width: 44px; height: 26px; flex: none; border-radius: 999px; background: #34c759; position: relative; cursor: pointer;">
+                  <span style="position: absolute; top: 3px; left: 21px; width: 20px; height: 20px; border-radius: 999px; background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,0.25);"></span>
+                </span>
+              </div>
+              <div style="border-top: 1px solid rgba(52,199,89,0.3); display: flex; align-items: center; gap: 8px; padding: 9px 12px; cursor: pointer;" style-hover="background: rgba(52,199,89,0.1);">
+                <span style="font-size: 12.5px; font-weight: 600; color: #1d1d1f;">2 запроса</span>
+                <span style="font-size: 12px; color: #6e6e73;">последний 12 с назад</span>
+                <span style="flex: 1;"></span>
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#007aff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6" /></svg>
+              </div>
+            </div>
+
+            <div style="display: flex; flex-direction: column; gap: 4px;">
+              <div style="font-family: ui-monospace, 'SF Mono', Menlo, monospace; font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; color: #86868b; padding: 2px 2px 2px;">Ещё перехватывается</div>
+              <div style="display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 9px; cursor: pointer;" style-hover="background: rgba(0,0,0,0.045);">
+                <span style="width: 20px; height: 20px; flex: none; border-radius: 5px; background: #e8e8ed; color: #6e6e73; font-size: 10px; font-weight: 700; display: inline-flex; align-items: center; justify-content: center;">A</span>
+                <div style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px;">
+                  <div style="font-size: 12.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">Админка — ITL</div>
+                  <div style="font-family: ui-monospace, 'SF Mono', Menlo, monospace; font-size: 10.5px; color: #86868b; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">admin.itl.digital</div>
+                </div>
+                <span style="flex: none; font-size: 11px; color: #6e6e73; font-variant-numeric: tabular-nums;">17</span>
+                <span style="width: 20px; height: 20px; flex: none; border-radius: 5px; color: #86868b; display: inline-flex; align-items: center; justify-content: center;" style-hover="background: rgba(0,0,0,0.08); color: #1d1d1f;">
+                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18" /></svg>
+                </span>
+              </div>
+            </div>
+
+            <button style="width: 100%; height: 36px; border: none; border-radius: 9px; background: #007aff; color: #fff; font: inherit; font-size: 13.5px; font-weight: 600; cursor: pointer;" style-hover="background: #0069df;">Открыть приложение</button>
+          </div>
+        </div>
+        <div style="font-size: 12.5px; line-height: 1.5; color: #6e6e73;"><span style="color: #1d1d1f; font-weight: 600;">Перехват идёт.</span> Вкладка названа, счётчик живой и ведёт в приложение с фильтром по этой вкладке.</div>
+      </div>
+
+      <div style="display: flex; flex-direction: column; gap: 10px;">
+        <div style="background: #fff; border-radius: 14px; box-shadow: 0 12px 34px rgba(0,0,0,0.14), 0 0 0 1px rgba(0,0,0,0.08); overflow: hidden;">
+          <div style="display: flex; align-items: center; gap: 10px; padding: 14px 14px 12px;">
+            <span style="width: 34px; height: 34px; flex: none; border-radius: 9px; background: #1aa463; color: #fff; font-family: ui-monospace, 'SF Mono', Menlo, monospace; font-size: 14px; font-weight: 700; display: inline-flex; align-items: center; justify-content: center;">{-}</span>
+            <div style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px;">
+              <div style="font-size: 14.5px; font-weight: 600; letter-spacing: -0.01em;">JSON Inspector</div>
+              <div style="display: flex; align-items: center; gap: 6px; font-size: 11.5px; color: #6e6e73;">
+                <span style="width: 6px; height: 6px; border-radius: 999px; background: #34c759;"></span>
+                <span>Подключено</span>
+                <span style="font-family: ui-monospace, 'SF Mono', Menlo, monospace; color: #86868b;">:38761</span>
+              </div>
+            </div>
+            <button style="width: 28px; height: 28px; flex: none; border: none; border-radius: 7px; background: transparent; color: #86868b; cursor: pointer; display: inline-flex; align-items: center; justify-content: center;" style-hover="background: rgba(0,0,0,0.05); color: #1d1d1f;">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><circle cx="12" cy="12" r="3.2" /><path d="M12 3v2.2M12 18.8V21M3 12h2.2M18.8 12H21M5.6 5.6l1.6 1.6M16.8 16.8l1.6 1.6M18.4 5.6l-1.6 1.6M7.2 16.8l-1.6 1.6" /></svg>
+            </button>
+          </div>
+
+          <div style="padding: 0 12px 12px; display: flex; flex-direction: column; gap: 10px;">
+            <div style="border: 1px solid rgba(0,0,0,0.12); border-radius: 11px; background: #fff;">
+              <div style="display: flex; align-items: center; gap: 10px; padding: 11px 12px;">
+                <span style="width: 20px; height: 20px; flex: none; border-radius: 5px; background: #e8e8ed; color: #6e6e73; font-size: 10px; font-weight: 700; display: inline-flex; align-items: center; justify-content: center;">U</span>
+                <div style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px;">
+                  <div style="font-size: 13px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">Каталог — Ucell</div>
+                  <div style="font-family: ui-monospace, 'SF Mono', Menlo, monospace; font-size: 11px; color: #6e6e73; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">ucell.retail.itl.digital</div>
+                </div>
+                <span style="width: 44px; height: 26px; flex: none; border-radius: 999px; background: rgba(0,0,0,0.16); position: relative; cursor: pointer;">
+                  <span style="position: absolute; top: 3px; left: 3px; width: 20px; height: 20px; border-radius: 999px; background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,0.25);"></span>
+                </span>
+              </div>
+              <div style="border-top: 1px solid rgba(0,0,0,0.08); padding: 9px 12px; font-size: 12px; line-height: 1.45; color: #6e6e73;">Запросы этой вкладки не пишутся. Включите, и они появятся в приложении.</div>
+            </div>
+
+            <div style="display: flex; flex-direction: column; gap: 4px;">
+              <div style="font-family: ui-monospace, 'SF Mono', Menlo, monospace; font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; color: #86868b; padding: 2px;">Ещё перехватывается</div>
+              <div style="display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 9px; cursor: pointer;" style-hover="background: rgba(0,0,0,0.045);">
+                <span style="width: 20px; height: 20px; flex: none; border-radius: 5px; background: #e8e8ed; color: #6e6e73; font-size: 10px; font-weight: 700; display: inline-flex; align-items: center; justify-content: center;">A</span>
+                <div style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px;">
+                  <div style="font-size: 12.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">Админка — ITL</div>
+                  <div style="font-family: ui-monospace, 'SF Mono', Menlo, monospace; font-size: 10.5px; color: #86868b; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">admin.itl.digital</div>
+                </div>
+                <span style="flex: none; font-size: 11px; color: #6e6e73; font-variant-numeric: tabular-nums;">17</span>
+                <span style="width: 20px; height: 20px; flex: none; border-radius: 5px; color: #86868b; display: inline-flex; align-items: center; justify-content: center;" style-hover="background: rgba(0,0,0,0.08); color: #1d1d1f;">
+                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18" /></svg>
+                </span>
+              </div>
+            </div>
+
+            <button style="width: 100%; height: 36px; border: 1px solid rgba(0,0,0,0.16); border-radius: 9px; background: #fff; color: #1d1d1f; font: inherit; font-size: 13.5px; font-weight: 600; cursor: pointer;" style-hover="background: rgba(0,0,0,0.05);">Открыть приложение</button>
+          </div>
+        </div>
+        <div style="font-size: 12.5px; line-height: 1.5; color: #6e6e73;"><span style="color: #1d1d1f; font-weight: 600;">Вкладка выключена.</span> Зелёного нет нигде — по одному взгляду на поп-ап видно, что эта страница не пишется.</div>
+      </div>
+
+      <div style="display: flex; flex-direction: column; gap: 10px;">
+        <div style="background: #fff; border-radius: 14px; box-shadow: 0 12px 34px rgba(0,0,0,0.14), 0 0 0 1px rgba(0,0,0,0.08); overflow: hidden;">
+          <div style="display: flex; align-items: center; gap: 10px; padding: 14px 14px 12px;">
+            <span style="width: 34px; height: 34px; flex: none; border-radius: 9px; background: #e8e8ed; color: #86868b; font-family: ui-monospace, 'SF Mono', Menlo, monospace; font-size: 14px; font-weight: 700; display: inline-flex; align-items: center; justify-content: center;">{-}</span>
+            <div style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px;">
+              <div style="font-size: 14.5px; font-weight: 600; letter-spacing: -0.01em;">JSON Inspector</div>
+              <div style="display: flex; align-items: center; gap: 6px; font-size: 11.5px; color: #6e6e73;">
+                <span style="width: 6px; height: 6px; border-radius: 999px; background: #ff9500;"></span>
+                <span>Приложение не запущено</span>
+              </div>
+            </div>
+            <button style="width: 28px; height: 28px; flex: none; border: none; border-radius: 7px; background: transparent; color: #86868b; cursor: pointer; display: inline-flex; align-items: center; justify-content: center;" style-hover="background: rgba(0,0,0,0.05); color: #1d1d1f;">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><circle cx="12" cy="12" r="3.2" /><path d="M12 3v2.2M12 18.8V21M3 12h2.2M18.8 12H21M5.6 5.6l1.6 1.6M16.8 16.8l1.6 1.6M18.4 5.6l-1.6 1.6M7.2 16.8l-1.6 1.6" /></svg>
+            </button>
+          </div>
+
+          <div style="padding: 0 12px 12px; display: flex; flex-direction: column; gap: 10px;">
+            <div style="border: 1px solid rgba(255,149,0,0.4); background: rgba(255,149,0,0.08); border-radius: 11px; padding: 11px 12px; display: flex; flex-direction: column; gap: 8px;">
+              <div style="font-size: 12.5px; line-height: 1.5; color: #1d1d1f; text-wrap: pretty;">Расширение продолжает копить запросы, но показать их некому: приложение на порту <span style="font-family: ui-monospace, 'SF Mono', Menlo, monospace;">38761</span> не отвечает.</div>
+              <button style="align-self: flex-start; height: 30px; padding: 0 12px; border: none; border-radius: 8px; background: #007aff; color: #fff; font: inherit; font-size: 12.5px; font-weight: 600; cursor: pointer;" style-hover="background: #0069df;">Запустить приложение</button>
+            </div>
+
+            <div style="border: 1px solid rgba(0,0,0,0.12); border-radius: 11px; padding: 11px 12px; display: flex; align-items: center; gap: 10px; opacity: 0.55;">
+              <span style="width: 20px; height: 20px; flex: none; border-radius: 5px; background: #e8e8ed; color: #6e6e73; font-size: 10px; font-weight: 700; display: inline-flex; align-items: center; justify-content: center;">U</span>
+              <div style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px;">
+                <div style="font-size: 13px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">Каталог — Ucell</div>
+                <div style="font-family: ui-monospace, 'SF Mono', Menlo, monospace; font-size: 11px; color: #6e6e73; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">ucell.retail.itl.digital</div>
+              </div>
+              <span style="width: 44px; height: 26px; flex: none; border-radius: 999px; background: #34c759; position: relative;">
+                <span style="position: absolute; top: 3px; left: 21px; width: 20px; height: 20px; border-radius: 999px; background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,0.25);"></span>
+              </span>
+            </div>
+
+            <div style="display: flex; align-items: center; gap: 8px; padding: 0 2px; font-size: 11.5px; color: #86868b;">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M12 8v5" /><path d="M12 16.5v.01" /><circle cx="12" cy="12" r="9" /></svg>
+              <span>19 запросов в буфере, отдадим после запуска</span>
+            </div>
+          </div>
+        </div>
+        <div style="font-size: 12.5px; line-height: 1.5; color: #6e6e73;"><span style="color: #1d1d1f; font-weight: 600;">Приложение не отвечает.</span> Вместо надписи о состоянии — причина, действие и обещание, что данные не потеряны.</div>
+      </div>
+
+      <div style="display: flex; flex-direction: column; gap: 10px;">
+        <div style="background: #fff; border-radius: 14px; box-shadow: 0 12px 34px rgba(0,0,0,0.14), 0 0 0 1px rgba(0,0,0,0.08); overflow: hidden;">
+          <div style="display: flex; align-items: center; gap: 8px; padding: 14px 14px 12px;">
+            <button style="width: 28px; height: 28px; flex: none; border: none; border-radius: 7px; background: transparent; color: #6e6e73; cursor: pointer; display: inline-flex; align-items: center; justify-content: center;" style-hover="background: rgba(0,0,0,0.05); color: #1d1d1f;">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 6-6 6 6 6" /></svg>
+            </button>
+            <div style="flex: 1; font-size: 14.5px; font-weight: 600; letter-spacing: -0.01em;">Настройки</div>
+          </div>
+
+          <div style="padding: 0 12px 12px; display: flex; flex-direction: column; gap: 2px;">
+            <div style="display: flex; align-items: center; gap: 12px; padding: 10px 2px; border-top: 1px solid rgba(0,0,0,0.08);">
+              <div style="flex: 1; display: flex; flex-direction: column; gap: 2px;">
+                <div style="font-size: 13px; font-weight: 600;">Порт приложения</div>
+                <div style="font-size: 11.5px; color: #6e6e73;">По умолчанию 38761</div>
+              </div>
+              <input value="38761" style="width: 82px; height: 28px; flex: none; border: 1px solid rgba(0,0,0,0.16); border-radius: 7px; background: #fff; padding: 0 9px; font-family: ui-monospace, 'SF Mono', Menlo, monospace; font-size: 12.5px; color: #1d1d1f; text-align: right;" />
+            </div>
+            <div style="display: flex; align-items: center; gap: 12px; padding: 10px 2px; border-top: 1px solid rgba(0,0,0,0.08);">
+              <div style="flex: 1; display: flex; flex-direction: column; gap: 2px;">
+                <div style="font-size: 13px; font-weight: 600;">Помнить вкладки</div>
+                <div style="font-size: 11.5px; color: #6e6e73;">Включать перехват на тех же адресах после перезапуска</div>
+              </div>
+              <span style="width: 40px; height: 24px; flex: none; border-radius: 999px; background: #34c759; position: relative; cursor: pointer;">
+                <span style="position: absolute; top: 3px; left: 19px; width: 18px; height: 18px; border-radius: 999px; background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,0.25);"></span>
+              </span>
+            </div>
+            <div style="display: flex; align-items: center; gap: 12px; padding: 10px 2px; border-top: 1px solid rgba(0,0,0,0.08);">
+              <div style="flex: 1; display: flex; flex-direction: column; gap: 2px;">
+                <div style="font-size: 13px; font-weight: 600;">Только XHR и fetch</div>
+                <div style="font-size: 11.5px; color: #6e6e73;">Пропускать картинки, стили и шрифты</div>
+              </div>
+              <span style="width: 40px; height: 24px; flex: none; border-radius: 999px; background: #34c759; position: relative; cursor: pointer;">
+                <span style="position: absolute; top: 3px; left: 19px; width: 18px; height: 18px; border-radius: 999px; background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,0.25);"></span>
+              </span>
+            </div>
+            <div style="display: flex; align-items: center; gap: 12px; padding: 10px 2px; border-top: 1px solid rgba(0,0,0,0.08); border-bottom: 1px solid rgba(0,0,0,0.08);">
+              <div style="flex: 1; display: flex; flex-direction: column; gap: 2px;">
+                <div style="font-size: 13px; font-weight: 600;">Чистить историю при выходе</div>
+                <div style="font-size: 11.5px; color: #6e6e73;">Не хранить перехваченные тела запросов</div>
+              </div>
+              <span style="width: 40px; height: 24px; flex: none; border-radius: 999px; background: rgba(0,0,0,0.16); position: relative; cursor: pointer;">
+                <span style="position: absolute; top: 3px; left: 3px; width: 18px; height: 18px; border-radius: 999px; background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,0.25);"></span>
+              </span>
+            </div>
+            <div style="padding-top: 10px; font-family: ui-monospace, 'SF Mono', Menlo, monospace; font-size: 10.5px; color: #86868b;">Версия 1.4.2 · сборка 218</div>
+          </div>
+        </div>
+        <div style="font-size: 12.5px; line-height: 1.5; color: #6e6e73;"><span style="color: #1d1d1f; font-weight: 600;">Настройки.</span> Всё, что настраивают один раз: порт, память вкладок, фильтр типов, приватность.</div>
+      </div>
+
+    </div>
+
+    <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px;">
+      <div style="background: #fff; border: 1px solid rgba(0,0,0,0.1); border-radius: 10px; padding: 14px 16px; display: flex; flex-direction: column; gap: 6px;">
+        <div style="font-size: 13px; font-weight: 600;">Текущая вкладка — главный объект</div>
+        <div style="font-size: 12.5px; line-height: 1.5; color: #6e6e73;">Один тумблер, и он подписан именем и хостом страницы, на которой стоит пользователь. Остальные вкладки — вторичный список ниже.</div>
+      </div>
+      <div style="background: #fff; border: 1px solid rgba(0,0,0,0.1); border-radius: 10px; padding: 14px 16px; display: flex; flex-direction: column; gap: 6px;">
+        <div style="font-size: 13px; font-weight: 600;">Счётчик — это ссылка</div>
+        <div style="font-size: 12.5px; line-height: 1.5; color: #6e6e73;">«2 запроса» открывает приложение в режиме «Браузер» с выбранной этой вкладкой, а не просто окно.</div>
+      </div>
+      <div style="background: #fff; border: 1px solid rgba(0,0,0,0.1); border-radius: 10px; padding: 14px 16px; display: flex; flex-direction: column; gap: 6px;">
+        <div style="font-size: 13px; font-weight: 600;">Состояние в шапке, а не в теле</div>
+        <div style="font-size: 12.5px; line-height: 1.5; color: #6e6e73;">Строка «Подключено · :38761» под названием заменяет и «Приложение запущено», и поле порта. Проблема поднимается в тело только когда она есть.</div>
+      </div>
+    </div>
+  </section>
+
+  <section style="width: 1480px; display: flex; flex-direction: column; gap: 24px;">
+    <div style="display: flex; flex-direction: column; gap: 10px; max-width: 880px;">
+      <div style="font-family: ui-monospace, 'SF Mono', Menlo, monospace; font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: #86868b;">05 · Окружения</div>
+      <h1 style="margin: 0; font-size: 34px; line-height: 1.15; font-weight: 600; letter-spacing: -0.02em;">Переменные живут в зоне «Окно» и подставляются везде</h1>
+      <p style="margin: 0; font-size: 15px; line-height: 1.55; color: #6e6e73; text-wrap: pretty;">Окружение — свойство окна, а не запроса: оно выбирается в шапке и меняет значения под всеми подстановками сразу. Пользователь видит две вещи: чип с именем окружения в шапке и подсвеченные токены <span style="font-family: ui-monospace, 'SF Mono', Menlo, monospace; font-size: 13.5px;"><span>{</span><span>{name}}</span></span> в URL, заголовках и теле. Всё остальное — редактор в отдельном листе, который открывается из того же чипа.</p>
+    </div>
+
+    <div style="display: grid; grid-template-columns: minmax(0, 440px) minmax(0, 1fr); gap: 24px; align-items: start;">
+
+      <div style="display: flex; flex-direction: column; gap: 10px;">
+        <div style="background: #fff; border: 1px solid rgba(0,0,0,0.1); border-radius: 14px; padding: 20px; display: flex; flex-direction: column; gap: 16px;">
+          <div style="display: flex; justify-content: flex-end;">
+            <button style="display: inline-flex; align-items: center; gap: 6px; height: 26px; padding: 0 10px; border-radius: 7px; border: 1px solid rgba(0,0,0,0.16); background: #fff; box-shadow: 0 1px 2px rgba(0,0,0,0.06); color: #1d1d1f; font: inherit; font-size: 12px; cursor: pointer;">
+              <span style="width: 7px; height: 7px; border-radius: 999px; background: #34c759;"></span>
+              <span>Local · dev</span>
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#86868b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6" /></svg>
+            </button>
+          </div>
+          <div style="align-self: flex-end; width: 280px; background: #fff; border-radius: 11px; box-shadow: 0 14px 36px rgba(0,0,0,0.18), 0 0 0 1px rgba(0,0,0,0.08); padding: 6px; display: flex; flex-direction: column; gap: 1px;">
+            <div style="padding: 6px 10px 4px; font-family: ui-monospace, 'SF Mono', Menlo, monospace; font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; color: #86868b;">Окружение</div>
+            <div style="display: flex; align-items: center; gap: 8px; padding: 7px 10px; border-radius: 7px; background: rgba(0,122,255,0.12);">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#007aff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m4 12 5 5L20 6" /></svg>
+              <span style="flex: 1; font-size: 13px; font-weight: 600; color: #1d1d1f;">Local · dev</span>
+              <span style="font-family: ui-monospace, 'SF Mono', Menlo, monospace; font-size: 10.5px; color: #6e6e73;">7 перем.</span>
+            </div>
+            <div style="display: flex; align-items: center; gap: 8px; padding: 7px 10px 7px 30px; border-radius: 7px; cursor: pointer;" style-hover="background: rgba(0,0,0,0.05);">
+              <span style="flex: 1; font-size: 13px;">Stage</span>
+              <span style="font-family: ui-monospace, 'SF Mono', Menlo, monospace; font-size: 10.5px; color: #86868b;">7</span>
+            </div>
+            <div style="display: flex; align-items: center; gap: 8px; padding: 7px 10px 7px 30px; border-radius: 7px; cursor: pointer;" style-hover="background: rgba(0,0,0,0.05);">
+              <span style="flex: 1; font-size: 13px;">Prod</span>
+              <span style="padding: 1px 5px; border-radius: 4px; background: rgba(255,59,48,0.12); color: #d1372c; font-size: 10px; font-weight: 600;">только чтение</span>
+            </div>
+            <div style="display: flex; align-items: center; gap: 8px; padding: 7px 10px 7px 30px; border-radius: 7px; cursor: pointer;" style-hover="background: rgba(0,0,0,0.05);">
+              <span style="flex: 1; font-size: 13px; color: #6e6e73;">Без окружения</span>
+            </div>
+            <div style="height: 1px; background: rgba(0,0,0,0.08); margin: 5px 8px;"></div>
+            <div style="display: flex; align-items: center; gap: 8px; padding: 7px 10px; border-radius: 7px; cursor: pointer;" style-hover="background: rgba(0,0,0,0.05);">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#6e6e73" stroke-width="1.7" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h10" /></svg>
+              <span style="flex: 1; font-size: 13px;">Редактировать переменные…</span>
+              <span style="font-family: ui-monospace, 'SF Mono', Menlo, monospace; font-size: 10.5px; color: #86868b;">⌘E</span>
+            </div>
+          </div>
+        </div>
+        <div style="font-size: 12.5px; line-height: 1.5; color: #6e6e73;"><span style="color: #1d1d1f; font-weight: 600;">Переключатель.</span> Чип в шапке — единственная точка входа: смена окружения и вход в редактор. Prod помечен как read-only, чтобы боевые значения не правили на бегу.</div>
+      </div>
+
+      <div style="display: flex; flex-direction: column; gap: 10px;">
+        <div style="background: #fff; border: 1px solid rgba(0,0,0,0.1); border-radius: 14px; padding: 20px; display: flex; flex-direction: column; gap: 20px;">
+
+          <div style="display: flex; flex-direction: column; gap: 8px;">
+            <div style="font-family: ui-monospace, 'SF Mono', Menlo, monospace; font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; color: #86868b;">Подставленное значение по наведению</div>
+            <div style="display: flex; align-items: center; gap: 8px; height: 34px; padding: 0 10px; border: 1px solid rgba(0,0,0,0.16); border-radius: 8px; background: #fff; font-family: ui-monospace, 'SF Mono', Menlo, monospace; font-size: 12.5px;">
+              <span style="font-weight: 600; color: #007aff;">GET</span>
+              <span style="padding: 1px 4px; border-radius: 4px; background: rgba(0,122,255,0.12); color: #0062cc;"><span>{</span><span>{baseUrl}}</span></span>
+              <span style="color: #1d1d1f;">/v1/catalog/categories?tenant=</span>
+              <span style="padding: 1px 4px; border-radius: 4px; background: rgba(0,122,255,0.12); color: #0062cc;"><span>{</span><span>{tenant}}</span></span>
+            </div>
+            <div style="margin-left: 62px; align-self: flex-start; background: #1d1d1f; color: #fff; border-radius: 7px; padding: 7px 10px; display: flex; flex-direction: column; gap: 3px; box-shadow: 0 8px 22px rgba(0,0,0,0.22);">
+              <div style="font-family: ui-monospace, 'SF Mono', Menlo, monospace; font-size: 11.5px;">https://api.local.itl.digital</div>
+              <div style="font-size: 11px; color: rgba(255,255,255,0.6);">Local · dev → baseUrl · ⌥клик, чтобы открыть в редакторе</div>
+            </div>
+          </div>
+
+          <div style="display: flex; flex-direction: column; gap: 8px;">
+            <div style="font-family: ui-monospace, 'SF Mono', Menlo, monospace; font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; color: #86868b;">Неизвестная переменная</div>
+            <div style="display: flex; align-items: center; gap: 8px; height: 34px; padding: 0 10px; border: 1px solid rgba(255,59,48,0.45); border-radius: 8px; background: #fff; font-family: ui-monospace, 'SF Mono', Menlo, monospace; font-size: 12.5px;">
+              <span style="font-weight: 600; color: #007aff;">GET</span>
+              <span style="padding: 1px 4px; border-radius: 4px; background: rgba(0,122,255,0.12); color: #0062cc;"><span>{</span><span>{baseUrl}}</span></span>
+              <span style="color: #1d1d1f;">/v1/orders/</span>
+              <span style="padding: 1px 4px; border-radius: 4px; background: rgba(255,59,48,0.12); color: #d1372c; text-decoration: underline; text-decoration-style: wavy; text-underline-offset: 3px;"><span>{</span><span>{orderId}}</span></span>
+            </div>
+            <div style="display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 8px; background: rgba(255,59,48,0.07); font-size: 12.5px; color: #1d1d1f;">
+              <span style="flex: 1;">В окружении Local · dev нет переменной <span style="font-family: ui-monospace, 'SF Mono', Menlo, monospace;">orderId</span>. Отправка заблокирована.</span>
+              <button style="flex: none; height: 26px; padding: 0 10px; border: none; border-radius: 7px; background: #007aff; color: #fff; font: inherit; font-size: 12px; font-weight: 600; cursor: pointer;" style-hover="background: #0069df;">Создать</button>
+            </div>
+          </div>
+
+          <div style="display: flex; flex-direction: column; gap: 8px;">
+            <div style="font-family: ui-monospace, 'SF Mono', Menlo, monospace; font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; color: #86868b;">Порядок разрешения</div>
+            <div style="display: flex; align-items: stretch; gap: 8px;">
+              <div style="flex: 1; border: 1px solid rgba(0,0,0,0.1); border-radius: 9px; padding: 10px 12px; display: flex; flex-direction: column; gap: 3px;">
+                <div style="font-size: 12.5px; font-weight: 600;">Запрос</div>
+                <div style="font-size: 11.5px; line-height: 1.45; color: #6e6e73;">значение, заданное прямо в запросе</div>
+              </div>
+              <div style="align-self: center; color: #86868b; font-size: 14px;">›</div>
+              <div style="flex: 1; border: 1px solid rgba(0,0,0,0.1); border-radius: 9px; padding: 10px 12px; display: flex; flex-direction: column; gap: 3px;">
+                <div style="font-size: 12.5px; font-weight: 600;">Окружение</div>
+                <div style="font-size: 11.5px; line-height: 1.45; color: #6e6e73;">выбранное в шапке окна</div>
+              </div>
+              <div style="align-self: center; color: #86868b; font-size: 14px;">›</div>
+              <div style="flex: 1; border: 1px solid rgba(0,0,0,0.1); border-radius: 9px; padding: 10px 12px; display: flex; flex-direction: column; gap: 3px;">
+                <div style="font-size: 12.5px; font-weight: 600;">Глобальные</div>
+                <div style="font-size: 11.5px; line-height: 1.45; color: #6e6e73;">общие для всех окружений</div>
+              </div>
+            </div>
+          </div>
+
+        </div>
+        <div style="font-size: 12.5px; line-height: 1.5; color: #6e6e73;"><span style="color: #1d1d1f; font-weight: 600;">Использование.</span> Токен подсвечен, значение показывается по наведению, ненайденная переменная краснеет в поле и объясняется одной строкой с готовым действием.</div>
+      </div>
+    </div>
+
+    <div style="display: flex; flex-direction: column; gap: 10px;">
+      <div style="width: 1040px; background: #fff; border-radius: 12px; overflow: hidden; box-shadow: 0 24px 60px rgba(0,0,0,0.18), 0 0 0 1px rgba(0,0,0,0.08); display: flex; flex-direction: column;">
+        <div style="height: 46px; flex: none; background: #ececef; border-bottom: 1px solid rgba(0,0,0,0.1); display: flex; align-items: center; padding: 0 14px; gap: 12px;">
+          <div style="flex: 1; font-size: 13px; font-weight: 600;">Переменные окружения</div>
+          <button style="height: 26px; padding: 0 12px; border: 1px solid rgba(0,0,0,0.16); border-radius: 7px; background: #fff; box-shadow: 0 1px 2px rgba(0,0,0,0.06); color: #1d1d1f; font: inherit; font-size: 12px; cursor: pointer;" style-hover="background: rgba(0,0,0,0.05);">Готово</button>
+        </div>
+        <div style="display: flex; height: 548px;">
+
+          <div style="width: 232px; flex: none; background: #f7f7f9; border-right: 1px solid rgba(0,0,0,0.1); display: flex; flex-direction: column; padding: 8px 8px 0;">
+            <div style="padding: 6px 8px 6px; font-family: ui-monospace, 'SF Mono', Menlo, monospace; font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; color: #86868b;">Окружения</div>
+            <div style="display: flex; align-items: center; gap: 8px; padding: 7px 9px; border-radius: 7px; background: rgba(0,122,255,0.12);">
+              <span style="width: 7px; height: 7px; flex: none; border-radius: 999px; background: #34c759;"></span>
+              <span style="flex: 1; font-size: 13px; font-weight: 600;">Local · dev</span>
+              <span style="font-family: ui-monospace, 'SF Mono', Menlo, monospace; font-size: 10.5px; color: #6e6e73;">7</span>
+            </div>
+            <div style="display: flex; align-items: center; gap: 8px; padding: 2px 3px 2px 9px; border-radius: 7px;">
+              <span style="width: 7px; height: 7px; flex: none; border-radius: 999px; background: transparent;"></span>
+              <input value="Stage · qa" style="flex: 1; min-width: 0; height: 26px; box-sizing: border-box; margin-left: -9px; border: 1px solid #007aff; border-radius: 6px; box-shadow: 0 0 0 3px rgba(0,122,255,0.12); background: #fff; padding: 0 7px; font: inherit; font-size: 13px; line-height: 24px; color: #1d1d1f; outline: none;" />
+            </div>
+            <div style="display: flex; align-items: center; gap: 8px; padding: 7px 9px; border-radius: 7px; cursor: pointer;" style-hover="background: rgba(0,0,0,0.05);">
+              <span style="width: 7px; height: 7px; flex: none; border-radius: 999px; background: transparent;"></span>
+              <span style="flex: 1; font-size: 13px;">Prod</span>
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#86868b" stroke-width="1.8" stroke-linecap="round"><rect x="5" y="11" width="14" height="9" rx="2" /><path d="M8 11V8a4 4 0 0 1 8 0v3" /></svg>
+            </div>
+            <div style="height: 1px; background: rgba(0,0,0,0.08); margin: 8px 6px;"></div>
+            <div style="display: flex; align-items: center; gap: 8px; padding: 7px 9px; border-radius: 7px; cursor: pointer;" style-hover="background: rgba(0,0,0,0.05);">
+              <span style="width: 7px; height: 7px; flex: none;"></span>
+              <span style="flex: 1; font-size: 13px;">Глобальные</span>
+              <span style="font-family: ui-monospace, 'SF Mono', Menlo, monospace; font-size: 10.5px; color: #86868b;">3</span>
+            </div>
+            <div style="flex: 1;"></div>
+            <div style="display: flex; align-items: center; gap: 2px; padding: 6px 2px; border-top: 1px solid rgba(0,0,0,0.08);">
+              <button style="width: 26px; height: 26px; border: none; border-radius: 6px; background: transparent; color: #6e6e73; cursor: pointer; display: inline-flex; align-items: center; justify-content: center;" style-hover="background: rgba(0,0,0,0.06); color: #1d1d1f;">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14" /></svg>
+              </button>
+              <button style="width: 26px; height: 26px; border: none; border-radius: 6px; background: transparent; color: #6e6e73; cursor: pointer; display: inline-flex; align-items: center; justify-content: center;" style-hover="background: rgba(0,0,0,0.06); color: #1d1d1f;">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M5 12h14" /></svg>
+              </button>
+              <div style="flex: 1;"></div>
+              <button style="height: 26px; padding: 0 8px; border: none; border-radius: 6px; background: transparent; color: #6e6e73; font: inherit; font-size: 12px; cursor: pointer;" style-hover="background: rgba(0,0,0,0.06); color: #1d1d1f;">Импорт .env</button>
+            </div>
+          </div>
+
+          <div style="flex: 1; min-width: 0; display: flex; flex-direction: column;">
+            <div style="height: 40px; flex: none; border-bottom: 1px solid rgba(0,0,0,0.08); display: flex; align-items: center; gap: 10px; padding: 0 14px;">
+              <div style="flex: 1; display: flex; align-items: center; gap: 6px; height: 26px; padding: 0 9px; border-radius: 7px; background: rgba(0,0,0,0.045); color: #86868b; max-width: 260px;">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="11" cy="11" r="8" /><path d="m21 21-4.3-4.3" /></svg>
+                <span style="font-size: 12px;">Фильтр по имени</span>
+              </div>
+            </div>
+
+            <div style="display: grid; grid-template-columns: 200px minmax(0, 1fr) 96px 34px; align-items: center; gap: 0; height: 30px; flex: none; border-bottom: 1px solid rgba(0,0,0,0.08); padding: 0 14px; font-family: ui-monospace, 'SF Mono', Menlo, monospace; font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; color: #86868b;">
+              <div>Переменная</div>
+              <div>Значение</div>
+              <div>Тип</div>
+              <div></div>
+            </div>
+
+            <sc-for list="{{ ownVars }}" as="v" hint-placeholder-count="5">
+              <div style="display: grid; grid-template-columns: 200px minmax(0, 1fr) 96px 34px; align-items: center; height: 38px; flex: none; border-bottom: 1px solid rgba(0,0,0,0.06); padding: 0 14px; cursor: default;" style-hover="background: rgba(0,0,0,0.025);">
+                <div style="font-family: ui-monospace, 'SF Mono', Menlo, monospace; font-size: 12.5px; color: #1d1d1f; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding-right: 12px;">{{ v.name }}</div>
+                <div style="display: flex; align-items: center; gap: 6px; min-width: 0; padding-right: 12px;">
+                  <span style="font-family: ui-monospace, 'SF Mono', Menlo, monospace; font-size: 12.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; {{ v.valueStyle }}">{{ v.value }}</span>
+                  <sc-if value="{{ v.isSecret }}" hint-placeholder-val="{{ true }}">
+                    <span style="width: 20px; height: 20px; flex: none; border-radius: 5px; color: #86868b; display: inline-flex; align-items: center; justify-content: center; cursor: pointer;" style-hover="background: rgba(0,0,0,0.06); color: #1d1d1f;">
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12Z" /><circle cx="12" cy="12" r="3" /></svg>
+                    </span>
+                  </sc-if>
+                </div>
+                <div><span style="{{ v.tagStyle }}">{{ v.tag }}</span></div>
+                <div style="display: flex; justify-content: flex-end; color: #86868b;">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M4 7h16M9 7V5h6v2M7 7l1 13h8l1-13" /></svg>
+                </div>
+              </div>
+            </sc-for>
+
+            <div style="display: grid; grid-template-columns: 200px minmax(0, 1fr) 96px 34px; align-items: center; height: 38px; flex: none; border-bottom: 1px solid rgba(0,0,0,0.06); padding: 0 14px; color: #86868b;">
+              <div style="display: flex; align-items: center; gap: 6px; font-size: 12.5px;">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14" /></svg>
+                <span>Новая переменная</span>
+              </div>
+            </div>
+
+            <div style="display: flex; align-items: center; gap: 8px; height: 30px; flex: none; padding: 0 14px; background: #f7f7f9; border-bottom: 1px solid rgba(0,0,0,0.06);">
+              <span style="font-family: ui-monospace, 'SF Mono', Menlo, monospace; font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; color: #86868b;">Наследуется из глобальных</span>
+              <span style="font-family: ui-monospace, 'SF Mono', Menlo, monospace; font-size: 10px; color: #86868b;">3</span>
+              <span style="flex: 1;"></span>
+              <span style="font-size: 11.5px; color: #86868b;">действуют во всех окружениях</span>
+            </div>
+
+            <sc-for list="{{ globalVars }}" as="v" hint-placeholder-count="3">
+              <div style="display: grid; grid-template-columns: 200px minmax(0, 1fr) 96px 34px; align-items: center; height: 38px; flex: none; border-bottom: 1px solid rgba(0,0,0,0.06); padding: 0 14px; background: rgba(175,82,222,0.03); cursor: default;" style-hover="background: rgba(175,82,222,0.07);">
+                <div style="display: flex; align-items: center; gap: 6px; padding-right: 12px; min-width: 0;">
+                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#7d3bb0" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6v6a4 4 0 0 0 4 4h11" /><path d="m15 12 4 4-4 4" /></svg>
+                  <span style="font-family: ui-monospace, 'SF Mono', Menlo, monospace; font-size: 12.5px; color: #6e6e73; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{{ v.name }}</span>
+                </div>
+                <div style="font-family: ui-monospace, 'SF Mono', Menlo, monospace; font-size: 12.5px; color: #6e6e73; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding-right: 12px;">{{ v.value }}</div>
+                <div><span style="display: inline-flex; padding: 1px 6px; border-radius: 4px; font-size: 10px; font-weight: 600; background: rgba(175,82,222,0.13); color: #7d3bb0;">глобальная</span></div>
+                <div style="display: flex; justify-content: flex-end; color: #86868b;">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h4L19 9a2.8 2.8 0 0 0-4-4L4 16Z" /></svg>
+                </div>
+              </div>
+            </sc-for>
+
+            <div style="display: grid; grid-template-columns: 200px minmax(0, 1fr) 96px 34px; align-items: center; height: 38px; flex: none; border-bottom: 1px solid rgba(0,0,0,0.06); padding: 0 14px; background: rgba(175,82,222,0.03);">
+              <div style="display: flex; align-items: center; gap: 6px; padding-right: 12px; min-width: 0;">
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#b6a0c8" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6v6a4 4 0 0 0 4 4h11" /><path d="m15 12 4 4-4 4" /></svg>
+                <span style="font-family: ui-monospace, 'SF Mono', Menlo, monospace; font-size: 12.5px; color: #86868b; text-decoration: line-through; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">timeout</span>
+              </div>
+              <div style="font-family: ui-monospace, 'SF Mono', Menlo, monospace; font-size: 12.5px; color: #86868b; text-decoration: line-through; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding-right: 12px;">15000</div>
+              <div><span style="display: inline-flex; padding: 1px 6px; border-radius: 4px; font-size: 10px; font-weight: 600; background: rgba(0,0,0,0.05); color: #86868b;">перекрыта</span></div>
+              <div style="display: flex; justify-content: flex-end; color: #86868b;">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h4L19 9a2.8 2.8 0 0 0-4-4L4 16Z" /></svg>
+              </div>
+            </div>
+
+            <div style="flex: 1;"></div>
+            <div style="height: 34px; flex: none; border-top: 1px solid rgba(0,0,0,0.08); display: flex; align-items: center; gap: 8px; padding: 0 14px; font-size: 11.5px; color: #86868b;">
+              <span>Секреты хранятся в связке ключей macOS и не попадают в экспорт коллекции</span>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div style="font-size: 12.5px; line-height: 1.5; color: #6e6e73; max-width: 1040px;"><span style="color: #1d1d1f; font-weight: 600;">Редактор (⌘E).</span> Лист поверх окна, а не ещё один раздел в рейле: окружения слева, переменные справа, таблица правится по месту. Секрет отличается от обычной переменной только скрытым значением и тем, что не уезжает в экспорт.<br /><span style="color: #1d1d1f; font-weight: 600;">Имя окружения.</span> «+» внизу списка создаёт окружение сразу с полем ввода в строке — как новая папка в Finder; переименование — двойной клик по имени или Enter на выделенной строке (на макете так правится «Stage · qa»). Enter сохраняет, Esc отменяет, пустое имя и дубликат не сохраняются.<br /><span style="color: #1d1d1f; font-weight: 600;">Глобальные.</span> Они видны прямо в таблице окружения, отдельной группой снизу: серым, со стрелкой наследования и сиреневым бейджем — чтобы не искать их во второй вкладке и не гадать, почему <span style="font-family: ui-monospace, 'SF Mono', Menlo, monospace;">locale</span> работает. Переопределение живёт в обычном списке: заводишь <span style="font-family: ui-monospace, 'SF Mono', Menlo, monospace;">timeout</span> в окружении — и глобальная строка ниже зачёркивается с пометкой «перекрыта», показывая, что она больше не учитывается. Удалить свою строку — глобальная снова оживает.</div>
+    </div>
+
+    <div style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px;">
+      <div style="background: #fff; border: 1px solid rgba(0,0,0,0.1); border-radius: 10px; padding: 14px 16px; display: flex; flex-direction: column; gap: 6px;">
+        <div style="font-size: 13px; font-weight: 600;">Одна точка входа</div>
+        <div style="font-size: 12.5px; line-height: 1.5; color: #6e6e73;">Чип в шапке и переключает окружение, и открывает редактор. В рейле нового раздела не появляется.</div>
+      </div>
+      <div style="background: #fff; border: 1px solid rgba(0,0,0,0.1); border-radius: 10px; padding: 14px 16px; display: flex; flex-direction: column; gap: 6px;">
+        <div style="font-size: 13px; font-weight: 600;">Значение видно, не угадывается</div>
+        <div style="font-size: 12.5px; line-height: 1.5; color: #6e6e73;">Наведение на токен показывает подставленное значение и откуда оно взято.</div>
+      </div>
+      <div style="background: #fff; border: 1px solid rgba(0,0,0,0.1); border-radius: 10px; padding: 14px 16px; display: flex; flex-direction: column; gap: 6px;">
+        <div style="font-size: 13px; font-weight: 600;">Ошибка ловится до отправки</div>
+        <div style="font-size: 12.5px; line-height: 1.5; color: #6e6e73;">Незаполненная переменная краснеет в поле и предлагает создать её, а не возвращает пустой 404.</div>
+      </div>
+      <div style="background: #fff; border: 1px solid rgba(0,0,0,0.1); border-radius: 10px; padding: 14px 16px; display: flex; flex-direction: column; gap: 6px;">
+        <div style="font-size: 13px; font-weight: 600;">Prod защищён</div>
+        <div style="font-size: 12.5px; line-height: 1.5; color: #6e6e73;">Боевое окружение только для чтения; чтобы поменять значение, его надо явно разблокировать.</div>
+      </div>
+    </div>
+  </section>
 </div>
 </x-dc>
 <script type="text/x-dc" data-dc-script data-props="{&quot;zoneOverlay&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Схема&quot;},&quot;openChip&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;params&quot;,&quot;headers&quot;,&quot;auth&quot;,&quot;body&quot;,&quot;none&quot;],&quot;default&quot;:&quot;params&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Прототип&quot;},&quot;responseTab&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;body&quot;,&quot;map&quot;,&quot;raw&quot;,&quot;headers&quot;,&quot;cookies&quot;,&quot;timings&quot;,&quot;tests&quot;,&quot;request&quot;],&quot;default&quot;:&quot;body&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Прототип&quot;},&quot;showInspector&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Прототип&quot;}}">
@@ -1000,6 +1498,31 @@ class Component extends DCLogic {
         { name: 'x-request-id', value: '01J9T4KQ8M3ZP7XR2B' },
         { name: 'date', value: 'Thu, 11 Sep 2026 10:50:41 GMT' },
       ],
+      globalVars: [
+        { name: 'locale', value: 'ru-RU' },
+        { name: 'userAgent', value: 'JSONInspector/1.4' },
+      ],
+      ownVars: [
+        ['baseUrl', 'https://api.local.itl.digital', 'текст'],
+        ['tenant', 'ucell', 'текст'],
+        ['apiPrefix', '/v1', 'текст'],
+        ['token', '••••••••••••••••••••', 'секрет'],
+        ['userId', '9', 'текст'],
+        ['timeout', '4000', 'текст'],
+      ].map(([name, value, tag]) => {
+        const c = tag === 'секрет'
+          ? ['rgba(255,149,0,0.14)', '#b26a00']
+          : tag === 'глобальная'
+            ? ['rgba(175,82,222,0.13)', '#7d3bb0']
+            : ['rgba(0,0,0,0.05)', '#6e6e73'];
+        return {
+          name, value, tag,
+          isSecret: tag === 'секрет',
+          valueStyle: tag === 'секрет' ? 'color:#86868b;letter-spacing:0.04em;' : 'color:#1d1d1f;',
+          tagStyle: 'display:inline-flex;padding:1px 6px;border-radius:4px;font-size:10px;font-weight:600;background:'
+            + c[0] + ';color:' + c[1] + ';',
+        };
+      }),
       timings: [
         { label: 'DNS', width: '6%', ms: '4 мс' },
         { label: 'TCP', width: '14%', ms: '11 мс' },
