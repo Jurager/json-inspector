@@ -1,0 +1,8 @@
+{
+  "name": "json-inspector-extension",
+  "private": true,
+  "description": "Typings for the editor, not a build.",
+  "devDependencies": {
+    "@types/chrome": "^0.2.9"
+  }
+}
