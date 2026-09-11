@@ -19,6 +19,11 @@ import (
 //go:embed all:frontend/dist
 var assets embed.FS
 
+// The app icon, handed to the native macOS "About" panel.
+//
+//go:embed build/appicon.png
+var appIcon []byte
+
 // version is overridden at build time via -ldflags "-X main.version=…".
 var version = "dev"
 
@@ -75,6 +80,14 @@ func main() {
 		Mac: &mac.Options{
 			TitleBar:  mac.TitleBarHiddenInset(),
 			OnUrlOpen: app.handleUrlOpen,
+			// Enables the system About panel (app menu → About JSON Inspector).
+			// The in-app «О программе» window stays as it is — this one is the
+			// OS's own, with the real version number.
+			About: &mac.AboutInfo{
+				Title:   "JSON Inspector",
+				Message: "Просмотр JSON:API: подстановка переменных окружения, карта схемы, перехват запросов из браузера.\nВерсия " + update.Current,
+				Icon:    appIcon,
+			},
 		},
 	}
 
