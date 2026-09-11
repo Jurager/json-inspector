@@ -76,13 +76,6 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
 
     <!-- params / headers share the same row grid -->
     <template v-if="props.chip === 'params' || props.chip === 'headers'">
-      <div class="row-head">
-        <span></span>
-        <span class="col-label mono">Имя</span>
-        <span class="col-label mono">Значение</span>
-        <span></span>
-      </div>
-
       <template v-if="props.chip === 'params'">
         <div v-for="(p, i) in store.draft.params" :key="i" class="row" :class="{ off: !p.enabled }">
           <button class="row-check" :class="{ on: p.enabled }" @click.stop="store.toggleParam(i)">
@@ -196,14 +189,14 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
 @reference "../style.css";
 
 .chip-popover {
-  @apply absolute top-[calc(100%+6px)] right-3 z-40 rounded-[10px] p-2.5 flex flex-col gap-2;
+  @apply absolute top-[calc(100%+6px)] right-3 z-40 rounded-[10px] p-2.5 flex flex-col gap-[2px];
   background: var(--bg-panel);
   border: 1px solid var(--border);
   box-shadow: 0 12px 32px rgba(0, 0, 0, 0.16);
 }
 
 .popover-head {
-  @apply flex items-center justify-between px-1 pb-2;
+  @apply flex items-center justify-between px-1 pt-0.5 pb-2;
 }
 
 .popover-title {
@@ -218,16 +211,12 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
   @apply bg-bg-hover text-text;
 }
 
-.row-head {
-  @apply grid grid-cols-[20px_150px_1fr_22px] gap-1.5 px-1 pb-0.5;
-}
-
-.col-label {
-  @apply text-[10px] uppercase tracking-wider text-text-tertiary;
-}
-
 .row {
   @apply grid grid-cols-[20px_150px_1fr_22px] gap-1.5 items-center py-[3px] px-1 rounded-md;
+}
+
+.row + .row {
+  @apply mt-px;
 }
 
 .row.off {
@@ -289,7 +278,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
 }
 
 .popover-foot {
-  @apply flex items-center justify-between pt-2 mt-1 border-t border-border px-1;
+  @apply flex items-center justify-between pt-2 pb-0.5 mt-1 border-t border-border px-1;
 }
 
 .add-btn {

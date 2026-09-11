@@ -175,6 +175,28 @@ function onCellKeydown(e: KeyboardEvent, v: Variable, field: 'name' | 'value', s
   }
 }
 
+// --- Jumping to a global ----------------------------------------------------
+//
+// An inherited row belongs to the "Глобальные" scope, not to this environment.
+// Clicking it takes the list there and marks the row it landed on, so "where is
+// this set?" is answered by one click.
+const flashId = ref<string | null>(null)
+
+function openGlobal(g: Variable, edit = false) {
+  envStore.selectSheetEnv(null)
+  nextTick(() => {
+    document.getElementById('var-' + g.id)?.scrollIntoView({ block: 'center' })
+    if (edit) {
+      startEdit(g, 'name', null)
+      return
+    }
+    flashId.value = g.id
+    setTimeout(() => {
+      if (flashId.value === g.id) flashId.value = null
+    }, 1200)
+  })
+}
+
 // --- Structure edits --------------------------------------------------------
 
 function addVar() {
@@ -275,6 +297,9 @@ function renameNext(dir: 1 | -1) {
 }
 
 function onRenameKeydown(e: KeyboardEvent) {
+  // The row underneath also listens for Enter (it starts renaming); without this
+  // the save would immediately reopen the editor and look like it didn't take.
+  e.stopPropagation()
   if (e.key === 'Enter') {
     e.preventDefault()
     commitRename()
@@ -485,15 +510,19 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
         <!-- Right: the table -->
         <div class="sheet-main">
           <div class="sheet-toolbar">
+            <span class="toolbar-spacer"></span>
+            <button
+              v-if="locked"
+              class="btn tile-btn"
+              title="Окружение только для чтения"
+              @click="envStore.unlock(envStore.sheetEnvId as string)"
+            >
+              Разблокировать
+            </button>
             <div class="filter">
               <Icon name="search" :size="12" />
               <input v-model="filter" class="filter-input" placeholder="Фильтр по имени" spellcheck="false" />
             </div>
-            <span class="toolbar-spacer"></span>
-            <template v-if="locked">
-              <span class="toolbar-note">Окружение только для чтения</span>
-              <button class="btn tile-btn" @click="envStore.unlock(envStore.sheetEnvId as string)">Разблокировать</button>
-            </template>
           </div>
 
           <div class="table-head">
@@ -504,7 +533,13 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
           </div>
 
           <div class="table-body">
-            <div v-for="v in filteredOwn" :key="v.id" class="row">
+            <div
+              v-for="v in filteredOwn"
+              :key="v.id"
+              :id="'var-' + v.id"
+              class="row"
+              :class="{ flash: flashId === v.id }"
+            >
               <!-- name -->
               <div class="cell cell-name" @click="startEdit(v, 'name')">
                 <input
@@ -593,7 +628,12 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
                 v-for="g in filteredInherited"
                 :key="g.id"
                 class="row inherited"
-                :class="{ overridden: g.overridden }"
+                :class="{ overridden: g.overridden, flash: flashId === g.id }"
+                role="button"
+                tabindex="0"
+                title="Перейти к переменной в «Глобальных»"
+                @click="openGlobal(g)"
+                @keydown.enter="openGlobal(g)"
               >
                 <div class="cell cell-name">
                   <Icon name="inherit" :size="11" class="inherit-icon" />
@@ -615,7 +655,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
                     v-if="!locked"
                     class="row-del"
                     title="Править глобальную переменную"
-                    @click="startEdit(g, 'name', null)"
+                    @click.stop="openGlobal(g, true)"
                   >
                     <Icon name="pencil" :size="13" />
                   </button>
@@ -860,10 +900,6 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
   @apply flex-1;
 }
 
-.toolbar-note {
-  @apply text-xs text-text-secondary whitespace-nowrap;
-}
-
 .tile-btn {
   @apply h-[26px] py-0 text-xs whitespace-nowrap;
 }
@@ -877,7 +913,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
 }
 
 .table-head {
-  @apply flex-none h-[30px] border-b border-border text-[10px] uppercase tracking-[0.08em] text-text-tertiary;
+  @apply flex-none h-[30px] mt-2 border-b border-border text-[10px] uppercase tracking-[0.08em] text-text-tertiary;
   font-family: var(--mono);
 }
 
@@ -1001,6 +1037,11 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
 
 .row.inherited .cell-text {
   @apply text-text-secondary;
+}
+
+/* Marks the row a jump landed on. */
+.row.flash {
+  box-shadow: inset 0 0 0 2px var(--accent);
 }
 
 .cell-action {
