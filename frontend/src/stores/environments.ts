@@ -87,6 +87,10 @@ export const useEnvironmentsStore = defineStore('environments', {
     unlocked: [] as string[],
     sheetOpen: false,
     sheetFocus: null as { envId: string | null; varName: string } | null,
+    // Which environment the sheet's table is showing. Separate from `activeId`
+    // on purpose: editing an environment shouldn't silently change what the
+    // whole window substitutes.
+    sheetEnvId: null as string | null,
     // Secret values, keyed `<envId|globals>:<name>`. Never serialised; on
     // startup the keyring refills it (see step A7).
     secretValues: {} as Record<string, string>,
@@ -248,8 +252,21 @@ export const useEnvironmentsStore = defineStore('environments', {
       this.secretValues[secretKey(envId, name)] = value
     },
 
+    // The value a cell should edit — including the vault, which the model
+    // deliberately doesn't hold.
+    varValue(envId: string | null, v: Variable): string {
+      return v.kind === 'secret' ? (this.secretValues[secretKey(envId, v.name)] ?? '') : v.value
+    },
+
+    selectSheetEnv(id: string | null) {
+      this.sheetEnvId = id
+    },
+
     openSheet(focus: { envId: string | null; varName: string } | null = null) {
       this.sheetFocus = focus
+      // Opening on a specific variable implies the environment it lives in;
+      // otherwise the sheet starts on whatever the window is using.
+      this.sheetEnvId = focus ? focus.envId : this.activeId
       this.sheetOpen = true
     },
 

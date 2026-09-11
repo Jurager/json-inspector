@@ -22,6 +22,11 @@ import {
   Folder,
   Settings2,
   List,
+  Lock,
+  Plus,
+  Minus,
+  Trash2,
+  Search,
 } from 'lucide-vue-next'
 
 const props = defineProps<{ name: string; size?: number }>()
@@ -47,6 +52,11 @@ const ICONS: Record<string, Component> = {
   folder: Folder,
   'settings-2': Settings2,
   list: List,
+  lock: Lock,
+  plus: Plus,
+  minus: Minus,
+  trash: Trash2,
+  search: Search,
 }
 
 const icon = computed(() => ICONS[props.name] ?? ArrowUpRight)

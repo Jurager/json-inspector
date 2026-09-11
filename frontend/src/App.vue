@@ -3,6 +3,7 @@ import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRequestsStore } from './stores/requests'
 import { useEnvironmentsStore } from './stores/environments'
 import EnvironmentMenu from './components/EnvironmentMenu.vue'
+import EnvironmentsSheet from './components/EnvironmentsSheet.vue'
 import RequestBuilder from './components/RequestBuilder.vue'
 import ResponseViewer from './components/ResponseViewer.vue'
 import HistoryPanel from './components/HistoryPanel.vue'
@@ -156,10 +157,22 @@ function focusSearch() {
 }
 
 function onGlobalKeydown(e: KeyboardEvent) {
-  if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
+  if (!(e.metaKey || e.ctrlKey)) return
+  const key = e.key.toLowerCase()
+  if (key === 'k') {
     e.preventDefault()
     focusSearch()
+  } else if (key === 'e') {
+    e.preventDefault()
+    if (!envStore.sheetOpen) envStore.openSheet()
   }
+}
+
+// The sheet is an overlay over the whole window, so the command line is still
+// mounted underneath — closing hands the caret straight back to it.
+function closeSheet() {
+  envStore.closeSheet()
+  store.requestFocusUrl()
 }
 
 // One side panel, shared by both tabs — it swaps content (history vs.
@@ -453,6 +466,8 @@ onBeforeUnmount(() => {
   </div>
 
   <AboutModal v-if="aboutOpen" @close="aboutOpen = false" />
+
+  <EnvironmentsSheet v-if="envStore.sheetOpen" @close="closeSheet" />
 
   <transition name="fade">
     <div v-if="toast" class="toast" :class="toastType">{{ toast }}</div>
