@@ -9,11 +9,11 @@ import { Input } from '../ui/input'
 const envStore = useEnvironmentsStore()
 const { notice, setNotice, clearNotice } = useSheetNotice()
 
-const envId = computed(() => envStore.sheetEnvId)
+const envId = computed(() => envStore.editedEnvId)
 const env = computed(() => envStore.environments.find((e) => e.id === envId.value) ?? null)
 const isGlobals = computed(() => envId.value === null)
 
-const locked = computed(() => Boolean(env.value?.readonly) && !envStore.unlocked.includes(envId.value as string))
+const locked = computed(() => Boolean(env.value?.readonly) && !envStore.isUnlocked(envId.value))
 
 const rows = computed(() => envStore.rowsFor(envId.value))
 const vars = computed(() => rows.value.own)
@@ -143,7 +143,7 @@ function onCellKeydown(e: KeyboardEvent, v: Variable, field: 'name' | 'value', s
 const flashId = ref<string | null>(null)
 
 function openGlobal(g: Variable, edit = false) {
-  envStore.selectSheetEnv(null)
+  envStore.editEnv(null)
   nextTick(() => {
     document.getElementById('var-' + g.id)?.scrollIntoView({ block: 'center' })
     if (edit) {
@@ -192,7 +192,7 @@ defineExpose({ cancelTop })
       <Button
         v-if="locked"
         title="Окружение только для чтения"
-        @click="envStore.unlock(envStore.sheetEnvId as string)"
+        @click="envStore.unlock(envStore.editedEnvId as string)"
       >
         Разблокировать
       </Button>

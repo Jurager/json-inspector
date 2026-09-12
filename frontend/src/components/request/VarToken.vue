@@ -1,13 +1,14 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import { useEnvironmentsStore } from '../../stores/environments'
-import { isMac } from '../../lib/platform'
+import { usePlatform } from '../../composables/usePlatform'
 import { useHoverArrival } from '../../composables/useHoverArrival'
 import { Tooltip } from '../ui/tooltip'
 
 const props = defineProps<{ name: string; offset?: number }>()
 
 const store = useEnvironmentsStore()
+const { isMac } = usePlatform()
 
 const resolution = computed(() => store.resolve(props.name))
 const known = computed(() => resolution.value !== null)
@@ -21,7 +22,7 @@ const scopeLabel = computed(() => {
   return r.source === 'env' ? (store.active?.name ?? 'Окружение') : 'Глобальные'
 })
 
-const modifier = computed(() => (isMac ? '⌥клик' : 'Alt+клик'))
+const modifier = computed(() => (isMac.value ? '⌥клик' : 'Alt+клик'))
 
 const root = ref<HTMLElement | null>(null)
 

@@ -1,12 +1,13 @@
 <script setup lang="ts">
 import { onBeforeUnmount, onMounted, ref } from 'vue'
-import { shortcut } from '../../lib/platform'
+import { usePlatform } from '../../composables/usePlatform'
 import { useSheetNotice } from '../../composables/useSheetNotice'
 import EnvironmentList from './EnvironmentList.vue'
 import { Button } from '../ui/button'
 import VariablesTable from './VariablesTable.vue'
 
 const emit = defineEmits<{ (e: 'close'): void }>()
+const { shortcut } = usePlatform()
 
 const editHint = shortcut('E')
 

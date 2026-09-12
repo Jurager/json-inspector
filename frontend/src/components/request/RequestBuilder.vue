@@ -14,11 +14,13 @@ import {
 import { App as Backend } from '../../../bindings/json-inspector'
 import { useRequestsStore } from '../../stores/requests'
 import { useEnvironmentsStore } from '../../stores/environments'
-import { shortcut } from '../../lib/platform'
-import { segments } from '../../lib/vars'
+import { usePlatform } from '../../composables/usePlatform'
+import { provideUrlFocus } from '../../composables/useUrlFocus'
+import { tokenSegments } from '../../lib/vars'
 import { normalizeHeaders } from '../../lib/http'
 
 const store = useRequestsStore()
+const { shortcut } = usePlatform()
 const envStore = useEnvironmentsStore()
 
 const sendShortcut = computed(() => shortcut('↵'))
@@ -72,8 +74,8 @@ function collectHeaders(): Record<string, string> {
 function maskedHeaders(): Record<string, string> {
   const map: Record<string, string> = {}
   for (const h of store.draft.headers) {
-    const name = envStore.masked(h.name.trim())
-    if (name && h.enabled) map[name] = envStore.masked(h.value)
+    const name = envStore.maskSecrets(h.name.trim())
+    if (name && h.enabled) map[name] = envStore.maskSecrets(h.value)
   }
   return map
 }
@@ -103,8 +105,8 @@ async function send() {
   const url = envStore.substitute(store.draft.url.trim())
   const body = envStore.substitute(store.draft.body)
   // What the record keeps: resolved like the real request, but a secret stays masked.
-  const recordUrl = envStore.masked(store.draft.url.trim())
-  const recordBody = envStore.masked(store.draft.body)
+  const recordUrl = envStore.maskSecrets(store.draft.url.trim())
+  const recordBody = envStore.maskSecrets(store.draft.body)
   const recordHeaders = maskedHeaders()
   try {
     const res = await Backend.SendRequest(store.draft.method, url, requestHeaders, body)
@@ -137,19 +139,13 @@ async function cancel() {
   await Backend.CancelRequest()
 }
 
-// The field only exists after this component remounts, hence the nextTick.
 const urlInputRef = ref<HTMLInputElement | null>(null)
 
-watch(
-  () => store.focusUrlTick,
-  () => {
-    nextTick(() => urlInputRef.value?.focus())
-  }
-)
+onMounted(() => onBeforeUnmount(provideUrlFocus(() => urlInputRef.value?.focus())))
 
 const urlDisplayRef = ref<HTMLElement | null>(null)
 
-const urlSegments = computed(() => segments(store.draft.url))
+const urlSegments = computed(() => tokenSegments(store.draft.url))
 const showUrlDisplay = computed(() => urlSegments.value.length > 0)
 
 // The layer above has to follow the input's scroll, or the two texts drift apart.
@@ -207,8 +203,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onWindowKeydown))
             @keydown.enter="send"
             @scroll="syncUrlScroll"
           />
-          <!-- Decorative: the input above holds the real value and is the only editable control.
-          -->
+          <!-- Decorative: the input above holds the real value and is the only editable control. -->
           <div v-if="showUrlDisplay" ref="urlDisplayRef" class="url-display mono" aria-hidden="true">
             <template v-for="(seg, i) in urlSegments" :key="i">
               <VarToken v-if="seg.token" :name="seg.token" :offset="seg.start" />

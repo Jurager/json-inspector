@@ -247,7 +247,6 @@ watch(() => [store.focusTabId, store.requests.length, props.source] as const, ap
           <span class="group-title">{{ groupLabel(g) }}</span>
           <span v-if="isRecording(g)" class="recording-label">
             <span class="recording-dot"></span>
-            <span>запись</span>
           </span>
           <span class="group-count">{{ g.items.length }}</span>
           <IconButton variant="danger" size="sm" hint="Очистить эту вкладку" @click.stop="clearGroup(g)"><Icon name="xmark" :size="12" /></IconButton>
@@ -396,7 +395,7 @@ watch(() => [store.focusTabId, store.requests.length, props.source] as const, ap
 
 .recording-dot {
   @apply w-1.5 h-1.5 rounded-full flex-none;
-  background: var(--red);
+  background: var(--green);
 }
 
 .group-count {

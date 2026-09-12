@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
 import type { RequestRecord } from '../lib/types'
 import { useEnvironmentsStore } from './environments'
+import { requestUrlFocus } from '../composables/useUrlFocus'
 
 let counter = 0
 function nextId(): string {
@@ -52,7 +53,6 @@ export const useRequestsStore = defineStore('requests', {
     } as DraftState,
     openChip: null as 'params' | 'headers' | 'auth' | 'body' | null,
     focusTabId: null as number | null,
-    focusUrlTick: 0,
     inspector: { open: false, path: null as string | null, width: 300 },
   }),
   getters: {
@@ -71,7 +71,7 @@ export const useRequestsStore = defineStore('requests', {
         state.draft.body,
         state.draft.auth.token,
       ]
-      return envs.missingIn(parts.join('\n'))
+      return envs.missingVarNames(parts.join('\n'))
     },
   },
   actions: {
@@ -110,7 +110,7 @@ export const useRequestsStore = defineStore('requests', {
     selectBrowser(id: string) {
       this.browserId = id
     },
-    markBrowserRead() {
+    clearUnreadCaptures() {
       this.unreadCount = 0
     },
     focusBrowserTab(tabId: number) {
@@ -124,12 +124,9 @@ export const useRequestsStore = defineStore('requests', {
     setOpenChip(chip: 'params' | 'headers' | 'auth' | 'body' | null) {
       this.openChip = chip
     },
-    requestFocusUrl() {
-      this.focusUrlTick++
-    },
     focusSearch() {
       this.activeView = 'request'
-      this.requestFocusUrl()
+      requestUrlFocus()
     },
     setInspector(partial: Partial<{ open: boolean; path: string | null; width: number }>) {
       this.inspector = { ...this.inspector, ...partial }

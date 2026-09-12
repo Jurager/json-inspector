@@ -4,7 +4,7 @@ import { Application, Window } from '@wailsio/runtime'
 import { App as Backend } from '../../../bindings/json-inspector'
 import { useEnvironmentsStore } from '../../stores/environments'
 import { useRequestsStore } from '../../stores/requests'
-import { shortcut, useCustomTitlebar } from '../../lib/platform'
+import { usePlatform } from '../../composables/usePlatform'
 import EnvironmentMenu from '../environments/EnvironmentMenu.vue'
 import Icon from '../ui/Icon.vue'
 import { Button } from '../ui/button'
@@ -13,6 +13,7 @@ import { DropdownMenu, DropdownMenuTrigger } from '../ui/dropdown-menu'
 
 const store = useRequestsStore()
 const envStore = useEnvironmentsStore()
+const { customTitlebar, shortcut } = usePlatform()
 
 const appName = ref('')
 const isMaximised = ref(false)
@@ -51,7 +52,7 @@ async function refreshMaximised() {
 }
 
 watch(
-  useCustomTitlebar,
+  customTitlebar,
   (custom) => {
     if (custom) {
       refreshMaximised()
@@ -71,16 +72,16 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <header class="titlebar" :class="{ 'titlebar-custom': useCustomTitlebar }" @dblclick="Backend.ToggleMaximize">
-    <div v-if="useCustomTitlebar" class="titlebar-appicon">
+  <header class="titlebar" :class="{ 'titlebar-custom': customTitlebar }" @dblclick="Backend.ToggleMaximize">
+    <div v-if="customTitlebar" class="titlebar-appicon">
       <img :src="logoUrl" alt="" class="titlebar-logo" draggable="false" />
       <span class="titlebar-title">{{ appName }}</span>
     </div>
     <span v-else class="titlebar-title">{{ appName }}</span>
 
-    <div v-if="useCustomTitlebar" class="titlebar-spacer"></div>
+    <div v-if="customTitlebar" class="titlebar-spacer"></div>
 
-    <div class="titlebar-actions" :class="{ 'titlebar-actions-flush': useCustomTitlebar }">
+    <div class="titlebar-actions" :class="{ 'titlebar-actions-flush': customTitlebar }">
       <div class="env-wrap">
         <DropdownMenu>
           <DropdownMenuTrigger as-child>
@@ -99,7 +100,7 @@ onBeforeUnmount(() => {
       </Button>
     </div>
 
-    <div v-if="useCustomTitlebar" class="titlebar-controls">
+    <div v-if="customTitlebar" class="titlebar-controls">
       <button class="cap-btn" title="Свернуть" @click="Window.Minimise()">
         <span class="cap-icon cap-icon-minus"></span>
       </button>

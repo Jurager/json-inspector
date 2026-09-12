@@ -5,6 +5,7 @@ import { useCaptureEvents } from './composables/useCaptureEvents'
 import { useGlobalShortcuts } from './composables/useGlobalShortcuts'
 import { useSessionPersistence } from './composables/useSessionPersistence'
 import { useUpdates } from './composables/useUpdates'
+import { requestUrlFocus } from './composables/useUrlFocus'
 import TitleBar from './components/layout/TitleBar.vue'
 import Rail from './components/layout/Rail.vue'
 import Workspace from './components/layout/Workspace.vue'
@@ -27,7 +28,7 @@ useGlobalShortcuts(store, envStore)
 // so closing hands the caret back to it.
 function closeSheet() {
   envStore.closeSheet()
-  store.requestFocusUrl()
+  requestUrlFocus()
 }
 </script>
 

@@ -17,12 +17,13 @@ import { buildSchema, diffSchemas, humanize, type TypeDiff } from '../../lib/sch
 import { copyToClipboard } from '../../lib/export'
 import { tryParseJson } from '../../lib/json'
 import { useRequestsStore } from '../../stores/requests'
-import { shortcut } from '../../lib/platform'
+import { usePlatform } from '../../composables/usePlatform'
 
 const props = defineProps<{ doc: JsonApiDocument | null; highlightKey?: string | null }>()
 const emit = defineEmits<{ (e: 'fetch', url: string): void; (e: 'select', key: string): void }>()
 
 const store = useRequestsStore()
+const { shortcut } = usePlatform()
 
 const all = computed<Resource[]>(() => {
   if (!props.doc) return []

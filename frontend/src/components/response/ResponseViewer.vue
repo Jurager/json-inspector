@@ -33,12 +33,14 @@ import { App as Backend } from '../../../bindings/json-inspector'
 import { useRequestsStore } from '../../stores/requests'
 import { useEnvironmentsStore } from '../../stores/environments'
 import { copyToClipboard, exportRequest, type ExportFormat } from '../../lib/export'
-import { shortcut } from '../../lib/platform'
+import { usePlatform } from '../../composables/usePlatform'
+import { requestUrlFocus } from '../../composables/useUrlFocus'
 import { normalizeHeaders } from '../../lib/http'
 
 const props = defineProps<{ record: RequestRecord }>()
 
 const store = useRequestsStore()
+const { shortcut } = usePlatform()
 const envStore = useEnvironmentsStore()
 
 type Tab = 'body' | 'map' | 'raw' | 'headers' | 'cookies' | 'timings' | 'tests' | 'request'
@@ -211,7 +213,7 @@ function openInRequest() {
   store.loadDraft(props.record)
   store.setOpenChip(null)
   store.activeView = 'request'
-  store.requestFocusUrl()
+  requestUrlFocus()
 }
 
 const prettyRaw = computed(() => (isJson.value ? prettyJson(jsonValue.value) : props.record.responseBody))

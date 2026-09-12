@@ -5,7 +5,7 @@ import { useEnvironmentsStore } from '../../stores/environments'
 import { useRequestsStore } from '../../stores/requests'
 import { useUpdates } from '../../composables/useUpdates'
 import { buildSampleRecord } from '../../lib/sample'
-import { shortcut, useCustomTitlebar } from '../../lib/platform'
+import { usePlatform } from '../../composables/usePlatform'
 import Icon from '../ui/Icon.vue'
 import { IconButton } from '../ui/button'
 import {
@@ -17,6 +17,7 @@ import {
 
 const store = useRequestsStore()
 const envStore = useEnvironmentsStore()
+const { customTitlebar, shortcut } = usePlatform()
 const { checking, check } = useUpdates()
 
 const envSheetHint = computed(() => shortcut('E'))
@@ -32,7 +33,7 @@ function openAbout() {
 
 function openBrowser() {
   store.activeView = 'browser'
-  store.markBrowserRead()
+  store.clearUnreadCaptures()
 }
 </script>
 
@@ -53,7 +54,7 @@ function openBrowser() {
             <Icon name="arrow-down" :size="14" /> {{ checking ? 'Проверка…' : 'Проверить обновления' }}
           </DropdownMenuItem>
           <!-- On macOS this lives in the native app menu instead. -->
-          <DropdownMenuItem v-if="useCustomTitlebar" @select="openAbout">
+          <DropdownMenuItem v-if="customTitlebar" @select="openAbout">
             <Icon name="info" :size="14" /> О программе
           </DropdownMenuItem>
         </DropdownMenuContent>

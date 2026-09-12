@@ -18,7 +18,7 @@ const envStore = useEnvironmentsStore()
 const reqStore = useRequestsStore()
 const { setNotice, clearNotice } = useSheetNotice()
 
-const envId = computed(() => envStore.sheetEnvId)
+const envId = computed(() => envStore.editedEnvId)
 const env = computed(() => envStore.environments.find((e) => e.id === envId.value) ?? null)
 const isGlobals = computed(() => envId.value === null)
 
@@ -33,7 +33,7 @@ function setRenameInput(el: Element | ComponentPublicInstance | null) {
 
 function addEnv() {
   const id = envStore.addEnv()
-  envStore.selectSheetEnv(id)
+  envStore.editEnv(id)
   startRename(id, true)
 }
 
@@ -105,8 +105,8 @@ function onRenameKeydown(e: KeyboardEvent) {
 }
 
 function onEnvRowEnter(id: string) {
-  if (envStore.sheetEnvId === id) startRename(id, true)
-  else envStore.selectSheetEnv(id)
+  if (envStore.editedEnvId === id) startRename(id, true)
+  else envStore.editEnv(id)
 }
 
 const confirming = ref<string | null>(null)
@@ -140,7 +140,7 @@ function doRemove(id: string) {
   envStore.removeEnv(id)
   confirming.value = null
   // Deleting what you were looking at leaves the sheet with nothing to show.
-  if (envStore.sheetEnvId === id) envStore.selectSheetEnv(envStore.environments[0]?.id ?? null)
+  if (envStore.editedEnvId === id) envStore.editEnv(envStore.environments[0]?.id ?? null)
 }
 
 // The file is read in the webview, not through a Go binding: parsing a text file needs no backend.
@@ -206,11 +206,11 @@ defineExpose({ cancelTop })
       v-for="e in envStore.environments"
       :key="e.id"
       class="side-row"
-      :class="{ active: e.id === envStore.sheetEnvId }"
+      :class="{ active: e.id === envStore.editedEnvId }"
       role="button"
       tabindex="0"
       title="Двойной клик или Enter — переименовать"
-      @click="envStore.selectSheetEnv(e.id)"
+      @click="envStore.editEnv(e.id)"
       @keydown.enter="onEnvRowEnter(e.id)"
       @dblclick="startRename(e.id, true)"
     >
@@ -236,8 +236,8 @@ defineExpose({ cancelTop })
 
     <button
       class="side-row"
-      :class="{ active: envStore.sheetEnvId === null }"
-      @click="envStore.selectSheetEnv(null)"
+      :class="{ active: envStore.editedEnvId === null }"
+      @click="envStore.editEnv(null)"
     >
       <span class="side-dot"></span>
       <span class="side-name">Глобальные</span>
@@ -254,7 +254,7 @@ defineExpose({ cancelTop })
         variant="bare"
         hint="Удалить окружение"
         :disabled="isGlobals"
-        @click="isGlobals || askRemove(envStore.sheetEnvId as string)"
+        @click="isGlobals || askRemove(envStore.editedEnvId as string)"
       >
         <Icon name="minus" :size="14" />
       </IconButton>

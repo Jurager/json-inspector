@@ -2,10 +2,11 @@
 import { DropdownMenuItem } from 'reka-ui'
 import Icon from '../ui/Icon.vue'
 import { useEnvironmentsStore } from '../../stores/environments'
-import { shortcut } from '../../lib/platform'
+import { usePlatform } from '../../composables/usePlatform'
 import { DropdownMenuContent } from '../ui/dropdown-menu'
 
 const store = useEnvironmentsStore()
+const { shortcut } = usePlatform()
 
 const editHint = shortcut('E')
 

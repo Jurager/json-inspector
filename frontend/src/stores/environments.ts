@@ -1,11 +1,11 @@
 import { defineStore } from 'pinia'
 import {
-  missing as missingTokens,
+  missingTokens,
   parseTokens,
-  substitute as substituteTokens,
+  substituteTokens,
   SECRET_MASK,
-  type ResolveFn,
   type VarKind,
+  type VarResolution,
 } from '../lib/vars'
 import { App as Backend } from '../../bindings/json-inspector'
 
@@ -110,10 +110,11 @@ export function parseDotenv(text: string): DotenvEntry[] {
 export const useEnvironmentsStore = defineStore('environments', {
   state: () => ({
     ...loadState(),
-    unlocked: [] as string[],
+    // Session-only: an unlock must not outlive the sheet that made it.
+    unlockedEnvIds: [] as string[],
     sheetOpen: false,
     sheetFocus: null as { envId: string | null; varName: string } | null,
-    sheetEnvId: null as string | null,
+    editedEnvId: null as string | null,
     secretValues: {} as Record<string, string>,
     keychainAvailable: true,
   }),
@@ -121,22 +122,6 @@ export const useEnvironmentsStore = defineStore('environments', {
   getters: {
     active(state): Environment | null {
       return state.environments.find((e) => e.id === state.activeId) ?? null
-    },
-
-    resolve(): ResolveFn {
-      const valueOf = (envId: string | null, v: Variable): string =>
-        v.kind === 'secret' ? (this.secretValues[secretKey(envId, v.name)] ?? '') : v.value
-
-      return (name: string) => {
-        const env = this.active
-        if (env) {
-          const v = env.vars.find((x) => x.name === name && x.enabled)
-          if (v) return { value: valueOf(env.id, v), source: 'env' as const, kind: v.kind }
-        }
-        const g = this.globals.find((x) => x.name === name && x.enabled)
-        if (g) return { value: valueOf(null, g), source: 'global' as const, kind: g.kind }
-        return null
-      }
     },
 
     rowsFor:
@@ -152,33 +137,49 @@ export const useEnvironmentsStore = defineStore('environments', {
           inherited: state.globals.map((g) => ({ ...g, overridden: ownNames.has(g.name) })),
         }
       },
-
-    missingIn(): (text: string) => string[] {
-      return (text: string) => missingTokens(text, this.resolve)
-    },
-
-    substitute(): (text: string) => string {
-      return (text: string) => substituteTokens(text, this.resolve)
-    },
-
-    masked(): (text: string) => string {
-      return (text: string) => {
-        const tokens = parseTokens(text)
-        if (tokens.length === 0) return text
-        let out = ''
-        let last = 0
-        for (const t of tokens) {
-          const r = this.resolve(t.name)
-          out += text.slice(last, t.start)
-          out += r ? (r.kind === 'secret' ? SECRET_MASK : r.value) : t.raw
-          last = t.end
-        }
-        return out + text.slice(last)
-      }
-    },
   },
 
   actions: {
+    // Shared by the substitution actions and the token tooltips: environment first, then
+    // globals, and a disabled variable never participates.
+    resolve(name: string): VarResolution | null {
+      const valueOf = (envId: string | null, v: Variable): string =>
+        v.kind === 'secret' ? (this.secretValues[secretKey(envId, v.name)] ?? '') : v.value
+
+      const env = this.active
+      if (env) {
+        const v = env.vars.find((x) => x.name === name && x.enabled)
+        if (v) return { value: valueOf(env.id, v), source: 'env', kind: v.kind }
+      }
+      const g = this.globals.find((x) => x.name === name && x.enabled)
+      if (g) return { value: valueOf(null, g), source: 'global', kind: g.kind }
+      return null
+    },
+
+    substitute(text: string): string {
+      return substituteTokens(text, this.resolve)
+    },
+
+    // Same substitution, but a secret comes out as dots: for anything that outlives the
+    // moment of sending — the request preview and the exports.
+    maskSecrets(text: string): string {
+      const tokens = parseTokens(text)
+      if (tokens.length === 0) return text
+      let out = ''
+      let last = 0
+      for (const t of tokens) {
+        const r = this.resolve(t.name)
+        out += text.slice(last, t.start)
+        out += r ? (r.kind === 'secret' ? SECRET_MASK : r.value) : t.raw
+        last = t.end
+      }
+      return out + text.slice(last)
+    },
+
+    missingVarNames(text: string): string[] {
+      return missingTokens(text, this.resolve)
+    },
+
     varsOf(envId: string | null): Variable[] {
       if (envId === null) return this.globals
       return this.environments.find((e) => e.id === envId)?.vars ?? []
@@ -214,7 +215,7 @@ export const useEnvironmentsStore = defineStore('environments', {
       this.environments = this.environments.filter((e) => e.id !== id)
       // Falls back to "Без окружения" rather than promoting a neighbour the user didn't choose.
       if (this.activeId === id) this.activeId = null
-      this.unlocked = this.unlocked.filter((x) => x !== id)
+      this.unlockedEnvIds = this.unlockedEnvIds.filter((x) => x !== id)
       for (const k of Object.keys(this.secretValues)) {
         if (k.startsWith(id + ':')) delete this.secretValues[k]
       }
@@ -363,8 +364,8 @@ export const useEnvironmentsStore = defineStore('environments', {
       return v.kind === 'secret' ? (this.secretValues[secretKey(envId, v.name)] ?? '') : v.value
     },
 
-    selectSheetEnv(id: string | null) {
-      this.sheetEnvId = id
+    editEnv(id: string | null) {
+      this.editedEnvId = id
     },
 
     importDotenv(envId: string | null, entries: ImportChoice[]) {
@@ -387,18 +388,23 @@ export const useEnvironmentsStore = defineStore('environments', {
     openSheet(focus: { envId: string | null; varName: string } | null = null) {
       this.sheetFocus = focus
       // Opening on a variable implies its environment; otherwise it starts on the active one.
-      this.sheetEnvId = focus ? focus.envId : this.activeId
+      this.editedEnvId = focus ? focus.envId : this.activeId
       this.sheetOpen = true
     },
 
     closeSheet() {
       this.sheetOpen = false
       this.sheetFocus = null
-      this.unlocked = []
+      this.unlockedEnvIds = []
+    },
+
+    /** Read-only environments are edited only after an explicit unlock. */
+    isUnlocked(envId: string | null): boolean {
+      return envId !== null && this.unlockedEnvIds.includes(envId)
     },
 
     unlock(envId: string) {
-      if (!this.unlocked.includes(envId)) this.unlocked.push(envId)
+      if (!this.unlockedEnvIds.includes(envId)) this.unlockedEnvIds.push(envId)
     },
   },
 })

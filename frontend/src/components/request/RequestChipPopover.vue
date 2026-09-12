@@ -6,7 +6,7 @@ import { PopoverContent } from '../ui/popover'
 import { Button, IconButton } from '../ui/button'
 import { Checkbox } from '../ui/checkbox'
 import { useRequestsStore } from '../../stores/requests'
-import { parseTokens, segments } from '../../lib/vars'
+import { parseTokens, tokenSegments } from '../../lib/vars'
 
 const props = defineProps<{ chip: 'params' | 'headers' | 'auth' | 'body' }>()
 
@@ -91,7 +91,7 @@ function valueClass(v: string): string {
               :class="valueClass(p.value)"
               aria-hidden="true"
             >
-              <template v-for="(seg, si) in segments(p.value)" :key="si">
+              <template v-for="(seg, si) in tokenSegments(p.value)" :key="si">
                 <VarToken v-if="seg.token" :name="seg.token" :offset="seg.start" />
                 <span v-else>{{ seg.text }}</span>
               </template>
@@ -125,7 +125,7 @@ function valueClass(v: string): string {
               :class="valueClass(h.value)"
               aria-hidden="true"
             >
-              <template v-for="(seg, si) in segments(h.value)" :key="si">
+              <template v-for="(seg, si) in tokenSegments(h.value)" :key="si">
                 <VarToken v-if="seg.token" :name="seg.token" :offset="seg.start" />
                 <span v-else>{{ seg.text }}</span>
               </template>

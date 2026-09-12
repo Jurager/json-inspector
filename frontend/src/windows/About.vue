@@ -2,8 +2,10 @@
 import { onMounted, ref } from 'vue'
 import { Window } from '@wailsio/runtime'
 import { App as Backend } from '../../bindings/json-inspector'
-import { useCustomTitlebar } from '../lib/platform'
+import { usePlatform } from '../composables/usePlatform'
 import logoUrl from '../assets/logo.svg'
+
+const { customTitlebar } = usePlatform()
 
 const version = ref('')
 const appName = ref('')
@@ -24,7 +26,7 @@ onMounted(async () => {
 
 <template>
   <div class="about-window">
-    <header v-if="useCustomTitlebar" class="about-bar">
+    <header v-if="customTitlebar" class="about-bar">
       <span class="about-bar-title">О программе</span>
       <button class="cap-btn cap-close" title="Закрыть" @click="Window.Close()">
         <span class="cap-icon cap-icon-close">

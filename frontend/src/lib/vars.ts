@@ -55,9 +55,9 @@ export function parseTokens(text: string): Token[] {
   return out
 }
 
-// Unknown tokens are left exactly as written — `missing` reports them and blocks
+// Unknown tokens are left exactly as written — `missingTokens` reports them and blocks
 // sending, so blanking them here would hide the mistake instead of surfacing it.
-export function substitute(text: string, resolve: ResolveFn): string {
+export function substituteTokens(text: string, resolve: ResolveFn): string {
   const tokens = parseTokens(text)
   if (tokens.length === 0) return text
   let out = ''
@@ -72,7 +72,7 @@ export function substitute(text: string, resolve: ResolveFn): string {
 }
 
 // Names that appear as tokens but resolve to nothing, deduplicated, in order of first appearance.
-export function missing(text: string, resolve: ResolveFn): string[] {
+export function missingTokens(text: string, resolve: ResolveFn): string[] {
   const names = new Set<string>()
   for (const t of parseTokens(text)) {
     if (!resolve(t.name)) names.add(t.name)
@@ -80,7 +80,7 @@ export function missing(text: string, resolve: ResolveFn): string[] {
   return Array.from(names)
 }
 
-export interface Segment {
+export interface TokenSegment {
   text: string
   token?: string
   // The highlight layer sits over a real input, so a token click must translate back into a caret
@@ -90,8 +90,8 @@ export interface Segment {
 
 // Concatenating the segments reproduces the input exactly: the layers paint over a real input,
 // so a dropped character would show up as misaligned text.
-export function segments(text: string): Segment[] {
-  const out: Segment[] = []
+export function tokenSegments(text: string): TokenSegment[] {
+  const out: TokenSegment[] = []
   let last = 0
   for (const t of parseTokens(text)) {
     if (t.start > last) out.push({ text: text.slice(last, t.start), start: last })

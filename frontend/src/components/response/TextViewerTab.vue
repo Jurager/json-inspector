@@ -5,10 +5,12 @@ import { Button, IconButton } from '../ui/button'
 import { Input } from '../ui/input'
 import RawViewer from './RawViewer.vue'
 import { copyToClipboard } from '../../lib/export'
-import { shortcut } from '../../lib/platform'
+import { usePlatform } from '../../composables/usePlatform'
 
 // Shared by the "Raw" tab and the body of a non-JSON:API response, so a plain
 // response reads the same wherever it is shown.
+const { shortcut } = usePlatform()
+
 const props = defineProps<{
   text: string
   showOpenInRequest?: boolean
