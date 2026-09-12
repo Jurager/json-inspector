@@ -13,21 +13,19 @@ onMounted(async () => {
   try {
     version.value = (await Backend.Version()) ?? ''
   } catch {
-    // The window is still useful without a version number.
+    // Both fields are cosmetic: a failed call just leaves the field blank.
     version.value = ''
   }
   try {
     appName.value = (await Backend.Name()) ?? ''
-  } catch {
-    // ...and without the name, which leaves the heading and the icon's alt empty.
-  }
+  } catch {}
 })
 </script>
 
 <template>
   <div class="about-window">
-    <!-- On macOS the window keeps its native hidden-inset bar, so the drag strip
-         and the close button exist only where the app draws its own chrome. -->
+    <!-- macOS keeps its native hidden-inset bar, so this strip exists only where
+         the app draws its own chrome. -->
     <header v-if="useCustomTitlebar" class="about-bar">
       <span class="about-bar-title">О программе</span>
       <button class="cap-btn cap-close" title="Закрыть" @click="Window.Close()">

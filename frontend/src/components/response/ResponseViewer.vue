@@ -64,9 +64,7 @@ const pagination = computed(() => {
 
 const hasPagination = computed(() => Boolean(pagination.value.prev || pagination.value.next))
 
-// --- Тело search (Cmd/Ctrl+F) — lives in the same toolbar row as the
-// pagination controls below, rather than a container of its own; JsonApiTree
-// just filters by whatever query it's handed. ---
+// Body search (Cmd/Ctrl+F) shares the pagination toolbar row rather than a container of its own.
 const bodyQuery = ref('')
 const bodySearchVisible = ref(false)
 const bodySearchInputRef = ref<InstanceType<typeof Input> | null>(null)
@@ -128,15 +126,13 @@ function onMapFetch(url: string) {
 async function follow(url: string) {
   if (!url) return
   const headers = props.record.requestHeaders
-  // Switch to the request view immediately and clear it, so the user isn't
-  // left staring at the stale response while the new request runs.
+  // Switch rails immediately so the user isn't left staring at the stale response.
   store.activeView = 'request'
   store.loading = true
   store.manualId = null
   try {
     const res = await Backend.Fetch(url, headers)
-    // The binding types the Go pointer as nullable; the Go side always returns
-    // a result, so this is a type guard rather than a real branch.
+    // The binding types the Go pointer as nullable, but Go always returns a result — a type guard, not a real branch.
     if (!res || res.cancelled) return
     store.add({
       method: 'GET',
@@ -164,7 +160,6 @@ async function follow(url: string) {
 
 const bodySize = computed(() => new Blob([props.record.responseBody]).size)
 
-// --- Browser mode: host+path + read-only query params (step 5) ---
 function hostPath(url: string): string {
   try {
     const u = new URL(url)
@@ -193,9 +188,8 @@ const hasCookies = computed(() =>
 const responseHeaderEntries = computed(() => Object.entries(props.record.responseHeaders ?? {}))
 const requestHeaderEntries = computed(() => Object.entries(props.record.requestHeaders ?? {}))
 
-// "Назад" steps within the record's own source list (manual or browser),
-// not the combined list — otherwise going back from a captured request could
-// silently reassign the *manual* selection instead of the browser one.
+// "Назад" walks the record's own source list, not the combined one — going back from a
+// captured request must not silently reassign the *manual* selection instead.
 const sourceList = computed(() => store.requests.filter((r) => r.source === props.record.source))
 
 const hasPrev = computed(() => {
@@ -212,8 +206,6 @@ function goBack() {
   }
 }
 
-// "Открыть в «Запросе»" — copies a read-only captured request into the editable
-// draft and switches rails, without sending anything.
 function openInRequest() {
   store.loadDraft(props.record)
   store.setOpenChip(null)
@@ -222,7 +214,6 @@ function openInRequest() {
 }
 
 const prettyRaw = computed(() => (isJson.value ? prettyJson(jsonValue.value) : props.record.responseBody))
-// The search field's shortcut, used by the JSON:API tree toolbar below.
 const searchShortcut = computed(() => shortcut('F'))
 
 const bodyCopied = ref(false)
@@ -263,7 +254,6 @@ function onWindowKeydown(e: KeyboardEvent) {
 onMounted(() => window.addEventListener('keydown', onWindowKeydown))
 onBeforeUnmount(() => window.removeEventListener('keydown', onWindowKeydown))
 
-// --- Copy request (Запрос tab) ---
 const COPY_FORMATS: { id: ExportFormat; label: string }[] = [
   { id: 'curl', label: 'cURL' },
   { id: 'fetch', label: 'fetch (JS)' },
@@ -275,9 +265,8 @@ const COPY_FORMATS: { id: ExportFormat; label: string }[] = [
 const copied = ref(false)
 
 async function copyAs(format: ExportFormat, keepTokens = false) {
-  // Values are substituted by default (the request is what it is); the variant
-  // with tokens is for sharing a snippet without its values. Either way a
-  // secret only ever leaves as dots — see lib/export.ts.
+  // A secret only ever leaves as dots (see lib/export.ts); `keepTokens` shares a snippet
+  // without substituted values.
   const text = exportRequest(
     format,
     props.record.method,
@@ -301,8 +290,7 @@ async function copyAs(format: ExportFormat, keepTokens = false) {
       <span class="badge badge-method">{{ record.method }}</span>
       <span class="badge" :class="statusClass(record.status)">{{ record.status }}</span>
 
-      <!-- URL is shown only for captured requests: for manual ones it already
-           sits in the command line, so repeating it here would be noise. -->
+      <!-- URL only for captured requests: a manual one already sits in the command line. -->
       <template v-if="record.source === 'browser'">
         <span class="resp-url mono" :title="record.url">{{ hostPath(record.url) }}</span>
         <Popover v-if="browserParams.length">
@@ -328,9 +316,8 @@ async function copyAs(format: ExportFormat, keepTokens = false) {
 
       <span class="resp-spacer"></span>
 
-      <!-- Captured requests still report their outcome on the right — duration
-           and size must not vanish when the URL has query params (the reference
-           keeps "742 мс · 35,1 КБ" here). -->
+      <!-- The handoff keeps "742 мс · 35,1 КБ" here, so duration/size must not
+           vanish when a captured URL has query params. -->
       <span v-if="record.source === 'browser'" class="resp-meta">
         {{ formatDuration(record.durationMs) }} · {{ formatBytes(bodySize) }}
       </span>
@@ -370,9 +357,8 @@ async function copyAs(format: ExportFormat, keepTokens = false) {
       </TabsList>
 
     <div class="resp-main">
-      <!-- One column per tab: its toolbar is a sibling of the scrolling body
-           rather than a child of it, so pagination/search/copy stay put while
-           the response scrolls. -->
+      <!-- A tab's toolbar is a sibling of the scrolling body, not a child, so
+           pagination/search/copy stay put while the response scrolls. -->
       <TabsContent class="resp-tab" value="body">
         <div v-if="doc" class="toolbar">
           <template v-if="bodySearchVisible">
@@ -408,9 +394,8 @@ async function copyAs(format: ExportFormat, keepTokens = false) {
         <div v-if="doc" class="resp-content">
           <JsonApiTree :doc="doc" :query="bodyQuery" :highlight-key="highlightKey" @select="onTreeSelect" @inspect="onInspect" @fetch="onTreeFetch" />
         </div>
-        <!-- Anything that isn't JSON:API is read as text, with the same viewer
-             and the same search as the Raw tab — one implementation, so the two
-             tabs can't drift apart. -->
+        <!-- Non-JSON:API is read with the Raw tab's own viewer and search — one
+             implementation, so the two tabs can't drift apart. -->
         <TextViewerTab
           v-else
           :text="prettyRaw"
@@ -526,9 +511,8 @@ async function copyAs(format: ExportFormat, keepTokens = false) {
   @apply py-2.5 px-3 text-red bg-red-soft text-xs;
 }
 
-/* One tab's column: its toolbar stays put at the top and only the body below
-   scrolls. `flex-1` is what makes the column fill the row — without it the
-   width collapses to the content. */
+/* One tab's column: only the body scrolls. `flex-1` is what fills the row —
+   without it the width collapses to the content. */
 .resp-tab {
   @apply flex-1 min-w-0 min-h-0 flex flex-col;
 }
@@ -537,8 +521,6 @@ async function copyAs(format: ExportFormat, keepTokens = false) {
   @apply flex flex-1 min-h-0;
 }
 
-/* The Tabs root wraps the strip and the content row, so it takes the place the
-   two of them used to occupy in the column. */
 .resp-tabs {
   @apply flex flex-col flex-1 min-h-0;
 }
@@ -590,8 +572,7 @@ async function copyAs(format: ExportFormat, keepTokens = false) {
   font-family: var(--mono);
 }
 
-/* The one accented action in the toolbars. It has to name .btn to outrank the
-   colour the primitive sets on its own root. */
+/* Names .btn to outrank the colour the primitive sets on its own root. */
 .btn.open-in-request {
   @apply text-accent;
 }

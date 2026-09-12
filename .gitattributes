@@ -1,4 +1,2 @@
-# Generated files are rewritten by the build, and the generators always emit LF.
-# Pinning them keeps a Windows checkout byte-identical to the output, so git
-# stops warning about CRLF conversion on every run.
+# Generated; the generators emit LF, so pinning it keeps a Windows checkout byte-identical to the output.
 frontend/bindings/** text eol=lf

@@ -3,8 +3,7 @@ import Dialog from '../ui/dialog/Dialog.vue'
 import { Button } from '../ui/button'
 import { useUpdates } from '../../composables/useUpdates'
 
-// State and actions come from the composable, so the rail's "Проверить
-// обновления" and the status bar's link open this same dialog.
+// Shared composable state, so the rail's "Проверить обновления" opens this same dialog.
 const { update, updating, modalOpen, close, apply } = useUpdates()
 </script>
 

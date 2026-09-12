@@ -7,9 +7,8 @@ const UI_KEY = 'ji-ui-v1'
 const MAX_HISTORY = 200
 const SAVE_DEBOUNCE_MS = 300
 
-// History and panel layout outlive a window, so they are written back on every
-// change and read once at startup. Secrets are deliberately not here: those
-// come back from the keychain, see the environments store.
+// History and panel layout outlive a window: read once at startup, written back
+// on every change. Secrets deliberately stay out — they live in the keychain.
 export function useSessionPersistence(
   store: ReturnType<typeof useRequestsStore>,
   envStore: ReturnType<typeof useEnvironmentsStore>
@@ -18,7 +17,6 @@ export function useSessionPersistence(
   let saveTimer: ReturnType<typeof setTimeout> | null = null
 
   onMounted(() => {
-    // Restore request history from the previous session.
     try {
       const raw = localStorage.getItem(HISTORY_KEY)
       if (raw) {
@@ -29,7 +27,6 @@ export function useSessionPersistence(
       // ignore corrupt storage
     }
 
-    // Restore the inspector's visibility and width.
     try {
       const raw = localStorage.getItem(UI_KEY)
       if (raw) {
@@ -41,11 +38,9 @@ export function useSessionPersistence(
       // ignore corrupt storage
     }
 
-    // Secrets are kept in the keychain, not in localStorage, so they have to be
-    // pulled back into the session before the first request needs one.
+    // Secrets come back out of the keychain before the first request needs one.
     envStore.hydrateSecrets()
 
-    // Persist request history (debounced).
     unsubscribe = store.$subscribe((_m, state) => {
       if (saveTimer) clearTimeout(saveTimer)
       saveTimer = setTimeout(() => {

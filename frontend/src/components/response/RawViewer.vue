@@ -7,13 +7,10 @@ import { json } from '@codemirror/lang-json'
 import { keymap } from '@codemirror/view'
 import { tags as t } from '@lezer/highlight'
 
-// A read-only JSON view with what a `<pre>` can't give: line numbers, foldable
-// objects and arrays, and a badge on a folded block saying how many lines it
-// hides. CodeMirror renders the text, so the toolbar's search is implemented
-// here as decorations rather than by marking up HTML.
+// CodeMirror renders the text itself, so the toolbar's search has to be decorations
+// here rather than markup on HTML.
 const props = defineProps<{
   text: string
-  // Query from the toolbar; empty means "no search".
   query: string
 }>()
 
@@ -24,8 +21,8 @@ const emit = defineEmits<{
 const host = ref<HTMLElement | null>(null)
 const view = shallowRef<EditorView | null>(null)
 
-// The app's own JSON token colours, so Raw reads the same as the tree and the
-// request preview instead of introducing a second palette.
+// The app's own token colours, so Raw reads like the tree instead of introducing
+// a second palette.
 const appHighlight = HighlightStyle.define([
   { tag: t.propertyName, color: 'var(--accent)' },
   { tag: t.string, color: 'var(--tok-str)' },
@@ -37,9 +34,8 @@ const appTheme = EditorView.theme({
   '&': { backgroundColor: 'transparent', height: '100%', fontSize: '12px' },
   '&.cm-focused': { outline: 'none' },
   '.cm-scroller': { fontFamily: 'var(--mono)', lineHeight: '1.65' },
-  // The app turns selection off globally (drag on chrome shouldn't select
-  // labels), and that reaches in here by inheritance — a response is text and
-  // has to be selectable and copyable.
+  // The app turns selection off globally and that inherits in here — a response
+  // is text and has to stay selectable and copyable.
   '.cm-content': { padding: '10px 0', userSelect: 'text', WebkitUserSelect: 'text' },
   '.cm-line': { padding: '0 16px' },
   '.cm-gutters': {
@@ -50,7 +46,6 @@ const appTheme = EditorView.theme({
   },
   '.cm-foldGutter span': { color: 'var(--text-tertiary)', cursor: 'pointer' },
   '.cm-foldGutter span:hover': { color: 'var(--text)' },
-  // The folded-block badge, filled in by preparePlaceholder below.
   '.cm-foldPlaceholder': {
     backgroundColor: 'var(--bg-inset)',
     border: '1px solid var(--border)',
@@ -64,8 +59,6 @@ const appTheme = EditorView.theme({
   '.cm-selectionBackground, ::selection': { backgroundColor: 'var(--accent-soft)' },
 })
 
-// "12 строк" / "3 строки" / "1 строка" — the count is part of the label, since
-// that is the whole point of the folded-block badge.
 function plural(n: number, forms: [string, string, string]): string {
   const m10 = n % 10
   const m100 = n % 100
@@ -79,7 +72,6 @@ function plural(n: number, forms: [string, string, string]): string {
 }
 
 const folding = codeFolding({
-  // Counted from the folded range, so the badge is exact rather than a guess.
   preparePlaceholder: (state, range) =>
     plural(
       state.doc.lineAt(range.to).number - state.doc.lineAt(range.from).number,
@@ -95,17 +87,16 @@ const folding = codeFolding({
 })
 
 // --- Search ----------------------------------------------------------------
-// Written by hand rather than with @codemirror/search: that extension only
-// highlights matches while *its* panel is open, and the search UI here lives in
-// the app's own toolbar.
+// Hand-written rather than @codemirror/search: that extension only highlights
+// while its own panel is open, and the search UI here lives in the app toolbar.
 
 interface Match {
   from: number
   to: number
 }
 
-// A cap on decorated matches: a 2 MB body can contain tens of thousands, and
-// decorating them all costs more than it tells anyone.
+// A 2 MB body can hold tens of thousands of matches, and decorating them all
+// costs more than it tells anyone.
 const MAX_MARKS = 2000
 
 function findMatches(doc: Text, query: string): Match[] {
@@ -136,8 +127,7 @@ const matchMark = Decoration.mark({ class: 'cm-searchMatch' })
 const matchField = StateField.define<DecorationSet>({
   create: () => Decoration.none,
   update(deco, tr) {
-    // Only recomputed when the query or the document changes; scrolling must
-    // not rebuild a decoration set for every match in the body.
+    // Recompute only on query/doc change — scrolling must not rebuild a set per match.
     const touched = tr.docChanged || tr.effects.some((e) => e.is(setQuery))
     if (!touched) return deco.map(tr.changes)
     const builder = new RangeSetBuilder<Decoration>()
@@ -159,7 +149,6 @@ function stats(): { count: number; index: number } {
   const v = view.value
   const all = matches()
   if (!v || all.length === 0) return { count: 0, index: 0 }
-  // Which match the cursor sits on, so the toolbar can keep showing "3 / 12".
   const pos = v.state.selection.main.from
   const at = all.findIndex((m) => m.from <= pos && pos <= m.to)
   return { count: all.length, index: at === -1 ? 0 : at }
@@ -169,8 +158,7 @@ function report() {
   emit('stats', stats())
 }
 
-// Moves the selection onto the next/previous match, which is also what makes
-// the active one visible — the caret sits on it.
+// Selecting a match is what makes it visible — the caret sits on it.
 function step(direction: 1 | -1) {
   const v = view.value
   if (!v) return
@@ -210,7 +198,6 @@ function buildState(doc: string): EditorState {
       keymap.of(foldKeymap),
       json(),
       syntaxHighlighting(appHighlight),
-      // Read-only: the response is not ours to edit.
       EditorState.readOnly.of(true),
       EditorView.editable.of(false),
       EditorView.lineWrapping,
@@ -218,7 +205,6 @@ function buildState(doc: string): EditorState {
       matchField,
       appTheme,
       EditorView.updateListener.of((u) => {
-        // The caret moving onto another match changes which one is current.
         if (u.selectionSet || u.docChanged) report()
       }),
     ],
@@ -236,9 +222,8 @@ onBeforeUnmount(() => {
   view.value = null
 })
 
-// Rebuilding the state (rather than patching the document) also drops folding
-// from the previous response, which would otherwise hide lines that no longer
-// exist.
+// Rebuilding the state (not patching the doc) also drops folding from the previous
+// response, which would otherwise hide lines that no longer exist.
 watch(
   () => props.text,
   (text) => {
@@ -264,8 +249,7 @@ defineExpose({
 <style scoped>
 @reference "../../style.css";
 
-/* Fills whatever column it is dropped into and scrolls inside it, so the
-   toolbar above never moves. */
+/* Fills its column and scrolls inside it, so the toolbar above never moves. */
 .raw-viewer {
   @apply flex-1 min-h-0 overflow-hidden;
 }

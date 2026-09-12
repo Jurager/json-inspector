@@ -9,8 +9,7 @@ interface Phase {
   ms: number
 }
 
-// Phases only exist for requests made from the app itself (httptrace); the
-// extension reports just a total duration.
+// Phases exist only for app-made requests (httptrace); the extension sends just a total.
 const phases = computed<Phase[]>(() => [
   { label: 'DNS', ms: props.record.dnsMs ?? 0 },
   { label: 'TCP', ms: props.record.connectMs ?? 0 },

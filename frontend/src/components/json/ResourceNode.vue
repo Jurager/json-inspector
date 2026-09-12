@@ -29,8 +29,7 @@ function relPath(name: string): string {
   return props.path + '.relationships.' + name
 }
 
-// When the parent highlights this node (e.g. jump from the map), expand it so
-// the resource is actually visible, not just its header.
+// A highlight from the map must expand the node, not just show its header.
 watch(
   () => props.highlighted,
   (h) => {
@@ -65,9 +64,8 @@ function formatValue(v: unknown): string {
 
 const rid = computed(() => 'res-' + resourceKey(props.resource.type, props.resource.id))
 
-// Click-to-copy on an attribute's key or value. Skipped while the user has
-// an active text selection, so it doesn't steal a click-drag meant to
-// select part of the text.
+// Click-to-copy is skipped during an active text selection, so a click-drag
+// meant to select part of the value is not stolen.
 const copiedKeys = ref<Set<string>>(new Set())
 const copiedVals = ref<Set<string>>(new Set())
 

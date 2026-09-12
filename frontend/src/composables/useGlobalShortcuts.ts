@@ -2,9 +2,8 @@ import { onBeforeUnmount, onMounted } from 'vue'
 import { useEnvironmentsStore } from '../stores/environments'
 import { useRequestsStore } from '../stores/requests'
 
-// Window-level keys that belong to no particular view: ⌘K for search (which is
-// really "focus the command line", see the store) and ⌘E for the environment
-// variables.
+// Window-level keys belonging to no particular view; ⌘K is really "focus the
+// command line" — see the store.
 export function useGlobalShortcuts(
   store: ReturnType<typeof useRequestsStore>,
   envStore: ReturnType<typeof useEnvironmentsStore>

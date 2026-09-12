@@ -1,12 +1,11 @@
 <script setup lang="ts">
 import { SwitchRoot, SwitchThumb, type SwitchRootProps } from 'reka-ui'
 
-// role="switch", aria-checked, the Space/Enter key and the label wiring are
-// reka-ui's. Proportions follow the switch the project already had — the
-// extension popup's: a 44x26 track with a 20px knob inset by 3px.
+// Proportions from the extension popup's switch: a 44x26 track, a 20px knob
+// inset by 3px.
 //
-// No call site in the app yet: the environments sheet's "секрет/текст" is a tag
-// in the handoff, not a toggle. It is here for the first real binary setting.
+// No call site yet — the sheet's "секрет/текст" is a tag in the handoff, not a
+// toggle. It is here for the first real binary setting.
 const props = defineProps<SwitchRootProps>()
 
 defineOptions({ inheritAttrs: false })

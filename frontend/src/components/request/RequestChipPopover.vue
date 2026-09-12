@@ -30,8 +30,7 @@ const isBodyDisabled = computed(() => store.draft.method === 'GET' || store.draf
 const AUTH_TYPES = ['none', 'bearer', 'basic', 'oauth2'] as const
 const AUTH_LABELS: Record<string, string> = { none: 'Нет', bearer: 'Bearer', basic: 'Basic', oauth2: 'OAuth 2' }
 
-// A sliding pill behind the segments: the indicator moves one segment (+ the
-// 2px gap) per step, animated by CSS transition on transform.
+// The pill moves one segment (+ the 2px gap) per step, animated by a CSS transition on transform.
 const activeAuthIndex = computed(() => AUTH_TYPES.indexOf(store.draft.auth.type))
 const authIndicatorStyle = computed(() => ({
   transform: `translateX(calc(${activeAuthIndex.value} * (100% + 2px)))`,
@@ -41,23 +40,18 @@ function close() {
   store.setOpenChip(null)
 }
 
-// --- Token highlighting in row values ---
-//
-// Same deal as the URL field: the input stays the editable control, and a
-// transparent decorative layer paints the tokens above it.
+// Same as the URL field: the input stays the editable control and a transparent layer paints tokens above it.
 function showCellValue(value: string): boolean {
   return parseTokens(value).length > 0
 }
 
-// The layer above scrolls independently of the input it mirrors.
 function syncCellScroll(e: Event) {
   const input = e.target as HTMLInputElement
   const display = input.parentElement?.querySelector<HTMLElement>('.row-display')
   if (display) display.scrollLeft = input.scrollLeft
 }
 
-// Value colour hints at its type — numbers in --tok-num, everything else as a
-// string in --tok-str — mirroring the JSON tree's value highlighting.
+// Numbers take --tok-num, everything else --tok-str, mirroring the JSON tree's value highlighting.
 function valueClass(v: string): string {
   return /^-?\d+(\.\d+)?$/.test(v.trim()) ? 'num' : 'str'
 }
@@ -65,8 +59,7 @@ function valueClass(v: string): string {
 </script>
 
 <template>
-  <!-- Rendered inside the chip's own ui/Popover, which owns the placement, the
-       outside click and Escape. -->
+  <!-- Sits inside the chip's own ui/Popover, which owns placement, outside click and Escape. -->
   <PopoverContent
     class="chip-popover"
     :class="{ auth: props.chip === 'auth', spaced: props.chip === 'auth' || props.chip === 'body' }"
@@ -75,13 +68,12 @@ function valueClass(v: string): string {
   >
     <div class="popover-head">
       <span class="popover-title">{{ title }}</span>
-      <!-- This button lands under the cursor when the panel opens, so its hint
-           is held back by the hover-arrival guard until the pointer has left and
-           come back — see composables/useHoverArrival. -->
+      <!-- Lands under the cursor when the panel opens, so useHoverArrival holds its hint until the
+           pointer returns.
+      -->
       <IconButton hint="Закрыть (Esc)" size="sm" @click="close"><Icon name="xmark" :size="13" /></IconButton>
     </div>
 
-    <!-- params / headers share the same row grid -->
     <template v-if="props.chip === 'params' || props.chip === 'headers'">
       <template v-if="props.chip === 'params'">
         <div v-for="(p, i) in store.draft.params" :key="i" class="row" :class="{ off: !p.enabled }">
@@ -191,13 +183,12 @@ function valueClass(v: string): string {
 <style scoped>
 @reference "../../style.css";
 
-/* The panel's own size and rhythm live in style.css, next to .popover: the
-   panel is built by reka-ui inside a Teleport, so it never carries this
-   component's scope attribute and a scoped rule here would match nothing.
-   The head below is slot content, so it keeps working scoped. */
+/* The panel is built by reka-ui inside a Teleport, so it never carries this component's scope attribute and a
+   scoped rule here would match nothing — its size and rhythm live in style.css, next to .popover.
+   The head below is slot content, so that part keeps working scoped. */
 
-/* The auth and body panels put 8px between children instead of 2px, and their
-   head has no bottom padding of its own — the gap does the spacing. */
+/* Spaced panels put 8px between children instead of 2px, so the head carries no bottom padding of
+   its own. */
 .chip-popover.spaced .popover-head {
   padding-bottom: 0;
 }
@@ -222,9 +213,8 @@ function valueClass(v: string): string {
   @apply opacity-55;
 }
 
-/* No padding of its own: the row already carries 3px 4px, and the handoff's
-   cell text starts right at that edge — an inset here shifts every name and
-   value 4px to the right of where the design puts them. */
+/* No padding of its own: the row already carries 3px 4px and the handoff's cell text starts at that edge —
+   an inset here shifts every name and value 4px to the right of where the design puts them. */
 .row-input {
   @apply min-w-0 bg-transparent border-0 outline-none text-[11.5px] p-0 rounded-sm;
   font-family: var(--mono);
@@ -239,16 +229,15 @@ function valueClass(v: string): string {
   @apply relative flex min-w-0;
 }
 
-/* Painted over the input, so the input's own glyphs are hidden rather than
-   removed — and the caret gets its colour back, since it follows `color`.
-   Scoped through .row-cell so it also beats the .str/.num value colours. */
+/* Painted over the input: its glyphs are hidden rather than removed and the caret gets its colour back, since
+   it follows `color`. Scoped through .row-cell so it also beats the .str/.num value colours. */
 .row-cell .row-input.row-input-veiled {
   color: transparent;
   caret-color: var(--text);
 }
 
-/* Transparent to the mouse so the input keeps native caret and selection;
-   tokens opt back in for their tooltip. */
+/* Transparent to the mouse so the input keeps native caret and selection; tokens opt back in for
+   their tooltip. */
 .row-display {
   @apply absolute inset-0 flex items-center overflow-hidden pointer-events-none;
   white-space: pre;
@@ -270,8 +259,7 @@ function valueClass(v: string): string {
   @apply text-[11px] text-text-tertiary;
 }
 
-/* The auth panel's own note, in the panel's 8px rhythm rather than in a
-   bordered foot. */
+/* The auth panel's note, in the panel's 8px rhythm rather than in a bordered foot. */
 .hint {
   color: var(--text-tertiary);
   font-size: 11.5px;
@@ -284,9 +272,8 @@ function valueClass(v: string): string {
   border-radius: 7px;
 }
 
-/* Sliding active pill. Its width is one of four equal segments minus the
-   4px padding and 3×2px gaps; translateX steps it one segment (+gap) at a
-   time, so the highlight glides to the chosen mode instead of jumping. */
+/* One of four equal segments minus the 4px padding and 3×2px gaps; translateX steps it one segment (+gap) per
+   mode, so the highlight glides rather than jumps. */
 .seg-indicator {
   @apply absolute top-0.5 bottom-0.5 left-0.5 bg-bg-panel;
   border-radius: 5px;
@@ -322,7 +309,6 @@ function valueClass(v: string): string {
   box-shadow: 0 0 0 3px var(--accent-soft);
 }
 
-/* The same box, with the reason written in it rather than a second look. */
 .body-disabled {
   color: var(--text-tertiary);
   resize: none;

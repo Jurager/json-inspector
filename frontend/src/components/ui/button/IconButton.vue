@@ -1,23 +1,14 @@
 <script setup lang="ts">
-// A square button whose only content is a glyph — reka-ui has none either.
-// Metrics from the handoff: the toolbar tile is 24px with a 6px radius, the
-// small glyph buttons (delete, reveal-secret) are 20px with a 4px radius, and
-// the rail's own buttons are 36px with 9px. The four variants are its four
-// species of glyph button, and its colours come with them: outline is the
-// bordered tile ("назад" in the response bar, rail tiles), bare is the same
-// glyph at --text-secondary (the rail's menu button, the environment sheet's
-// +/–), subtle is the dimmer one used for closes, danger is subtle turning
-// --red on hover (row deletes).
+// A square button whose only content is a glyph. outline — bordered tile
+// (response bar, rail); bare — --text-secondary (rail menu, sheet +/-); subtle —
+// closes; danger — deletes.
 //
-// A glyph has no label, so `hint` becomes a styled tooltip. On a disabled
-// button it falls back to the native title instead: a disabled element fires no
-// pointer events, so there'd be nothing for the tooltip to catch, and the
-// explanation of *why* it is disabled is exactly what matters there.
+// On a disabled button `hint` falls back to the native title: a disabled element
+// fires no pointer events, and "why is this disabled" is what matters there.
 //
-// `hint` is not usable on a button that is itself an `as-child` trigger (the
-// rail's menu button): the tooltip's root is a provider, so the trigger's props
-// would land on the provider instead of the button and the menu would stop
-// opening.
+// `hint` is unusable on a button that is itself an `as-child` trigger (the rail's
+// menu): the tooltip's root is a provider, so the trigger's props would land on
+// the provider and the menu would stop opening.
 import { ref } from 'vue'
 import Tooltip from '../tooltip/Tooltip.vue'
 import { useHoverArrival } from '../../../composables/useHoverArrival'
@@ -32,15 +23,10 @@ withDefaults(
   { variant: 'subtle', size: 'md' }
 )
 
-// Not inherited: with a hint the root is the tooltip, and the click handler the
-// caller passes would land on the tooltip's panel instead of on the button.
-// Both branches below hand `$attrs` to a button explicitly.
+// With a hint the root is the tooltip, so a caller's click handler would land on
+// the tooltip's panel; both branches below hand `$attrs` to a button explicitly.
 defineOptions({ inheritAttrs: false })
 
-// A button that appeared under the pointer (a panel opening where the user just
-// clicked) stays unhinted until the pointer leaves and comes back — see the
-// composable. Without it the first twitch of the mouse pops a hint nobody
-// asked for.
 const hintEl = ref<HTMLElement | null>(null)
 const hintArmed = useHoverArrival(hintEl)
 </script>

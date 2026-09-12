@@ -2,14 +2,12 @@
 import { CheckboxIndicator, CheckboxRoot, type CheckboxRootProps } from 'reka-ui'
 import Icon from '../Icon.vue'
 
-// The button role, the checked state, the Space key and the ARIA wiring are
-// reka-ui's; the 13x13 box with a 3px radius is the handoff's row checkbox.
+// The handoff's row checkbox: 13x13, 3px radius.
 //
-// `tone` exists because a checked box means two different things here: "this row
-// is on" (accent) and "this value is a credential" — the app's orange, the same
-// colour the sheet's "секрет" tag uses.
-// `tone` is ours, not reka-ui's, so it is taken out of the props that are
-// forwarded — spread in, it would land on the button as an attribute.
+// `tone` is ours, and a checked box means two things here: "this row is on"
+// (accent) or "this value is a credential" (the sheet's "секрет" orange). It is
+// kept out of the forwarded props, or it would land on the button as an
+// attribute.
 const { tone = 'accent', ...rootProps } = defineProps<CheckboxRootProps & { tone?: 'accent' | 'secret' }>()
 
 defineOptions({ inheritAttrs: false })
@@ -17,8 +15,8 @@ defineOptions({ inheritAttrs: false })
 
 <template>
   <CheckboxRoot v-bind="{ ...rootProps, ...$attrs }" class="check" :class="{ secret: tone === 'secret' }">
-    <!-- The indicator is only mounted while checked, so the mark needs no
-         v-if of its own. -->
+    <!-- Mounted only while checked, so the mark needs no v-if of its own. -->
+
     <CheckboxIndicator>
       <Icon name="check" :size="9" />
     </CheckboxIndicator>

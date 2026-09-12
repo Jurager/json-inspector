@@ -2,9 +2,7 @@ import { onBeforeUnmount, onMounted } from 'vue'
 import { Events } from '@wailsio/runtime'
 import { useRequestsStore } from '../stores/requests'
 
-// What the extension sends over the bridge, as it arrives. Kept out of the
-// shell so the browser view and the store can grow without the shell growing
-// with them.
+// What the extension sends over the bridge on `captured-request`.
 interface Captured {
   method: string
   url: string
@@ -54,9 +52,9 @@ export function useCaptureEvents(store: ReturnType<typeof useRequestsStore>) {
       Events.On('capture-disconnected', () => {
         store.setCaptureState({ connected: false, recording: false, tabs: 0 })
       }),
-      // The extension's "open this tab" deep link. Subscribed here rather than
-      // in the browser list because the list isn't always mounted, and the link
-      // must still switch the rail even when there is nothing captured yet.
+      // The extension's "open this tab" deep link. Subscribed here rather than in
+      // the browser list, which isn't always mounted — the link must still switch
+      // the rail even when nothing has been captured yet.
       Events.On('open-tab', (ev) => {
         store.focusBrowserTab(ev.data as number)
       })

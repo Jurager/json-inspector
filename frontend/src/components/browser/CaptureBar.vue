@@ -6,16 +6,13 @@ import { App as Backend } from '../../../bindings/json-inspector'
 
 const store = useRequestsStore()
 
-// The source is the browser tab the selected request came from.
 const sourceLabel = computed(() => {
   const t = store.browserSelected?.tabTitle
   return t ? `Источник: вкладка «${t}»` : 'Источник: браузер'
 })
 
-// One control, two states: with recording on it stops every tab, and once
-// stopped it puts back the tabs that were being recorded. The label follows the
-// live capture state the extension reports rather than what was last clicked,
-// so it can't drift out of sync with reality.
+// One control, two states: while recording it stops every tab, once stopped it
+// restores them — labelled from live state, not from what was last clicked.
 const recording = computed(() => store.capture.recording)
 
 async function toggleCapture() {

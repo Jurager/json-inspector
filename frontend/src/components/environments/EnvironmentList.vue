@@ -18,29 +18,22 @@ const envStore = useEnvironmentsStore()
 const reqStore = useRequestsStore()
 const { setNotice, clearNotice } = useSheetNotice()
 
-// Which environment the table on the right is editing. `null` is "Глобальные",
-// which is a first-class scope rather than a separate screen.
+// `null` is "Глобальные" — a first-class scope, not a separate screen.
 const envId = computed(() => envStore.sheetEnvId)
 const env = computed(() => envStore.environments.find((e) => e.id === envId.value) ?? null)
 const isGlobals = computed(() => envId.value === null)
 
-// --- Environments themselves -------------------------------------------------
-//
-// Names are editable in place, and a brand-new environment starts in edit mode
-// so it can be named straight away instead of being stuck as "Новое окружение".
 const renamingId = ref<string | null>(null)
 const envDraft = ref('')
 const renameInput = ref<HTMLInputElement | null>(null)
-// A name that can't be saved keeps the field open with a red frame, so a
-// duplicate is fixed in place instead of silently bouncing the row back.
+// An unsaveable name keeps the field open with a red frame, so a duplicate is fixed in place.
 const renameInvalid = ref(false)
 
 function setRenameInput(el: Element | ComponentPublicInstance | null) {
   renameInput.value = (el as HTMLInputElement | null) ?? null
 }
 
-// Finder's pattern: `+` makes a row that is already in edit mode with its name
-// selected, so the environment is created and named in one gesture.
+// Finder's pattern: `+` opens the new row already in edit mode with its name selected.
 function addEnv() {
   const id = envStore.addEnv()
   envStore.selectSheetEnv(id)
@@ -78,9 +71,8 @@ function commitRename(): boolean {
   return true
 }
 
-// Unmounting the previous input fires its blur, and by then `renamingId` may
-// already point at the row we just opened — a blind commit there would rename
-// the fresh row and close it immediately. Only the input being edited commits.
+// Unmounting the previous input fires its blur after `renamingId` has moved on: a blind commit
+// would rename the fresh row and close it immediately.
 function commitRenameFrom(id: string) {
   if (renamingId.value !== id) return
   commitRename()
@@ -92,7 +84,6 @@ function cancelRename() {
   clearNotice()
 }
 
-// Tab moves to the next environment's name, still in edit mode.
 function renameNext(dir: 1 | -1) {
   const list = envStore.environments
   const at = list.findIndex((e) => e.id === renamingId.value)
@@ -105,8 +96,8 @@ function renameNext(dir: 1 | -1) {
 }
 
 function onRenameKeydown(e: KeyboardEvent) {
-  // The row underneath also listens for Enter (it starts renaming); without this
-  // the save would immediately reopen the editor and look like it didn't take.
+  // The row underneath also listens for Enter; without this the save would reopen the editor at
+  // once and look like it didn't take.
   e.stopPropagation()
   if (e.key === 'Enter') {
     e.preventDefault()
@@ -120,13 +111,10 @@ function onRenameKeydown(e: KeyboardEvent) {
   }
 }
 
-// Enter on the already-selected row renames it, the way Finder does.
 function onEnvRowEnter(id: string) {
   if (envStore.sheetEnvId === id) startRename(id, true)
   else envStore.selectSheetEnv(id)
 }
-
-// --- Removing an environment ------------------------------------------------
 
 const confirming = ref<string | null>(null)
 
@@ -134,8 +122,6 @@ const confirmingName = computed(
   () => envStore.environments.find((e) => e.id === confirming.value)?.name ?? ''
 )
 
-// A variable that no saved request mentions is safe to drop silently; one that
-// is referenced everywhere deserves a question first.
 function referencedBy(name: string): boolean {
   const texts: string[] = [reqStore.draft.url, reqStore.draft.body]
   for (const p of reqStore.draft.params) texts.push(p.name, p.value)
@@ -164,10 +150,7 @@ function doRemove(id: string) {
   if (envStore.sheetEnvId === id) envStore.selectSheetEnv(envStore.environments[0]?.id ?? null)
 }
 
-// --- Import .env ------------------------------------------------------------
-//
-// The file is read in the webview (a file input) rather than through a Go
-// binding — nothing about parsing a text file needs the backend.
+// The file is read in the webview, not through a Go binding: parsing a text file needs no backend.
 const fileInput = ref<HTMLInputElement | null>(null)
 const importEntries = ref<ImportChoice[] | null>(null)
 
@@ -183,8 +166,8 @@ async function onFileChosen(e: Event) {
   input.value = ''
   if (!file) return
   const text = await file.text()
-  // Conflicts default to "skip": an import must never overwrite a value the
-  // user set by hand without saying so on the row.
+  // Conflicts default to "skip": an import must never overwrite a hand-set value without saying so
+  // on the row.
   importEntries.value = parseDotenv(text).map((entry) => ({
     ...entry,
     mode: existingNames.value.has(entry.name) ? ('skip' as const) : ('replace' as const),
@@ -227,8 +210,9 @@ defineExpose({ cancelTop })
 <template>
   <div class="sheet-side">
     <div class="side-label">Окружения</div>
-    <!-- Rows are divs, not buttons: an environment's name turns into an
-         input in place, and interactive content can't live in a <button>. -->
+    <!-- Rows are divs, not buttons: the name turns into an input in place, and interactive content
+         can't live in a <button>.
+    -->
     <div
       v-for="e in envStore.environments"
       :key="e.id"
@@ -324,7 +308,6 @@ defineExpose({ cancelTop })
 <style scoped>
 @reference "../../style.css";
 
-/* ---- left column ---- */
 .sheet-side {
   @apply flex-none w-[232px] flex flex-col p-2 pb-0 border-r border-border;
   background: var(--bg-inset);
@@ -349,8 +332,7 @@ defineExpose({ cancelTop })
   @apply bg-accent-soft font-semibold;
 }
 
-/* Enter on an already-selected row starts renaming, so the row keeps its
-   keyboard affordance visible. */
+/* Enter on the selected row starts renaming, so the row keeps a visible keyboard affordance. */
 .side-row:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: -2px;
@@ -368,9 +350,9 @@ defineExpose({ cancelTop })
   @apply flex-1 min-w-0 overflow-hidden text-ellipsis whitespace-nowrap;
 }
 
-/* The input has to sit in the row's rhythm, not stretch it: same 30px row,
-   26px field, and a negative margin that puts its text on the very same
-   vertical line as the names beside it (border 1px + padding 7px = 8px back). */
+/* The input sits in the row's rhythm, not stretched by it: same 30px row, 26px field, and a
+   negative margin that puts its text on the names' vertical line (border 1px + padding 7px = 8px
+   back). */
 .side-rename {
   @apply flex-1 min-w-0 h-[26px] box-border text-[13px] outline-none;
   margin-left: -8px;

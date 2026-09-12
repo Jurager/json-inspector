@@ -17,10 +17,6 @@ const modalOpen = ref(false)
 // Three components use this composable, and the events must be subscribed once.
 let listening = false
 
-// Everything about the app's own updater in one place: the rail starts a
-// check, the status bar offers the result, the modal applies it, and the
-// events the Go side emits on its own (a startup check, a menu click) land
-// here too rather than in the shell.
 export function useUpdates() {
   const { show } = useToast()
   const offs: (() => void)[] = []
@@ -43,8 +39,8 @@ export function useUpdates() {
       if (!u) return
       if (u.available) {
         update.value = u
-        // A manual check gives immediate feedback, unlike the silent startup
-        // check which only lights up the status-bar link.
+        // A manual check opens the modal; the startup one only lights the
+        // status-bar link.
         modalOpen.value = true
       } else show(`У вас последняя версия (${u.latest})`)
     } catch {
@@ -72,7 +68,6 @@ export function useUpdates() {
     listening = true
     offs.push(
       Events.On('update-available', (ev) => {
-        // The startup check only advertises itself in the status bar.
         update.value = ev.data as UpdateInfo
       }),
       Events.On('update-up-to-date', (ev) => {

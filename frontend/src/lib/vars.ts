@@ -1,19 +1,14 @@
-// Template tokens for environment variables: `{{name}}` (spaces inside are
-// allowed). `\{{` escapes the sequence so it is never treated as a token.
-//
-// A token is only recognised when its contents are a valid variable name, so
-// arbitrary payloads — a body containing `{{"a": 1}}`, a CSS-ish `{{nested}}`
-// inside a string — pass through untouched instead of blowing up the parse.
+// Template tokens for environment variables: `{{name}}` (spaces allowed inside);
+// `\{{` escapes the sequence. A token only counts when its contents are a valid
+// variable name, so payloads that merely look like one (`{{"a": 1}}`) pass through
+// untouched instead of blowing up the parse.
 
 export type VarKind = 'text' | 'secret'
 
-// What a secret looks like anywhere it isn't being deliberately revealed:
-// tooltips, the request preview, exports.
+// What a secret looks like anywhere it isn't deliberately revealed: tooltips, preview, exports.
 export const SECRET_MASK = '••••'
 
-// What a resolver hands back for one name. `source` and `kind` travel with the
-// value because the tooltip has to name where a value came from ("Local · dev →
-// baseUrl") and has to know whether it may show it at all.
+// `source` and `kind` travel with the value: the tooltip names where it came from and whether it may be shown.
 export interface VarResolution {
   value: string
   source: 'env' | 'global'
@@ -35,8 +30,7 @@ export function parseTokens(text: string): Token[] {
   const out: Token[] = []
   let i = 0
   while (i < text.length) {
-    // Skip an escaped opener whole (backslash + both braces): consuming all
-    // three is what keeps the braces of `\{{x}}` from opening a token.
+    // Consume all three, or the braces of `\{{x}}` would open a token.
     if (text[i] === '\\' && text.startsWith('\\{{', i)) {
       i += 3
       continue
@@ -52,9 +46,7 @@ export function parseTokens(text: string): Token[] {
     }
     const name = text.slice(i + 2, close).trim()
     if (!NAME_RE.test(name)) {
-      // Contents aren't a name — this is content that merely looks like a
-      // token. Resume after the opener so a real token further along is still
-      // found, rather than swallowing the rest of the string.
+      // Not a name — resume after the opener so a real token further along is still found.
       i += 2
       continue
     }
@@ -64,9 +56,8 @@ export function parseTokens(text: string): Token[] {
   return out
 }
 
-// Replaces known tokens with their values. Unknown ones are left exactly as
-// written — an unresolved name is reported by `missing` and blocks sending,
-// so silently blanking it here would hide the mistake instead of surfacing it.
+// Unknown tokens are left exactly as written — `missing` reports them and blocks
+// sending, so blanking them here would hide the mistake instead of surfacing it.
 export function substitute(text: string, resolve: ResolveFn): string {
   const tokens = parseTokens(text)
   if (tokens.length === 0) return text
@@ -81,9 +72,7 @@ export function substitute(text: string, resolve: ResolveFn): string {
   return out + text.slice(last)
 }
 
-// Names that appear as tokens but resolve to nothing, deduplicated and in order
-// of first appearance — the list the "переменная не найдена" row and the
-// status bar both need.
+// Names that appear as tokens but resolve to nothing, deduplicated, in order of first appearance.
 export function missing(text: string, resolve: ResolveFn): string[] {
   const names = new Set<string>()
   for (const t of parseTokens(text)) {
@@ -95,14 +84,12 @@ export function missing(text: string, resolve: ResolveFn): string[] {
 export interface Segment {
   text: string
   token?: string
-  // Where the segment starts in the source text. The highlight layer sits over a
-  // real input, so a token click has to translate back into a caret index.
+  // The highlight layer sits over a real input, so a token click must translate back into a caret index.
   start: number
 }
 
-// Splits text into literal runs and tokens for the highlight layers. Concatenating
-// the segments reproduces the input exactly — the display layers paint over a
-// real input, so a character dropped here would show up as misaligned text.
+// Concatenating the segments reproduces the input exactly: the layers paint over a real input,
+// so a dropped character would show up as misaligned text.
 export function segments(text: string): Segment[] {
   const out: Segment[] = []
   let last = 0

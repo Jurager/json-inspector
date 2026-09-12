@@ -1,5 +1,3 @@
-// Generic JSON utilities: parsing, pretty-printing, lightweight highlighting.
-
 export interface ParsedJson {
   ok: boolean
   value: unknown
@@ -29,9 +27,8 @@ function escapeHtml(s: string): string {
   return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
 }
 
-// highlightJson returns the JSON source wrapped in <span class="tok-*"> for
-// lightweight syntax highlighting. It scans char-by-char to be robust against
-// escaped quotes inside strings.
+// Wraps the source in <span class="tok-*">; scans char-by-char rather than with
+// a regex, which would end a string at an escaped quote.
 export function highlightJson(text: string): string {
   const out: string[] = []
   const n = text.length

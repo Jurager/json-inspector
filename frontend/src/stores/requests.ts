@@ -8,8 +8,7 @@ function nextId(): string {
   return `req-${Date.now()}-${counter}`
 }
 
-// Capture is the status bar's source of truth for the browser extension's
-// state, fed by the extension's capture-state messages over the bridge.
+// The status bar's source of truth for the extension's state, fed by its capture-state messages.
 interface CaptureState {
   connected: boolean
   recording: boolean
@@ -24,9 +23,7 @@ interface KeyValueRow {
 
 type AuthType = 'none' | 'bearer' | 'basic' | 'oauth2'
 
-// The in-progress request being assembled in the command line. Lived in
-// RequestBuilder's local refs before the redesign; it moved into the store so
-// "Открыть в «Запросе»" (step 5) can fill it from a captured record.
+// In the store rather than RequestBuilder's refs so "Открыть в «Запросе»" can fill the command line.
 interface DraftState {
   method: string
   url: string
@@ -39,9 +36,7 @@ interface DraftState {
 export const useRequestsStore = defineStore('requests', {
   state: () => ({
     requests: [] as RequestRecord[],
-    // The manual request shown in the "Запрос" view.
     manualId: null as string | null,
-    // The captured request selected in the "Браузер" view.
     browserId: null as string | null,
     activeView: 'request' as 'request' | 'browser' | 'collections',
     capturing: false,
@@ -57,12 +52,10 @@ export const useRequestsStore = defineStore('requests', {
       body: '',
     } as DraftState,
     openChip: null as 'params' | 'headers' | 'auth' | 'body' | null,
-    // A tab the extension asked us to show (json-inspector://open?tab=42).
-    // Consumed by the browser list, which expands that group and selects its
-    // newest request; null while there is nothing pending.
+    // A tab the extension asked us to show (json-inspector://open?tab=42); the browser
+    // list expands that group and selects its newest request.
     focusTabId: null as number | null,
-    // Incremented by "Открыть в «Запросе»" to nudge RequestBuilder to focus its
-    // URL field after it remounts.
+    // Bumped by "Открыть в «Запросе»" so RequestBuilder focuses its URL field after remounting.
     focusUrlTick: 0,
     inspector: { open: false, path: null as string | null, width: 300 },
   }),
@@ -73,9 +66,8 @@ export const useRequestsStore = defineStore('requests', {
     browserSelected(state): RequestRecord | null {
       return state.requests.find((r) => r.id === state.browserId) ?? null
     },
-    // Every variable the draft references but can't resolve. Only what would
-    // actually be sent counts — a disabled row is not part of the request, so
-    // an unknown token in one must not block the send.
+    // Only what would actually be sent counts — a disabled row is not part of the
+    // request, so an unknown token in one must not block the send.
     missingVars(state): string[] {
       const envs = useEnvironmentsStore()
       const parts = [
@@ -118,10 +110,8 @@ export const useRequestsStore = defineStore('requests', {
     },
     selectManual(id: string) {
       this.manualId = id
-      // Selecting a history entry also loads its method/URL/headers/body into
-      // the command line, so the editor and the shown response stay in sync and
-      // the request can be re-sent or edited — the same behaviour as "Открыть в
-      // «Запросе»", minus the view switch.
+      // Loads the entry into the command line too, so the editor and the shown response
+      // stay in sync — the same as "Открыть в «Запросе»", minus the view switch.
       const r = this.requests.find((x) => x.id === id)
       if (r) this.loadDraft(r)
     },
@@ -131,9 +121,7 @@ export const useRequestsStore = defineStore('requests', {
     markBrowserRead() {
       this.unreadCount = 0
     },
-    // Switching to the browser view and recording which tab to land on. The
-    // panel does the landing, because only it knows whether that tab has
-    // produced anything yet.
+    // The panel does the landing — only it knows whether that tab has produced anything yet.
     focusBrowserTab(tabId: number) {
       this.activeView = 'browser'
       this.unreadCount = 0
@@ -148,9 +136,7 @@ export const useRequestsStore = defineStore('requests', {
     requestFocusUrl() {
       this.focusUrlTick++
     },
-    // Global search has no index yet, so it points at the command line: switch
-    // to "Запрос" and focus the URL field. Both the ⌘K shortcut and the
-    // titlebar button go through here.
+    // Global search has no index yet, so it points at the command line; ⌘K and the titlebar button come through here.
     focusSearch() {
       this.activeView = 'request'
       this.requestFocusUrl()
@@ -158,9 +144,7 @@ export const useRequestsStore = defineStore('requests', {
     setInspector(partial: Partial<{ open: boolean; path: string | null; width: number }>) {
       this.inspector = { ...this.inspector, ...partial }
     },
-    // Fills the draft from a captured record without sending it — the
-    // "Открыть в «Запросе»" action turns a read-only captured request back into
-    // an editable draft.
+    // Without sending it — "Открыть в «Запросе»" turns a read-only record back into an editable draft.
     loadDraft(record: Pick<RequestRecord, 'method' | 'url' | 'requestHeaders' | 'requestBody'>) {
       this.draft.method = record.method
       this.setUrl(record.url)
@@ -171,8 +155,7 @@ export const useRequestsStore = defineStore('requests', {
       }))
       this.draft.body = record.requestBody
     },
-    // setUrl is the URL → params direction of the two-way sync: a manual URL
-    // edit is the source of truth, so its query string replaces the params.
+    // The URL → params direction: a manual URL edit is the source of truth, so its query string replaces the params.
     setUrl(url: string) {
       this.draft.url = url
       const qi = url.indexOf('?')
@@ -189,19 +172,16 @@ export const useRequestsStore = defineStore('requests', {
         // Invalid query string — leave params untouched.
       }
     },
-    // syncParamsToUrl is the params → URL direction: rebuilds the query string
-    // from enabled rows only, preserving order, without normalizing the rest of
-    // the URL the way the URL API would.
+    // The params → URL direction: rebuilds the query string from enabled rows only, preserving
+    // order, without normalizing the rest of the URL as the URL API would.
     syncParamsToUrl() {
       const base = this.draft.url.split('?')[0]
       const sp = new URLSearchParams()
       for (const p of this.draft.params) {
         if (p.enabled && p.name.trim()) sp.append(p.name.trim(), p.value)
       }
-      // URLSearchParams percent-encodes braces, so `{{tenant}}` would come back
-      // as `%7B%7Btenant%7D%7D` and silently stop being a token the first time
-      // any parameter row is touched. The delimiters are restored; everything
-      // else stays encoded.
+      // URLSearchParams percent-encodes braces, so `{{tenant}}` would come back as
+      // `%7B%7Btenant%7D%7D` and stop being a token; restore just those delimiters.
       const qs = sp.toString().replace(/%7B%7B/g, '{{').replace(/%7D%7D/g, '}}')
       this.draft.url = qs ? `${base}?${qs}` : base
     },

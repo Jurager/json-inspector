@@ -2,16 +2,16 @@
 import Dialog from '../ui/dialog/Dialog.vue'
 import { Button } from '../ui/button'
 
-// Shown only when a saved request still points at one of the environment's
-// variables — deleting is otherwise silent.
+// Shown only when a saved request still points at one of the environment's variables — deleting is otherwise silent.
 defineProps<{ name: string }>()
 
 const emit = defineEmits<{ (e: 'cancel'): void; (e: 'confirm'): void }>()
 </script>
 
 <template>
-  <!-- Escape is left to the sheet's cascade (see cancelTop): preventing
-       reka-ui's own close keeps one Escape from taking two levels at once. -->
+  <!-- Escape is left to the sheet's cascade (see cancelTop): preventing reka-ui's own close keeps
+       one Escape from taking two levels at once.
+  -->
   <Dialog
     :open="true"
     title="Удалить окружение?"

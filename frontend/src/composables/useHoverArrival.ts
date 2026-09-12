@@ -1,7 +1,6 @@
 import { onBeforeUnmount, onMounted, ref, watch, type Ref } from 'vue'
 
-// Where the pointer was last seen. One listener for the whole window rather
-// than one per guarded control: they all ask the same question.
+// One listener for the whole window: every guard asks the same question.
 const pointer = { x: -1, y: -1 }
 let tracked = 0
 
@@ -10,17 +9,20 @@ function track(e: PointerEvent) {
   pointer.y = e.clientY
 }
 
+function pointerInside(node: HTMLElement): boolean {
+  const r = node.getBoundingClientRect()
+  return pointer.x >= r.left && pointer.x <= r.right && pointer.y >= r.top && pointer.y <= r.bottom
+}
+
 /**
- * Whether the pointer arrived at `el` by moving there, as opposed to `el`
- * appearing under a pointer that was already sitting in that spot — a popover
- * opening right where the user clicked its chip, a row's ✕ landing under the
- * cursor. In the second case the first twitch of the mouse fires a hint nobody
- * asked for, and it reads as a glitch rather than as a hint.
+ * Whether the pointer arrived at `el` by moving, rather than `el` appearing
+ * under a pointer that was already sitting there — a popover opening where the
+ * user just clicked. Until it has, a hint for that element fires on the first
+ * twitch of the mouse, which reads as a glitch rather than as a hint.
  *
- * So a control starts unarmed whenever the pointer is already inside its box,
- * and arms on the first pointerleave: after that the pointer has to come back
- * in, which is the only thing that tells "they hovered it" from "it showed up
- * underneath them".
+ * A control that appears with the pointer already inside starts unarmed, and
+ * arms on the first pointerleave: the pointer has to come back in, which is the
+ * only thing that tells "they hovered it" from "it showed up underneath them".
  */
 export function useHoverArrival(el: Ref<HTMLElement | null>) {
   const armed = ref(false)
@@ -33,18 +35,11 @@ export function useHoverArrival(el: Ref<HTMLElement | null>) {
     if (--tracked === 0) window.removeEventListener('pointermove', track, true)
   })
 
-  // Post-flush: the element has to be laid out before its box means anything.
+  // Post-flush: a box means nothing before layout.
   watch(
     el,
     (node) => {
-      if (!node) {
-        armed.value = false
-        return
-      }
-      const r = node.getBoundingClientRect()
-      const inside =
-        pointer.x >= r.left && pointer.x <= r.right && pointer.y >= r.top && pointer.y <= r.bottom
-      armed.value = !inside
+      armed.value = node !== null && !pointerInside(node)
     },
     { flush: 'post' }
   )

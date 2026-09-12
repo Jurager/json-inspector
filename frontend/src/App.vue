@@ -13,14 +13,9 @@ import EnvironmentsSheet from './components/environments/EnvironmentsSheet.vue'
 import Toast from './components/ui/Toast.vue'
 import UpdateModal from './components/update/UpdateModal.vue'
 
-// The shell — layout, plus the composables that own app-wide behaviour: what
-// survives a restart (useSessionPersistence), what the extension sends
-// (useCaptureEvents), the global keys (useGlobalShortcuts) and the updater
-// (useUpdates, shared with the rail, the status bar and the modal).
-//
-// Nothing is threaded through here by props: a component that needs state
-// takes it from the store or from a composable, so adding a feature to the
-// rail or the titlebar does not touch this file.
+// The shell: layout plus the composables that own app-wide behaviour. State
+// reaches components through the store or a composable, never through props
+// from here.
 const store = useRequestsStore()
 const envStore = useEnvironmentsStore()
 const { update, open } = useUpdates()
@@ -29,8 +24,8 @@ useSessionPersistence(store, envStore)
 useCaptureEvents(store)
 useGlobalShortcuts(store, envStore)
 
-// The sheet is an overlay over the whole window, so the command line is still
-// mounted underneath — closing hands the caret straight back to it.
+// The sheet overlays the window with the command line still mounted underneath,
+// so closing hands the caret back to it.
 function closeSheet() {
   envStore.closeSheet()
   store.requestFocusUrl()

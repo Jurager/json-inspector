@@ -14,8 +14,6 @@ import (
 //go:embed all:frontend/dist
 var assets embed.FS
 
-// The app icon, handed to the OS (macOS dock/About, Windows taskbar).
-//
 //go:embed build/appicon.png
 var appIcon []byte
 

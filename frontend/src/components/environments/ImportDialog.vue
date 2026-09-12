@@ -5,8 +5,7 @@ import { Checkbox } from '../ui/checkbox'
 import { Button } from '../ui/button'
 import type { ImportChoice } from '../../stores/environments'
 
-// One review pass over what was read from the file, then one button. The rows
-// are edited in place — the array is the caller's, and only its items change.
+// The rows are edited in place: the array is the caller's, and only its items change.
 const props = defineProps<{
   entries: ImportChoice[]
   existingNames: Set<string>
@@ -18,9 +17,9 @@ const emit = defineEmits<{ (e: 'cancel'): void; (e: 'apply'): void }>()
 </script>
 
 <template>
-  <!-- Its own header rather than the dialog's title: this one is a full-width
-       bar with the list scrolling underneath it. Escape goes to the sheet's
-       cascade, as in DeleteEnvDialog. -->
+  <!-- Own full-width header instead of the dialog's title bar, with the list scrolling under it.
+       Escape goes to the sheet's cascade, as in DeleteEnvDialog.
+  -->
   <Dialog
     :open="true"
     class="import-panel"

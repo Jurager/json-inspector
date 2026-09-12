@@ -14,8 +14,6 @@ vars:
   BUILD_FLAGS: '{{if eq .DEV "true"}}-buildvcs=false -gcflags=all="-l"{{else}}-tags production -trimpath -buildvcs=false -ldflags="{{.LDFLAGS}}"{{end}}'
 
 tasks:
-  # ─── Public ───────────────────────────────────────────────────────────────
-
   build:
     desc: Build the app for the current OS
     cmds:
@@ -89,8 +87,6 @@ tasks:
       - cmd: rm -f build/linux/*.desktop
         platforms: [linux, darwin]
 
-  # ─── Frontend ─────────────────────────────────────────────────────────────
-
   install:frontend:deps:
     desc: Install frontend dependencies
     dir: frontend
@@ -130,8 +126,6 @@ tasks:
     cmds:
       - npm run dev
 
-  # ─── Generation ───────────────────────────────────────────────────────────
-
   go:mod:tidy:
     desc: Run `go mod tidy`
     internal: true
@@ -165,8 +159,6 @@ tasks:
       - windows/icon.ico
     cmds:
       - wails3 generate icons -input appicon.png -macfilename darwin/icons.icns -windowsfilename windows/icon.ico
-
-  # ─── macOS ────────────────────────────────────────────────────────────────
 
   darwin:build:
     desc: Build the macOS binary
@@ -257,8 +249,6 @@ tasks:
       - codesign --force --deep --sign - "{{.BIN_DIR}}/{{.APP_NAME}}.dev.app"
       - '"{{.BIN_DIR}}/{{.APP_NAME}}.dev.app/Contents/MacOS/{{.APP_NAME}}"'
 
-  # ─── Linux ────────────────────────────────────────────────────────────────
-
   linux:build:
     desc: Build the Linux binary
     platforms: [linux]
@@ -339,8 +329,6 @@ tasks:
     platforms: [linux]
     cmds:
       - '{{.APP_PATH}}'
-
-  # ─── Windows ──────────────────────────────────────────────────────────────
 
   windows:build:
     desc: Build the Windows executable into bin/

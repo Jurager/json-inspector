@@ -1,4 +1,4 @@
-// Lightweight JSON:API (https://jsonapi.org/) helpers used by the tree view.
+// JSON:API (https://jsonapi.org/) helpers used by the tree view.
 
 export interface ResourceIdentifier {
   type: string
@@ -67,8 +67,6 @@ export function href(link: LinkValue | null | undefined): string {
   return ''
 }
 
-// resourceLabel picks a short human-readable label for a resource from its
-// attributes, preferring common "name-like" fields.
 export function resourceLabel(r: Resource): string {
   const attrs = r.attributes
   if (!attrs) return `${r.type}/${r.id}`
@@ -82,9 +80,8 @@ export function resourceLabel(r: Resource): string {
   return `${r.type}/${r.id}`
 }
 
-// Used by the "Тело" search: does this resource's type/id/label/attributes
-// contain the (already-trimmed, lowercased) query? Shared so the count shown
-// in the toolbar and the actual filtering in the tree agree with each other.
+// Expects an already-trimmed, lowercased query. Shared by the "Тело" search so
+// the toolbar count and the tree's filtering agree with each other.
 export function resourceMatchesQuery(r: Resource, q: string): boolean {
   if (resourceLabel(r).toLowerCase().includes(q)) return true
   if (r.type.toLowerCase().includes(q) || String(r.id).toLowerCase().includes(q)) return true

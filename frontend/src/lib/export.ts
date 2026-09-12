@@ -5,11 +5,11 @@ import { parseTokens, SECRET_MASK, type ResolveFn } from './vars'
 export type ExportFormat = 'curl' | 'fetch' | 'wget' | 'httpie' | 'powershell'
 
 export interface ExportOptions {
-  // Resolves `{{tokens}}` in the request. Without it the text is exported
-  // verbatim, which is what a request that was already sent looks like.
+  // Resolves `{{tokens}}`; without it the text is exported verbatim, which is
+  // what a request that was already sent looks like.
   resolve?: ResolveFn
-  // Leave the tokens in place instead of substituting — the "оставить токены"
-  // variant, for sharing a request without its values.
+  // Leave the tokens in place instead of substituting, for sharing a request
+  // without its values.
   keepTokens?: boolean
 }
 
@@ -17,8 +17,8 @@ function quote(s: string): string {
   return `'${s.replace(/'/g, `'\\''`)}'`
 }
 
-// Substitution for exports: like the send path, but a secret never comes out —
-// an export is shared, pasted and screenshotted, so it carries the dots.
+// Like the send path, but a secret never comes out: an export is shared, pasted
+// and screenshotted, so it carries the dots.
 function render(text: string, opts?: ExportOptions): string {
   if (!opts?.resolve || opts.keepTokens) return text
   const tokens = parseTokens(text)
@@ -90,8 +90,6 @@ export function exportRequest(
   }
 }
 
-// copyToClipboard writes text to the clipboard, falling back to a temporary
-// textarea + execCommand when the async Clipboard API is unavailable.
 export async function copyToClipboard(text: string): Promise<boolean> {
   try {
     await navigator.clipboard.writeText(text)

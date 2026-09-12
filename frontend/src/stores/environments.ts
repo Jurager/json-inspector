@@ -12,16 +12,14 @@ import { App as Backend } from '../../bindings/json-inspector'
 export interface Variable {
   id: string
   name: string
-  // Empty for secrets by construction: a secret's value lives in `secretValues`
-  // (memory only), so it can never reach localStorage or an export by someone
-  // forgetting to strip it.
+  // Empty for secrets by construction: the value lives in `secretValues` (memory
+  // only), so it can never reach localStorage or an export by accident.
   value: string
   kind: VarKind
   enabled: boolean
 }
 
-// A global as seen from inside an environment: the same row, plus whether the
-// environment has a variable of that name shadowing it.
+// A global as seen from inside an environment, plus whether that name is shadowed here.
 export interface InheritedVariable extends Variable {
   overridden: boolean
 }
@@ -35,9 +33,8 @@ export interface Environment {
   vars: Variable[]
 }
 
-// What gets written to localStorage. Deliberately narrower than the state:
-// session-only things (`unlocked`, the open sheet, the secret vault) are not
-// part of it, so they can't be persisted by accident.
+// Narrower than the state on purpose: session-only things (`unlocked`, the sheet, the
+// secret vault) can't be persisted by accident.
 interface Persisted {
   environments: Environment[]
   globals: Variable[]
@@ -57,9 +54,8 @@ function newVar(name = '', value = '', kind: VarKind = 'text'): Variable {
 }
 
 function defaultState(): Persisted {
-  // The one environment a fresh install needs to make `{{baseUrl}}` mean
-  // something. Prod-like environments are never created for the user — those
-  // carry real credentials and must be an explicit decision.
+  // The one environment a fresh install needs for `{{baseUrl}}`. Prod-like ones are
+  // never created for the user — they carry real credentials and must be a deliberate act.
   const local: Environment = {
     id: nextId('env'),
     name: 'Local · dev',
@@ -94,19 +90,16 @@ export interface DotenvEntry {
   secret: boolean
 }
 
-// What the confirmation dialog hands back: the parsed row plus the decision for
-// a name that already exists.
 export interface ImportChoice extends DotenvEntry {
   mode: 'replace' | 'skip'
 }
 
-// Names that usually carry a credential get proposed as secrets. It's a hint
-// the user can flip in the dialog, never a decision made for them.
+// Credential-looking names are proposed as secrets: a hint the user can flip, never a decision for
+// them.
 const SECRET_HINT = /(TOKEN|SECRET|PASSWORD|KEY|AUTH)/i
 
-// Parses a .env file into variable rows. Anything malformed is skipped rather
-// than reported: an import shouldn't fail as a whole because one line was a
-// stray comment without a `#`.
+// Malformed lines are skipped rather than reported: an import shouldn't fail as a
+// whole because one line was a stray comment without a `#`.
 export function parseDotenv(text: string): DotenvEntry[] {
   const out: DotenvEntry[] = []
   for (const raw of text.split(/\r?\n/)) {
@@ -129,21 +122,16 @@ export function parseDotenv(text: string): DotenvEntry[] {
 export const useEnvironmentsStore = defineStore('environments', {
   state: () => ({
     ...loadState(),
-    // Session-only: an unlocked read-only environment locks again when the
-    // sheet closes, so the unlock can't outlive the editing session.
+    // Session-only: the unlock can't outlive the editing session.
     unlocked: [] as string[],
     sheetOpen: false,
     sheetFocus: null as { envId: string | null; varName: string } | null,
-    // Which environment the sheet's table is showing. Separate from `activeId`
-    // on purpose: editing an environment shouldn't silently change what the
-    // whole window substitutes.
+    // Separate from `activeId` on purpose: editing an environment shouldn't change
+    // what the whole window substitutes.
     sheetEnvId: null as string | null,
-    // Secret values, keyed `<envId|globals>:<name>`. Never serialised; the
-    // keychain refills it on startup.
+    // Keyed `<envId|globals>:<name>`; never serialised, refilled from the keychain on startup.
     secretValues: {} as Record<string, string>,
-    // False once a keychain call has failed, which is the honest answer on a
-    // platform without one (or when access was denied). The app keeps working
-    // with in-memory secrets and the editor says they won't survive a restart.
+    // False once a keychain call fails; in-memory secrets still work but won't survive a restart.
     keychainAvailable: true,
   }),
 
@@ -152,14 +140,10 @@ export const useEnvironmentsStore = defineStore('environments', {
       return state.environments.find((e) => e.id === state.activeId) ?? null
     },
 
-    // The resolver the substitution core and the token tooltips share. Precedence
-    // is "request → environment → globals"; the request tier has no store of its
-    // own (a value typed straight into the URL simply isn't a token), so what's
-    // implemented here is environment-then-globals — first match wins, and a
-    // disabled variable never participates.
+    // Precedence is environment-then-globals (a value typed straight into the URL
+    // isn't a token); first match wins, and a disabled variable never participates.
     resolve(): ResolveFn {
-      // A secret keeps its value beside the model, never inside it — so reading
-      // one goes through the vault rather than the variable.
+      // A secret keeps its value beside the model, never inside it — read it from the vault.
       const valueOf = (envId: string | null, v: Variable): string =>
         v.kind === 'secret' ? (this.secretValues[secretKey(envId, v.name)] ?? '') : v.value
 
@@ -175,15 +159,13 @@ export const useEnvironmentsStore = defineStore('environments', {
       }
     },
 
-    // The editor's table: an environment's own variables plus the globals it
-    // inherits. The override comparison lives here rather than in the component
-    // so the rule and the resolution chain stay in one place.
+    // An environment's own variables plus the globals it inherits; the override rule
+    // lives here so it stays with the resolution chain.
     rowsFor:
       (state) =>
       (envId: string | null): { own: Variable[]; inherited: InheritedVariable[] } => {
         const own = envId === null ? state.globals : (state.environments.find((e) => e.id === envId)?.vars ?? [])
-        // Edited in the "Глобальные" scope itself, so nothing is inherited
-        // there — the group would just repeat the table above it.
+        // Edited in the "Глобальные" scope itself, so nothing is inherited there.
         if (envId === null) return { own, inherited: [] }
 
         const ownNames = new Set(own.map((v) => v.name))
@@ -201,9 +183,8 @@ export const useEnvironmentsStore = defineStore('environments', {
       return (text: string) => substituteTokens(text, this.resolve)
     },
 
-    // Same substitution, but a secret comes out as dots. Used for anything that
-    // outlives the moment of sending — the request preview and the exports —
-    // so a credential can't ride along in a screenshot or a copied snippet.
+    // A secret comes out as dots. Used for anything that outlives the moment of
+    // sending (preview, exports), so a credential can't ride along in a screenshot.
     masked(): (text: string) => string {
       return (text: string) => {
         const tokens = parseTokens(text)
@@ -236,8 +217,7 @@ export const useEnvironmentsStore = defineStore('environments', {
         }
         localStorage.setItem(STORAGE_KEY, JSON.stringify(data))
       } catch {
-        // ignore quota/availability errors — losing persistence is better than
-        // losing the app
+        // ignore quota/availability errors — losing persistence beats losing the app
       }
     },
 
@@ -256,15 +236,13 @@ export const useEnvironmentsStore = defineStore('environments', {
     removeEnv(id: string) {
       const doomed = this.environments.find((e) => e.id === id)
       this.environments = this.environments.filter((e) => e.id !== id)
-      // Dropping the active environment falls back to "Без окружения" rather
-      // than silently promoting a neighbour the user didn't choose.
+      // Falls back to "Без окружения" rather than promoting a neighbour the user didn't choose.
       if (this.activeId === id) this.activeId = null
       this.unlocked = this.unlocked.filter((x) => x !== id)
       for (const k of Object.keys(this.secretValues)) {
         if (k.startsWith(id + ':')) delete this.secretValues[k]
       }
-      // An environment's secrets go with it — a deleted environment must not
-      // leave credentials behind in the keychain.
+      // A deleted environment must not leave credentials behind in the keychain.
       for (const v of doomed?.vars ?? []) {
         if (v.kind === 'secret') this.dropSecret(id, v.name)
       }
@@ -312,8 +290,7 @@ export const useEnvironmentsStore = defineStore('environments', {
       let carried: string | undefined
 
       if (renamingSecret) {
-        // A renamed secret takes its value along, or the vault entry is orphaned
-        // and the variable silently reads as empty.
+        // Carried along, or the vault entry is orphaned and the variable reads as empty.
         carried = this.secretValues[key] ?? ''
         this.secretValues[nextKey] = carried
         delete this.secretValues[key]
@@ -322,8 +299,7 @@ export const useEnvironmentsStore = defineStore('environments', {
         this.secretValues[nextKey] = v.value
         carried = v.value
       } else if (wasKind === 'secret' && nextKind !== 'secret') {
-        // Demotion: hand the value back to the model so the field isn't
-        // mysteriously blank, and drop the vault entry.
+        // Demotion: hand the value back to the model so the field isn't blank.
         if (patch.value === undefined) patch = { ...patch, value: this.secretValues[key] ?? '' }
         delete this.secretValues[key]
       }
@@ -339,12 +315,9 @@ export const useEnvironmentsStore = defineStore('environments', {
       }
       Object.assign(v, clean)
 
-      // Keep the keychain in step with the model: a secret's value belongs
-      // there and nowhere else, and leaving it behind after a demotion would
-      // keep a credential alive the user just turned into a plain field. A
-      // rename has to rewrite it too — the keychain addresses items by name, so
-      // moving the vault entry alone would strand the stored copy under the old
-      // name and lose the value on the next start.
+      // A secret's value belongs in the keychain and nowhere else: leaving one behind
+      // after a demotion keeps a credential alive, and a rename must rewrite it (items
+      // are keyed by name, so moving the vault entry alone strands the stored copy).
       if (nextKind === 'secret' && written !== undefined) {
         this.storeSecret(envId, nextName, written)
       }
@@ -372,9 +345,8 @@ export const useEnvironmentsStore = defineStore('environments', {
       this.storeSecret(envId, name, value)
     },
 
-    // The keychain lives on the Go side. Writes are fire-and-forget so the
-    // editor never blocks on a system dialog; a failure flips `keychainAvailable`
-    // and the footer stops promising persistence.
+    // Fire-and-forget so the editor never blocks on a system dialog; a failure flips
+    // `keychainAvailable`.
     storeSecret(envId: string | null, name: string, value: string) {
       try {
         Backend.SecretSet(envId ?? 'globals', name, value).catch(() => {
@@ -395,8 +367,7 @@ export const useEnvironmentsStore = defineStore('environments', {
       }
     },
 
-    // Pulls stored secrets back into the session. Called once at startup,
-    // before the first request can need one.
+    // Called once at startup, before the first request can need one.
     async hydrateSecrets() {
       const targets: { envId: string | null; name: string }[] = []
       for (const e of this.environments) {
@@ -416,8 +387,8 @@ export const useEnvironmentsStore = defineStore('environments', {
       }
     },
 
-    // The value a cell should edit — including the vault, which the model
-    // deliberately doesn't hold.
+    // The value a cell should edit — including the vault, which the model deliberately doesn't
+    // hold.
     varValue(envId: string | null, v: Variable): string {
       return v.kind === 'secret' ? (this.secretValues[secretKey(envId, v.name)] ?? '') : v.value
     },
@@ -426,9 +397,8 @@ export const useEnvironmentsStore = defineStore('environments', {
       this.sheetEnvId = id
     },
 
-    // Applies the dialog's decisions. Everything goes through addVar/updateVar
-    // so a row marked as a secret takes the same path as one typed by hand —
-    // into the vault and the keychain, never into the model.
+    // Everything goes through addVar/updateVar so a row marked as a secret takes the
+    // same path as one typed by hand: into the vault and the keychain, never the model.
     importDotenv(envId: string | null, entries: ImportChoice[]) {
       for (const e of entries) {
         const existing = this.varsOf(envId).find((v) => v.name === e.name)
@@ -448,8 +418,7 @@ export const useEnvironmentsStore = defineStore('environments', {
 
     openSheet(focus: { envId: string | null; varName: string } | null = null) {
       this.sheetFocus = focus
-      // Opening on a specific variable implies the environment it lives in;
-      // otherwise the sheet starts on whatever the window is using.
+      // Opening on a variable implies its environment; otherwise it starts on the active one.
       this.sheetEnvId = focus ? focus.envId : this.activeId
       this.sheetOpen = true
     },
@@ -457,8 +426,7 @@ export const useEnvironmentsStore = defineStore('environments', {
     closeSheet() {
       this.sheetOpen = false
       this.sheetFocus = null
-      // Read-only environments lock again when the sheet closes — the unlock is
-      // scoped to one editing session, never to the app's lifetime.
+      // Read-only environments lock again when the sheet closes.
       this.unlocked = []
     },
 
@@ -468,8 +436,7 @@ export const useEnvironmentsStore = defineStore('environments', {
   },
 })
 
-// One key space for both scopes: globals have no environment id, so they get a
-// literal one instead of a second map.
+// One key space for both scopes: globals get the literal `globals` instead of a second map.
 function secretKey(envId: string | null, name: string): string {
   return `${envId ?? 'globals'}:${name}`
 }

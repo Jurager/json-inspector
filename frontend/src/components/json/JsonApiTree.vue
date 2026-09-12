@@ -14,8 +14,6 @@ const props = withDefaults(
   defineProps<{
     doc: JsonApiDocument
     highlightKey?: string | null
-    // Search lives in the parent's toolbar (the same row as pagination) —
-    // this component just filters by whatever query it's handed.
     query?: string
   }>(),
   { query: '' }
@@ -32,7 +30,6 @@ const data = computed(() => dataResources(props.doc))
 const included = computed(() => props.doc.included ?? [])
 const errors = computed(() => props.doc.errors ?? [])
 
-// Russian plural for the section counts ("ресурс/ресурса/ресурсов").
 function pluralRu(n: number, forms: [string, string, string]): string {
   const m10 = n % 10
   const m100 = n % 100
@@ -55,9 +52,8 @@ function includedPath(r: Resource): string {
 
 const highlightedKey = ref<string | null>(null)
 
-// Included can be a 94-resource flat list — unreadable — so it's grouped by
-// type. Groups collapse only when there are enough resources to matter; search
-// and a selected type chip always force them open.
+// Grouped by type because a flat included list runs to ~94 resources; groups
+// collapse only for large docs, and search or a type chip forces them open.
 const typeFilter = ref<string | null>(null)
 const toggled = ref<Set<string>>(new Set())
 const showAllTypes = ref(false)
@@ -66,9 +62,8 @@ function toggleTypeFilter(type: string) {
   typeFilter.value = typeFilter.value === type ? null : type
 }
 
-// A group is collapsed by default only for large docs; the `toggled` set holds
-// the types the user has flipped, so the effective state is default XOR toggled.
-// This lets every group be opened/closed, unlike always-open for small docs.
+// `toggled` holds the types the user flipped, so a group's state is default XOR
+// toggled — every group stays openable, unlike always-open for small docs.
 function isGroupOpen(type: string): boolean {
   if (props.query.trim() || typeFilter.value) return true
   const defaultOpen = included.value.length <= 20
@@ -88,8 +83,7 @@ function forceExpand(type: string) {
 
 function highlightAndScroll(key: string) {
   highlightedKey.value = key
-  // A relationship can jump into a collapsed group — expand it so the scroll
-  // target actually exists.
+  // A relationship can jump into a collapsed group — expand it so the scroll target exists.
   forceExpand(key.split('/')[0])
   nextTick(() => {
     const el = document.getElementById('res-' + key)
@@ -104,8 +98,8 @@ watch(
   }
 )
 
-// The tree remounts when switching back from the map tab; jump on mount so a
-// highlight set while on the map still lands.
+// The tree remounts on returning from the map tab; jump on mount so a highlight
+// set while on the map still lands.
 onMounted(() => {
   if (props.highlightKey) highlightAndScroll(props.highlightKey)
 })
@@ -147,7 +141,6 @@ const filteredIncluded = computed(() => {
   return included.value.filter((r) => resourceMatchesQuery(r, q))
 })
 
-// Type summary chips in the included header — most populous types first.
 const typeCounts = computed(() => {
   const map = new Map<string, number>()
   for (const r of filteredIncluded.value) {
@@ -298,9 +291,8 @@ const noResults = computed(
   @apply mb-1;
 }
 
-/* An included type group is a card of its own — the same white surface as a
-   resource card — so the collapsed groups read as peers of the resources they
-   contain, not as bare section labels. */
+/* Same white surface as a resource card, so collapsed groups read as peers of
+   the resources they contain, not as bare section labels. */
 .included-group-head {
   @apply flex items-center gap-2 py-2 px-3 rounded-lg text-left cursor-pointer select-none;
   width: calc(100% - 32px);

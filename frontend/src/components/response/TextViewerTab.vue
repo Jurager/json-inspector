@@ -7,12 +7,10 @@ import RawViewer from './RawViewer.vue'
 import { copyToClipboard } from '../../lib/export'
 import { shortcut } from '../../lib/platform'
 
-// One text tab: the toolbar and the CodeMirror viewer together. Both the "Raw"
-// tab and the body of a non-JSON:API response render this, so a plain response
-// looks and behaves the same wherever it is read.
+// Shared by the "Raw" tab and the body of a non-JSON:API response, so a plain
+// response reads the same wherever it is shown.
 const props = defineProps<{
   text: string
-  // The body tab offers to copy a captured request into the request editor.
   showOpenInRequest?: boolean
 }>()
 

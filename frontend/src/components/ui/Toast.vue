@@ -1,8 +1,7 @@
 <script setup lang="ts">
 import { useToast } from '../../composables/useToast'
 
-// Only the display lives here; whoever needs to say something calls
-// useToast().show(...) — no events to thread through the shell.
+// Display only: whoever needs to say something calls useToast().show(...).
 const { message, kind } = useToast()
 </script>
 

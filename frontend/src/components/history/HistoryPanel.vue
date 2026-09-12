@@ -7,12 +7,7 @@ import { useRequestsStore } from '../../stores/requests'
 import type { RequestRecord } from '../../lib/types'
 import { statusClass } from '../../lib/json'
 
-// One panel, two sources: the manually-built requests ("Запрос" tab) and the
-// ones captured by the browser extension ("Браузер" tab). They're the same
-// list of request/response records, just filtered differently and — for the
-// browser source only — grouped by the tab they came from. Sharing one
-// component keeps their wording and styling identical instead of two panels
-// silently drifting apart.
+// One component for both sources — same records, filtered differently (and grouped by tab for the browser one) — so their wording and styling can't drift apart.
 const props = defineProps<{ source: 'manual' | 'browser' }>()
 
 const store = useRequestsStore()
@@ -40,9 +35,7 @@ function timeLabel(startedAt: number): string {
   return d.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit', second: '2-digit' })
 }
 
-// Path + query only — the scheme and host are redundant here (the host already
-// shows in the browser group header or the command line), and the full URL is
-// kept in the row's title tooltip.
+// Path + query only: the host already shows in the group header or the command line, and the full URL stays in the row's title.
 function pathOf(url: string): string {
   try {
     const u = new URL(url)
@@ -68,8 +61,6 @@ const filteredRecords = computed(() => {
   return records.value.filter((r) => matches(r, q))
 })
 
-// Manual history is grouped by calendar day ("Сегодня"/"Вчера"/date) so a long
-// list reads as a timeline rather than a flat pile of rows.
 function dateLabel(startedAt: number): string {
   const d = new Date(startedAt)
   const start = new Date(d)
@@ -96,7 +87,6 @@ const manualGroups = computed(() => {
   return out
 })
 
-// --- Browser-only: group captured requests by the tab they came from ---
 interface TabGroup {
   key: string
   title: string
@@ -134,8 +124,7 @@ const isEmptyFiltered = computed(() =>
   props.source === 'browser' ? filteredGroups.value.length === 0 : filteredRecords.value.length === 0
 )
 
-// Until step 9 wires up per-tab capture state, the "запись" label is a
-// heuristic: the most recently active group is the one still being written to.
+// "запись" is a heuristic: the most recently active group is assumed to be the one still being written to.
 function isRecording(g: TabGroup): boolean {
   return store.capture.recording && filteredGroups.value[0]?.key === g.key
 }
@@ -178,9 +167,7 @@ function groupHue(key: string): number {
   return h % 360
 }
 
-// A deep link from the extension asks for one tab's requests. If that tab has
-// nothing yet the request is kept: the link is usually clicked right after the
-// page loads, and the first request often lands a moment later.
+// A deep link's tab may have nothing yet, but the link is clicked right after the page loads and the first request lands a moment later — so the request is kept.
 function applyDeepLink() {
   if (props.source !== 'browser') return
   const tabId = store.focusTabId
@@ -195,9 +182,7 @@ function applyDeepLink() {
   store.focusTabId = null
 }
 
-// Watches the source too, because the link both switches the rail and asks for
-// a tab; and runs immediately, because the list isn't rendered at all while
-// nothing has been captured — the link can arrive before the panel exists.
+// Watches the source too — the link both switches the rail and asks for a tab — and runs immediately, because the panel isn't rendered while nothing has been captured.
 watch(() => [store.focusTabId, store.requests.length, props.source] as const, applyDeepLink, {
   immediate: true,
 })
@@ -210,9 +195,9 @@ watch(() => [store.focusTabId, store.requests.length, props.source] as const, ap
       <Button variant="quiet" :disabled="records.length === 0" @click="clearAll">Очистить</Button>
     </div>
 
-    <!-- No empty text for the browser source: the centered BrowserEmptyState in
-         the main column already explains the next step, so a second message
-         here would just repeat it. -->
+    <!-- No empty text for the browser source: BrowserEmptyState in the main column already explains
+         the next step.
+    -->
     <div v-if="records.length === 0 && source === 'manual'" class="empty">
       <span class="empty-title">Пока пусто</span>
       <span class="empty-hint">{{ emptyHint }}</span>
@@ -325,19 +310,15 @@ watch(() => [store.focusTabId, store.requests.length, props.source] as const, ap
   font-family: var(--mono);
 }
 
-/* The filter bar docks to the bottom of the panel instead of the top, so it
-   stays within reach next to the resize handle — level with the "Проверить
-   обновления" row at the bottom of the main sidebar, not flush against the
-   window edge. It floats over the list — a gradient fades list items to
-   transparent as they scroll under it, rather than the bar just clipping
-   them off with a hard edge. */
+/* Docked to the bottom, level with the sidebar's "Проверить обновления" row — within reach of the
+   resize handle. It floats over the list, a gradient fading items under it rather than a hard
+   clip. */
 .panel-filter-dock {
   @apply absolute left-0 right-0 bottom-0 flex flex-col pointer-events-none;
 }
 
-/* A smoothstep curve (3t²-2t³) rather than a hand-picked handful of stops —
-   it has zero slope at both ends, so the fade eases in from "list" and
-   eases out into "solid" with no visible kink or seam anywhere along it. */
+/* A smoothstep curve (3t²-2t³): zero slope at both ends, so the fade eases in and out with no
+   visible kink. */
 .panel-filter-fade {
   @apply h-8;
   background: linear-gradient(
@@ -360,9 +341,8 @@ watch(() => [store.focusTabId, store.requests.length, props.source] as const, ap
   @apply pointer-events-auto flex items-center py-1.5 px-3 bg-bg-panel;
 }
 
-/* Fills the gap between the filter row and the panel's true bottom edge
-   (kept level with the sidebar's "Проверить обновления" row) with solid
-   background, so list items never show through underneath the input. */
+/* Solid background down to the panel's true bottom edge, so list items never show through under
+   the input. */
 .panel-filter-backdrop {
   @apply h-2 bg-bg-panel;
 }
@@ -437,9 +417,8 @@ watch(() => [store.focusTabId, store.requests.length, props.source] as const, ap
   font-variant-numeric: tabular-nums;
 }
 
-/* The one thing IconButton can't hold itself: this button fades in with its
-   row, so the rule has to reach in from the group header. Vue puts the parent's
-   scope attribute on a child's root, which is why the selector still matches. */
+/* The button fades in with its row, so the rule reaches in from the group header — Vue puts the
+   parent's scope attribute on a child's root, which is why the selector matches. */
 .group-head :deep(.icon-btn) {
   opacity: 0.55;
 }
@@ -452,9 +431,8 @@ watch(() => [store.focusTabId, store.requests.length, props.source] as const, ap
   @apply list-none m-0 pt-0.5 pr-0 pb-0.5 pl-3.5;
 }
 
-/* A single, dense row: method → status → path → time. The duration was
-   dropped here because the response header already shows it; the host was
-   dropped from the path because it's redundant with the group header / URL. */
+/* One dense row: method → status → path → time. Duration lives in the response header, and the
+   host is redundant with the group header / URL. */
 .item {
   @apply flex items-center gap-2 py-[7px] px-2.5 rounded-md cursor-pointer mb-px;
 }

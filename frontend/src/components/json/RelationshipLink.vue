@@ -18,9 +18,7 @@ const props = defineProps<{
 const emit = defineEmits<{
   (e: 'jump', key: string): void
   (e: 'fetch', url: string): void
-  // Fires whenever a relationship chip is clicked, so the parent can point
-  // the inspector at that relationship. No payload — the parent already knows
-  // the relationship name from its own v-for loop.
+  // No payload: the parent knows the relationship name from its own v-for.
   (e: 'inspect'): void
 }>()
 

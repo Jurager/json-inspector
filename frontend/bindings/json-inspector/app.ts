@@ -58,8 +58,7 @@ export function SendRequest(method: string, url: string, headers: { [_ in string
 }
 
 /**
- * ShowAbout opens the About window, or focuses it if it is already open.
- * Bound to the frontend and wired to the native menu item.
+ * Bound to the frontend and to the native About menu item.
  */
 export function ShowAbout(): $CancellablePromise<void> {
     return $Call.ByID(2874201689);

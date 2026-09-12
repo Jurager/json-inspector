@@ -1,7 +1,7 @@
 import { ref } from 'vue'
 
-// Module-scoped on purpose: any component can raise a toast without threading
-// an event up to the shell. The shell only renders it — see ui/Toast.vue.
+// Module-scoped so any component can raise a toast without threading it up to
+// the shell, which only renders it (see ui/Toast.vue).
 const message = ref('')
 const kind = ref<'info' | 'error'>('info')
 let timer: ReturnType<typeof setTimeout> | null = null

@@ -13,13 +13,12 @@ onMounted(async () => {
   try {
     port.value = String(await Backend.BridgePort())
   } catch {
-    // ignore — runtime not ready yet
+    // Runtime not ready yet.
   }
 })
 
-// The status line reflects the live bridge connection rather than a hardcoded
-// "not found": the extension can be connected (or even recording) while there
-// are simply no captured requests to show yet.
+// Live bridge state, not a hardcoded "not found": the extension can be
+// connected (or recording) with no captured requests to show yet.
 const statusText = computed(() => {
   const p = port.value || '…'
   return store.capture.connected
@@ -27,7 +26,7 @@ const statusText = computed(() => {
     : `Расширение не найдено · порт ${p} слушает`
 })
 
-// The instruction lives in the repository README (extension/ setup steps).
+// Points at the README's extension/ setup steps.
 function openInstructions() {
   Browser.OpenURL('https://github.com/Jurager/json-inspector')
 }

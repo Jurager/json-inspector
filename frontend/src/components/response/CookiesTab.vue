@@ -12,9 +12,8 @@ interface Cookie {
   flags: string
 }
 
-// Parses a single Set-Cookie header into its named parts. Multiple cookies in
-// one header arrive as separate Set-Cookie headers, but the app keeps only the
-// first per header name, so one row is what we can show for now.
+// Multiple cookies arrive as separate Set-Cookie headers, but the app keeps only
+// the first per header name — hence one row.
 function parseSetCookie(raw: string): Cookie {
   const parts = raw.split(';').map((s) => s.trim()).filter(Boolean)
   const first = parts[0] ?? ''

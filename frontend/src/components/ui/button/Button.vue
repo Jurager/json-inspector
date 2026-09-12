@@ -1,13 +1,7 @@
 <script setup lang="ts">
-// The app's own button — reka-ui has none, and this one carries no behaviour,
-// only the handoff's metrics in one place instead of a class zoo per component.
-//
-// Sizes follow the handoff: md is its canonical button (26px tall, 7px radius,
-// 12px text, the one "Готово" is drawn with), lg is the command line's send
-// button (32px, 8px radius, 12.5px/500), sm is the 6px-radius small button the
-// handoff reserves for tight rows. Variants: outline (default), primary (the
-// accent), ghost (an accent text button) and quiet (a muted one) — those two
-// size themselves by padding, see the variant rules below.
+// Sizes are the handoff's: md is «Готово», lg is the command line's send button,
+// sm is the small button for tight rows. ghost and quiet size by padding rather
+// than by height — see the variant rules below.
 withDefaults(
   defineProps<{
     variant?: 'outline' | 'primary' | 'ghost' | 'quiet'
@@ -27,8 +21,7 @@ withDefaults(
 @reference "../../../style.css";
 
 .btn {
-  /* flex-none: in a toolbar the buttons keep their width and let the spacer
-     take the slack, which is what every hand-rolled one did. */
+  /* flex-none: in a toolbar the spacer takes the slack, not the buttons. */
   @apply inline-flex flex-none items-center justify-center cursor-pointer whitespace-nowrap bg-bg-panel text-text;
   border: 1px solid var(--border-strong);
   box-shadow: var(--shadow-btn);
@@ -54,7 +47,7 @@ withDefaults(
   outline-offset: 1px;
 }
 
-/* gap is the handoff's own per-size value: 6px at 26px, 5px at 24px, 7px at 32px. */
+/* Gap is the handoff's own per-size value. */
 .btn--md {
   gap: 6px;
   height: 26px;
@@ -93,9 +86,9 @@ withDefaults(
   @apply brightness-95;
 }
 
-/* Text buttons: no frame, no shadow. The handoff draws «+ Параметр» as
-   padding 3px 4px on a 5px radius and «Очистить» as 4px 8px on a 6px radius,
-   both at 12px — so these two size by padding and ignore the height above. */
+/* Text buttons: no frame, no shadow. The handoff draws «+ Параметр» at
+   3px 4px on a 5px radius and «Очистить» at 4px 8px on a 6px radius, both 12px,
+   so the height above doesn't apply to them. */
 .btn.btn--ghost,
 .btn.btn--quiet {
   @apply border-transparent bg-transparent shadow-none;

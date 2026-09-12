@@ -1,12 +1,9 @@
 <script setup lang="ts">
-// The app's text field. reka-ui has no Input either, so this is the handoff's
-// field written once: 32px tall with a 8px radius at md, 28px and 7px at sm,
-// --bg-inset inside a --border, and on focus the accent border plus the 3px
-// --accent-soft ring every field in the design carries.
+// The handoff's field: 32px with an 8px radius at md, 28px and 7px at sm,
+// --bg-inset inside a --border, accent border and --accent-soft ring on focus.
 //
-// `bare` is the same element with none of that chrome: a field that lives
-// inside a container drawing the frame itself (the filter pills, the command
-// line's URL box). Layout stays with the caller in both variants.
+// `bare` drops that chrome, for a field whose container draws the frame itself
+// (the filter pills, the command line's URL box). Layout stays with the caller.
 import { ref } from 'vue'
 
 withDefaults(
@@ -24,8 +21,7 @@ const emit = defineEmits<{ 'update:modelValue': [string] }>()
 
 const el = ref<HTMLInputElement | null>(null)
 
-// Callers only ever want to put the caret in it, so that is the whole exposed
-// surface — `ref.focus()` instead of reaching past the component for the node.
+// The only thing callers need from the node is the caret.
 defineExpose({ focus: () => el.value?.focus() })
 </script>
 

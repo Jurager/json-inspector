@@ -21,14 +21,12 @@ const { checking, check } = useUpdates()
 
 const envSheetHint = computed(() => shortcut('E'))
 
-// Rail menu (hamburger at the top of the icon rail) — app-level actions that
-// don't belong to either tab. The dropdown primitive owns closing it.
 function loadSample() {
   store.activeView = 'request'
   store.add(buildSampleRecord())
 }
 
-// Opens (or focuses) the About window; the window itself is created in Go.
+// Opens or focuses the About window; the window itself is created in Go.
 function openAbout() {
   Backend.ShowAbout()
 }
@@ -44,9 +42,8 @@ function openBrowser() {
     <div class="rail-menu-wrap">
       <DropdownMenu>
         <DropdownMenuTrigger as-child>
-          <!-- Native title, not the styled hint: a hint would put the tooltip's
-               provider between this trigger and its button, and the as-child
-               binding the menu relies on would land on the provider instead. -->
+          <!-- Native title, not the styled hint: a hint's provider would sit between
+               this trigger and its button, and the as-child binding would land on it. -->
           <IconButton variant="bare" size="lg" title="Меню">
             <Icon name="menu" :size="18" />
           </IconButton>

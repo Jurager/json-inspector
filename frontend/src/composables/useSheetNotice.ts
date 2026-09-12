@@ -1,9 +1,7 @@
 import { ref } from 'vue'
 
-// The one red line at the bottom of the environments sheet. It is written from
-// both halves — a rejected cell edit on the right, a rejected rename on the
-// left — and shown under the table, so it is shared state rather than a prop
-// threaded between siblings.
+// Module-scoped because both halves of the environments sheet write it — a
+// rejected cell edit and a rejected rename — while one place renders it.
 const notice = ref('')
 
 export function useSheetNotice() {

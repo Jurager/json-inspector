@@ -108,7 +108,7 @@ function goToType(type: string) {
   }, 1500)
 }
 
-// --- Reverse sync: highlight the instance selected in the tree ---
+// Reverse sync: highlight the instance selected in the tree.
 const highlightInstance = ref<string | null>(null)
 
 function applyHighlight(k: string | null | undefined) {
@@ -128,7 +128,6 @@ function applyHighlight(k: string | null | undefined) {
 watch(() => props.highlightKey, applyHighlight)
 onMounted(() => applyHighlight(props.highlightKey))
 
-// --- Export schema ---
 const copied = ref(false)
 
 const EXPORT_FORMATS = [
@@ -217,7 +216,6 @@ async function copyExport(format: ExportId) {
   }
 }
 
-// --- Compare schemas ---
 const compareOpen = ref(false)
 const compareDoc = ref<JsonApiDocument | null>(null)
 const compareFilter = ref('')
@@ -467,8 +465,7 @@ function statusLabel(s: string): string {
 <style scoped>
 @reference "../../style.css";
 
-/* Fills the tab's column and scrolls its body only, so the head with поиск,
-   сравнение и экспорт stays put — the same rule as every other tab. */
+/* Fills the tab's column and scrolls its body only, so the head stays put. */
 .schema {
   @apply flex flex-col h-full min-h-0;
 }
@@ -655,7 +652,6 @@ function statusLabel(s: string): string {
   @apply text-accent bg-accent-soft;
 }
 
-/* --- Schema diff --- */
 .diff-head {
   @apply flex items-center justify-between mb-3;
 }

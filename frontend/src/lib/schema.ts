@@ -27,8 +27,6 @@ export function humanize(type: string): string {
   return type.charAt(0).toUpperCase() + type.slice(1)
 }
 
-// buildSchema aggregates all resources of a document into a type-level schema:
-// per type, the union of attribute keys, relationships and incoming references.
 export function buildSchema(doc: JsonApiDocument): TypeInfo[] {
   const all: Resource[] = [...dataResources(doc), ...(doc.included ?? [])]
   const presentTypes = new Set(all.map((r) => r.type))
@@ -87,9 +85,8 @@ function relLabel(r: RelInfo): string {
   return `${r.name} → ${humanize(r.targetType)}`
 }
 
-// diffSchemas compares two schemas. `base` is the current response, `target`
-// the one being compared against: "added" means present in target but not base,
-// "removed" means present in base but not target.
+// `base` is the current response, `target` the one compared against: "added"
+// means present in target only, "removed" in base only.
 export function diffSchemas(base: TypeInfo[], target: TypeInfo[]): TypeDiff[] {
   const bm = new Map(base.map((t) => [t.type, t]))
   const tm = new Map(target.map((t) => [t.type, t]))
@@ -142,9 +139,7 @@ export interface SchemaCheck {
   path: string
 }
 
-// validateDocument runs a handful of JSON:API structural checks against the
-// document and returns one entry per problem (with the path where it lives),
-// so the "Тесты" tab can render a flat, scannable list.
+// Structural JSON:API checks, one entry per problem with the path where it lives.
 export function validateDocument(doc: JsonApiDocument): SchemaCheck[] {
   const checks: SchemaCheck[] = []
   const data = dataResources(doc)
@@ -155,7 +150,6 @@ export function validateDocument(doc: JsonApiDocument): SchemaCheck[] {
     ...included.map((_, i) => `included[${i}]`),
   ]
 
-  // Required fields + duplicate type/id.
   const seen = new Map<string, string>()
   all.forEach((r, i) => {
     const path = paths[i]
@@ -168,7 +162,6 @@ export function validateDocument(doc: JsonApiDocument): SchemaCheck[] {
     }
   })
 
-  // Broken relationship references + which keys are referenced at all.
   const index = buildIndex(doc)
   const refs = new Set<string>()
   all.forEach((r, i) => {
@@ -184,7 +177,6 @@ export function validateDocument(doc: JsonApiDocument): SchemaCheck[] {
     }
   })
 
-  // Included resources nothing points at.
   included.forEach((r, i) => {
     const key = `${r.type}/${r.id}`
     if (!refs.has(key)) {

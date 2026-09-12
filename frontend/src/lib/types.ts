@@ -1,5 +1,4 @@
-// Unified shape for a request/response, whether it originated from the manual
-// builder or was captured by the browser extension.
+// A request/response from either the manual builder or the browser extension.
 export interface RequestRecord {
   id: string
   method: string
