@@ -1,13 +1,6 @@
 import { onBeforeUnmount, onMounted, ref } from 'vue'
 import { Events } from '@wailsio/runtime'
-
-// The wire shape of the update events (see internal/update.Info in the backend).
-export interface UpdateInfo {
-  available: boolean
-  current: string
-  latest: string
-  checkedAt?: number
-}
+import type { Info as UpdateInfo } from '../../bindings/json-inspector/internal/infra/updater'
 
 // What the main window knows about updates: the startup check's event, which the status bar
 // turns into its link. Checking and installing live in the About window — this link opens it.

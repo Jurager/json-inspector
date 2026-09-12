@@ -1,0 +1,33 @@
+-- Environments and the variables that resolve against them.
+--
+-- Globals are not a table of their own: they are `variables` rows with scope_kind='globals'
+-- and a NULL scope_id, so one query can express the "environment wins over globals" override
+-- order and one editor can edit both. That NULL is why the unique and lookup indexes wrap
+-- scope_id in ifnull() — SQLite treats NULLs as distinct inside a unique index, which would
+-- otherwise let two globals share a name.
+
+CREATE TABLE environments (
+  id TEXT PRIMARY KEY,
+  name TEXT NOT NULL,
+  color TEXT,
+  readonly INTEGER NOT NULL DEFAULT 0,
+  position INTEGER NOT NULL,
+  created_at INTEGER NOT NULL,
+  updated_at INTEGER NOT NULL
+);
+
+CREATE TABLE variables (
+  id TEXT PRIMARY KEY,
+  scope_kind TEXT NOT NULL CHECK (scope_kind IN ('environment','globals')),
+  scope_id TEXT,
+  name TEXT NOT NULL,
+  value TEXT NOT NULL DEFAULT '',
+  kind TEXT NOT NULL CHECK (kind IN ('text','secret')),
+  enabled INTEGER NOT NULL DEFAULT 1,
+  position INTEGER NOT NULL,
+  created_at INTEGER NOT NULL,
+  updated_at INTEGER NOT NULL
+);
+
+CREATE UNIQUE INDEX variables_scope_name_uq ON variables(scope_kind, ifnull(scope_id,''), name);
+CREATE INDEX variables_lookup ON variables(scope_kind, ifnull(scope_id,''), enabled);

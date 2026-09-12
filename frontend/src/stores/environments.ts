@@ -7,7 +7,7 @@ import {
   type VarResolution,
 } from '../lib/vars'
 import type { DotenvEntry } from '../lib/dotenv'
-import { App as Backend } from '../../bindings/json-inspector'
+import { EnvironmentsService } from '../../bindings/json-inspector/internal/transport/wails'
 
 export interface Variable {
   id: string
@@ -275,7 +275,7 @@ export const useEnvironmentsStore = defineStore('environments', {
 
     writeSecretToKeychain(envId: string | null, name: string, value: string) {
       try {
-        Backend.SecretSet(envId ?? 'globals', name, value).catch(() => {
+        EnvironmentsService.SecretSet(envId ?? 'globals', name, value).catch(() => {
           this.isKeychainAvailable = false
         })
       } catch {
@@ -285,7 +285,7 @@ export const useEnvironmentsStore = defineStore('environments', {
 
     deleteSecretFromKeychain(envId: string | null, name: string) {
       try {
-        Backend.SecretDelete(envId ?? 'globals', name).catch(() => {
+        EnvironmentsService.SecretDelete(envId ?? 'globals', name).catch(() => {
           this.isKeychainAvailable = false
         })
       } catch {
@@ -302,7 +302,7 @@ export const useEnvironmentsStore = defineStore('environments', {
 
       for (const t of targets) {
         try {
-          const value = await Backend.SecretGet(t.envId ?? 'globals', t.name)
+          const value = await EnvironmentsService.SecretGet(t.envId ?? 'globals', t.name)
           if (value) this.secretValues[secretKey(t.envId, t.name)] = value
         } catch {
           // One failure is enough to know this machine can't store secrets.

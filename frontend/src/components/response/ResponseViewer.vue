@@ -23,7 +23,7 @@ import NodeInspector from '../json/NodeInspector.vue'
 import RequestCookiesTab from './RequestCookiesTab.vue'
 import TimingsTab from './TimingsTab.vue'
 import TestsTab from './TestsTab.vue'
-import { App as Backend } from '../../../bindings/json-inspector'
+import { RequestsService } from '../../../bindings/json-inspector/internal/transport/wails'
 import { useRequestsStore } from '../../stores/requests'
 import { useEnvironmentsStore } from '../../stores/environments'
 import { copyToClipboard } from '../../lib/clipboard'
@@ -139,7 +139,7 @@ async function follow(url: string) {
   store.loading = true
   store.manualId = null
   try {
-    const res = await Backend.Fetch(url, headers)
+    const res = await RequestsService.Fetch(url, headers)
     // The binding types the Go pointer as nullable, but Go always returns a result — a type guard,
     // not a real branch.
     if (!res || res.cancelled) return

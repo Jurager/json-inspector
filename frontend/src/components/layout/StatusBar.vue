@@ -12,7 +12,7 @@ import {
 import { tryParseJson } from '../../lib/json'
 import { formatBytes, formatVersion } from '../../lib/format'
 import { useEnvironmentsStore } from '../../stores/environments'
-import type { UpdateInfo } from '../../composables/useUpdates'
+import type { Info as UpdateInfo } from '../../../bindings/json-inspector/internal/infra/updater'
 
 const props = defineProps<{ updateInfo: UpdateInfo | null }>()
 const emit = defineEmits<{ (e: 'open-update'): void }>()

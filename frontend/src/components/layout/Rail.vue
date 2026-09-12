@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
-import { App as Backend } from '../../../bindings/json-inspector'
+import { SystemService } from '../../../bindings/json-inspector/internal/transport/wails'
 import { useEnvironmentsStore } from '../../stores/environments'
 import { useRequestsStore } from '../../stores/requests'
 import { buildSampleRecord } from '../../lib/sample'
@@ -65,11 +65,11 @@ function loadSample() {
 }
 
 function openAbout() {
-  Backend.ShowAbout()
+  SystemService.ShowAbout()
 }
 
 function requestUpdateCheck() {
-  Backend.RequestUpdateCheck()
+  SystemService.RequestUpdateCheck()
 }
 
 function selectSource(view: RailView) {

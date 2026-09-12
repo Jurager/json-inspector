@@ -11,7 +11,7 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
 } from '../ui/dropdown-menu'
-import { App as Backend } from '../../../bindings/json-inspector'
+import { RequestsService } from '../../../bindings/json-inspector/internal/transport/wails'
 import { useRequestsStore } from '../../stores/requests'
 import { useEnvironmentsStore } from '../../stores/environments'
 import { usePlatform } from '../../composables/usePlatform'
@@ -145,7 +145,7 @@ async function send() {
   const recordBody = envStore.maskSecrets(store.draft.body)
   const recordHeaders = maskedHeaders()
   try {
-    const res = await Backend.SendRequest(store.draft.method, url, requestHeaders, body)
+    const res = await RequestsService.SendRequest(store.draft.method, url, requestHeaders, body)
     if (!res || res.cancelled) return
     store.addRequest({
       method: store.draft.method,
@@ -173,7 +173,7 @@ async function send() {
 }
 
 async function cancel() {
-  await Backend.CancelRequest()
+  await RequestsService.CancelRequest()
 }
 
 const urlInputRef = ref<HTMLInputElement | null>(null)

@@ -1,14 +1,21 @@
 package main
 
 import (
+	"context"
 	"embed"
 	"log"
+	"os"
+	"os/signal"
 
 	"github.com/wailsapp/wails/v3/pkg/application"
-	"github.com/wailsapp/wails/v3/pkg/events"
+	"go.uber.org/fx"
 
-	"json-inspector/internal/bridge"
-	"json-inspector/internal/update"
+	"json-inspector/internal/infra/httpx"
+	"json-inspector/internal/infra/sqlite"
+	"json-inspector/internal/infra/updater"
+	"json-inspector/internal/platform"
+	"json-inspector/internal/transport/bridge"
+	"json-inspector/internal/transport/wails"
 )
 
 //go:embed all:frontend/dist
@@ -28,77 +35,62 @@ const (
 )
 
 func main() {
-	update.CurrentVersion = version
-	update.CurrentBuild = build
+	os.Exit(run())
+}
 
-	appService := NewApp()
+// run is the composition root and nothing else: every decision about what the app is made of lives
+// in the modules below, and every decision about their order lives in transport/wails.
+func run() int {
+	// The update checker reads these globals itself, so they are set before the graph exists; the
+	// same values travel into the graph as BuildInfo for everything that only displays them.
+	updater.CurrentVersion = version
+	updater.CurrentBuild = build
 
-	app := application.New(application.Options{
-		Name:        appName,
-		Description: appDescription,
-		Icon:        appIcon,
-		Services: []application.Service{
-			application.NewService(appService),
-		},
-		Assets: application.AssetOptions{
-			Handler: application.AssetFileServerFS(assets),
-		},
-		Mac: application.MacOptions{
-			ApplicationShouldTerminateAfterLastWindowClosed: true,
-		},
-		SingleInstance: &application.SingleInstanceOptions{
-			UniqueID:               "com.jurager.json-inspector",
-			EncryptionKey:          singleInstanceKey,
-			OnSecondInstanceLaunch: appService.onSecondInstance,
-		},
-	})
-	appService.setApp(app)
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
+	defer stop()
 
-	mainWin := app.Window.NewWithOptions(application.WebviewWindowOptions{
-		Name:             windowMain,
-		Title:            appName,
-		Width:            1280,
-		Height:           820,
-		MinWidth:         900,
-		MinHeight:        600,
-		Frameless:        useCustomTitlebar(),
-		BackgroundColour: application.NewRGB(30, 30, 30),
-		URL:              "/",
-		Mac: application.MacWindow{
-			TitleBar:                application.MacTitleBarHiddenInset,
-			InvisibleTitleBarHeight: 50,
-		},
-	})
-	appService.setMainWindow(mainWin)
+	var app *application.App
 
-	mainWin.OnWindowEvent(events.Common.WindowRuntimeReady, func(*application.WindowEvent) {
-		appService.markReady()
-	})
-
-	app.Event.OnApplicationEvent(events.Common.ApplicationLaunchedWithUrl, func(e *application.ApplicationEvent) {
-		appService.handleURLOpen(e.Context().URL())
-	})
-
-	bridgeServer := bridge.NewServer(bridge.DefaultPort, bridge.Handlers{
-		Request:    appService.onCapturedRequest,
-		State:      appService.onCaptureState,
-		Disconnect: appService.onCaptureDisconnected,
-		Focus:      appService.onFocusRequest,
-	})
-	appService.setBridge(bridgeServer)
-	go func() {
-		if err := bridgeServer.Start(); err != nil {
-			log.Printf("[bridge] error: %v", err)
+	graph := fx.New(
+		// Quiet, because a GUI process has no console on most platforms: the failures that matter
+		// are reported through the window, and the ones that are not are logged below.
+		fx.NopLogger,
+		platform.Module,
+		sqlite.Module,
+		httpx.Module,
+		bridge.Module,
+		wails.Module,
+		fx.Supply(
+			platform.BuildInfo{
+				Version:     version,
+				Build:       build,
+				Name:        appName,
+				Description: appDescription,
+			},
+			wails.Assets{FS: assets, Icon: appIcon},
+			bridge.Port(bridge.DefaultPort),
+		),
+		fx.Populate(&app),
+	)
+	// Stopping after Run returns is what puts the database close last: fx hooks run on the way
+	// out, and by then every service has already been shut down.
+	defer func() {
+		if err := graph.Stop(context.Background()); err != nil {
+			log.Printf("[app] shutdown: %v", err)
 		}
 	}()
 
-	if useCustomTitlebar() {
-		app.Menu.Set(app.NewMenu())
-	} else {
-		app.Menu.Set(buildMenu(appService))
+	if err := graph.Err(); err != nil {
+		log.Printf("[app] build failed: %v", err)
+		return 1
 	}
-
+	if err := graph.Start(ctx); err != nil {
+		log.Printf("[app] startup failed: %v", err)
+		return 1
+	}
 	if err := app.Run(); err != nil {
-		log.Fatal(err)
+		log.Printf("[app] %v", err)
+		return 1
 	}
+	return 0
 }

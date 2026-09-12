@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 import { Window } from '@wailsio/runtime'
-import { App as Backend } from '../../bindings/json-inspector'
+import { SystemService } from '../../bindings/json-inspector/internal/transport/wails'
 import { usePlatform } from '../composables/usePlatform'
 import { useUpdateCheck } from '../composables/useUpdateCheck'
 import { Button } from '../components/ui/button'
@@ -45,11 +45,11 @@ const act = computed(() => (phase.value === 'available' ? install : check))
 onMounted(async () => {
   // Cosmetic fields: a failed call just leaves them blank.
   try {
-    version.value = (await Backend.Version()) ?? ''
-    build.value = (await Backend.Build()) ?? ''
+    version.value = (await SystemService.Version()) ?? ''
+    build.value = (await SystemService.Build()) ?? ''
   } catch {}
   try {
-    appName.value = (await Backend.Name()) ?? ''
+    appName.value = (await SystemService.Name()) ?? ''
   } catch {}
 })
 </script>

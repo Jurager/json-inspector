@@ -2,7 +2,7 @@
 import { computed } from 'vue'
 import { Button } from '../ui/button'
 import { useRequestsStore } from '../../stores/requests'
-import { App as Backend } from '../../../bindings/json-inspector'
+import { BridgeService } from '../../../bindings/json-inspector/internal/transport/wails'
 
 const store = useRequestsStore()
 
@@ -14,8 +14,8 @@ const sourceLabel = computed(() => {
 const recording = computed(() => store.capture.recording)
 
 async function toggleCapture() {
-  if (recording.value) await Backend.PauseCapture()
-  else await Backend.ResumeCapture()
+  if (recording.value) await BridgeService.PauseCapture()
+  else await BridgeService.ResumeCapture()
 }
 </script>
 

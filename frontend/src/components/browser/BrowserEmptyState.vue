@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
-import { App as Backend } from '../../../bindings/json-inspector'
+import { BridgeService } from '../../../bindings/json-inspector/internal/transport/wails'
 import { Browser } from '@wailsio/runtime'
 import { useRequestsStore } from '../../stores/requests'
 import { Button } from '../ui/button'
@@ -11,7 +11,7 @@ const port = ref('')
 
 onMounted(async () => {
   try {
-    port.value = String(await Backend.BridgePort())
+    port.value = String(await BridgeService.BridgePort())
   } catch {
     // Runtime not ready yet.
   }

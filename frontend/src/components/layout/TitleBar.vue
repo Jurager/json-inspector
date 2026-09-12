@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { Application, Window } from '@wailsio/runtime'
-import { App as Backend } from '../../../bindings/json-inspector'
+import { SystemService } from '../../../bindings/json-inspector/internal/transport/wails'
 import { useEnvironmentsStore } from '../../stores/environments'
 import { useRequestsStore } from '../../stores/requests'
 import { usePlatform } from '../../composables/usePlatform'
@@ -38,7 +38,7 @@ const envDotStyle = computed(() => {
 
 async function loadAppName() {
   try {
-    appName.value = (await Backend.Name()) ?? ''
+    appName.value = (await SystemService.Name()) ?? ''
   } catch {
     // Nothing else depends on the name; the title bar just stays empty.
   }
@@ -73,7 +73,7 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <header class="titlebar" :class="{ 'titlebar-custom': customTitlebar }" @dblclick="Backend.ToggleMaximize">
+  <header class="titlebar" :class="{ 'titlebar-custom': customTitlebar }" @dblclick="SystemService.ToggleMaximize">
     <div v-if="customTitlebar" class="titlebar-appicon">
       <img :src="logoUrl" alt="" class="titlebar-logo" draggable="false" />
       <span class="titlebar-title">{{ appName }}</span>

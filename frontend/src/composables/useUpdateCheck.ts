@@ -1,6 +1,6 @@
 import { onMounted, onBeforeUnmount, ref } from 'vue'
 import { Events } from '@wailsio/runtime'
-import { App as Backend } from '../../bindings/json-inspector'
+import { SystemService } from '../../bindings/json-inspector/internal/transport/wails'
 
 // Where the update check can be. The design draws the first three; the rest are the same line
 // carrying what it doesn't cover — an update to install, the install itself, and failures.
@@ -18,7 +18,7 @@ let off: (() => void) | null = null
 export function useUpdateCheck() {
   async function applyStatus() {
     try {
-      const s = await Backend.UpdateStatus()
+      const s = await SystemService.UpdateStatus()
       if (!s) return
       // An update that the last check found is offered without asking again. Never over a
       // check that has already started or finished: this answer is the older of the two.
@@ -37,7 +37,7 @@ export function useUpdateCheck() {
     phase.value = 'checking'
     error.value = ''
     try {
-      const u = await Backend.CheckForUpdates()
+      const u = await SystemService.CheckForUpdates()
       checkedAt.value = u?.checkedAt ?? Date.now()
       if (u?.available) {
         latest.value = u.latest
@@ -57,7 +57,7 @@ export function useUpdateCheck() {
     error.value = ''
     try {
       // The app replaces its own binary and relaunches, so this call does not return.
-      await Backend.UpdateNow(latest.value)
+      await SystemService.UpdateNow(latest.value)
     } catch (e) {
       error.value = `Не удалось обновиться: ${e}`
       phase.value = 'error'
@@ -68,7 +68,7 @@ export function useUpdateCheck() {
   // request: the method clears it, so exactly one of them acts on it.
   async function checkIfRequested() {
     try {
-      if (await Backend.TakeUpdateCheckRequest()) check()
+      if (await SystemService.TakeUpdateCheckRequest()) check()
     } catch {
       // Nothing to do: the window is usable without a check.
     }
