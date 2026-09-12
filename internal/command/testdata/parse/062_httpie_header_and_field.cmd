@@ -1,0 +1,1 @@
+http POST https://api.example.com/articles Accept:application/json name=test -v

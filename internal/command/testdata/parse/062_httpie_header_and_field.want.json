@@ -1,0 +1,17 @@
+{
+  "kind": "ok",
+  "format": "httpie",
+  "method": "POST",
+  "url": "https://api.example.com/articles",
+  "headers": [
+    [
+      "Accept",
+      "application/json"
+    ],
+    [
+      "Content-Type",
+      "application/json"
+    ]
+  ],
+  "body": "{\"name\":\"test\"}"
+}

@@ -1,0 +1,1 @@
+Invoke-RestMethod -Uri 'https://api.example.com/articles' -ContentType 'application/json' -Body '{"a":1}'
