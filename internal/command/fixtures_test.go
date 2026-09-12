@@ -7,6 +7,7 @@ import (
 	"strings"
 	"testing"
 
+	"json-inspector/internal/domain"
 	"json-inspector/internal/vars"
 )
 
@@ -265,14 +266,14 @@ func TestExportSubstitutesTokens(t *testing.T) {
 		t.Errorf("Export with no resolver = %q, want %q", kept, want)
 	}
 
-	opts := ExportOptions{Resolve: func(name string) (vars.Resolution, bool) {
+	opts := ExportOptions{Resolve: func(name string) (domain.Resolution, bool) {
 		switch name {
 		case "host":
-			return vars.Resolution{Value: "api.example.com", Kind: vars.KindText}, true
+			return domain.Resolution{Value: "api.example.com", Kind: domain.VariableText}, true
 		case "token":
-			return vars.Resolution{Value: "s3cret", Kind: vars.KindSecret}, true
+			return domain.Resolution{Value: "s3cret", Kind: domain.VariableSecret}, true
 		}
-		return vars.Resolution{}, false
+		return domain.Resolution{}, false
 	}}
 	got := Export(FormatCurl, req, opts)
 	want := "curl -H 'Authorization: Bearer " + vars.SecretMask + "' 'api.example.com/articles'"

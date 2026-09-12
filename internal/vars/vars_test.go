@@ -1,22 +1,23 @@
 package vars
 
 import (
+	"json-inspector/internal/domain"
 	"strings"
 	"testing"
 )
 
 // fakeResolver is the environment these tests resolve against: one plain variable, one global and
 // one secret, so that "unknown", "global" and "masked" are all reachable.
-func fakeResolver(name string) (Resolution, bool) {
+func fakeResolver(name string) (domain.Resolution, bool) {
 	switch name {
 	case "host":
-		return Resolution{Value: "api.example.com", Source: "env", Kind: KindText}, true
+		return domain.Resolution{Value: "api.example.com", Source: "env", Kind: domain.VariableText}, true
 	case "page":
-		return Resolution{Value: "2", Source: "global", Kind: KindText}, true
+		return domain.Resolution{Value: "2", Source: "global", Kind: domain.VariableText}, true
 	case "token":
-		return Resolution{Value: "s3cret", Source: "env", Kind: KindSecret}, true
+		return domain.Resolution{Value: "s3cret", Source: "env", Kind: domain.VariableSecret}, true
 	}
-	return Resolution{}, false
+	return domain.Resolution{}, false
 }
 
 func TestParseTokens(t *testing.T) {

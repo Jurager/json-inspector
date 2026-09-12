@@ -16,6 +16,7 @@ import (
 	"json-inspector/internal/platform"
 	"json-inspector/internal/transport/bridge"
 	"json-inspector/internal/transport/wails"
+	"json-inspector/internal/usecase"
 )
 
 //go:embed all:frontend/dist
@@ -59,6 +60,7 @@ func run() int {
 		sqlite.Module,
 		httpx.Module,
 		bridge.Module,
+		usecase.Module,
 		wails.Module,
 		fx.Supply(
 			platform.BuildInfo{

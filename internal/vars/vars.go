@@ -6,30 +6,17 @@ package vars
 import (
 	"regexp"
 	"strings"
-)
 
-// Kind tells a value that may be shown from one that must never leave the app.
-type Kind string
-
-const (
-	KindText   Kind = "text"
-	KindSecret Kind = "secret"
+	"json-inspector/internal/domain"
 )
 
 // SecretMask is what a secret looks like anywhere it is not deliberately revealed: a tooltip, the
 // preview, an export.
 const SecretMask = "••••"
 
-// Resolution is a value together with where it came from, which the tooltip names and which decides
-// whether it may be shown.
-type Resolution struct {
-	Value  string
-	Source string // "env" | "global"
-	Kind   Kind
-}
-
-// Resolver reports a variable's value; the bool is false when the name resolves to nothing.
-type Resolver func(name string) (Resolution, bool)
+// Resolver reports what a name stands for; the bool is false when it stands for nothing. The
+// answer is a domain.Resolution so the grammar and the environments agree on one type.
+type Resolver func(name string) (domain.Resolution, bool)
 
 // Token is one `{{name}}` occurrence: half-open byte offsets into the text, the trimmed name and
 // the raw span as written, which is what an unresolved token falls back to.
@@ -58,6 +45,12 @@ var jsSpace = string(jsSpaceRunes)
 
 // jsTrim is String.prototype.trim.
 func jsTrim(s string) string { return strings.Trim(s, jsSpace) }
+
+// ValidName reports whether a name may be a variable at all — the same rule ParseTokens applies, so
+// the environments screen refuses a name that the grammar would never resolve.
+func ValidName(name string) bool {
+	return nameRe.MatchString(name)
+}
 
 // ParseTokens finds every `{{name}}` in text, in order. Offsets are byte offsets into text: the TS
 // counts UTF-16 code units, and the two agree everywhere except past non-ASCII text.
@@ -143,7 +136,7 @@ func SubstituteMasked(text string, resolve Resolver) string {
 	last := 0
 	for _, t := range tokens {
 		out.WriteString(text[last:t.Start])
-		if r, ok := resolve(t.Name); ok && r.Kind == KindSecret {
+		if r, ok := resolve(t.Name); ok && r.Kind == domain.VariableSecret {
 			out.WriteString(SecretMask)
 		} else if ok {
 			out.WriteString(r.Value)

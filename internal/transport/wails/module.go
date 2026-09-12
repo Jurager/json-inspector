@@ -7,7 +7,9 @@ import (
 	"github.com/wailsapp/wails/v3/pkg/events"
 	"go.uber.org/fx"
 
+	"json-inspector/internal/infra/sqlite"
 	"json-inspector/internal/platform"
+	"json-inspector/internal/usecase/environment"
 )
 
 // Assets is what only main can embed: the built frontend and the window icon. go:embed reaches
@@ -30,6 +32,10 @@ type ServicesIn struct {
 
 var Module = fx.Module("wails",
 	fx.Provide(
+		// Ports are bound here, in the composition layer: it is the only place that knows both a use
+		// case and the adapter that serves it. Everything above this line is a constructor.
+		func(store *sqlite.Store) environment.Store { return store },
+		func() environment.SecretSource { return keychainSecrets{} },
 		NewHost,
 		NewStatus,
 		openStorage,

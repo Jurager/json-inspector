@@ -14,5 +14,6 @@ export {
 
 export type {
     Failure,
+    ResolvedVariable,
     StartupStatus
 } from "./models.js";
