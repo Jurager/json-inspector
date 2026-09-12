@@ -3,8 +3,8 @@
 
 /**
  * RequestsService sends what the request builder produces. It stays this thin on purpose: the
- * engine is where a request is actually sent, and the record it produces is written by the
- * records feature, not here.
+ * engine is where a request is actually sent, and the record it produces is written by the records
+ * feature, not here.
  * @module
  */
 
@@ -16,6 +16,10 @@ import { Call as $Call, CancellablePromise as $CancellablePromise } from "@wails
 // @ts-ignore: Unused imports
 import * as domain$0 from "../../domain/models.js";
 
+/**
+ * CancelRequest stops whatever is in flight. It keeps its old name and its old meaning — the
+ * window has one request at a time and cannot know an id — while the engine itself cancels by id.
+ */
 export function CancelRequest(): $CancellablePromise<void> {
     return $Call.ByID(2459867364);
 }

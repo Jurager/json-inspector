@@ -30,7 +30,6 @@ import { copyToClipboard } from '../../lib/clipboard'
 import { exportRequest, type ExportFormat } from '../../lib/export'
 import { usePlatform } from '../../composables/usePlatform'
 import { focusUrlField } from '../../composables/urlFocus'
-import { normalizeHeaders } from '../../lib/headers'
 
 const props = defineProps<{ record: RequestRecord }>()
 
@@ -150,7 +149,7 @@ async function follow(url: string) {
       requestBody: '',
       status: res.status,
       statusText: res.statusText,
-      responseHeaders: normalizeHeaders(res.headers),
+      responseHeaders: res.headers ?? [],
       responseBody: res.body,
       durationMs: res.durationMs,
       contentType: res.contentType,
@@ -214,7 +213,7 @@ const availableTabs = computed<Tab[]>(() => {
   return tabs
 })
 
-const responseHeaderEntries = computed(() => Object.entries(props.record.responseHeaders ?? {}))
+const responseHeaderEntries = computed(() => props.record.responseHeaders ?? [])
 const requestHeaderEntries = computed(() => Object.entries(props.record.requestHeaders ?? {}))
 
 // "Назад" walks the record's own source list, not the combined one — going back from a
@@ -257,7 +256,7 @@ async function copyBody() {
 const headersCopied = ref(false)
 
 async function copyHeaders() {
-  const text = responseHeaderEntries.value.map(([k, v]) => `${k}: ${v}`).join('\n')
+  const text = responseHeaderEntries.value.map((h) => `${h.name}: ${h.value}`).join('\n')
   if (await copyToClipboard(text)) {
     headersCopied.value = true
     setTimeout(() => (headersCopied.value = false), 1500)
@@ -463,9 +462,9 @@ async function copyAs(format: ExportFormat, { keepTokens = false } = {}) {
         <div class="resp-content resp-pad resp-white">
           <table class="kv-table">
             <tbody>
-              <tr v-for="[k, v] in responseHeaderEntries" :key="k">
-                <td class="kv-key mono">{{ k }}</td>
-                <td class="kv-val mono">{{ v }}</td>
+              <tr v-for="(h, i) in responseHeaderEntries" :key="i">
+                <td class="kv-key mono">{{ h.name }}</td>
+                <td class="kv-val mono">{{ h.value }}</td>
               </tr>
               <tr v-if="responseHeaderEntries.length === 0">
                 <td class="kv-key" colspan="2">Нет заголовков ответа</td>

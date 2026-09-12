@@ -69,6 +69,9 @@ func run() int {
 			},
 			wails.Assets{FS: assets, Icon: appIcon},
 			bridge.Port(bridge.DefaultPort),
+			// The engine's defaults: env proxy, verified certificates, redirects followed, no jar.
+			// Settings will supply this once they live in the database.
+			httpx.Config{},
 		),
 		fx.Populate(&app),
 	)

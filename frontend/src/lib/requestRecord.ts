@@ -1,4 +1,5 @@
 import type { CookieRow } from './cookies'
+import type { HeaderPair } from '../../bindings/json-inspector/internal/domain'
 
 // A request/response from either the manual builder or the browser extension.
 export interface RequestRecord {
@@ -9,7 +10,7 @@ export interface RequestRecord {
   requestBody: string
   status: number
   statusText: string
-  responseHeaders: Record<string, string>
+  responseHeaders: HeaderPair[]
   responseBody: string
   durationMs: number
   startedAt: number

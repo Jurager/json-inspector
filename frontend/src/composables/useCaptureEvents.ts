@@ -1,9 +1,15 @@
 import { onBeforeUnmount, onMounted } from 'vue'
 import { Events } from '@wailsio/runtime'
 import { useRequestsStore } from '../stores/requests'
+import type { HeaderPair } from '../../bindings/json-inspector/internal/domain'
 
 // The wire shape the extension sends on `captured-request`; every field but these three
 // is optional, and the mapping into a RequestRecord below is explicit on purpose.
+// The extension sends headers as an object; the record keeps them as pairs, like the wire does.
+function toPairs(headers: Record<string, string>): HeaderPair[] {
+  return Object.entries(headers).map(([name, value]) => ({ name, value }))
+}
+
 interface CapturedRequest {
   method: string
   url: string
@@ -43,7 +49,7 @@ export function useCaptureEvents(store: ReturnType<typeof useRequestsStore>) {
           requestBody: c.requestBody ?? '',
           status: c.status,
           statusText: c.statusText ?? '',
-          responseHeaders: headers,
+          responseHeaders: toPairs(headers),
           responseBody: c.responseBody ?? '',
           durationMs: c.durationMs ?? 0,
           contentType: headers['content-type'] ?? headers['Content-Type'] ?? '',

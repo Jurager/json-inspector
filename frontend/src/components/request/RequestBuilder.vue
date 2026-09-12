@@ -17,7 +17,6 @@ import { useEnvironmentsStore } from '../../stores/environments'
 import { usePlatform } from '../../composables/usePlatform'
 import { registerUrlField } from '../../composables/urlFocus'
 import { tokenSegments } from '../../lib/vars'
-import { normalizeHeaders } from '../../lib/headers'
 import { cookieHeaderValue } from '../../lib/cookies'
 import { parseRequestCommand, type ParseErrorReason } from '../../lib/parseRequest'
 import type { ExportFormat } from '../../lib/export'
@@ -154,7 +153,7 @@ async function send() {
       requestBody: recordBody,
       status: res.status,
       statusText: res.statusText,
-      responseHeaders: normalizeHeaders(res.headers),
+      responseHeaders: res.headers ?? [],
       responseBody: res.body,
       durationMs: res.durationMs,
       contentType: res.contentType,

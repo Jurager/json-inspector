@@ -73,7 +73,7 @@ export function buildSampleRecord(): Omit<RequestRecord, 'id' | 'startedAt'> {
     requestBody: '',
     status: 200,
     statusText: '200 OK',
-    responseHeaders: { 'Content-Type': 'application/vnd.api+json' },
+    responseHeaders: [{ name: 'Content-Type', value: 'application/vnd.api+json' }],
     responseBody: SAMPLE_JSON_API,
     durationMs: 128,
     contentType: 'application/vnd.api+json',
