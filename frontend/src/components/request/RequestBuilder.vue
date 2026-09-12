@@ -15,9 +15,9 @@ import { App as Backend } from '../../../bindings/json-inspector'
 import { useRequestsStore } from '../../stores/requests'
 import { useEnvironmentsStore } from '../../stores/environments'
 import { usePlatform } from '../../composables/usePlatform'
-import { provideUrlFocus } from '../../composables/useUrlFocus'
+import { registerUrlField } from '../../composables/urlFocus'
 import { tokenSegments } from '../../lib/vars'
-import { normalizeHeaders } from '../../lib/http'
+import { normalizeHeaders } from '../../lib/headers'
 
 const store = useRequestsStore()
 const { shortcut } = usePlatform()
@@ -61,7 +61,7 @@ function toggleChip(chip: 'params' | 'headers' | 'auth' | 'body') {
   store.setOpenChip(store.openChip === chip ? null : chip)
 }
 
-function collectHeaders(): Record<string, string> {
+function resolvedHeaders(): Record<string, string> {
   const map: Record<string, string> = {}
   for (const h of store.draft.headers) {
     const name = envStore.substitute(h.name.trim())
@@ -81,12 +81,12 @@ function maskedHeaders(): Record<string, string> {
 }
 
 // An unresolved `{{name}}` would go on the wire as braces and come back a confusing 404, so send is blocked.
-const missing = computed(() => store.missingVars)
-const sendBlocked = computed(() => missing.value.length > 0)
+const missingVarNames = computed(() => store.missingVars)
+const sendBlocked = computed(() => missingVarNames.value.length > 0)
 
-const blockedHint = computed(() =>
-  missing.value.length
-    ? `Неизвестные переменные: ${missing.value.join(', ')}`
+const sendBlockedReason = computed(() =>
+  missingVarNames.value.length
+    ? `Неизвестные переменные: ${missingVarNames.value.join(', ')}`
     : undefined
 )
 
@@ -94,14 +94,14 @@ const blockedHint = computed(() =>
 function createMissing() {
   const envId = envStore.activeId
   if (envId === null) return
-  for (const name of missing.value) envStore.addVar(envId, { name })
-  envStore.openSheet({ envId, varName: missing.value[0] ?? '' })
+  for (const name of missingVarNames.value) envStore.addVar(envId, { name })
+  envStore.openSheet({ envId, varName: missingVarNames.value[0] ?? '' })
 }
 
 async function send() {
   if (!store.draft.url.trim() || store.loading || sendBlocked.value) return
   store.loading = true
-  const requestHeaders = collectHeaders()
+  const requestHeaders = resolvedHeaders()
   const url = envStore.substitute(store.draft.url.trim())
   const body = envStore.substitute(store.draft.body)
   // What the record keeps: resolved like the real request, but a secret stays masked.
@@ -111,7 +111,7 @@ async function send() {
   try {
     const res = await Backend.SendRequest(store.draft.method, url, requestHeaders, body)
     if (!res || res.cancelled) return
-    store.add({
+    store.addRequest({
       method: store.draft.method,
       url: recordUrl,
       requestHeaders: recordHeaders,
@@ -141,7 +141,7 @@ async function cancel() {
 
 const urlInputRef = ref<HTMLInputElement | null>(null)
 
-onMounted(() => onBeforeUnmount(provideUrlFocus(() => urlInputRef.value?.focus())))
+onMounted(() => onBeforeUnmount(registerUrlField(() => urlInputRef.value?.focus())))
 
 const urlDisplayRef = ref<HTMLElement | null>(null)
 
@@ -206,7 +206,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onWindowKeydown))
           <!-- Decorative: the input above holds the real value and is the only editable control. -->
           <div v-if="showUrlDisplay" ref="urlDisplayRef" class="url-display mono" aria-hidden="true">
             <template v-for="(seg, i) in urlSegments" :key="i">
-              <VarToken v-if="seg.token" :name="seg.token" :offset="seg.start" />
+              <VarToken v-if="seg.tokenName" :name="seg.tokenName" :offset="seg.start" />
               <span v-else>{{ seg.text }}</span>
             </template>
           </div>
@@ -238,7 +238,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onWindowKeydown))
         variant="primary"
         size="lg"
         :disabled="!store.draft.url.trim() || sendBlocked"
-        :title="blockedHint"
+        :title="sendBlockedReason"
         @click="store.loading ? cancel() : send()"
       >
         <template v-if="store.loading">
@@ -257,13 +257,13 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onWindowKeydown))
       <span class="missing-text">
         <template v-if="envStore.activeId === null">
           Окружение не выбрано — переменные
-          <span class="missing-name mono" v-for="n in missing" :key="n">{{ n }}</span>
+          <span class="missing-name mono" v-for="n in missingVarNames" :key="n">{{ n }}</span>
           не подставляются. Отправка заблокирована.
         </template>
         <template v-else>
-          В окружении <b>{{ envStore.active?.name }}</b> нет
-          {{ missing.length === 1 ? 'переменной' : 'переменных' }}:
-          <span class="missing-name mono" v-for="n in missing" :key="n">{{ n }}</span>
+          В окружении <b>{{ envStore.activeEnvironment?.name }}</b> нет
+          {{ missingVarNames.length === 1 ? 'переменной' : 'переменных' }}:
+          <span class="missing-name mono" v-for="n in missingVarNames" :key="n">{{ n }}</span>
           Отправка заблокирована.
         </template>
       </span>
@@ -273,7 +273,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onWindowKeydown))
         :title="envStore.activeId === null ? 'Сначала выберите окружение в шапке' : undefined"
         @click="createMissing"
       >
-        {{ missing.length === 1 ? 'Создать' : 'Создать все' }}
+        {{ missingVarNames.length === 1 ? 'Создать' : 'Создать все' }}
       </Button>
     </div>
   </div>

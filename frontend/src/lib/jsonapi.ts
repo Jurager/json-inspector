@@ -47,11 +47,13 @@ export function dataResources(doc: JsonApiDocument): Resource[] {
   return [d]
 }
 
-export function buildIndex(doc: JsonApiDocument): Map<string, Resource> {
-  const idx = new Map<string, Resource>()
-  for (const r of dataResources(doc)) idx.set(resourceKey(r.type, r.id), r)
-  for (const r of doc.included ?? []) idx.set(resourceKey(r.type, r.id), r)
-  return idx
+// Keyed by `type/id` — the same key `resourceKey` builds, so a relationship can look up its
+// target without scanning the document.
+export function buildResourceIndex(doc: JsonApiDocument): Map<string, Resource> {
+  const index = new Map<string, Resource>()
+  for (const r of dataResources(doc)) index.set(resourceKey(r.type, r.id), r)
+  for (const r of doc.included ?? []) index.set(resourceKey(r.type, r.id), r)
+  return index
 }
 
 export function relIdentifiers(rel: Relationship): ResourceIdentifier[] {
@@ -61,7 +63,9 @@ export function relIdentifiers(rel: Relationship): ResourceIdentifier[] {
   return [d]
 }
 
-export function href(link: LinkValue | null | undefined): string {
+// A link is either the URL itself or an object carrying one; a missing link is an empty
+// string, so callers can test the result rather than the shape.
+export function linkHref(link: LinkValue | null | undefined): string {
   if (typeof link === 'string') return link
   if (link && typeof link.href === 'string') return link.href
   return ''

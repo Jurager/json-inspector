@@ -5,7 +5,7 @@ import { useCaptureEvents } from './composables/useCaptureEvents'
 import { useGlobalShortcuts } from './composables/useGlobalShortcuts'
 import { useSessionPersistence } from './composables/useSessionPersistence'
 import { useUpdates } from './composables/useUpdates'
-import { requestUrlFocus } from './composables/useUrlFocus'
+import { focusUrlField } from './composables/urlFocus'
 import TitleBar from './components/layout/TitleBar.vue'
 import Rail from './components/layout/Rail.vue'
 import Workspace from './components/layout/Workspace.vue'
@@ -18,7 +18,7 @@ import UpdateModal from './components/update/UpdateModal.vue'
 // components through the store or a composable, never through props from here.
 const store = useRequestsStore()
 const envStore = useEnvironmentsStore()
-const { update, open } = useUpdates()
+const { availableUpdate, openModal } = useUpdates()
 
 useSessionPersistence(store, envStore)
 useCaptureEvents(store)
@@ -28,7 +28,7 @@ useGlobalShortcuts(store, envStore)
 // so closing hands the caret back to it.
 function closeSheet() {
   envStore.closeSheet()
-  requestUrlFocus()
+  focusUrlField()
 }
 </script>
 
@@ -39,7 +39,7 @@ function closeSheet() {
       <Rail />
       <Workspace />
     </div>
-    <StatusBar :update="update" @open-update="open" />
+    <StatusBar :update-info="availableUpdate" @open-update="openModal" />
   </div>
 
   <EnvironmentsSheet v-if="envStore.sheetOpen" @close="closeSheet" />

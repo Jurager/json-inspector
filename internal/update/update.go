@@ -25,9 +25,11 @@ const (
 	downloadTimeout = 5 * time.Minute
 )
 
-var Current = "dev"
+// CurrentVersion is the running build's version, stamped into the binary by the release tag.
+var CurrentVersion = "dev"
 
-type Update struct {
+// Info is the wire shape the frontend reads for the update events and the modal.
+type Info struct {
 	Available bool   `json:"available"`
 	Current   string `json:"current"`
 	Latest    string `json:"latest"`
@@ -73,23 +75,23 @@ func fetchRelease(subpath string) (*githubRelease, error) {
 	return &rel, nil
 }
 
-func Check() (Update, error) {
+func Check() (Info, error) {
 	rel, err := fetchRelease("latest")
 	if err != nil {
-		return Update{}, err
+		return Info{}, err
 	}
-	return Update{
-		Available: isNewer(rel.TagName, Current),
-		Current:   Current,
+	return Info{
+		Available: isNewer(rel.TagName, CurrentVersion),
+		Current:   CurrentVersion,
 		Latest:    rel.TagName,
 	}, nil
 }
 
-func StartupCheck() *Update {
-	if Current == "dev" {
+func StartupCheck() *Info {
+	if CurrentVersion == "dev" {
 		return nil
 	}
-	if state, err := readState(); err == nil && time.Since(state.LastCheck) < checkInterval {
+	if prev, err := readCheckState(); err == nil && time.Since(prev.LastCheck) < checkInterval {
 		return nil
 	}
 
@@ -97,15 +99,15 @@ func StartupCheck() *Update {
 	if err != nil {
 		return nil
 	}
-	writeState(state{LastCheck: time.Now(), Latest: rel.TagName})
+	writeCheckState(checkState{LastCheck: time.Now(), Latest: rel.TagName})
 
-	if isNewer(rel.TagName, Current) {
-		return &Update{Available: true, Current: Current, Latest: rel.TagName}
+	if isNewer(rel.TagName, CurrentVersion) {
+		return &Info{Available: true, Current: CurrentVersion, Latest: rel.TagName}
 	}
 	return nil
 }
 
-func Apply(version string) error {
+func Install(version string) error {
 	rel, err := fetchRelease("tags/" + url.PathEscape(version))
 	if err != nil {
 		return err
@@ -192,7 +194,7 @@ func httpGet(endpoint string, timeout time.Duration) (*http.Response, error) {
 	if err != nil {
 		return nil, err
 	}
-	req.Header.Set("User-Agent", "json-inspector/"+Current)
+	req.Header.Set("User-Agent", "json-inspector/"+CurrentVersion)
 	req.Header.Set("Accept", "application/vnd.github+json")
 
 	client := &http.Client{Timeout: timeout}
@@ -207,12 +209,12 @@ func httpGet(endpoint string, timeout time.Duration) (*http.Response, error) {
 	return resp, nil
 }
 
-type state struct {
+type checkState struct {
 	LastCheck time.Time `json:"last_check"`
 	Latest    string    `json:"latest"`
 }
 
-func statePath() (string, error) {
+func checkStatePath() (string, error) {
 	home, err := os.UserHomeDir()
 	if err != nil {
 		return "", err
@@ -220,9 +222,9 @@ func statePath() (string, error) {
 	return filepath.Join(home, ".json-inspector.update.json"), nil
 }
 
-func readState() (state, error) {
-	var s state
-	path, err := statePath()
+func readCheckState() (checkState, error) {
+	var s checkState
+	path, err := checkStatePath()
 	if err != nil {
 		return s, err
 	}
@@ -231,13 +233,13 @@ func readState() (state, error) {
 		return s, err
 	}
 	if err := json.Unmarshal(data, &s); err != nil {
-		return state{}, err
+		return checkState{}, err
 	}
 	return s, nil
 }
 
-func writeState(s state) {
-	path, err := statePath()
+func writeCheckState(s checkState) {
+	path, err := checkStatePath()
 	if err != nil {
 		return
 	}

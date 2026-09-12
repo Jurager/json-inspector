@@ -10,16 +10,16 @@ const props = defineProps<{ name: string; offset?: number }>()
 const store = useEnvironmentsStore()
 const { isMac } = usePlatform()
 
-const resolution = computed(() => store.resolve(props.name))
-const known = computed(() => resolution.value !== null)
-const isSecret = computed(() => resolution.value?.kind === 'secret')
+const resolvedVar = computed(() => store.resolveVariable(props.name))
+const isKnown = computed(() => resolvedVar.value !== null)
+const isSecret = computed(() => resolvedVar.value?.kind === 'secret')
 
 const label = computed(() => `{{${props.name}}}`)
 
 const scopeLabel = computed(() => {
-  const r = resolution.value
+  const r = resolvedVar.value
   if (!r) return ''
-  return r.source === 'env' ? (store.active?.name ?? 'Окружение') : 'Глобальные'
+  return r.source === 'env' ? (store.activeEnvironment?.name ?? 'Окружение') : 'Глобальные'
 })
 
 const modifier = computed(() => (isMac.value ? '⌥клик' : 'Alt+клик'))
@@ -32,7 +32,7 @@ function onClick(e: MouseEvent) {
   if (e.altKey) {
     e.preventDefault()
     e.stopPropagation()
-    const r = resolution.value
+    const r = resolvedVar.value
     store.openSheet({
       envId: r?.source === 'env' ? store.activeId : null,
       varName: props.name,
@@ -42,7 +42,7 @@ function onClick(e: MouseEvent) {
 
   if (window.getSelection()?.toString()) return
 
-  const input = siblingInput(root.value?.parentElement ?? null)
+  const input = nearestInput(root.value?.parentElement ?? null)
   if (!input) return
 
   e.preventDefault()
@@ -51,7 +51,8 @@ function onClick(e: MouseEvent) {
   input.setSelectionRange(at, at)
 }
 
-function siblingInput(from: HTMLElement | null): HTMLInputElement | null {
+// Walks up: the field is an ancestor's descendant, not a sibling of the token.
+function nearestInput(from: HTMLElement | null): HTMLInputElement | null {
   let node: HTMLElement | null = from
   while (node) {
     const found = node.querySelector('input')
@@ -69,7 +70,7 @@ function siblingInput(from: HTMLElement | null): HTMLInputElement | null {
       <span
         ref="root"
         class="var-token"
-        :class="{ unknown: !known, secret: isSecret }"
+        :class="{ unknown: !isKnown, secret: isSecret }"
         @click="onClick"
         @pointerleave="hintArmed = true"
         >{{ label }}</span
@@ -77,7 +78,7 @@ function siblingInput(from: HTMLElement | null): HTMLInputElement | null {
     </template>
 
     <div class="var-tip-value">
-      {{ isSecret ? 'значение скрыто · секрет' : resolution?.value || '(пусто)' }}
+      {{ isSecret ? 'значение скрыто · секрет' : resolvedVar?.value || '(пусто)' }}
     </div>
     <div class="var-tip-meta">{{ scopeLabel }} → {{ name }} · {{ modifier }}, чтобы открыть в редакторе</div>
   </Tooltip>

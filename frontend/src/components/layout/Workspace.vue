@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import { computed, ref } from 'vue'
 import { useRequestsStore } from '../../stores/requests'
-import { makeSideResizer } from '../../lib/resize'
+import { useResizableWidth } from '../../composables/useResizableWidth'
 import HistoryPanel from '../history/HistoryPanel.vue'
 import RequestBuilder from '../request/RequestBuilder.vue'
 import ResponseViewer from '../response/ResponseViewer.vue'
@@ -11,30 +11,20 @@ import BrowserEmptyState from '../browser/BrowserEmptyState.vue'
 const store = useRequestsStore()
 
 const sideWidth = ref(300)
-const sideResize = makeSideResizer(sideWidth, 220, 560)
+const { startDrag: startSideDrag } = useResizableWidth(sideWidth, { min: 220, max: 560, side: 'left' })
 
 const browserEmpty = computed(
   () => store.activeView === 'browser' && !store.requests.some((r) => r.source === 'browser')
 )
-
-onMounted(() => {
-  window.addEventListener('mousemove', sideResize.move)
-  window.addEventListener('mouseup', sideResize.stop)
-})
-
-onBeforeUnmount(() => {
-  window.removeEventListener('mousemove', sideResize.move)
-  window.removeEventListener('mouseup', sideResize.stop)
-})
 </script>
 
 <template>
   <main class="main">
     <div class="side-layout">
       <div v-if="!browserEmpty && store.activeView !== 'collections'" class="side-panel" :style="{ width: sideWidth + 'px' }">
-        <HistoryPanel :source="store.activeView === 'request' ? 'manual' : 'browser'" />
+        <HistoryPanel :source-kind="store.activeView === 'request' ? 'manual' : 'browser'" />
       </div>
-      <div v-if="!browserEmpty && store.activeView !== 'collections'" class="resize-handle" @mousedown.prevent="sideResize.start"></div>
+      <div v-if="!browserEmpty && store.activeView !== 'collections'" class="resize-handle" @mousedown.prevent="startSideDrag"></div>
       <div class="side-main">
         <template v-if="store.activeView === 'request'">
           <RequestBuilder />

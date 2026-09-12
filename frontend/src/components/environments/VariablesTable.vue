@@ -13,7 +13,7 @@ const envId = computed(() => envStore.editedEnvId)
 const env = computed(() => envStore.environments.find((e) => e.id === envId.value) ?? null)
 const isGlobals = computed(() => envId.value === null)
 
-const locked = computed(() => Boolean(env.value?.readonly) && !envStore.isUnlocked(envId.value))
+const isEnvLocked = computed(() => Boolean(env.value?.readonly) && !envStore.isUnlocked(envId.value))
 
 const rows = computed(() => envStore.rowsFor(envId.value))
 const vars = computed(() => rows.value.own)
@@ -50,7 +50,7 @@ function isSecretMasked(v: Variable): boolean {
 
 function displayValue(v: Variable, scope: string | null): string {
   if (v.kind !== 'secret') return v.value
-  return isRevealed(v) ? envStore.varValue(scope, v) : '••••'
+  return isRevealed(v) ? envStore.effectiveValue(scope, v) : '••••'
 }
 
 interface Editing {
@@ -68,10 +68,10 @@ function setCellInput(el: Element | ComponentPublicInstance | null) {
 }
 
 function startEdit(v: Variable, field: 'name' | 'value', scope: string | null = envId.value) {
-  if (locked.value) return
+  if (isEnvLocked.value) return
   editing.value = { scope, varId: v.id, field }
   clearNotice()
-  draft.value = field === 'name' ? v.name : envStore.varValue(scope, v)
+  draft.value = field === 'name' ? v.name : envStore.effectiveValue(scope, v)
   nextTick(() => cellInput.value?.focus())
 }
 
@@ -81,7 +81,7 @@ function commitFrom(v: Variable, field: 'name' | 'value') {
   commit()
 }
 
-function editingCell(v: Variable, field: 'name' | 'value', scope: string | null): boolean {
+function isEditingCell(v: Variable, field: 'name' | 'value', scope: string | null): boolean {
   const ed = editing.value
   return Boolean(ed && ed.varId === v.id && ed.field === field && ed.scope === scope)
 }
@@ -158,19 +158,19 @@ function openGlobal(g: Variable, edit = false) {
 }
 
 function addVar() {
-  if (locked.value) return
+  if (isEnvLocked.value) return
   const id = envStore.addVar(envId.value, { name: '', value: '' })
   const created = vars.value.find((v) => v.id === id)
   if (created) startEdit(created, 'name')
 }
 
 function removeVar(v: Variable) {
-  if (locked.value) return
+  if (isEnvLocked.value) return
   envStore.removeVar(envId.value, v.id)
 }
 
 function toggleKind(v: Variable) {
-  if (locked.value) return
+  if (isEnvLocked.value) return
   envStore.updateVar(envId.value, v.id, { kind: v.kind === 'secret' ? 'text' : 'secret' })
 }
 
@@ -190,7 +190,7 @@ defineExpose({ cancelTop })
     <div class="sheet-toolbar">
       <span class="toolbar-spacer"></span>
       <Button
-        v-if="locked"
+        v-if="isEnvLocked"
         title="Окружение только для чтения"
         @click="envStore.unlock(envStore.editedEnvId as string)"
       >
@@ -219,7 +219,7 @@ defineExpose({ cancelTop })
       >
         <div class="cell cell-name" @click="startEdit(v, 'name')">
           <input
-            v-if="editingCell(v, 'name', envId)"
+            v-if="isEditingCell(v, 'name', envId)"
             :ref="setCellInput"
             v-model="draft"
             class="cell-input mono"
@@ -233,7 +233,7 @@ defineExpose({ cancelTop })
 
         <div class="cell cell-value" @click="startEdit(v, 'value')">
           <input
-            v-if="editingCell(v, 'value', envId)"
+            v-if="isEditingCell(v, 'value', envId)"
             :ref="setCellInput"
             v-model="draft"
             class="cell-input mono"
@@ -263,8 +263,8 @@ defineExpose({ cancelTop })
             v-else
             class="tag"
             :class="v.kind === 'secret' ? 'tag-secret' : 'tag-text'"
-            :disabled="locked"
-            :title="locked ? 'Окружение только для чтения' : 'Переключить тип'"
+            :disabled="isEnvLocked"
+            :title="isEnvLocked ? 'Окружение только для чтения' : 'Переключить тип'"
             @click="toggleKind(v)"
           >
             {{ v.kind === 'secret' ? 'секрет' : 'текст' }}
@@ -272,7 +272,7 @@ defineExpose({ cancelTop })
         </div>
 
         <div class="cell cell-action">
-          <IconButton v-if="!locked" variant="danger" size="sm" hint="Удалить" @click="removeVar(v)">
+          <IconButton v-if="!isEnvLocked" variant="danger" size="sm" hint="Удалить" @click="removeVar(v)">
             <Icon name="trash" :size="13" />
           </IconButton>
         </div>
@@ -285,7 +285,7 @@ defineExpose({ cancelTop })
         {{ vars.length === 0 ? 'Переменных пока нет' : 'Ничего не найдено' }}
       </div>
 
-      <button class="new-row" :disabled="locked" @click="addVar">
+      <button class="new-row" :disabled="isEnvLocked" @click="addVar">
         <Icon name="plus" :size="13" />
         <span>Новая переменная</span>
       </button>
@@ -323,7 +323,7 @@ defineExpose({ cancelTop })
           </div>
           <div class="cell cell-action">
             <IconButton
-              v-if="!locked"
+              v-if="!isEnvLocked"
               size="sm"
               hint="Править глобальную переменную"
               @click.stop="openGlobal(g, true)"
@@ -337,7 +337,7 @@ defineExpose({ cancelTop })
 
     <div class="sheet-foot">
       <span v-if="notice" class="foot-error">{{ notice }}</span>
-      <span v-else-if="!envStore.keychainAvailable" class="foot-warn">
+      <span v-else-if="!envStore.isKeychainAvailable" class="foot-warn">
         Связка ключей недоступна — секреты не сохранятся после выхода
       </span>
       <span v-else>Секреты хранятся в связке ключей macOS и не попадают в экспорт коллекции</span>

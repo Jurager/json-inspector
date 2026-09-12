@@ -4,13 +4,9 @@ import Icon from '../ui/Icon.vue'
 import { Button, IconButton } from '../ui/button'
 import DeleteEnvDialog from './DeleteEnvDialog.vue'
 import ImportDialog from './ImportDialog.vue'
-import {
-  parseDotenv,
-  useEnvironmentsStore,
-  type ImportChoice,
-  type Variable,
-} from '../../stores/environments'
+import { useEnvironmentsStore, type ImportChoice, type Variable } from '../../stores/environments'
 import { useRequestsStore } from '../../stores/requests'
+import { parseDotenv } from '../../lib/dotenv'
 import { parseTokens } from '../../lib/vars'
 import { useSheetNotice } from '../../composables/useSheetNotice'
 
@@ -23,7 +19,7 @@ const env = computed(() => envStore.environments.find((e) => e.id === envId.valu
 const isGlobals = computed(() => envId.value === null)
 
 const renamingId = ref<string | null>(null)
-const envDraft = ref('')
+const envNameDraft = ref('')
 const renameInput = ref<HTMLInputElement | null>(null)
 const renameInvalid = ref(false)
 
@@ -34,14 +30,14 @@ function setRenameInput(el: Element | ComponentPublicInstance | null) {
 function addEnv() {
   const id = envStore.addEnv()
   envStore.editEnv(id)
-  startRename(id, true)
+  startRename(id, { selectAll: true })
 }
 
-function startRename(id: string, selectAll = false) {
+function startRename(id: string, { selectAll = false } = {}) {
   const target = envStore.environments.find((e) => e.id === id)
   if (!target) return
   renamingId.value = id
-  envDraft.value = target.name
+  envNameDraft.value = target.name
   clearNotice()
   renameInvalid.value = false
   nextTick(() => {
@@ -53,7 +49,7 @@ function startRename(id: string, selectAll = false) {
 function commitRename(): boolean {
   const id = renamingId.value
   if (!id) return false
-  const name = envDraft.value.trim()
+  const name = envNameDraft.value.trim()
   const others = envStore.environments.filter((e) => e.id !== id)
   if (!name || others.some((e) => e.name === name)) {
     renameInvalid.value = true
@@ -79,15 +75,16 @@ function cancelRename() {
   clearNotice()
 }
 
-function renameNext(dir: 1 | -1) {
+function renameNext(direction: 'prev' | 'next') {
   const list = envStore.environments
   const at = list.findIndex((e) => e.id === renamingId.value)
-  const next = list[at + dir]
+  const step = direction === 'prev' ? -1 : 1
+  const next = list[at + step]
   if (!next) {
     cancelRename()
     return
   }
-  if (commitRename()) startRename(next.id, true)
+  if (commitRename()) startRename(next.id, { selectAll: true })
 }
 
 function onRenameKeydown(e: KeyboardEvent) {
@@ -100,22 +97,22 @@ function onRenameKeydown(e: KeyboardEvent) {
     cancelRename()
   } else if (e.key === 'Tab') {
     e.preventDefault()
-    renameNext(e.shiftKey ? -1 : 1)
+    renameNext(e.shiftKey ? 'prev' : 'next')
   }
 }
 
 function onEnvRowEnter(id: string) {
-  if (envStore.editedEnvId === id) startRename(id, true)
+  if (envStore.editedEnvId === id) startRename(id, { selectAll: true })
   else envStore.editEnv(id)
 }
 
-const confirming = ref<string | null>(null)
+const confirmingEnvId = ref<string | null>(null)
 
 const confirmingName = computed(
-  () => envStore.environments.find((e) => e.id === confirming.value)?.name ?? ''
+  () => envStore.environments.find((e) => e.id === confirmingEnvId.value)?.name ?? ''
 )
 
-function referencedBy(name: string): boolean {
+function isNameReferenced(name: string): boolean {
   const texts: string[] = [reqStore.draft.url, reqStore.draft.body]
   for (const p of reqStore.draft.params) texts.push(p.name, p.value)
   for (const h of reqStore.draft.headers) texts.push(h.name, h.value)
@@ -129,16 +126,16 @@ function referencedBy(name: string): boolean {
 function askRemove(id: string) {
   const target = envStore.environments.find((e) => e.id === id)
   if (!target) return
-  if (target.vars.some((v) => referencedBy(v.name))) {
-    confirming.value = id
+  if (target.vars.some((v) => isNameReferenced(v.name))) {
+    confirmingEnvId.value = id
     return
   }
-  doRemove(id)
+  removeEnv(id)
 }
 
-function doRemove(id: string) {
+function removeEnv(id: string) {
   envStore.removeEnv(id)
-  confirming.value = null
+  confirmingEnvId.value = null
   // Deleting what you were looking at leaves the sheet with nothing to show.
   if (envStore.editedEnvId === id) envStore.editEnv(envStore.environments[0]?.id ?? null)
 }
@@ -175,7 +172,7 @@ const importCount = computed(
   () => importEntries.value?.filter((e) => e.mode === 'replace' || !existingNames.value.has(e.name)).length ?? 0
 )
 
-function applyImport() {
+function importEntriesIntoEnv() {
   if (importEntries.value) envStore.importDotenv(envId.value, importEntries.value)
   importEntries.value = null
 }
@@ -189,8 +186,8 @@ function cancelTop(): boolean {
     importEntries.value = null
     return true
   }
-  if (confirming.value) {
-    confirming.value = null
+  if (confirmingEnvId.value) {
+    confirmingEnvId.value = null
     return true
   }
   return false
@@ -212,13 +209,13 @@ defineExpose({ cancelTop })
       title="Двойной клик или Enter — переименовать"
       @click="envStore.editEnv(e.id)"
       @keydown.enter="onEnvRowEnter(e.id)"
-      @dblclick="startRename(e.id, true)"
+      @dblclick="startRename(e.id, { selectAll: true })"
     >
       <span class="side-dot" :class="{ on: e.id === envStore.activeId }"></span>
       <input
         v-if="renamingId === e.id"
         :ref="setRenameInput"
-        v-model="envDraft"
+        v-model="envNameDraft"
         class="side-rename"
         :class="{ invalid: renameInvalid }"
         maxlength="40"
@@ -283,13 +280,13 @@ defineExpose({ cancelTop })
       :target-name="env?.name ?? 'Глобальные'"
       :count="importCount"
       @cancel="importEntries = null"
-      @apply="applyImport"
+      @apply="importEntriesIntoEnv"
     />
     <DeleteEnvDialog
-      v-if="confirming"
+      v-if="confirmingEnvId"
       :name="confirmingName"
-      @cancel="confirming = null"
-      @confirm="doRemove(confirming)"
+      @cancel="confirmingEnvId = null"
+      @confirm="removeEnv(confirmingEnvId)"
     />
   </div>
 </template>

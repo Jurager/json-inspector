@@ -2,8 +2,8 @@ import { onBeforeUnmount, onMounted } from 'vue'
 import { useEnvironmentsStore } from '../stores/environments'
 import { useRequestsStore } from '../stores/requests'
 
-const HISTORY_KEY = 'ji-history-v1'
-const UI_KEY = 'ji-ui-v1'
+const HISTORY_STORAGE_KEY = 'ji-history-v1'
+const UI_STORAGE_KEY = 'ji-ui-v1'
 const MAX_HISTORY = 200
 const SAVE_DEBOUNCE_MS = 300
 
@@ -18,7 +18,7 @@ export function useSessionPersistence(
 
   onMounted(() => {
     try {
-      const raw = localStorage.getItem(HISTORY_KEY)
+      const raw = localStorage.getItem(HISTORY_STORAGE_KEY)
       if (raw) {
         const parsed = JSON.parse(raw)
         if (Array.isArray(parsed)) store.hydrate(parsed)
@@ -28,7 +28,7 @@ export function useSessionPersistence(
     }
 
     try {
-      const raw = localStorage.getItem(UI_KEY)
+      const raw = localStorage.getItem(UI_STORAGE_KEY)
       if (raw) {
         const parsed = JSON.parse(raw)
         if (parsed && typeof parsed.open === 'boolean') store.setInspector({ open: parsed.open })
@@ -45,9 +45,9 @@ export function useSessionPersistence(
       if (saveTimer) clearTimeout(saveTimer)
       saveTimer = setTimeout(() => {
         try {
-          localStorage.setItem(HISTORY_KEY, JSON.stringify(state.requests.slice(0, MAX_HISTORY)))
+          localStorage.setItem(HISTORY_STORAGE_KEY, JSON.stringify(state.requests.slice(0, MAX_HISTORY)))
           localStorage.setItem(
-            UI_KEY,
+            UI_STORAGE_KEY,
             JSON.stringify({ open: state.inspector.open, width: state.inspector.width })
           )
         } catch {

@@ -1,5 +1,5 @@
 import type { JsonApiDocument, Resource } from './jsonapi'
-import { buildIndex, dataResources, href, relIdentifiers } from './jsonapi'
+import { buildResourceIndex, dataResources, linkHref, relIdentifiers } from './jsonapi'
 
 export interface RelInfo {
   name: string
@@ -23,11 +23,12 @@ export interface TypeInfo {
   incoming: IncomingInfo[]
 }
 
-export function humanize(type: string): string {
+// A JSON:API type is lowercase by convention ("articles"); the views label it capitalised.
+export function capitalizeType(type: string): string {
   return type.charAt(0).toUpperCase() + type.slice(1)
 }
 
-export function buildSchema(doc: JsonApiDocument): TypeInfo[] {
+export function buildTypeInfos(doc: JsonApiDocument): TypeInfo[] {
   const all: Resource[] = [...dataResources(doc), ...(doc.included ?? [])]
   const presentTypes = new Set(all.map((r) => r.type))
 
@@ -35,7 +36,7 @@ export function buildSchema(doc: JsonApiDocument): TypeInfo[] {
   for (const r of all) {
     let t = map.get(r.type)
     if (!t) {
-      t = { type: r.type, label: humanize(r.type), count: 0, attributes: [], rels: [], incoming: [] }
+      t = { type: r.type, label: capitalizeType(r.type), count: 0, attributes: [], rels: [], incoming: [] }
       map.set(r.type, t)
     }
     t.count++
@@ -51,7 +52,7 @@ export function buildSchema(doc: JsonApiDocument): TypeInfo[] {
     if (!t || !r.relationships) continue
     for (const [name, rel] of Object.entries(r.relationships)) {
       const many = Array.isArray(rel.data)
-      const relatedUrl = href(rel.links?.related)
+      const relatedUrl = linkHref(rel.links?.related)
       for (const ri of relIdentifiers(rel)) {
         const existing = t.rels.find((x) => x.name === name && x.targetType === ri.type)
         if (existing) {
@@ -82,7 +83,7 @@ export interface TypeDiff {
 }
 
 function relLabel(r: RelInfo): string {
-  return `${r.name} → ${humanize(r.targetType)}`
+  return `${r.name} → ${capitalizeType(r.targetType)}`
 }
 
 export function diffSchemas(base: TypeInfo[], target: TypeInfo[]): TypeDiff[] {
@@ -131,15 +132,15 @@ export function diffSchemas(base: TypeInfo[], target: TypeInfo[]): TypeDiff[] {
   return diffs.sort((a, b) => a.label.localeCompare(b.label))
 }
 
-export interface SchemaCheck {
-  status: 'ok' | 'warn' | 'error'
+// Only problems are reported, so there is no "ok" state to carry.
+export interface ValidationIssue {
+  status: 'warn' | 'error'
   message: string
   path: string
 }
 
-// Structural JSON:API checks, one entry per problem with the path where it lives.
-export function validateDocument(doc: JsonApiDocument): SchemaCheck[] {
-  const checks: SchemaCheck[] = []
+export function validateDocument(doc: JsonApiDocument): ValidationIssue[] {
+  const checks: ValidationIssue[] = []
   const data = dataResources(doc)
   const included = doc.included ?? []
   const all = [...data, ...included]
@@ -160,7 +161,7 @@ export function validateDocument(doc: JsonApiDocument): SchemaCheck[] {
     }
   })
 
-  const index = buildIndex(doc)
+  const index = buildResourceIndex(doc)
   const refs = new Set<string>()
   all.forEach((r, i) => {
     const path = paths[i]

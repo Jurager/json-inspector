@@ -12,16 +12,10 @@ import {
   DropdownMenuItem,
   DropdownMenuSeparator,
 } from '../ui/dropdown-menu'
-import type { RequestRecord } from '../../lib/types'
-import {
-  tryParseJson,
-  prettyJson,
-  highlightJson,
-  formatBytes,
-  formatDuration,
-  statusClass,
-} from '../../lib/json'
-import { dataResources, href, isJsonApi, resourceMatchesQuery, type JsonApiDocument } from '../../lib/jsonapi'
+import type { RequestRecord } from '../../lib/requestRecord'
+import { tryParseJson, prettyJson, highlightJson } from '../../lib/json'
+import { formatBytes, formatDuration, statusBadgeClass } from '../../lib/format'
+import { dataResources, linkHref, isJsonApi, resourceMatchesQuery, type JsonApiDocument } from '../../lib/jsonapi'
 import JsonApiTree from '../json/JsonApiTree.vue'
 import TextViewerTab from './TextViewerTab.vue'
 import SchemaMap from '../json/SchemaMap.vue'
@@ -32,10 +26,11 @@ import TestsTab from './TestsTab.vue'
 import { App as Backend } from '../../../bindings/json-inspector'
 import { useRequestsStore } from '../../stores/requests'
 import { useEnvironmentsStore } from '../../stores/environments'
-import { copyToClipboard, exportRequest, type ExportFormat } from '../../lib/export'
+import { copyToClipboard } from '../../lib/clipboard'
+import { exportRequest, type ExportFormat } from '../../lib/export'
 import { usePlatform } from '../../composables/usePlatform'
-import { requestUrlFocus } from '../../composables/useUrlFocus'
-import { normalizeHeaders } from '../../lib/http'
+import { focusUrlField } from '../../composables/urlFocus'
+import { normalizeHeaders } from '../../lib/headers'
 
 const props = defineProps<{ record: RequestRecord }>()
 
@@ -57,10 +52,10 @@ const doc = computed<JsonApiDocument | null>(() =>
 const pagination = computed(() => {
   const l = doc.value?.links ?? {}
   return {
-    first: href(l.first),
-    prev: href(l.prev),
-    next: href(l.next),
-    last: href(l.last),
+    first: linkHref(l.first),
+    prev: linkHref(l.prev),
+    next: linkHref(l.next),
+    last: linkHref(l.last),
   }
 })
 
@@ -100,15 +95,11 @@ watch(
   { immediate: true }
 )
 
-function onTreeFetch(url: string) {
-  follow(url)
-}
-
-function onTreeSelect(key: string) {
+function highlightResource(key: string) {
   highlightKey.value = key
 }
 
-function onInspect(path: string) {
+function inspectNode(path: string) {
   store.setInspector({ path, open: true })
 }
 
@@ -116,13 +107,9 @@ function toggleInspector() {
   store.setInspector({ open: !store.inspector.open })
 }
 
-function onMapSelect(key: string) {
+function openResourceInBody(key: string) {
   highlightKey.value = key
   activeTab.value = 'body'
-}
-
-function onMapFetch(url: string) {
-  follow(url)
 }
 
 async function follow(url: string) {
@@ -137,7 +124,7 @@ async function follow(url: string) {
     // The binding types the Go pointer as nullable, but Go always returns a result — a type guard,
     // not a real branch.
     if (!res || res.cancelled) return
-    store.add({
+    store.addRequest({
       method: 'GET',
       url,
       requestHeaders: headers,
@@ -172,7 +159,7 @@ function hostPath(url: string): string {
   }
 }
 
-const browserParams = computed(() => {
+const urlQueryParams = computed(() => {
   const out: { name: string; value: string }[] = []
   try {
     const u = new URL(props.record.url)
@@ -213,7 +200,7 @@ function openInRequest() {
   store.loadDraft(props.record)
   store.setOpenChip(null)
   store.activeView = 'request'
-  requestUrlFocus()
+  focusUrlField()
 }
 
 const prettyRaw = computed(() => (isJson.value ? prettyJson(jsonValue.value) : props.record.responseBody))
@@ -267,17 +254,10 @@ const COPY_FORMATS: { id: ExportFormat; label: string }[] = [
 
 const copied = ref(false)
 
-async function copyAs(format: ExportFormat, keepTokens = false) {
-  // A secret only ever leaves as dots (see lib/export.ts); `keepTokens` shares a snippet
-  // without substituted values.
-  const text = exportRequest(
-    format,
-    props.record.method,
-    props.record.url,
-    props.record.requestHeaders,
-    props.record.requestBody,
-    { resolve: envStore.resolve, keepTokens }
-  )
+// A secret only ever leaves as dots (see lib/export.ts); `keepTokens` shares a snippet
+// with the `{{tokens}}` intact instead of the values they stand for.
+async function copyAs(format: ExportFormat, { keepTokens = false } = {}) {
+  const text = exportRequest(format, props.record, { resolve: envStore.resolveVariable, keepTokens })
   if (await copyToClipboard(text)) {
     copied.value = true
     setTimeout(() => (copied.value = false), 1500)
@@ -291,17 +271,17 @@ async function copyAs(format: ExportFormat, keepTokens = false) {
     <div class="resp-bar">
       <IconButton v-if="hasPrev" variant="outline" hint="Назад" @click="goBack"><Icon name="chevron-left" :size="14" /></IconButton>
       <span class="badge badge-method">{{ record.method }}</span>
-      <span class="badge" :class="statusClass(record.status)">{{ record.status }}</span>
+      <span class="badge" :class="statusBadgeClass(record.status)">{{ record.status }}</span>
 
       <!-- URL only for captured requests: a manual one already sits in the command line. -->
       <template v-if="record.source === 'browser'">
         <span class="resp-url mono" :title="record.url">{{ hostPath(record.url) }}</span>
-        <Popover v-if="browserParams.length">
+        <Popover v-if="urlQueryParams.length">
           <PopoverTrigger as-child>
-            <Button size="sm">Параметры {{ browserParams.length }}</Button>
+            <Button size="sm">Параметры {{ urlQueryParams.length }}</Button>
           </PopoverTrigger>
           <PopoverContent class="params-menu">
-            <div v-for="p in browserParams" :key="p.name" class="params-item">
+            <div v-for="p in urlQueryParams" :key="p.name" class="params-item">
               <span class="params-name mono">{{ p.name }}</span>
               <span class="params-value mono">{{ p.value }}</span>
             </div>
@@ -339,7 +319,7 @@ async function copyAs(format: ExportFormat, keepTokens = false) {
             {{ f.label }}
           </DropdownMenuItem>
           <DropdownMenuSeparator />
-          <DropdownMenuItem @select="copyAs('curl', true)">cURL с токенами</DropdownMenuItem>
+          <DropdownMenuItem @select="copyAs('curl', { keepTokens: true })">cURL с токенами</DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
       <Button size="sm" title="Инспектор узла (⌥I)" @click="toggleInspector">Инспектор <kbd class="keycap">⌥I</kbd></Button>
@@ -395,7 +375,7 @@ async function copyAs(format: ExportFormat, keepTokens = false) {
           <Button size="sm" class="open-in-request" @click="openInRequest">Открыть в «Запросе»</Button>
         </div>
         <div v-if="doc" class="resp-content">
-          <JsonApiTree :doc="doc" :query="bodyQuery" :highlight-key="highlightKey" @select="onTreeSelect" @inspect="onInspect" @fetch="onTreeFetch" />
+          <JsonApiTree :doc="doc" :query="bodyQuery" :highlight-key="highlightKey" @select="highlightResource" @inspect="inspectNode" @fetch="follow" />
         </div>
         <!-- Non-JSON:API is read with the Raw tab's own viewer and search — one
              implementation, so the two tabs can't drift apart. -->
@@ -408,7 +388,7 @@ async function copyAs(format: ExportFormat, keepTokens = false) {
       </TabsContent>
 
       <TabsContent class="resp-tab" value="map">
-        <SchemaMap :doc="doc" :highlight-key="highlightKey" @select="onMapSelect" @fetch="onMapFetch" />
+        <SchemaMap :doc="doc" :highlight-key="highlightKey" @select="openResourceInBody" @fetch="follow" />
       </TabsContent>
 
       <TabsContent class="resp-tab" value="raw">

@@ -21,11 +21,11 @@ export function CancelRequest(): $CancellablePromise<void> {
     return $Call.ByID(980174012);
 }
 
-export function CheckForUpdates(): $CancellablePromise<update$0.Update | null> {
+export function CheckForUpdates(): $CancellablePromise<update$0.Info | null> {
     return $Call.ByID(2675659504);
 }
 
-export function Fetch(url: string, headers: { [_ in string]?: string } | null): $CancellablePromise<$models.ResponseResult | null> {
+export function Fetch(url: string, headers: { [_ in string]?: string } | null): $CancellablePromise<$models.Response | null> {
     return $Call.ByID(4196614347, url, headers);
 }
 
@@ -53,7 +53,7 @@ export function SecretSet(envID: string, name: string, value: string): $Cancella
     return $Call.ByID(2991470063, envID, name, value);
 }
 
-export function SendRequest(method: string, url: string, headers: { [_ in string]?: string } | null, body: string): $CancellablePromise<$models.ResponseResult | null> {
+export function SendRequest(method: string, url: string, headers: { [_ in string]?: string } | null, body: string): $CancellablePromise<$models.Response | null> {
     return $Call.ByID(482143032, method, url, headers, body);
 }
 

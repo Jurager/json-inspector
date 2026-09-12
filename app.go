@@ -22,17 +22,22 @@ import (
 )
 
 type App struct {
+	// Guards cancelReq, mainWin and the parked events below.
 	mu        sync.Mutex
 	cancelReq context.CancelFunc
 
 	bridge *bridge.Server
 
-	app  *application.App
-	main *application.WebviewWindow
+	app     *application.App
+	mainWin *application.WebviewWindow
 
-	ready         atomic.Bool
+	ready atomic.Bool
+	// Events raised before the window can take them: the update check runs at startup and a
+	// deep link can arrive before the frontend has mounted, and both describe state the
+	// window has to be told about anyway. The latest of each wins — an earlier tab doesn't
+	// need reopening — and markReady plays them back.
 	pendingTab    int
-	pendingUpdate *update.Update
+	pendingUpdate *update.Info
 }
 
 func (a *App) setBridge(s *bridge.Server) {
@@ -45,7 +50,7 @@ func (a *App) setApp(app *application.App) {
 
 func (a *App) setMainWindow(w *application.WebviewWindow) {
 	a.mu.Lock()
-	a.main = w
+	a.mainWin = w
 	a.mu.Unlock()
 }
 
@@ -56,7 +61,7 @@ func NewApp() *App {
 func (a *App) mainWindow() *application.WebviewWindow {
 	a.mu.Lock()
 	defer a.mu.Unlock()
-	return a.main
+	return a.mainWin
 }
 
 func (a *App) ServiceStartup(_ context.Context, _ application.ServiceOptions) error {
@@ -64,14 +69,17 @@ func (a *App) ServiceStartup(_ context.Context, _ application.ServiceOptions) er
 	return nil
 }
 
+// Ready is stored under the same lock the parking decision takes, and the swap happens with
+// it, so a parked event can neither be missed by the flush nor slip in front of it.
 func (a *App) markReady() {
-	a.ready.Store(true)
-
 	a.mu.Lock()
+	a.ready.Store(true)
 	tab, u := a.pendingTab, a.pendingUpdate
 	a.pendingTab, a.pendingUpdate = 0, nil
 	a.mu.Unlock()
 
+	// The update first: the status bar takes its "доступна версия" link, then the rail
+	// switches to the tab.
 	if u != nil {
 		a.emit("update-available", u)
 	}
@@ -89,14 +97,29 @@ func (a *App) emit(name string, data ...any) {
 	}
 }
 
-func (a *App) emitOpenTab(tab int) {
+// openTab switches the rail to the extension's tab, parking the request if the window can't
+// take events yet. The latest request wins: an earlier tab doesn't need reopening.
+func (a *App) openTab(tab int) {
+	a.mu.Lock()
 	if !a.ready.Load() {
-		a.mu.Lock()
 		a.pendingTab = tab
 		a.mu.Unlock()
 		return
 	}
+	a.mu.Unlock()
 	a.emit("open-tab", tab)
+}
+
+// announceUpdate tells the window a release is available, parking it the same way openTab does.
+func (a *App) announceUpdate(u *update.Info) {
+	a.mu.Lock()
+	if !a.ready.Load() {
+		a.pendingUpdate = u
+		a.mu.Unlock()
+		return
+	}
+	a.mu.Unlock()
+	a.emit("update-available", u)
 }
 
 func (a *App) focusMain() {
@@ -107,22 +130,14 @@ func (a *App) focusMain() {
 
 func (a *App) startUpdateCheck() {
 	go func() {
-		u := update.StartupCheck()
-		if u == nil {
-			return
+		if u := update.StartupCheck(); u != nil {
+			a.announceUpdate(u)
 		}
-		if !a.ready.Load() {
-			a.mu.Lock()
-			a.pendingUpdate = u
-			a.mu.Unlock()
-			return
-		}
-		a.emit("update-available", u)
 	}()
 }
 
 func (a *App) Version() string {
-	return update.Current
+	return update.CurrentVersion
 }
 
 func (a *App) Name() string {
@@ -135,17 +150,17 @@ func (a *App) ToggleMaximize() {
 	}
 }
 
-func (a *App) handleUrlOpen(rawURL string) {
+func (a *App) handleURLOpen(rawURL string) {
 	a.focusMain()
 	if tabID, ok := tabFromURL(rawURL); ok {
-		a.emitOpenTab(tabID)
+		a.openTab(tabID)
 	}
 }
 
 func (a *App) onSecondInstance(data application.SecondInstanceData) {
 	for _, arg := range data.Args {
 		if strings.HasPrefix(arg, deepLinkScheme+"://") {
-			a.handleUrlOpen(arg)
+			a.handleURLOpen(arg)
 			return
 		}
 	}
@@ -168,7 +183,7 @@ func tabFromURL(rawURL string) (int, bool) {
 	return id, true
 }
 
-func (a *App) CheckForUpdates() (*update.Update, error) {
+func (a *App) CheckForUpdates() (*update.Info, error) {
 	u, err := update.Check()
 	if err != nil {
 		return nil, err
@@ -177,7 +192,7 @@ func (a *App) CheckForUpdates() (*update.Update, error) {
 }
 
 func (a *App) UpdateNow(version string) error {
-	return update.Apply(version)
+	return update.Install(version)
 }
 
 func (a *App) checkForUpdatesFromMenu() {
@@ -193,7 +208,8 @@ func (a *App) checkForUpdatesFromMenu() {
 	}
 }
 
-type ResponseResult struct {
+// Response is what a request comes back as: the body plus the per-phase timings.
+type Response struct {
 	Status      int               `json:"status"`
 	StatusText  string            `json:"statusText"`
 	Headers     map[string]string `json:"headers"`
@@ -209,12 +225,12 @@ type ResponseResult struct {
 	DownloadMs  int64             `json:"downloadMs,omitempty"`
 }
 
-func (a *App) SendRequest(method, url string, headers map[string]string, body string) *ResponseResult {
-	return a.do(method, url, headers, body)
+func (a *App) SendRequest(method, url string, headers map[string]string, body string) *Response {
+	return a.sendTimed(method, url, headers, body)
 }
 
-func (a *App) Fetch(url string, headers map[string]string) *ResponseResult {
-	return a.do(http.MethodGet, url, headers, "")
+func (a *App) Fetch(url string, headers map[string]string) *Response {
+	return a.sendTimed(http.MethodGet, url, headers, "")
 }
 
 func (a *App) CancelRequest() {
@@ -226,8 +242,10 @@ func (a *App) CancelRequest() {
 	}
 }
 
-func (a *App) do(method, url string, headers map[string]string, body string) *ResponseResult {
-	res := &ResponseResult{}
+// The timed round trip behind SendRequest and Fetch: the client trace is what fills in the
+// per-phase timings the response viewer draws.
+func (a *App) sendTimed(method, url string, headers map[string]string, body string) *Response {
+	res := &Response{}
 	start := time.Now()
 
 	var (
@@ -362,6 +380,6 @@ func (a *App) onCaptureDisconnected() {
 func (a *App) onFocusRequest(req bridge.FocusRequest) {
 	a.focusMain()
 	if req.Tab > 0 {
-		a.emitOpenTab(req.Tab)
+		a.openTab(req.Tab)
 	}
 }

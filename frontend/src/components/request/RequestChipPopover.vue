@@ -36,12 +36,12 @@ const authIndicatorStyle = computed(() => ({
   transform: `translateX(calc(${activeAuthIndex.value} * (100% + 2px)))`,
 }))
 
-function close() {
+function dismiss() {
   store.setOpenChip(null)
 }
 
 // Same as the URL field: the input stays the editable control and a transparent layer paints tokens above it.
-function showCellValue(value: string): boolean {
+function hasTokens(value: string): boolean {
   return parseTokens(value).length > 0
 }
 
@@ -67,7 +67,7 @@ function valueClass(v: string): string {
   >
     <div class="popover-head">
       <span class="popover-title">{{ title }}</span>
-      <IconButton hint="Закрыть (Esc)" size="sm" @click="close"><Icon name="xmark" :size="13" /></IconButton>
+      <IconButton hint="Закрыть (Esc)" size="sm" @click="dismiss"><Icon name="xmark" :size="13" /></IconButton>
     </div>
 
     <template v-if="props.chip === 'params' || props.chip === 'headers'">
@@ -79,20 +79,20 @@ function valueClass(v: string): string {
             <input
               :value="p.value"
               class="row-input mono"
-              :class="[valueClass(p.value), { 'row-input-veiled': showCellValue(p.value) }]"
+              :class="[valueClass(p.value), { 'row-input-veiled': hasTokens(p.value) }]"
               placeholder="значение"
               spellcheck="false"
               @input="store.updateParam(i, { value: ($event.target as HTMLInputElement).value }); syncCellScroll($event)"
               @scroll="syncCellScroll"
             />
             <span
-              v-if="showCellValue(p.value)"
+              v-if="hasTokens(p.value)"
               class="row-input row-display mono"
               :class="valueClass(p.value)"
               aria-hidden="true"
             >
               <template v-for="(seg, si) in tokenSegments(p.value)" :key="si">
-                <VarToken v-if="seg.token" :name="seg.token" :offset="seg.start" />
+                <VarToken v-if="seg.tokenName" :name="seg.tokenName" :offset="seg.start" />
                 <span v-else>{{ seg.text }}</span>
               </template>
             </span>
@@ -113,20 +113,20 @@ function valueClass(v: string): string {
             <input
               :value="h.value"
               class="row-input mono"
-              :class="[valueClass(h.value), { 'row-input-veiled': showCellValue(h.value) }]"
+              :class="[valueClass(h.value), { 'row-input-veiled': hasTokens(h.value) }]"
               placeholder="Value"
               spellcheck="false"
               @input="store.updateHeader(i, { value: ($event.target as HTMLInputElement).value }); syncCellScroll($event)"
               @scroll="syncCellScroll"
             />
             <span
-              v-if="showCellValue(h.value)"
+              v-if="hasTokens(h.value)"
               class="row-input row-display mono"
               :class="valueClass(h.value)"
               aria-hidden="true"
             >
               <template v-for="(seg, si) in tokenSegments(h.value)" :key="si">
-                <VarToken v-if="seg.token" :name="seg.token" :offset="seg.start" />
+                <VarToken v-if="seg.tokenName" :name="seg.tokenName" :offset="seg.start" />
                 <span v-else>{{ seg.text }}</span>
               </template>
             </span>

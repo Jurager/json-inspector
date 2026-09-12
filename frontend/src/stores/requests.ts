@@ -1,7 +1,7 @@
 import { defineStore } from 'pinia'
-import type { RequestRecord } from '../lib/types'
+import type { RequestRecord } from '../lib/requestRecord'
 import { useEnvironmentsStore } from './environments'
-import { requestUrlFocus } from '../composables/useUrlFocus'
+import { focusUrlField } from '../composables/urlFocus'
 
 let counter = 0
 function nextId(): string {
@@ -39,7 +39,6 @@ export const useRequestsStore = defineStore('requests', {
     manualId: null as string | null,
     browserId: null as string | null,
     activeView: 'request' as 'request' | 'browser' | 'collections',
-    capturing: false,
     unreadCount: 0,
     loading: false,
     capture: { connected: false, recording: false, tabs: 0 } as CaptureState,
@@ -75,7 +74,7 @@ export const useRequestsStore = defineStore('requests', {
     },
   },
   actions: {
-    add(record: Omit<RequestRecord, 'id' | 'startedAt'>) {
+    addRequest(record: Omit<RequestRecord, 'id' | 'startedAt'>) {
       const full: RequestRecord = {
         ...record,
         id: nextId(),
@@ -126,7 +125,7 @@ export const useRequestsStore = defineStore('requests', {
     },
     focusSearch() {
       this.activeView = 'request'
-      requestUrlFocus()
+      focusUrlField()
     },
     setInspector(partial: Partial<{ open: boolean; path: string | null; width: number }>) {
       this.inspector = { ...this.inspector, ...partial }
@@ -194,12 +193,6 @@ export const useRequestsStore = defineStore('requests', {
     },
     updateHeader(i: number, patch: Partial<KeyValueRow>) {
       this.draft.headers[i] = { ...this.draft.headers[i], ...patch }
-    },
-    clear() {
-      this.requests = []
-      this.manualId = null
-      this.browserId = null
-      this.unreadCount = 0
     },
     clearRequests(ids: string[]) {
       if (ids.length === 0) return

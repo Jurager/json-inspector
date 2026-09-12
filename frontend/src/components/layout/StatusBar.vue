@@ -2,14 +2,15 @@
 import { computed } from 'vue'
 import { useRequestsStore } from '../../stores/requests'
 import {
-  buildIndex,
+  buildResourceIndex,
   dataResources,
   isJsonApi,
   relIdentifiers,
   resourceKey,
   type JsonApiDocument,
 } from '../../lib/jsonapi'
-import { tryParseJson, formatBytes } from '../../lib/json'
+import { tryParseJson } from '../../lib/json'
+import { formatBytes } from '../../lib/format'
 import { useEnvironmentsStore } from '../../stores/environments'
 
 interface UpdateInfo {
@@ -18,13 +19,13 @@ interface UpdateInfo {
   latest: string
 }
 
-const props = defineProps<{ update: UpdateInfo | null }>()
+const props = defineProps<{ updateInfo: UpdateInfo | null }>()
 const emit = defineEmits<{ (e: 'open-update'): void }>()
 
 const store = useRequestsStore()
 const envStore = useEnvironmentsStore()
 
-const environment = computed(() => envStore.active?.name ?? 'Без окружения')
+const environmentName = computed(() => envStore.activeEnvironment?.name ?? 'Без окружения')
 
 const missingCount = computed(() =>
   store.activeView === 'request' ? store.missingVars.length : 0
@@ -42,14 +43,14 @@ const missingLabel = computed(
   () => `${missingCount.value} ${plural(missingCount.value, ['переменная', 'переменные', 'переменных'])} не найдено`
 )
 
-const selected = computed(() => {
+const selectedRecord = computed(() => {
   if (store.activeView === 'request') return store.manualSelected
   if (store.activeView === 'browser') return store.browserSelected
   return null
 })
 
 const doc = computed<JsonApiDocument | null>(() => {
-  const r = selected.value
+  const r = selectedRecord.value
   if (!r) return null
   const p = tryParseJson(r.responseBody)
   return p.ok && isJsonApi(p.value) ? (p.value as JsonApiDocument) : null
@@ -65,7 +66,7 @@ function jsonapiVersion(d: JsonApiDocument): string {
 }
 
 function countMissing(d: JsonApiDocument): number {
-  const idx = buildIndex(d)
+  const idx = buildResourceIndex(d)
   let n = 0
   for (const r of [...dataResources(d), ...(d.included ?? [])]) {
     for (const rel of Object.values(r.relationships ?? {})) {
@@ -78,7 +79,7 @@ function countMissing(d: JsonApiDocument): number {
 }
 
 const summary = computed(() => {
-  const r = selected.value
+  const r = selectedRecord.value
   if (!r) return ''
   if (doc.value) {
     const d = doc.value
@@ -116,7 +117,7 @@ const captureDotClass = computed(() => {
 <template>
   <div class="status-bar">
     <template v-if="store.activeView === 'request'">
-      <span>{{ environment }}</span>
+      <span>{{ environmentName }}</span>
       <template v-if="missingCount > 0">
         <span class="divider"></span>
         <span class="missing">{{ missingLabel }}</span>
@@ -129,8 +130,8 @@ const captureDotClass = computed(() => {
 
     <span class="spacer"></span>
 
-    <button v-if="update" class="update-link" @click="emit('open-update')">
-      Доступна версия {{ update.latest }}
+    <button v-if="updateInfo" class="update-link" @click="emit('open-update')">
+      Доступна версия {{ updateInfo.latest }}
     </button>
 
     <span v-if="summary" class="summary">{{ summary }}</span>

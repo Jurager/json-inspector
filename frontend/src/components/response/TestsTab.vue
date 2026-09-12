@@ -1,22 +1,22 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import type { JsonApiDocument } from '../../lib/jsonapi'
-import { validateDocument, type SchemaCheck } from '../../lib/schema'
+import { validateDocument, type ValidationIssue } from '../../lib/schema'
 
 const props = defineProps<{ doc: JsonApiDocument }>()
 
-const checks = computed<SchemaCheck[]>(() => validateDocument(props.doc))
+const issues = computed<ValidationIssue[]>(() => validateDocument(props.doc))
 </script>
 
 <template>
   <div class="tests">
-    <div v-if="checks.length === 0" class="tests-ok">
+    <div v-if="issues.length === 0" class="tests-ok">
       <span class="dot dot-green"></span>
       <span>Документ соответствует JSON:API</span>
     </div>
     <div v-else class="check-list">
-      <div v-for="(c, i) in checks" :key="i" class="check-row">
-        <span class="dot" :class="c.status === 'error' ? 'dot-red' : c.status === 'warn' ? 'dot-orange' : 'dot-green'"></span>
+      <div v-for="(c, i) in issues" :key="i" class="check-row">
+        <span class="dot" :class="c.status === 'error' ? 'dot-red' : 'dot-orange'"></span>
         <span class="check-msg">{{ c.message }}</span>
         <span v-if="c.path" class="check-path mono">{{ c.path }}</span>
       </div>

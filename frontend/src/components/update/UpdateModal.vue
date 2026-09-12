@@ -4,25 +4,25 @@ import { Button } from '../ui/button'
 import { useUpdates } from '../../composables/useUpdates'
 
 // Shared composable state, so the rail's "Проверить обновления" opens this same dialog.
-const { update, updating, modalOpen, close, apply } = useUpdates()
+const { availableUpdate, isInstalling, isModalOpen, closeModal, installUpdate } = useUpdates()
 </script>
 
 <template>
   <Dialog
-    v-if="update"
-    :open="modalOpen"
+    v-if="availableUpdate"
+    :open="isModalOpen"
     title="Доступна новая версия"
     class="w-90 p-4.5"
-    @update:open="close"
+    @update:open="closeModal"
   >
     <div class="body">
-      Версия <b>{{ update.latest }}</b> (у вас {{ update.current }}).<br />
+      Версия <b>{{ availableUpdate.latest }}</b> (у вас {{ availableUpdate.current }}).<br />
       Обновить сейчас? Приложение перезапустится.
     </div>
     <div class="actions">
-      <Button @click="close">Позже</Button>
-      <Button variant="primary" :disabled="updating" @click="apply">
-        {{ updating ? 'Обновление…' : 'Обновить' }}
+      <Button @click="closeModal">Позже</Button>
+      <Button variant="primary" :disabled="isInstalling" @click="installUpdate">
+        {{ isInstalling ? 'Обновление…' : 'Обновить' }}
       </Button>
     </div>
   </Dialog>

@@ -4,24 +4,24 @@ import Icon from '../ui/Icon.vue'
 import { Button, IconButton } from '../ui/button'
 import { Input } from '../ui/input'
 import { useRequestsStore } from '../../stores/requests'
-import type { RequestRecord } from '../../lib/types'
-import { statusClass } from '../../lib/json'
+import type { RequestRecord } from '../../lib/requestRecord'
+import { statusBadgeClass } from '../../lib/format'
 
-const props = defineProps<{ source: 'manual' | 'browser' }>()
+const props = defineProps<{ sourceKind: 'manual' | 'browser' }>()
 
 const store = useRequestsStore()
 
 const emptyHint = computed(() =>
-  props.source === 'browser'
+  props.sourceKind === 'browser'
     ? 'Установите и активируйте расширение. Перехваченные запросы появятся здесь.'
     : 'Здесь появятся запросы, отправленные вручную.'
 )
 
-const records = computed(() => store.requests.filter((r) => r.source === props.source))
-const activeId = computed(() => (props.source === 'browser' ? store.browserId : store.manualId))
+const records = computed(() => store.requests.filter((r) => r.source === props.sourceKind))
+const activeId = computed(() => (props.sourceKind === 'browser' ? store.browserId : store.manualId))
 
 function select(id: string) {
-  if (props.source === 'browser') store.selectBrowser(id)
+  if (props.sourceKind === 'browser') store.selectBrowser(id)
   else store.selectManual(id)
 }
 
@@ -93,7 +93,7 @@ interface TabGroup {
   items: RequestRecord[]
 }
 
-const groups = computed<TabGroup[]>(() => {
+const tabGroups = computed<TabGroup[]>(() => {
   const map = new Map<string, TabGroup>()
   for (const r of records.value) {
     const key = r.tabId != null ? String(r.tabId) : r.tabURL || 'unknown'
@@ -112,14 +112,14 @@ const groups = computed<TabGroup[]>(() => {
 
 const filteredGroups = computed(() => {
   const q = query.value.trim().toLowerCase()
-  if (!q) return groups.value
-  return groups.value
+  if (!q) return tabGroups.value
+  return tabGroups.value
     .map((g) => ({ ...g, items: g.items.filter((r) => matches(r, q)) }))
     .filter((g) => g.items.length > 0)
 })
 
 const isEmptyFiltered = computed(() =>
-  props.source === 'browser' ? filteredGroups.value.length === 0 : filteredRecords.value.length === 0
+  props.sourceKind === 'browser' ? filteredGroups.value.length === 0 : filteredRecords.value.length === 0
 )
 
 function isRecording(g: TabGroup): boolean {
@@ -166,11 +166,11 @@ function groupHue(key: string): number {
 
 // A deep link's tab may have nothing yet, but the link is clicked right after the page loads
 // and the first request lands a moment later — so the request is kept.
-function applyDeepLink() {
-  if (props.source !== 'browser') return
+function focusDeepLinkedTab() {
+  if (props.sourceKind !== 'browser') return
   const tabId = store.focusTabId
   if (tabId == null) return
-  const g = groups.value.find((x) => x.key === String(tabId))
+  const g = tabGroups.value.find((x) => x.key === String(tabId))
   if (!g || g.items.length === 0) return
   const next = new Set(collapsed.value)
   next.delete(g.key)
@@ -180,7 +180,7 @@ function applyDeepLink() {
   store.focusTabId = null
 }
 
-watch(() => [store.focusTabId, store.requests.length, props.source] as const, applyDeepLink, {
+watch(() => [store.focusTabId, store.requests.length, props.sourceKind] as const, focusDeepLinkedTab, {
   immediate: true,
 })
 </script>
@@ -188,18 +188,18 @@ watch(() => [store.focusTabId, store.requests.length, props.source] as const, ap
 <template>
   <div class="history-panel">
     <div class="panel-head">
-      <span class="panel-title">{{ source === 'browser' ? 'Перехвачено' : 'История' }}</span>
+      <span class="panel-title">{{ sourceKind === 'browser' ? 'Перехвачено' : 'История' }}</span>
       <Button variant="quiet" :disabled="records.length === 0" @click="clearAll">Очистить</Button>
     </div>
 
-    <div v-if="records.length === 0 && source === 'manual'" class="empty">
+    <div v-if="records.length === 0 && sourceKind === 'manual'" class="empty">
       <span class="empty-title">Пока пусто</span>
       <span class="empty-hint">{{ emptyHint }}</span>
     </div>
 
     <div v-else-if="records.length > 0 && isEmptyFiltered" class="no-results">Ничего не найдено</div>
 
-    <ul v-else-if="source === 'manual'" class="list">
+    <ul v-else-if="sourceKind === 'manual'" class="list">
       <template v-for="g in manualGroups" :key="g.label">
         <li class="date-sep">{{ g.label }}</li>
         <li
@@ -214,7 +214,7 @@ watch(() => [store.focusTabId, store.requests.length, props.source] as const, ap
           @keydown.space.prevent="select(r.id)"
         >
           <span class="item-method mono" :class="{ active: r.id === activeId }">{{ r.method }}</span>
-          <span class="item-status" :class="statusClass(r.status)">{{ r.status }}</span>
+          <span class="item-status" :class="statusBadgeClass(r.status)">{{ r.status }}</span>
           <span class="item-path mono" :title="r.url">{{ pathOf(r.url) }}</span>
           <span class="item-time">{{ timeLabel(r.startedAt) }}</span>
         </li>
@@ -265,7 +265,7 @@ watch(() => [store.focusTabId, store.requests.length, props.source] as const, ap
             @keydown.space.prevent="select(r.id)"
           >
             <span class="item-method mono" :class="{ active: r.id === activeId }">{{ r.method }}</span>
-            <span class="item-status" :class="statusClass(r.status)">{{ r.status }}</span>
+            <span class="item-status" :class="statusBadgeClass(r.status)">{{ r.status }}</span>
             <span class="item-path mono" :title="r.url">{{ pathOf(r.url) }}</span>
             <span class="item-time">{{ timeLabel(r.startedAt) }}</span>
           </li>

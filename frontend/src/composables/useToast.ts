@@ -9,9 +9,9 @@ let timer: ReturnType<typeof setTimeout> | null = null
 const VISIBLE_MS = 5000
 
 export function useToast() {
-  function show(text: string, type: 'info' | 'error' = 'info') {
+  function show(text: string, severity: 'info' | 'error' = 'info') {
     message.value = text
-    kind.value = type
+    kind.value = severity
     if (timer) clearTimeout(timer)
     timer = setTimeout(() => (message.value = ''), VISIBLE_MS)
   }

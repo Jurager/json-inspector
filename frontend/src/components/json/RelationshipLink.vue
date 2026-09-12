@@ -4,7 +4,7 @@ import Icon from '../ui/Icon.vue'
 import {
   relIdentifiers,
   resourceKey,
-  href,
+  linkHref,
   resourceLabel,
   type Relationship,
   type Resource,
@@ -12,7 +12,7 @@ import {
 
 const props = defineProps<{
   rel: Relationship
-  index: Map<string, Resource>
+  resourceIndex: Map<string, Resource>
 }>()
 
 const emit = defineEmits<{
@@ -25,7 +25,7 @@ const emit = defineEmits<{
 const targets = computed(() => relIdentifiers(props.rel))
 
 function labelFor(type: string, id: string): string {
-  const r = props.index.get(resourceKey(type, id))
+  const r = props.resourceIndex.get(resourceKey(type, id))
   return r ? resourceLabel(r) : `${type}/${id}`
 }
 
@@ -45,7 +45,7 @@ function onFetch(url: string) {
   <span v-else class="ja-rel-targets">
     <template v-for="(t, i) in targets" :key="i">
       <button
-        v-if="index.has(resourceKey(t.type, t.id))"
+        v-if="resourceIndex.has(resourceKey(t.type, t.id))"
         class="rel-chip in-doc"
         :title="resourceKey(t.type, t.id)"
         @click="onJump(resourceKey(t.type, t.id))"
@@ -53,10 +53,10 @@ function onFetch(url: string) {
         {{ labelFor(t.type, t.id) }}
       </button>
       <button
-        v-else-if="href(rel.links?.related)"
+        v-else-if="linkHref(rel.links?.related)"
         class="rel-chip fetchable"
-        :title="`fetch ${href(rel.links?.related)}`"
-        @click="onFetch(href(rel.links?.related))"
+        :title="`fetch ${linkHref(rel.links?.related)}`"
+        @click="onFetch(linkHref(rel.links?.related))"
       >
         {{ t.type }}/{{ t.id }}<Icon name="arrow-up-right" :size="12" />
       </button>

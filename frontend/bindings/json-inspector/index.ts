@@ -7,5 +7,5 @@ export {
 };
 
 export type {
-    ResponseResult
+    Response
 } from "./models.js";

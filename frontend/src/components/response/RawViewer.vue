@@ -138,38 +138,38 @@ const matchField = StateField.define<DecorationSet>({
   provide: (f) => EditorView.decorations.from(f),
 })
 
-function matches(): Match[] {
+function foundMatches(): Match[] {
   const v = view.value
   if (!v) return []
   return findMatches(v.state.doc, v.state.field(queryField))
 }
 
-function stats(): { count: number; index: number } {
+function matchStats(): { count: number; index: number } {
   const v = view.value
-  const all = matches()
+  const all = foundMatches()
   if (!v || all.length === 0) return { count: 0, index: 0 }
   const pos = v.state.selection.main.from
   const at = all.findIndex((m) => m.from <= pos && pos <= m.to)
   return { count: all.length, index: at === -1 ? 0 : at }
 }
 
-function report() {
-  emit('stats', stats())
+function emitMatchStats() {
+  emit('stats', matchStats())
 }
 
 // Selecting a match is what makes it visible — the caret sits on it.
-function step(direction: 1 | -1) {
+function moveToMatch(direction: 'next' | 'prev') {
   const v = view.value
   if (!v) return
-  const all = matches()
+  const all = foundMatches()
   if (all.length === 0) {
-    report()
+    emitMatchStats()
     return
   }
   const pos = v.state.selection.main.from
   const after = all.findIndex((m) => m.from > pos)
   const target =
-    direction === 1
+    direction === 'next'
       ? all[after === -1 ? 0 : after]
       : all[(after === -1 ? all.length : after) - 1] ?? all[all.length - 1]
 
@@ -177,14 +177,14 @@ function step(direction: 1 | -1) {
     selection: { anchor: target.from, head: target.to },
     scrollIntoView: true,
   })
-  report()
+  emitMatchStats()
 }
 
 function applyQuery(query: string) {
   const v = view.value
   if (!v) return
   v.dispatch({ effects: setQuery.of(query) })
-  report()
+  emitMatchStats()
 }
 
 function buildState(doc: string): EditorState {
@@ -204,7 +204,7 @@ function buildState(doc: string): EditorState {
       matchField,
       appTheme,
       EditorView.updateListener.of((u) => {
-        if (u.selectionSet || u.docChanged) report()
+        if (u.selectionSet || u.docChanged) emitMatchStats()
       }),
     ],
   })
@@ -236,8 +236,8 @@ watch(
 watch(() => props.query, applyQuery)
 
 defineExpose({
-  next: () => step(1),
-  prev: () => step(-1),
+  next: () => moveToMatch('next'),
+  prev: () => moveToMatch('prev'),
 })
 </script>
 

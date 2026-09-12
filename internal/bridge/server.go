@@ -19,26 +19,41 @@ type DisconnectHandler func()
 
 type FocusHandler func(FocusRequest)
 
+// What the app answers for; an unset callback is a no-op, so a caller only names the ones
+// it cares about instead of passing four positional functions of different types.
+type Handlers struct {
+	Request    Handler
+	State      StateHandler
+	Disconnect DisconnectHandler
+	Focus      FocusHandler
+}
+
 type Server struct {
-	port              int
-	handler           Handler
-	stateHandler      StateHandler
-	disconnectHandler DisconnectHandler
-	focusHandler      FocusHandler
-	upgrader          websocket.Upgrader
+	port     int
+	handlers Handlers
+	upgrader websocket.Upgrader
 
 	mu      sync.Mutex
 	clients map[*websocket.Conn]struct{}
 }
 
-func NewServer(port int, handler Handler, stateHandler StateHandler, disconnectHandler DisconnectHandler, focusHandler FocusHandler) *Server {
+func NewServer(port int, handlers Handlers) *Server {
+	if handlers.Request == nil {
+		handlers.Request = func(CapturedRequest) {}
+	}
+	if handlers.State == nil {
+		handlers.State = func(CaptureState) {}
+	}
+	if handlers.Disconnect == nil {
+		handlers.Disconnect = func() {}
+	}
+	if handlers.Focus == nil {
+		handlers.Focus = func(FocusRequest) {}
+	}
 	s := &Server{
-		port:              port,
-		handler:           handler,
-		stateHandler:      stateHandler,
-		disconnectHandler: disconnectHandler,
-		focusHandler:      focusHandler,
-		clients:           make(map[*websocket.Conn]struct{}),
+		port:     port,
+		handlers: handlers,
+		clients:  make(map[*websocket.Conn]struct{}),
 	}
 	s.upgrader = websocket.Upgrader{CheckOrigin: s.checkOrigin}
 	return s
@@ -106,9 +121,7 @@ func (s *Server) handleWS(w http.ResponseWriter, r *http.Request) {
 		s.mu.Lock()
 		delete(s.clients, conn)
 		s.mu.Unlock()
-		if s.disconnectHandler != nil {
-			s.disconnectHandler()
-		}
+		s.handlers.Disconnect()
 	}()
 	for {
 		_, msg, err := conn.ReadMessage()
@@ -127,25 +140,19 @@ func (s *Server) handleWS(w http.ResponseWriter, r *http.Request) {
 			if err := json.Unmarshal(msg, &req); err != nil {
 				continue
 			}
-			if s.handler != nil {
-				s.handler(req)
-			}
+			s.handlers.Request(req)
 		case "state":
 			var st CaptureState
 			if err := json.Unmarshal(msg, &st); err != nil {
 				continue
 			}
-			if s.stateHandler != nil {
-				s.stateHandler(st)
-			}
+			s.handlers.State(st)
 		case "focus":
 			var fr FocusRequest
 			if err := json.Unmarshal(msg, &fr); err != nil {
 				continue
 			}
-			if s.focusHandler != nil {
-				s.focusHandler(fr)
-			}
+			s.handlers.Focus(fr)
 		}
 	}
 }

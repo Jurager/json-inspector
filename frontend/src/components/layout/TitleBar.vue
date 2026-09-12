@@ -6,6 +6,7 @@ import { useEnvironmentsStore } from '../../stores/environments'
 import { useRequestsStore } from '../../stores/requests'
 import { usePlatform } from '../../composables/usePlatform'
 import EnvironmentMenu from '../environments/EnvironmentMenu.vue'
+import ThemeSwitch from './ThemeSwitch.vue'
 import Icon from '../ui/Icon.vue'
 import { Button } from '../ui/button'
 import logoUrl from '../../assets/logo.svg'
@@ -20,7 +21,7 @@ const isMaximised = ref(false)
 
 const searchHint = computed(() => shortcut('K'))
 
-const activeEnvName = computed(() => envStore.active?.name ?? 'Без окружения')
+const activeEnvName = computed(() => envStore.activeEnvironment?.name ?? 'Без окружения')
 
 const ENV_DOT_COLORS: Record<string, string> = {
   green: 'var(--green)',
@@ -30,7 +31,7 @@ const ENV_DOT_COLORS: Record<string, string> = {
 }
 
 const envDotStyle = computed(() => {
-  const env = envStore.active
+  const env = envStore.activeEnvironment
   if (!env) return { background: 'var(--text-tertiary)' }
   return { background: ENV_DOT_COLORS[env.color ?? 'green'] ?? 'var(--green)' }
 })
@@ -94,6 +95,7 @@ onBeforeUnmount(() => {
           <EnvironmentMenu />
         </DropdownMenu>
       </div>
+      <ThemeSwitch />
       <Button class="titlebar-search" :title="`Глобальный поиск (${searchHint})`" @click="store.focusSearch()">
         <span>Поиск</span>
         <kbd class="titlebar-key">{{ searchHint }}</kbd>

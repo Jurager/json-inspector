@@ -2,13 +2,14 @@ import { onBeforeUnmount, onMounted } from 'vue'
 import { Events } from '@wailsio/runtime'
 import { useRequestsStore } from '../stores/requests'
 
-// What the extension sends over the bridge on `captured-request`.
-interface Captured {
+// The wire shape the extension sends on `captured-request`; every field but these three
+// is optional, and the mapping into a RequestRecord below is explicit on purpose.
+interface CapturedRequest {
   method: string
   url: string
+  status: number
   requestHeaders?: Record<string, string>
   requestBody?: string
-  status: number
   statusText?: string
   responseHeaders?: Record<string, string>
   responseBody?: string
@@ -26,7 +27,7 @@ export function useCaptureEvents(store: ReturnType<typeof useRequestsStore>) {
     // v3 handlers receive a WailsEvent envelope; the payload is on .data.
     offs.push(
       Events.On('captured-request', (ev) => {
-        const c = ev.data as Captured
+        const c = ev.data as CapturedRequest
         const headers = c.responseHeaders ?? {}
         store.addCaptured({
           method: c.method,

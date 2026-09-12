@@ -1,4 +1,4 @@
-import type { RequestRecord } from './types'
+import type { RequestRecord } from './requestRecord'
 
 export const SAMPLE_JSON_API = `{
   "jsonapi": { "version": "1.0" },

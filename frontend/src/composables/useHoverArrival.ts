@@ -2,7 +2,7 @@ import { onBeforeUnmount, onMounted, ref, watch, type Ref } from 'vue'
 
 // One listener for the whole window: every guard asks the same question.
 const pointer = { x: -1, y: -1 }
-let tracked = 0
+let pointerWatchers = 0
 
 function track(e: PointerEvent) {
   pointer.x = e.clientX
@@ -17,24 +17,24 @@ function pointerInside(node: HTMLElement): boolean {
 // Whether the pointer arrived at `el` by moving rather than `el` appearing under it (a popover
 // opening where the user clicked). Starts unarmed then, and arms on pointerleave.
 export function useHoverArrival(el: Ref<HTMLElement | null>) {
-  const armed = ref(false)
+  const isArmed = ref(false)
 
   onMounted(() => {
-    if (++tracked === 1) window.addEventListener('pointermove', track, true)
+    if (++pointerWatchers === 1) window.addEventListener('pointermove', track, true)
   })
 
   onBeforeUnmount(() => {
-    if (--tracked === 0) window.removeEventListener('pointermove', track, true)
+    if (--pointerWatchers === 0) window.removeEventListener('pointermove', track, true)
   })
 
   // Post-flush: a box means nothing before layout.
   watch(
     el,
     (node) => {
-      armed.value = node !== null && !pointerInside(node)
+      isArmed.value = node !== null && !pointerInside(node)
     },
     { flush: 'post' }
   )
 
-  return armed
+  return isArmed
 }

@@ -3,11 +3,11 @@ import { computed, ref, watch } from 'vue'
 import Icon from '../ui/Icon.vue'
 import { resourceKey, resourceLabel, type Resource, type Relationship } from '../../lib/jsonapi'
 import RelationshipLink from './RelationshipLink.vue'
-import { copyToClipboard } from '../../lib/export'
+import { copyToClipboard } from '../../lib/clipboard'
 
 const props = defineProps<{
   resource: Resource
-  index: Map<string, Resource>
+  resourceIndex: Map<string, Resource>
   highlighted?: boolean
   path: string
 }>()
@@ -123,7 +123,7 @@ async function copyVal(k: string, v: unknown) {
         <div class="ja-section-title" style="padding-left: 0">relationships</div>
         <div v-for="[name, rel] in relationships" :key="name" class="ja-rel">
           <span class="ja-rel-name">{{ name }}</span>
-          <RelationshipLink :rel="rel" :index="index" @jump="(k) => emit('jump', k)" @fetch="(u) => emit('fetch', u)" @inspect="emit('inspect', relPath(name))" />
+          <RelationshipLink :rel="rel" :resource-index="resourceIndex" @jump="(k) => emit('jump', k)" @fetch="(u) => emit('fetch', u)" @inspect="emit('inspect', relPath(name))" />
         </div>
       </template>
     </div>

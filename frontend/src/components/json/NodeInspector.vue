@@ -1,18 +1,18 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted } from 'vue'
+import { computed } from 'vue'
 import Icon from '../ui/Icon.vue'
 import { IconButton } from '../ui/button'
 import { useRequestsStore } from '../../stores/requests'
 import {
-  buildIndex,
+  buildResourceIndex,
   dataResources,
-  href,
+  linkHref,
   relIdentifiers,
   type JsonApiDocument,
   type Resource,
 } from '../../lib/jsonapi'
-import { copyToClipboard } from '../../lib/export'
-import { makeSideResizer } from '../../lib/resize'
+import { copyToClipboard } from '../../lib/clipboard'
+import { useResizableWidth } from '../../composables/useResizableWidth'
 
 const props = defineProps<{ doc: JsonApiDocument | null }>()
 const emit = defineEmits<{ (e: 'close'): void; (e: 'fetch', url: string): void }>()
@@ -24,18 +24,19 @@ const width = computed({
   set: (v: number) => store.setInspector({ width: v }),
 })
 
-const resize = makeSideResizer(width, 220, 520, -1)
+const { startDrag: startResize } = useResizableWidth(width, { min: 220, max: 520, side: 'right' })
 
 const path = computed(() => store.inspector.path ?? '')
 
-interface Resolved {
+// The document node the inspector path points at, as far as it can be followed.
+interface InspectedNode {
   targetType: string
   targetId: string
   relatedUrl: string
   inDoc: boolean
 }
 
-function resolve(): Resolved | null {
+function resolveInspectedNode(): InspectedNode | null {
   const p = path.value
   if (!p || !props.doc) return null
   const m = p.match(/^(data|included)\[(\d+)\](?:\.relationships\.(.+))?$/)
@@ -50,19 +51,19 @@ function resolve(): Resolved | null {
   if (!rel) return null
   const ri = relIdentifiers(rel)[0]
   if (!ri) return null
-  const index = buildIndex(props.doc)
+  const index = buildResourceIndex(props.doc)
   return {
     targetType: ri.type,
     targetId: ri.id,
-    relatedUrl: href(rel.links?.related),
+    relatedUrl: linkHref(rel.links?.related),
     inDoc: index.has(`${ri.type}/${ri.id}`),
   }
 }
 
-const resolved = computed(() => resolve())
+const inspectedNode = computed(() => resolveInspectedNode())
 
 const relationText = computed(() => {
-  const r = resolved.value
+  const r = inspectedNode.value
   if (!r) return '—'
   return r.inDoc
     ? `${r.targetType} · ${r.targetId} — есть в документе, дополнительный запрос не нужен.`
@@ -83,24 +84,15 @@ async function copyPath() {
 }
 
 function openRelated() {
-  const r = resolved.value
+  const r = inspectedNode.value
   if (r && r.relatedUrl) emit('fetch', r.relatedUrl)
 }
 
-onMounted(() => {
-  window.addEventListener('mousemove', resize.move)
-  window.addEventListener('mouseup', resize.stop)
-})
-
-onBeforeUnmount(() => {
-  window.removeEventListener('mousemove', resize.move)
-  window.removeEventListener('mouseup', resize.stop)
-})
 </script>
 
 <template>
   <div class="inspector" :style="{ width: width + 'px' }">
-    <div class="inspector-resize" @mousedown.prevent="resize.start"></div>
+    <div class="inspector-resize" @mousedown.prevent="startResize"></div>
 
     <div class="inspector-head">
       <span class="inspector-title">Инспектор узла</span>
@@ -128,7 +120,7 @@ onBeforeUnmount(() => {
 
       <div class="block">
         <div class="block-title">Действия</div>
-        <button class="inspector-action" :disabled="!resolved?.relatedUrl" @click="openRelated">Открыть links.related</button>
+        <button class="inspector-action" :disabled="!inspectedNode?.relatedUrl" @click="openRelated">Открыть links.related</button>
         <button class="inspector-action" @click="copyPath">Скопировать путь</button>
       </div>
     </div>

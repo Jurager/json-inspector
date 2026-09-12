@@ -18,13 +18,13 @@ import {
 const store = useRequestsStore()
 const envStore = useEnvironmentsStore()
 const { customTitlebar, shortcut } = usePlatform()
-const { checking, check } = useUpdates()
+const { isChecking, checkForUpdates } = useUpdates()
 
 const envSheetHint = computed(() => shortcut('E'))
 
 function loadSample() {
   store.activeView = 'request'
-  store.add(buildSampleRecord())
+  store.addRequest(buildSampleRecord())
 }
 
 function openAbout() {
@@ -50,8 +50,8 @@ function openBrowser() {
           <DropdownMenuItem @select="loadSample">
             <Icon name="sparkles" :size="14" /> Загрузить образец
           </DropdownMenuItem>
-          <DropdownMenuItem @select="check">
-            <Icon name="arrow-down" :size="14" /> {{ checking ? 'Проверка…' : 'Проверить обновления' }}
+          <DropdownMenuItem @select="checkForUpdates">
+            <Icon name="arrow-down" :size="14" /> {{ isChecking ? 'Проверка…' : 'Проверить обновления' }}
           </DropdownMenuItem>
           <!-- On macOS this lives in the native app menu instead. -->
           <DropdownMenuItem v-if="customTitlebar" @select="openAbout">

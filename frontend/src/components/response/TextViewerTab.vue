@@ -4,7 +4,7 @@ import Icon from '../ui/Icon.vue'
 import { Button, IconButton } from '../ui/button'
 import { Input } from '../ui/input'
 import RawViewer from './RawViewer.vue'
-import { copyToClipboard } from '../../lib/export'
+import { copyToClipboard } from '../../lib/clipboard'
 import { usePlatform } from '../../composables/usePlatform'
 
 // Shared by the "Raw" tab and the body of a non-JSON:API response, so a plain

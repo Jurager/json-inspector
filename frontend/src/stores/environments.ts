@@ -1,12 +1,12 @@
 import { defineStore } from 'pinia'
 import {
   missingTokens,
-  parseTokens,
   substituteTokens,
-  SECRET_MASK,
+  substituteTokensMasked,
   type VarKind,
   type VarResolution,
 } from '../lib/vars'
+import type { DotenvEntry } from '../lib/dotenv'
 import { App as Backend } from '../../bindings/json-inspector'
 
 export interface Variable {
@@ -35,7 +35,7 @@ interface Persisted {
   activeId: string | null
 }
 
-const STORAGE_KEY = 'ji-env-v1'
+const ENVIRONMENTS_STORAGE_KEY = 'ji-env-v1'
 
 let seq = 0
 function nextId(prefix: string): string {
@@ -59,7 +59,7 @@ function defaultState(): Persisted {
 
 function loadState(): Persisted {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY)
+    const raw = localStorage.getItem(ENVIRONMENTS_STORAGE_KEY)
     if (!raw) return defaultState()
     const parsed = JSON.parse(raw)
     if (!parsed || !Array.isArray(parsed.environments) || !Array.isArray(parsed.globals)) {
@@ -76,35 +76,8 @@ function loadState(): Persisted {
   }
 }
 
-export interface DotenvEntry {
-  name: string
-  value: string
-  secret: boolean
-}
-
 export interface ImportChoice extends DotenvEntry {
   mode: 'replace' | 'skip'
-}
-
-const SECRET_HINT = /(TOKEN|SECRET|PASSWORD|KEY|AUTH)/i
-
-export function parseDotenv(text: string): DotenvEntry[] {
-  const out: DotenvEntry[] = []
-  for (const raw of text.split(/\r?\n/)) {
-    const line = raw.trim()
-    if (!line || line.startsWith('#')) continue
-    const body = line.startsWith('export ') ? line.slice(7).trim() : line
-    const eq = body.indexOf('=')
-    if (eq === -1) continue
-    const name = body.slice(0, eq).trim()
-    if (!name) continue
-    let value = body.slice(eq + 1).trim()
-    const quoted =
-      (value.startsWith('"') && value.endsWith('"')) || (value.startsWith("'") && value.endsWith("'"))
-    if (quoted && value.length >= 2) value = value.slice(1, -1)
-    out.push({ name, value, secret: SECRET_HINT.test(name) })
-  }
-  return out
 }
 
 export const useEnvironmentsStore = defineStore('environments', {
@@ -116,68 +89,56 @@ export const useEnvironmentsStore = defineStore('environments', {
     sheetFocus: null as { envId: string | null; varName: string } | null,
     editedEnvId: null as string | null,
     secretValues: {} as Record<string, string>,
-    keychainAvailable: true,
+    isKeychainAvailable: true,
   }),
 
   getters: {
-    active(state): Environment | null {
+    activeEnvironment(state): Environment | null {
       return state.environments.find((e) => e.id === state.activeId) ?? null
     },
-
-    rowsFor:
-      (state) =>
-      (envId: string | null): { own: Variable[]; inherited: InheritedVariable[] } => {
-        const own = envId === null ? state.globals : (state.environments.find((e) => e.id === envId)?.vars ?? [])
-        // Edited in the "Глобальные" scope itself, so nothing is inherited there.
-        if (envId === null) return { own, inherited: [] }
-
-        const ownNames = new Set(own.map((v) => v.name))
-        return {
-          own,
-          inherited: state.globals.map((g) => ({ ...g, overridden: ownNames.has(g.name) })),
-        }
-      },
   },
 
   actions: {
     // Shared by the substitution actions and the token tooltips: environment first, then
     // globals, and a disabled variable never participates.
-    resolve(name: string): VarResolution | null {
-      const valueOf = (envId: string | null, v: Variable): string =>
-        v.kind === 'secret' ? (this.secretValues[secretKey(envId, v.name)] ?? '') : v.value
-
-      const env = this.active
+    resolveVariable(name: string): VarResolution | null {
+      const env = this.activeEnvironment
       if (env) {
         const v = env.vars.find((x) => x.name === name && x.enabled)
-        if (v) return { value: valueOf(env.id, v), source: 'env', kind: v.kind }
+        if (v) return { value: this.effectiveValue(env.id, v), source: 'env', kind: v.kind }
       }
       const g = this.globals.find((x) => x.name === name && x.enabled)
-      if (g) return { value: valueOf(null, g), source: 'global', kind: g.kind }
+      if (g) return { value: this.effectiveValue(null, g), source: 'global', kind: g.kind }
       return null
     },
 
-    substitute(text: string): string {
-      return substituteTokens(text, this.resolve)
+    // A secret's value lives in the keychain-backed map, not in the model.
+    effectiveValue(envId: string | null, v: Variable): string {
+      return v.kind === 'secret' ? (this.secretValues[secretKey(envId, v.name)] ?? '') : v.value
     },
 
-    // Same substitution, but a secret comes out as dots: for anything that outlives the
-    // moment of sending — the request preview and the exports.
+    substitute(text: string): string {
+      return substituteTokens(text, this.resolveVariable)
+    },
+
     maskSecrets(text: string): string {
-      const tokens = parseTokens(text)
-      if (tokens.length === 0) return text
-      let out = ''
-      let last = 0
-      for (const t of tokens) {
-        const r = this.resolve(t.name)
-        out += text.slice(last, t.start)
-        out += r ? (r.kind === 'secret' ? SECRET_MASK : r.value) : t.raw
-        last = t.end
-      }
-      return out + text.slice(last)
+      return substituteTokensMasked(text, this.resolveVariable)
     },
 
     missingVarNames(text: string): string[] {
-      return missingTokens(text, this.resolve)
+      return missingTokens(text, this.resolveVariable)
+    },
+
+    rowsFor(envId: string | null): { own: Variable[]; inherited: InheritedVariable[] } {
+      const own = this.varsOf(envId)
+      // Edited in the "Глобальные" scope itself, so nothing is inherited there.
+      if (envId === null) return { own, inherited: [] }
+
+      const ownNames = new Set(own.map((v) => v.name))
+      return {
+        own,
+        inherited: this.globals.map((g) => ({ ...g, overridden: ownNames.has(g.name) })),
+      }
     },
 
     varsOf(envId: string | null): Variable[] {
@@ -192,7 +153,7 @@ export const useEnvironmentsStore = defineStore('environments', {
           globals: this.globals,
           activeId: this.activeId,
         }
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(data))
+        localStorage.setItem(ENVIRONMENTS_STORAGE_KEY, JSON.stringify(data))
       } catch {
         // ignore quota/availability errors — losing persistence beats losing the app
       }
@@ -221,7 +182,7 @@ export const useEnvironmentsStore = defineStore('environments', {
       }
       // A deleted environment must not leave credentials behind in the keychain.
       for (const v of doomed?.vars ?? []) {
-        if (v.kind === 'secret') this.dropSecret(id, v.name)
+        if (v.kind === 'secret') this.deleteSecretFromKeychain(id, v.name)
       }
       this.persist()
     },
@@ -295,10 +256,10 @@ export const useEnvironmentsStore = defineStore('environments', {
       // The keychain is the only home for a secret's value: a rename must rewrite it (entries
       // are keyed by name) and a demotion must clear it, or the credential stays alive.
       if (nextKind === 'secret' && written !== undefined) {
-        this.storeSecret(envId, nextName, written)
+        this.writeSecretToKeychain(envId, nextName, written)
       }
       if (wasKind === 'secret' && (nextKind !== 'secret' || renamingSecret)) {
-        this.dropSecret(envId, wasName)
+        this.deleteSecretFromKeychain(envId, wasName)
       }
       this.persist()
     },
@@ -309,7 +270,7 @@ export const useEnvironmentsStore = defineStore('environments', {
       if (!v) return
       if (v.kind === 'secret') {
         delete this.secretValues[secretKey(envId, v.name)]
-        this.dropSecret(envId, v.name)
+        this.deleteSecretFromKeychain(envId, v.name)
       }
       const at = list.indexOf(v)
       if (at !== -1) list.splice(at, 1)
@@ -318,26 +279,26 @@ export const useEnvironmentsStore = defineStore('environments', {
 
     setSecret(envId: string | null, name: string, value: string) {
       this.secretValues[secretKey(envId, name)] = value
-      this.storeSecret(envId, name, value)
+      this.writeSecretToKeychain(envId, name, value)
     },
 
-    storeSecret(envId: string | null, name: string, value: string) {
+    writeSecretToKeychain(envId: string | null, name: string, value: string) {
       try {
         Backend.SecretSet(envId ?? 'globals', name, value).catch(() => {
-          this.keychainAvailable = false
+          this.isKeychainAvailable = false
         })
       } catch {
-        this.keychainAvailable = false
+        this.isKeychainAvailable = false
       }
     },
 
-    dropSecret(envId: string | null, name: string) {
+    deleteSecretFromKeychain(envId: string | null, name: string) {
       try {
         Backend.SecretDelete(envId ?? 'globals', name).catch(() => {
-          this.keychainAvailable = false
+          this.isKeychainAvailable = false
         })
       } catch {
-        this.keychainAvailable = false
+        this.isKeychainAvailable = false
       }
     },
 
@@ -354,14 +315,10 @@ export const useEnvironmentsStore = defineStore('environments', {
           if (value) this.secretValues[secretKey(t.envId, t.name)] = value
         } catch {
           // One failure is enough to know this machine can't store secrets.
-          this.keychainAvailable = false
+          this.isKeychainAvailable = false
           return
         }
       }
-    },
-
-    varValue(envId: string | null, v: Variable): string {
-      return v.kind === 'secret' ? (this.secretValues[secretKey(envId, v.name)] ?? '') : v.value
     },
 
     editEnv(id: string | null) {

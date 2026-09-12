@@ -80,9 +80,25 @@ export function missingTokens(text: string, resolve: ResolveFn): string[] {
   return Array.from(names)
 }
 
+// Substitution for anything that outlives the moment of sending — the request preview, an
+// export: a secret leaves as the mask, never as the value.
+export function substituteTokensMasked(text: string, resolve: ResolveFn): string {
+  const tokens = parseTokens(text)
+  if (tokens.length === 0) return text
+  let out = ''
+  let last = 0
+  for (const t of tokens) {
+    const r = resolve(t.name)
+    out += text.slice(last, t.start)
+    out += r ? (r.kind === 'secret' ? SECRET_MASK : r.value) : t.raw
+    last = t.end
+  }
+  return out + text.slice(last)
+}
+
 export interface TokenSegment {
   text: string
-  token?: string
+  tokenName?: string
   // The highlight layer sits over a real input, so a token click must translate back into a caret
   // index.
   start: number
@@ -95,7 +111,7 @@ export function tokenSegments(text: string): TokenSegment[] {
   let last = 0
   for (const t of parseTokens(text)) {
     if (t.start > last) out.push({ text: text.slice(last, t.start), start: last })
-    out.push({ text: t.raw, token: t.name, start: t.start })
+    out.push({ text: t.raw, tokenName: t.name, start: t.start })
     last = t.end
   }
   if (last < text.length) out.push({ text: text.slice(last), start: last })

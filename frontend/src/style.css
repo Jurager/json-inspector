@@ -1,10 +1,5 @@
 @import "tailwindcss";
 
-/* Bridges the existing color tokens below into Tailwind's utility namespace
-   (bg-bg, text-text-secondary, border-border, ...) instead of introducing a
-   second, parallel color system. `inline` makes Tailwind reference the var
-   directly in each generated utility rather than pre-resolving it, which is
-   what lets the dark-mode media query below keep working. */
 @theme inline {
   --color-bg: var(--bg);
   --color-bg-sidebar: var(--bg-sidebar);
@@ -65,52 +60,41 @@
   --shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
   --shadow-btn: 0 1px 2px rgba(0, 0, 0, 0.18);
   --mono: ui-monospace, "SF Mono", Menlo, Monaco, "Cascadia Mono", Consolas, monospace;
-  /* Hints (ui/Tooltip) — a dark card with light text in either theme, which is
-     what a tooltip is. Inverted (--text on --bg) it would turn into a *light*
-     card in the dark theme. */
   --tip-bg: #1d1d1f;
   --tip-text: #f5f5f7;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --bg: #1e1e20;
-    --bg-sidebar: #232326;
-    --bg-panel: #2a2a2e;
-    --bg-inset: #28282c;
-    --bg-hover: rgba(255, 255, 255, 0.06);
-    --bg-active: rgba(255, 255, 255, 0.1);
-    --border: rgba(255, 255, 255, 0.1);
-    --border-strong: rgba(255, 255, 255, 0.18);
-    --text: #f5f5f7;
-    --text-secondary: #a1a1a6;
-    --text-tertiary: #86868b;
-    --accent: #0a84ff;
-    /* 0.3, not 0.2: on a dark panel a 20% accent wash reads as another grey, and
-       a selected row then looks like a hovered one (--bg-hover is neutral).
-       Only the dark theme needs this — in the light one the handoff's 12% is
-       already clearly blue against its 5% black. */
-    --accent-soft: rgba(10, 132, 255, 0.3);
-    --accent-text: #ffffff;
-    --green: #30d158;
-    --green-soft: rgba(48, 209, 88, 0.16);
-    --red: #ff453a;
-    --red-soft: rgba(255, 69, 58, 0.16);
-    --orange: #ff9f0a;
-    --orange-soft: rgba(255, 159, 10, 0.18);
-    --yellow: #ffd60a;
-    --purple: #bf5af2;
-    --tok-str: #fc6a5d;
-    --tok-num: #d0bf69;
-    --tok-bool: #d0bf69;
-    --tok-null: #98989d;
-    --shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
-    --shadow-btn: 0 1px 2px rgba(0, 0, 0, 0.6);
-    /* Lifted off --bg-panel (#2a2a2e) so the card reads as a layer above it
-       rather than as a panel of its own. */
-    --tip-bg: #3a3a3c;
-    --tip-text: #f5f5f7;
-  }
+:root.dark {
+  --bg: #1e1e20;
+  --bg-sidebar: #232326;
+  --bg-panel: #2a2a2e;
+  --bg-inset: #28282c;
+  --bg-hover: rgba(255, 255, 255, 0.06);
+  --bg-active: rgba(255, 255, 255, 0.1);
+  --border: rgba(255, 255, 255, 0.1);
+  --border-strong: rgba(255, 255, 255, 0.18);
+  --text: #f5f5f7;
+  --text-secondary: #a1a1a6;
+  --text-tertiary: #86868b;
+  --accent: #0a84ff;
+  --accent-soft: rgba(10, 132, 255, 0.3);
+  --accent-text: #ffffff;
+  --green: #30d158;
+  --green-soft: rgba(48, 209, 88, 0.16);
+  --red: #ff453a;
+  --red-soft: rgba(255, 69, 58, 0.16);
+  --orange: #ff9f0a;
+  --orange-soft: rgba(255, 159, 10, 0.18);
+  --yellow: #ffd60a;
+  --purple: #bf5af2;
+  --tok-str: #fc6a5d;
+  --tok-num: #d0bf69;
+  --tok-bool: #d0bf69;
+  --tok-null: #98989d;
+  --shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
+  --shadow-btn: 0 1px 2px rgba(0, 0, 0, 0.6);
+  --tip-bg: #3a3a3c;
+  --tip-text: #f5f5f7;
 }
 
 * {
@@ -133,10 +117,6 @@ body {
   @apply flex flex-col h-full;
 }
 
-/* ---- Title bar (native look, full-width, draggable) ---- */
-/* z-index keeps the titlebar's dropdowns (the environment menu) above the
-   content below it — the titlebar is earlier in the DOM, so without a stacking
-   context of its own the body's popovers would paint over it. */
 .titlebar {
   @apply relative z-[100] h-13 flex-none flex items-center justify-center bg-bg-sidebar border-b border-border select-none;
   --wails-draggable: drag;
@@ -146,8 +126,6 @@ body {
   @apply text-[13px] font-semibold text-text-secondary tracking-wide;
 }
 
-/* ---- Windows/Linux: frameless window, so the titlebar draws its own
-   icon/title (left) and caption buttons (right) itself. ---- */
 .titlebar-custom {
   @apply justify-start p-0;
 }
@@ -180,16 +158,11 @@ body {
   --wails-draggable: no-drag;
 }
 
-/* macOS titlebar: environment + global search live on the right, over the
-   native hidden-inset bar. The title stays centered via the absolute action
-   cluster. */
 .titlebar-actions {
   @apply absolute right-3.5 top-1/2 -translate-y-1/2 flex items-center gap-2;
   --wails-draggable: no-drag;
 }
 
-/* Frameless titlebar: the same cluster drops back into the flex row and stops
-   at the caption buttons instead of floating over a native bar. */
 .titlebar-actions-flush {
   @apply static translate-y-0 mr-1.5;
 }
@@ -216,10 +189,6 @@ body {
   @apply text-white;
 }
 
-/* Caption icons are drawn with plain CSS boxes rather than SVG paths:
-   browsers snap element borders/backgrounds to the device pixel grid far
-   more reliably than hand-picked SVG coordinates, so they stay crisp *and*
-   aligned with each other across fractional display scaling (125%, 150%). */
 .cap-icon {
   @apply relative block;
 }
@@ -266,14 +235,6 @@ body {
   @apply flex flex-1 min-h-0;
 }
 
-/* ---- Sidebar: narrow icon rail (menu + Запрос/Браузер), Telegram/Slack-
-   style rather than the old wide text-row list — icon over label, active
-   state as a soft accent fill on the whole tile. ---- */
-/* 85px is what the reference renders: its rail is 72px wide in a content-box
-   layout plus 6px padding and a border, so the tile inside ends up exactly 72 —
-   the same content-box maths has to be written out here because the app sets
-   border-box globally. With a narrower rail the unread badge lands on top of
-   the icon instead of clipping its corner. */
 .sidebar {
   @apply w-[85px] flex-none bg-bg-sidebar border-r border-border py-2 px-1.5 flex flex-col items-center gap-1;
 }
@@ -282,8 +243,6 @@ body {
   @apply relative w-full pb-1 mb-1 flex justify-center border-b border-border;
 }
 
-/* Geometry from the reference: 9/7px padding, 9px radius, 5px between the icon
-   and its label. `relative` is what the unread badge is positioned against. */
 .rail-item {
   @apply relative flex flex-col items-center gap-[5px] w-full pt-[9px] pb-[7px] border-none rounded-[9px] bg-transparent text-text-secondary cursor-pointer;
   --wails-draggable: no-drag;
@@ -305,10 +264,6 @@ body {
   @apply text-[10px] font-semibold leading-none;
 }
 
-/* Sits in the tile's top-right corner (4px/12px from its edges — the reference
-   positions it against the tile, not the icon) and reads as a pill: the
-   rendered reference is 24×16 for a single digit, not a circle, so the box is
-   wider than it is tall. */
 .rail-badge {
   @apply absolute top-1 right-3 min-w-6 h-4 px-1 rounded-full bg-red text-white text-[10px] font-semibold inline-flex items-center justify-center;
 }
@@ -318,12 +273,6 @@ body {
   @apply flex-1;
 }
 
-/* ---- Dropdown menus (rail menu, copy/export menus) ---- */
-/* Menus are portalled to <body>, so they no longer live inside the titlebar's
-   stacking context: z-20 used to be enough when they did, but the titlebar
-   itself is z-100, and it would paint over the menu's top edge — eating the
-   rounding, the top padding and the first row. Above the titlebar (100), well
-   below the sheet and dialogs (1500). */
 .menu {
   @apply z-200 rounded-lg p-1 min-w-[200px];
   background: var(--bg-panel);
@@ -331,10 +280,6 @@ body {
   box-shadow: var(--shadow);
 }
 
-/* Panels that hang off a control (ui/Popover). Same stacking rule as .menu:
-   portalled to <body>, so it has to clear the titlebar's z-100.
-   Radius and shadow are the handoff's popover values (README: "10px — поповер"),
-   not the menu's. */
 .popover {
   @apply z-200;
   border-radius: 10px;
@@ -343,11 +288,6 @@ body {
   box-shadow: 0 12px 32px rgba(0, 0, 0, 0.16);
 }
 
-/* Hints (ui/Tooltip). Global for the same reason as .menu and .popover, and
-   above them all (2000): a hint can be triggered from inside the sheet and the
-   dialogs (1500). The card is --tip-bg on --tip-text, a dark plaque in either
-   theme — see the tokens. Callers add layout only (display, gap), never
-   colours. */
 .tooltip {
   @apply z-2000 rounded-md pointer-events-none;
   padding: 6px 9px;
@@ -358,18 +298,6 @@ body {
   box-shadow: 0 8px 22px rgba(0, 0, 0, 0.28);
 }
 
-/* ---- Panel-level classes for portalled content ----
-   A panel rendered by a primitive (ui/Popover, ui/Dialog, ui/dropdown-menu) is
-   built by reka-ui inside a Teleport, so it does not carry the *calling*
-   component's scope attribute — Vue puts that on the root of its immediate
-   child only, and the chain runs through the primitive. A scoped
-   `.chip-popover` in that component therefore matches nothing, the panel is
-   left without a width and collapses to its content. Classes that style the
-   panel itself live here, where nothing is scoped; everything inside the panel
-   is slot content and keeps working scoped. */
-
-/* Command-line chip panel: 460px (auth 380px), 10px padding, 2px rhythm,
-   8px where the panel holds a control. From the handoff. */
 .chip-popover {
   @apply p-2.5 flex flex-col gap-[2px];
   width: 460px;
@@ -383,27 +311,22 @@ body {
   gap: 8px;
 }
 
-/* Environment switcher in the titlebar. */
 .env-menu {
   @apply w-[280px] p-1.5 rounded-[11px];
 }
 
-/* Parameters of a captured request. */
 .params-menu {
   @apply w-[360px] max-h-64 overflow-auto;
 }
 
-/* Type list of the schema map. */
 .export-menu {
   @apply max-w-80 max-h-75 overflow-auto;
 }
 
-/* Schema comparison dialog. */
 .compare-modal {
   @apply w-140 max-w-[90%] max-h-[80vh] flex flex-col overflow-hidden;
 }
 
-/* .env import review — its own header and footer sit flush, so no padding. */
 .import-panel {
   @apply flex flex-col w-[620px] max-h-[70vh] overflow-hidden p-0;
 }
@@ -412,8 +335,6 @@ body {
   @apply flex items-center gap-2 w-full text-left py-1.5 px-2.5 border-none bg-transparent text-text text-xs rounded-md cursor-pointer;
 }
 
-/* reka-ui highlights the item the keyboard is on, so the hover rule has to
-   answer to both — otherwise arrow keys move an invisible selection. */
 .menu-item:hover,
 .menu-item[data-highlighted] {
   @apply bg-bg-hover;
@@ -429,10 +350,6 @@ body {
   font-family: var(--mono);
 }
 
-/* ---- Content toolbar (Raw, Тело, headers) — a persistent row of actions
-   at the top of a tab's content; search (Raw, Тело, Карта) swaps this same
-   row's content in place (input + result count + close) instead of opening
-   a second row below it, so every tab's search looks and sits the same. ---- */
 .toolbar {
   @apply flex items-center justify-end gap-1.5 py-2 px-3 border-b border-border bg-bg-panel;
 }
@@ -449,7 +366,6 @@ body {
   @apply flex-1 min-w-0 overflow-hidden flex flex-col;
 }
 
-/* ---- Shared primitives ---- */
 button {
   font-family: inherit;
 }
@@ -690,8 +606,6 @@ mark.search-match.current {
   @apply text-text-tertiary italic;
 }
 
-
-/* ---- Tabs ---- */
 .tabs {
   @apply flex items-stretch gap-0.5 h-11 border-b border-border px-2 bg-bg-panel;
 }
@@ -705,15 +619,12 @@ mark.search-match.current {
   @apply text-text;
 }
 
-/* reka-ui marks the chosen trigger with data-state; the class is kept for any
-   strip that is still hand-rolled. Handoff: accent, 500, 2px accent underline. */
 .tab.active,
 .tab[data-state='active'] {
   @apply text-accent font-medium;
   border-bottom-color: var(--accent);
 }
 
-/* ---- Raw / code ---- */
 .code {
   @apply text-xs whitespace-pre select-text leading-relaxed;
   font-family: var(--mono);
@@ -735,7 +646,6 @@ mark.search-match.current {
   @apply text-tok-null;
 }
 
-/* ---- Scrollbars ---- */
 ::-webkit-scrollbar {
   @apply w-2.5 h-2.5;
 }
@@ -750,14 +660,33 @@ mark.search-match.current {
   @apply bg-transparent;
 }
 
-/* ---- Keyboard focus ---- */
-/* Text fields already draw their own accent ring on focus. Every other
-   interactive element (buttons, nav items, tabs, chips) had no focus
-   treatment at all and fell back to the browser's default outline — visible
-   only for keyboard users, but jarring against the rest of the app. One
-   shared rule instead of repeating it per component. */
 button:focus-visible,
 [role="button"]:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
+}
+
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation: none;
+  mix-blend-mode: normal;
+}
+
+::view-transition-old(root) {
+  z-index: 1;
+  animation: none;
+}
+
+::view-transition-new(root) {
+  z-index: 2;
+  animation: theme-wipe 0.85s cubic-bezier(0.35, 0.25, 0.2, 1);
+}
+
+@keyframes theme-wipe {
+  from {
+    clip-path: circle(0% at 0 0);
+  }
+  to {
+    clip-path: circle(150% at 0 0);
+  }
 }

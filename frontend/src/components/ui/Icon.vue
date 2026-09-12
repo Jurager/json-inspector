@@ -31,9 +31,12 @@ import {
   EyeOff,
   CornerDownRight,
   Pencil,
+  Sun,
+  Moon,
+  Monitor,
 } from 'lucide-vue-next'
 
-const props = defineProps<{ name: string; size?: number }>()
+const props = defineProps<{ name: string; size?: number; strokeWidth?: number }>()
 
 const ICONS: Record<string, Component> = {
   'arrow-up-right': ArrowUpRight,
@@ -65,12 +68,15 @@ const ICONS: Record<string, Component> = {
   'eye-off': EyeOff,
   inherit: CornerDownRight,
   pencil: Pencil,
+  sun: Sun,
+  moon: Moon,
+  monitor: Monitor,
 }
 
 const icon = computed(() => ICONS[props.name] ?? ArrowUpRight)
-const size = computed(() => props.size ?? 16)
+const pixelSize = computed(() => props.size ?? 16)
 </script>
 
 <template>
-  <component :is="icon" :size="size" :stroke-width="1.5" aria-hidden="true" />
+  <component :is="icon" :size="pixelSize" :stroke-width="strokeWidth ?? 1.5" aria-hidden="true" />
 </template>

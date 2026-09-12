@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, nextTick, onMounted, ref, watch } from 'vue'
 import {
-  buildIndex,
+  buildResourceIndex,
   dataResources,
   resourceMatchesQuery,
   type JsonApiDocument,
@@ -25,8 +25,8 @@ const emit = defineEmits<{
   (e: 'inspect', path: string): void
 }>()
 
-const index = computed(() => buildIndex(props.doc))
-const data = computed(() => dataResources(props.doc))
+const resourceIndex = computed(() => buildResourceIndex(props.doc))
+const primaryData = computed(() => dataResources(props.doc))
 const included = computed(() => props.doc.included ?? [])
 const errors = computed(() => props.doc.errors ?? [])
 
@@ -51,7 +51,7 @@ function includedPath(r: Resource): string {
 const highlightedKey = ref<string | null>(null)
 
 const typeFilter = ref<string | null>(null)
-const toggled = ref<Set<string>>(new Set())
+const toggledGroupTypes = ref<Set<string>>(new Set())
 const showAllTypes = ref(false)
 
 function toggleTypeFilter(type: string) {
@@ -61,14 +61,14 @@ function toggleTypeFilter(type: string) {
 function isGroupOpen(type: string): boolean {
   if (props.query.trim() || typeFilter.value) return true
   const defaultOpen = included.value.length <= 20
-  return toggled.value.has(type) ? !defaultOpen : defaultOpen
+  return toggledGroupTypes.value.has(type) ? !defaultOpen : defaultOpen
 }
 
 function toggleGroup(type: string) {
-  const next = new Set(toggled.value)
+  const next = new Set(toggledGroupTypes.value)
   if (next.has(type)) next.delete(type)
   else next.add(type)
-  toggled.value = next
+  toggledGroupTypes.value = next
 }
 
 function forceExpand(type: string) {
@@ -123,8 +123,8 @@ const isFiltering = computed(() => props.query.trim().length > 0)
 
 const filteredData = computed(() => {
   const q = props.query.trim().toLowerCase()
-  if (!q) return data.value
-  return data.value.filter((r) => resourceMatchesQuery(r, q))
+  if (!q) return primaryData.value
+  return primaryData.value.filter((r) => resourceMatchesQuery(r, q))
 })
 
 const filteredIncluded = computed(() => {
@@ -144,7 +144,7 @@ const typeCounts = computed(() => {
 })
 
 const visibleTypeChips = computed(() => (showAllTypes.value ? typeCounts.value : typeCounts.value.slice(0, 4)))
-const moreTypes = computed(() => Math.max(0, typeCounts.value.length - 4))
+const hiddenTypeCount = computed(() => Math.max(0, typeCounts.value.length - 4))
 
 const includedGroups = computed(() => {
   const map = new Map<string, Resource[]>()
@@ -189,7 +189,7 @@ const noResults = computed(
         v-for="(r, i) in filteredData"
         :key="r.type + '/' + r.id"
         :resource="r"
-        :index="index"
+        :resource-index="resourceIndex"
         :path="'data[' + i + ']'"
         :highlighted="isHighlighted(r.type + '/' + r.id)"
         @jump="jumpTo"
@@ -214,8 +214,8 @@ const noResults = computed(
           >
             {{ tc.type }} {{ tc.count }}
           </button>
-          <button v-if="moreTypes && !showAllTypes" class="type-chip more" @click="showAllTypes = true">
-            ещё {{ moreTypes }}
+          <button v-if="hiddenTypeCount && !showAllTypes" class="type-chip more" @click="showAllTypes = true">
+            ещё {{ hiddenTypeCount }}
           </button>
         </span>
       </div>
@@ -236,7 +236,7 @@ const noResults = computed(
             v-for="r in g.resources"
             :key="r.type + '/' + r.id"
             :resource="r"
-            :index="index"
+            :resource-index="resourceIndex"
             :path="includedPath(r)"
             :highlighted="isHighlighted(r.type + '/' + r.id)"
             @jump="jumpTo"

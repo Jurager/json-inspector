@@ -28,12 +28,12 @@ func (a *App) ShowAbout() {
 	}
 
 	a.app.Window.NewWithOptions(application.WebviewWindowOptions{
-		Name:             windowAbout,
-		Title:            "О программе",
-		Width:            460,
-		Height:           560,
-		MinWidth:         460,
-		MinHeight:        560,
+		Name:      windowAbout,
+		Title:     "О программе",
+		Width:     460,
+		Height:    560,
+		MinWidth:  460,
+		MinHeight: 560,
 		// This flag disables resizing; v3 inverted it from v2's Resizable.
 		DisableResize:    true,
 		Frameless:        useCustomTitlebar(),

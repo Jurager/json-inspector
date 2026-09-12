@@ -25,7 +25,7 @@ const (
 )
 
 func main() {
-	update.Current = version
+	update.CurrentVersion = version
 
 	appService := NewApp()
 
@@ -72,16 +72,15 @@ func main() {
 	})
 
 	app.Event.OnApplicationEvent(events.Common.ApplicationLaunchedWithUrl, func(e *application.ApplicationEvent) {
-		appService.handleUrlOpen(e.Context().URL())
+		appService.handleURLOpen(e.Context().URL())
 	})
 
-	bridgeServer := bridge.NewServer(
-		bridge.DefaultPort,
-		appService.onCapturedRequest,
-		appService.onCaptureState,
-		appService.onCaptureDisconnected,
-		appService.onFocusRequest,
-	)
+	bridgeServer := bridge.NewServer(bridge.DefaultPort, bridge.Handlers{
+		Request:    appService.onCapturedRequest,
+		State:      appService.onCaptureState,
+		Disconnect: appService.onCaptureDisconnected,
+		Focus:      appService.onFocusRequest,
+	})
 	appService.setBridge(bridgeServer)
 	go func() {
 		if err := bridgeServer.Start(); err != nil {

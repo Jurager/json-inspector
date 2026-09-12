@@ -13,8 +13,8 @@ import {
 } from '../ui/dropdown-menu'
 import type { JsonApiDocument, Resource } from '../../lib/jsonapi'
 import { dataResources, isJsonApi, resourceKey, resourceLabel } from '../../lib/jsonapi'
-import { buildSchema, diffSchemas, humanize, type TypeDiff } from '../../lib/schema'
-import { copyToClipboard } from '../../lib/export'
+import { buildTypeInfos, diffSchemas, capitalizeType, type TypeDiff } from '../../lib/schema'
+import { copyToClipboard } from '../../lib/clipboard'
 import { tryParseJson } from '../../lib/json'
 import { useRequestsStore } from '../../stores/requests'
 import { usePlatform } from '../../composables/usePlatform'
@@ -30,7 +30,7 @@ const all = computed<Resource[]>(() => {
   return [...dataResources(props.doc), ...(props.doc.included ?? [])]
 })
 
-const types = computed(() => (props.doc ? buildSchema(props.doc) : []))
+const types = computed(() => (props.doc ? buildTypeInfos(props.doc) : []))
 
 const instancesByType = computed<Map<string, Resource[]>>(() => {
   const map = new Map<string, Resource[]>()
@@ -245,7 +245,7 @@ const compareOptions = computed(() => {
 
 const diff = computed<TypeDiff[] | null>(() => {
   if (!compareDoc.value) return null
-  return diffSchemas(types.value, buildSchema(compareDoc.value))
+  return diffSchemas(types.value, buildTypeInfos(compareDoc.value))
 })
 
 function formatTime(startedAt: number): string {
@@ -389,13 +389,13 @@ function statusLabel(s: string): string {
                   <span class="rel-card">{{ r.many ? '1:N' : '1:1' }}</span>
                   <span class="rel-arrow"><Icon name="arrow-right" :size="12" /></span>
                   <button v-if="r.inDoc" class="rel-target in-doc" @click="goToType(r.targetType)">
-                    {{ humanize(r.targetType) }}
+                    {{ capitalizeType(r.targetType) }}
                   </button>
                   <button v-else-if="r.relatedUrl" class="rel-target missing" @click="emit('fetch', r.relatedUrl)">
-                    <span>{{ humanize(r.targetType) }}</span>
+                    <span>{{ capitalizeType(r.targetType) }}</span>
                     <Icon name="arrow-up-right" :size="12" />
                   </button>
-                  <span v-else class="rel-target ghost">{{ humanize(r.targetType) }}</span>
+                  <span v-else class="rel-target ghost">{{ capitalizeType(r.targetType) }}</span>
                 </div>
               </div>
 
@@ -409,7 +409,7 @@ function statusLabel(s: string): string {
                     @click="goToType(inc.fromType)"
                   >
                     <Icon name="arrow-left" :size="12" />
-                    <span>{{ humanize(inc.fromType) }}</span>
+                    <span>{{ capitalizeType(inc.fromType) }}</span>
                     <span class="incoming-rel">{{ inc.rel }}</span>
                   </button>
                 </div>

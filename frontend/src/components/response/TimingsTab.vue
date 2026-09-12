@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import type { RequestRecord } from '../../lib/types'
+import type { RequestRecord } from '../../lib/requestRecord'
 
 const props = defineProps<{ record: RequestRecord }>()
 
