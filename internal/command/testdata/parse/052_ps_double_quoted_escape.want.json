@@ -1,0 +1,8 @@
+{
+  "kind": "ok",
+  "format": "powershell",
+  "method": "GET",
+  "url": "https://api.example.com/o''brien",
+  "headers": [],
+  "body": ""
+}

@@ -1,0 +1,1 @@
+wget --method=POST --body-data='{"a":1}' https://api.example.com/articles

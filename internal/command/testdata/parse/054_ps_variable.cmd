@@ -1,0 +1,1 @@
+Invoke-RestMethod -Uri $baseUrl -Method Post

@@ -1,0 +1,1 @@
+fetch("https://api.example.com/articles", {"headers": {"content-type": "application/json"}, "body": "{\"data\":{\"type\":\"articles\"}}", "method": "POST"})

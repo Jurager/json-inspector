@@ -1,2 +1,6 @@
 # Generated; the generators emit LF, so pinning it keeps a Windows checkout byte-identical to the output.
 frontend/bindings/** text eol=lf
+
+# Fixtures for the command parser port: inputs carry CRLF, a BOM and PASTE-style quotes, so git must
+# never normalise line endings here — the port is judged byte-for-byte.
+internal/command/testdata/** -text

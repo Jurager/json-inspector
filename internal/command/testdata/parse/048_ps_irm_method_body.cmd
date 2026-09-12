@@ -1,0 +1,1 @@
+Invoke-RestMethod -Method Post -Uri 'https://api.example.com/articles' -Body '{"a":1}'

@@ -1,0 +1,13 @@
+{
+  "kind": "ok",
+  "format": "httpie",
+  "method": "GET",
+  "url": "https://api.example.com/articles",
+  "headers": [
+    [
+      "Accept",
+      "application/json"
+    ]
+  ],
+  "body": ""
+}

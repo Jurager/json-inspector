@@ -1,0 +1,1 @@
+iwr -Uri 'https://api.example.com/articles'

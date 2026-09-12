@@ -1,0 +1,1 @@
+http GET https://api.example.com/articles Accept:application/json
