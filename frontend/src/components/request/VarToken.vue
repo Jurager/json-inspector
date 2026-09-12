@@ -2,6 +2,7 @@
 import { computed, ref } from 'vue'
 import { useEnvironmentsStore } from '../../stores/environments'
 import { isMac } from '../../lib/platform'
+import { useHoverArrival } from '../../composables/useHoverArrival'
 import { Tooltip } from '../ui/tooltip'
 
 const props = defineProps<{ name: string; offset?: number }>()
@@ -26,6 +27,10 @@ const modifier = computed(() => (isMac ? '⌥клик' : 'Alt+клик'))
 // what the hand-rolled version needed fixed coordinates for — the field clips
 // its overflow for the ellipsis, and a nested panel would be cut off with it.
 const root = ref<HTMLElement | null>(null)
+
+// A token can appear under a resting pointer while the URL is being typed, and
+// its hint would then be a panel nobody asked for — same guard as ui/IconButton.
+const hintArmed = useHoverArrival(root)
 
 function onClick(e: MouseEvent) {
   if (e.altKey) {
@@ -80,13 +85,14 @@ function siblingInput(from: HTMLElement | null): HTMLInputElement | null {
 </script>
 
 <template>
-  <Tooltip class="var-tip">
+  <Tooltip class="var-tip" :disabled="!hintArmed">
     <template #trigger>
       <span
         ref="root"
         class="var-token"
         :class="{ unknown: !known, secret: isSecret }"
         @click="onClick"
+        @pointerleave="hintArmed = true"
         >{{ label }}</span
       >
     </template>

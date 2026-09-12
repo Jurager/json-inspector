@@ -75,11 +75,10 @@ function valueClass(v: string): string {
   >
     <div class="popover-head">
       <span class="popover-title">{{ title }}</span>
-      <!-- No hint on purpose, and no title either: the panel opens under the
-           pointer that clicked the chip, so this button lands right under the
-           cursor and any hint fires the moment the panel appears. The handoff
-           draws a bare xmark here too. -->
-      <IconButton size="sm" @click="close"><Icon name="xmark" :size="13" /></IconButton>
+      <!-- This button lands under the cursor when the panel opens, so its hint
+           is held back by the hover-arrival guard until the pointer has left and
+           come back — see composables/useHoverArrival. -->
+      <IconButton hint="Закрыть (Esc)" size="sm" @click="close"><Icon name="xmark" :size="13" /></IconButton>
     </div>
 
     <!-- params / headers share the same row grid -->

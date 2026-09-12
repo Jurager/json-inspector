@@ -18,7 +18,9 @@
 // rail's menu button): the tooltip's root is a provider, so the trigger's props
 // would land on the provider instead of the button and the menu would stop
 // opening.
+import { ref } from 'vue'
 import Tooltip from '../tooltip/Tooltip.vue'
+import { useHoverArrival } from '../../../composables/useHoverArrival'
 
 withDefaults(
   defineProps<{
@@ -34,15 +36,24 @@ withDefaults(
 // caller passes would land on the tooltip's panel instead of on the button.
 // Both branches below hand `$attrs` to a button explicitly.
 defineOptions({ inheritAttrs: false })
+
+// A button that appeared under the pointer (a panel opening where the user just
+// clicked) stays unhinted until the pointer leaves and comes back — see the
+// composable. Without it the first twitch of the mouse pops a hint nobody
+// asked for.
+const hintEl = ref<HTMLElement | null>(null)
+const hintArmed = useHoverArrival(hintEl)
 </script>
 
 <template>
-  <Tooltip v-if="hint && !disabled" side="top">
+  <Tooltip v-if="hint && !disabled" side="top" :disabled="!hintArmed">
     <template #trigger>
       <button
+        ref="hintEl"
         v-bind="$attrs"
         type="button"
         :class="['icon-btn', `icon-btn--${variant}`, `icon-btn--${size}`]"
+        @pointerleave="hintArmed = true"
       >
         <slot />
       </button>
