@@ -39,7 +39,16 @@ export function useSessionPersistence(
     }
 
     // Secrets come back out of the keychain before the first request needs one.
-    envStore.hydrateSecrets()
+    // The environments now live in the database: read them, take over what the old build left in
+    // localStorage, and give a fresh install the environment it has always started with.
+    envStore
+      .load()
+      .then(() => envStore.importLegacyOnce())
+      .then(() => envStore.ensureDefaults())
+      .catch(() => {
+        // Nothing here is worth blocking the window over: an empty environments list is a state
+        // the sheet can show.
+      })
 
     unsubscribe = store.$subscribe((_m, state) => {
       if (saveTimer) clearTimeout(saveTimer)

@@ -24,9 +24,19 @@ export interface ImportReport {
  * Patch is a partial update: a nil field is left as it is.
  */
 export interface Patch {
-    "Name": string | null;
-    "Color": string | null;
-    "Readonly": boolean | null;
+    "name"?: string | null;
+    "color"?: string | null;
+    "readonly"?: boolean | null;
+}
+
+/**
+ * VariableDraft is a variable on its way in: the sheet's "add row" leaves it empty, the .env
+ * dialog fills it in, and both go through one call.
+ */
+export interface VariableDraft {
+    "name": string;
+    "kind": domain$0.VariableKind;
+    "value"?: string;
 }
 
 /**
@@ -34,10 +44,10 @@ export interface Patch {
  * its enabled flag is being changed: the sheet never has the old value to send back.
  */
 export interface VariablePatch {
-    "ID": string;
-    "Name": string;
-    "Kind": domain$0.VariableKind;
-    "Enabled": boolean;
-    "Value": string;
-    "SetValue": boolean;
+    "id": string;
+    "name": string;
+    "kind": domain$0.VariableKind;
+    "enabled": boolean;
+    "value"?: string;
+    "setValue": boolean;
 }

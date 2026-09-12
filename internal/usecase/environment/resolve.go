@@ -32,6 +32,26 @@ func (u *UseCase) Substitute(ctx context.Context, text string, mask bool) (strin
 	return vars.Substitute(text, resolver), nil
 }
 
+// ResolveTexts fills several texts in at once, in the order they were given. A request needs its
+// URL, every header name and value, and its body resolved together, and one call keeps that a
+// single round trip — and keeps the values on this side of the boundary: the window asks for a
+// resolved request, not for the secrets in it.
+func (u *UseCase) ResolveTexts(ctx context.Context, texts []string, mask bool) ([]string, error) {
+	resolver, err := u.resolver(ctx, !mask)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]string, len(texts))
+	for i, text := range texts {
+		if mask {
+			out[i] = vars.SubstituteMasked(text, resolver)
+			continue
+		}
+		out[i] = vars.Substitute(text, resolver)
+	}
+	return out, nil
+}
+
 // Missing lists the tokens in a text that resolve to nothing, which is what blocks sending.
 func (u *UseCase) Missing(ctx context.Context, text string) ([]string, error) {
 	resolver, err := u.resolver(ctx, false)

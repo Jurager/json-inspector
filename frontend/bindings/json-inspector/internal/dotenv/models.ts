@@ -6,7 +6,7 @@
  * flips it in the dialog — it is never a statement about the value.
  */
 export interface Entry {
-    "Name": string;
-    "Value": string;
-    "Secret": boolean;
+    "name": string;
+    "value": string;
+    "secret": boolean;
 }

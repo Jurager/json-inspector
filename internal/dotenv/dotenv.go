@@ -10,9 +10,9 @@ import (
 // Entry is one line worth importing. Secret is a guess from the name, and the user confirms or
 // flips it in the dialog — it is never a statement about the value.
 type Entry struct {
-	Name   string
-	Value  string
-	Secret bool
+	Name   string `json:"name"`
+	Value  string `json:"value"`
+	Secret bool   `json:"secret"`
 }
 
 // secretHint marks names that usually hold credentials: TOKEN, SECRET, PASSWORD, KEY, AUTH.

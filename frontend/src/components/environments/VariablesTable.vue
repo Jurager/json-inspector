@@ -1,7 +1,9 @@
 <script setup lang="ts">
 import { computed, nextTick, ref, type ComponentPublicInstance } from 'vue'
 import Icon from '../ui/Icon.vue'
-import { useEnvironmentsStore, type Variable } from '../../stores/environments'
+import { useEnvironmentsStore } from '../../stores/environments'
+import { VariableKind } from '../../../bindings/json-inspector/internal/domain'
+import type { Variable } from '../../../bindings/json-inspector/internal/domain'
 import { useSheetNotice } from '../../composables/useSheetNotice'
 import { Button, IconButton } from '../ui/button'
 import { Input } from '../ui/input'
@@ -31,26 +33,25 @@ const filteredInherited = computed(() => {
   return q ? rows.value.inherited.filter(matches) : rows.value.inherited
 })
 
-const revealed = ref<Set<string>>(new Set())
-
 function isRevealed(v: Variable): boolean {
-  return revealed.value.has(v.id)
+  return envStore.isRevealed(v.id)
 }
 
 function toggleReveal(v: Variable) {
-  const next = new Set(revealed.value)
-  if (next.has(v.id)) next.delete(v.id)
-  else next.add(v.id)
-  revealed.value = next
+  if (envStore.isRevealed(v.id)) {
+    envStore.hide(v.id)
+    return
+  }
+  void envStore.reveal(v.id)
 }
 
 function isSecretMasked(v: Variable): boolean {
-  return v.kind === 'secret' && !isRevealed(v)
+  return v.kind === VariableKind.VariableSecret && !isRevealed(v)
 }
 
-function displayValue(v: Variable, scope: string | null): string {
-  if (v.kind !== 'secret') return v.value
-  return isRevealed(v) ? envStore.effectiveValue(scope, v) : '••••'
+function displayValue(v: Variable): string {
+  if (v.kind !== VariableKind.VariableSecret) return v.value ?? ''
+  return isRevealed(v) ? envStore.effectiveValue(v) : '••••'
 }
 
 interface Editing {
@@ -71,7 +72,7 @@ function startEdit(v: Variable, field: 'name' | 'value', scope: string | null = 
   if (isEnvLocked.value) return
   editing.value = { scope, varId: v.id, field }
   clearNotice()
-  draft.value = field === 'name' ? v.name : envStore.effectiveValue(scope, v)
+  draft.value = field === 'name' ? v.name : envStore.effectiveValue(v)
   nextTick(() => cellInput.value?.focus())
 }
 
@@ -157,21 +158,22 @@ function openGlobal(g: Variable, edit = false) {
   })
 }
 
-function addVar() {
+async function addVar() {
   if (isEnvLocked.value) return
-  const id = envStore.addVar(envId.value, { name: '', value: '' })
+  const id = await envStore.addVar(envId.value, { name: '', value: '' })
   const created = vars.value.find((v) => v.id === id)
   if (created) startEdit(created, 'name')
 }
 
 function removeVar(v: Variable) {
   if (isEnvLocked.value) return
-  envStore.removeVar(envId.value, v.id)
+  void envStore.removeVar(envId.value, v.id)
 }
 
 function toggleKind(v: Variable) {
   if (isEnvLocked.value) return
-  envStore.updateVar(envId.value, v.id, { kind: v.kind === 'secret' ? 'text' : 'secret' })
+  const next = v.kind === VariableKind.VariableSecret ? VariableKind.VariableText : VariableKind.VariableSecret
+  void envStore.updateVar(envId.value, v.id, { kind: next })
 }
 
 function cancelTop(): boolean {
@@ -244,10 +246,10 @@ defineExpose({ cancelTop })
           />
           <template v-else>
             <span class="cell-text mono" :class="{ masked: isSecretMasked(v) }">{{
-              displayValue(v, envId)
+              displayValue(v)
             }}</span>
             <IconButton
-              v-if="v.kind === 'secret'"
+              v-if="v.kind === VariableKind.VariableSecret"
               size="sm"
               :hint="isRevealed(v) ? 'Скрыть значение' : 'Показать значение'"
               @click.stop="toggleReveal(v)"
@@ -262,12 +264,12 @@ defineExpose({ cancelTop })
           <button
             v-else
             class="tag"
-            :class="v.kind === 'secret' ? 'tag-secret' : 'tag-text'"
+            :class="v.kind === VariableKind.VariableSecret ? 'tag-secret' : 'tag-text'"
             :disabled="isEnvLocked"
             :title="isEnvLocked ? 'Окружение только для чтения' : 'Переключить тип'"
             @click="toggleKind(v)"
           >
-            {{ v.kind === 'secret' ? 'секрет' : 'текст' }}
+            {{ v.kind === VariableKind.VariableSecret ? 'секрет' : 'текст' }}
           </button>
         </div>
 
@@ -315,7 +317,7 @@ defineExpose({ cancelTop })
             }}</span>
           </div>
           <div class="cell cell-value">
-            <span class="cell-text mono">{{ displayValue(g, null) }}</span>
+            <span class="cell-text mono">{{ displayValue(g) }}</span>
           </div>
           <div class="cell">
             <span v-if="g.overridden" class="tag tag-overridden">перекрыта</span>
@@ -337,10 +339,7 @@ defineExpose({ cancelTop })
 
     <div class="sheet-foot">
       <span v-if="notice" class="foot-error">{{ notice }}</span>
-      <span v-else-if="!envStore.isKeychainAvailable" class="foot-warn">
-        Связка ключей недоступна — секреты не сохранятся после выхода
-      </span>
-      <span v-else>Секреты хранятся в связке ключей macOS и не попадают в экспорт коллекции</span>
+      <span v-else>Секреты лежат в локальной базе без шифрования и не попадают в экспорт</span>
     </div>
   </div>
 </template>

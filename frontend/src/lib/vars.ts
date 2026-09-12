@@ -1,7 +1,10 @@
 // Environment tokens: `{{name}}`, spaces allowed inside, `\{{` escapes the sequence. Only
 // a valid variable name counts, so payloads like `{{"a": 1}}` pass through untouched.
+import type { VariableKind } from '../../bindings/json-inspector/internal/domain'
 
-export type VarKind = 'text' | 'secret'
+// The kind of a variable is declared once, in Go, and reaches the window as a generated enum: a
+// second spelling here is the duplicate this migration exists to remove.
+export type VarKind = VariableKind
 
 // What a secret looks like anywhere it isn't deliberately revealed: tooltips, preview, exports.
 export const SECRET_MASK = '••••'

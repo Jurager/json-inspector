@@ -4,5 +4,6 @@
 export type {
     ImportReport,
     Patch,
+    VariableDraft,
     VariablePatch
 } from "./models.js";

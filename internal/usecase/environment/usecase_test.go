@@ -210,7 +210,7 @@ func TestVariablesAndVarValueKeepsSecrets(t *testing.T) {
 	ctx := context.Background()
 	_, env := seed(t, u, "Local")
 
-	state, err := u.AddVariable(ctx, domain.EnvScope{Environment: env.ID}, domain.VariableSecret)
+	state, err := u.AddVariable(ctx, domain.EnvScope{Environment: env.ID}, VariableDraft{Kind: domain.VariableSecret})
 	if err != nil {
 		t.Fatalf("AddVariable: %v", err)
 	}
@@ -262,13 +262,13 @@ func TestResolutionOrderAndMasking(t *testing.T) {
 	ctx := context.Background()
 	_, env := seed(t, u, "Local")
 
-	if _, err := u.AddVariable(ctx, domain.EnvScope{}, domain.VariableText); err != nil {
+	if _, err := u.AddVariable(ctx, domain.EnvScope{}, VariableDraft{Kind: domain.VariableText}); err != nil {
 		t.Fatalf("AddVariable (globals): %v", err)
 	}
-	if _, err := u.AddVariable(ctx, domain.EnvScope{Environment: env.ID}, domain.VariableText); err != nil {
+	if _, err := u.AddVariable(ctx, domain.EnvScope{Environment: env.ID}, VariableDraft{Kind: domain.VariableText}); err != nil {
 		t.Fatalf("AddVariable: %v", err)
 	}
-	if _, err := u.AddVariable(ctx, domain.EnvScope{Environment: env.ID}, domain.VariableSecret); err != nil {
+	if _, err := u.AddVariable(ctx, domain.EnvScope{Environment: env.ID}, VariableDraft{Kind: domain.VariableSecret}); err != nil {
 		t.Fatalf("AddVariable: %v", err)
 	}
 
@@ -462,6 +462,37 @@ func TestImportLegacyWithNoPayloadIsRecorded(t *testing.T) {
 	// The claim is finished, so this does not come back on every launch.
 	if claimed, _ := u.store.ClaimImport(ctx, LegacySource); claimed {
 		t.Error("the import was left pending")
+	}
+}
+
+func TestEnsureDefaultsSeedsOnlyAnEmptyState(t *testing.T) {
+	u, _ := newUseCase(t)
+	ctx := context.Background()
+
+	state, err := u.EnsureDefaults(ctx)
+	if err != nil {
+		t.Fatalf("EnsureDefaults: %v", err)
+	}
+	if len(state.Environments) != 1 || state.Environments[0].Name != "Local · dev" {
+		t.Fatalf("state = %+v, want the seed environment", state.Environments)
+	}
+	if vars := state.Environments[0].Vars; len(vars) != 1 || vars[0].Name != "baseUrl" {
+		t.Errorf("vars = %+v, want a baseUrl to start from", vars)
+	}
+	if state.ActiveID != state.Environments[0].ID {
+		t.Errorf("activeId = %q, want the seeded environment", state.ActiveID)
+	}
+
+	// A second call leaves the user's own setup alone.
+	if _, err := u.Create(ctx, "Prod"); err != nil {
+		t.Fatalf("Create: %v", err)
+	}
+	state, err = u.EnsureDefaults(ctx)
+	if err != nil {
+		t.Fatalf("EnsureDefaults (again): %v", err)
+	}
+	if len(state.Environments) != 2 {
+		t.Errorf("environments = %d, want the two that exist already", len(state.Environments))
 	}
 }
 

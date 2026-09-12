@@ -4,10 +4,11 @@ import Icon from '../ui/Icon.vue'
 import { Button, IconButton } from '../ui/button'
 import DeleteEnvDialog from './DeleteEnvDialog.vue'
 import ImportDialog from './ImportDialog.vue'
-import { useEnvironmentsStore, type ImportChoice, type Variable } from '../../stores/environments'
+import { useEnvironmentsStore, type ImportChoice } from '../../stores/environments'
 import { useRequestsStore } from '../../stores/requests'
-import { parseDotenv } from '../../lib/dotenv'
 import { parseTokens } from '../../lib/vars'
+import { EnvironmentsService } from '../../../bindings/json-inspector/internal/transport/wails'
+import type { Variable } from '../../../bindings/json-inspector/internal/domain'
 import { useSheetNotice } from '../../composables/useSheetNotice'
 
 const envStore = useEnvironmentsStore()
@@ -27,8 +28,8 @@ function setRenameInput(el: Element | ComponentPublicInstance | null) {
   renameInput.value = (el as HTMLInputElement | null) ?? null
 }
 
-function addEnv() {
-  const id = envStore.addEnv()
+async function addEnv() {
+  const id = await envStore.addEnv()
   envStore.editEnv(id)
   startRename(id, { selectAll: true })
 }
@@ -168,10 +169,11 @@ async function onFileChosen(e: Event) {
   // Reset immediately, so choosing the same file twice still fires a change.
   input.value = ''
   if (!file) return
-  const text = await file.text()
+  // Reading the file is Go's job: the window shows what it found and lets the user decide.
+  const entries = await EnvironmentsService.ParseDotenv(await file.text())
   // Conflicts default to "skip": an import must never overwrite a hand-set value without saying so
   // on the row.
-  importEntries.value = parseDotenv(text).map((entry) => ({
+  importEntries.value = (entries ?? []).map((entry) => ({
     ...entry,
     mode: existingNames.value.has(entry.name) ? ('skip' as const) : ('replace' as const),
   }))
@@ -187,7 +189,7 @@ const importCount = computed(
 )
 
 function importEntriesIntoEnv() {
-  if (importEntries.value) envStore.importDotenv(envId.value, importEntries.value)
+  if (importEntries.value) void envStore.importDotenv(envId.value, importEntries.value)
   importEntries.value = null
 }
 

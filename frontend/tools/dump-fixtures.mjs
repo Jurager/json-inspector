@@ -55,12 +55,25 @@ const PARSE_CASES = [
   ['curl_windows_prompt', `PS C:\\Users\\dev> curl https://api.example.com/articles`],
   ['curl_tokens', `curl -H 'Authorization: Bearer {{token}}' '{{base_url}}/articles'`],
   ['curl_empty_quoting', `curl -H '' https://api.example.com/articles`],
+  ['curl_redirect_stdout', `curl https://api.example.com/articles > out.json`],
+  ['curl_pipe', `curl https://api.example.com/articles | jq .`],
+  ['curl_data_binary', `curl -X POST --data-binary '{"a":1}' https://api.example.com/articles`],
+  ['curl_data_urlencode', `curl -X POST --data-urlencode 'q=hello world' https://api.example.com/articles`],
+  ['curl_head_flag', `curl -I https://api.example.com/articles`],
+  ['curl_silent_show_error', `curl -sS https://api.example.com/articles`],
+  ['curl_multiline_body', `curl -X POST --data-raw '{\n  "data": {\n    "type": "articles"\n  }\n}' https://api.example.com/articles`],
+  ['curl_caret_continuation', `curl -H "A: 1" ^\n  https://api.example.com/articles`],
+  ['curl_blank_line_after_backslash', `curl -H 'A: 1' \\\n\\\n  https://api.example.com/articles`],
+  ['curl_header_no_space', `curl -H 'Accept:application/json' https://api.example.com/articles`],
+  ['curl_url_with_trailing_quote', `curl 'https://api.example.com/articles?q='\\''x'\\'''`],
 
   // — wget —
   ['wget_basic', `wget https://api.example.com/articles`],
   ['wget_method', `wget --method=POST --body-data='{"a":1}' https://api.example.com/articles`],
   ['wget_header', `wget --header='Accept: application/json' https://api.example.com/articles`],
   ['wget_output', `wget -O - https://api.example.com/articles`],
+  ['wget_post_data', `wget --post-data='a=1' https://api.example.com/articles`],
+  ['wget_user_agent', `wget --user-agent='curl/8' https://api.example.com/articles`],
 
   // — httpie —
   ['httpie_get', `http GET https://api.example.com/articles`],
@@ -70,6 +83,10 @@ const PARSE_CASES = [
   ['httpie_json_field', `http POST https://api.example.com/articles count:=3`],
   ['httpie_query', `http GET https://api.example.com/articles page==2`],
   ['httpie_file_field', `http POST https://api.example.com/articles file@photo.png`],
+  ['httpie_json_flag', `http --json POST https://api.example.com/articles name=test`],
+  ['httpie_form_flag', `http --form POST https://api.example.com/articles name=test`],
+  ['httpie_header_and_field', `http POST https://api.example.com/articles Accept:application/json name=test -v`],
+  ['httpie_upper_lower_case', `http get https://api.example.com/articles`],
 
   // — PowerShell —
   ['ps_irm_basic', `Invoke-RestMethod -Uri 'https://api.example.com/articles'`],
@@ -80,6 +97,11 @@ const PARSE_CASES = [
   ['ps_double_quoted_escape', `Invoke-RestMethod -Uri "https://api.example.com/o''brien"`],
   ['ps_line_continuation', "Invoke-RestMethod `\n  -Uri 'https://api.example.com/articles'"],
   ['ps_variable', `Invoke-RestMethod -Uri $baseUrl -Method Post`],
+  ['ps_content_type', `Invoke-RestMethod -Uri 'https://api.example.com/articles' -ContentType 'application/json' -Body '{"a":1}'`],
+  ['ps_infile', `Invoke-RestMethod -Uri 'https://api.example.com/articles' -InFile payload.json`],
+  ['ps_hashtable_single', `Invoke-RestMethod -Uri 'https://api.example.com/articles' -Headers @{ Accept = 'application/json' }`],
+  ['ps_quoted_method', `Invoke-RestMethod -Uri 'https://api.example.com/articles' -Method 'Post'`],
+  ['ps_script_block_prefix', `PS> Invoke-RestMethod -Uri 'https://api.example.com/articles'`],
 
   // — fetch: the init has to be strict JSON, which is what devtools' "Copy as fetch" emits —
   ['fetch_basic', `fetch('https://api.example.com/articles')`],

@@ -29,8 +29,8 @@ export function ActivateEnvironment(id: string): $CancellablePromise<domain$0.En
     return $Call.ByID(4240039849, id);
 }
 
-export function AddVariable(scope: domain$0.EnvScope, kind: domain$0.VariableKind): $CancellablePromise<domain$0.EnvState> {
-    return $Call.ByID(1119272004, scope, kind);
+export function AddVariable(scope: domain$0.EnvScope, draft: environment$0.VariableDraft): $CancellablePromise<domain$0.EnvState> {
+    return $Call.ByID(1119272004, scope, draft);
 }
 
 export function CreateEnvironment(name: string): $CancellablePromise<domain$0.EnvState> {
@@ -39,6 +39,13 @@ export function CreateEnvironment(name: string): $CancellablePromise<domain$0.En
 
 export function DeleteEnvironment(id: string): $CancellablePromise<domain$0.EnvState> {
     return $Call.ByID(2328245087, id);
+}
+
+/**
+ * EnsureDefaults seeds a fresh database with the environment the app has always started with.
+ */
+export function EnsureDefaults(): $CancellablePromise<domain$0.EnvState> {
+    return $Call.ByID(2484002225);
 }
 
 export function ImportEntries(scope: domain$0.EnvScope, entries: dotenv$0.Entry[] | null): $CancellablePromise<domain$0.EnvState> {
@@ -57,6 +64,14 @@ export function Missing(text: string): $CancellablePromise<string[] | null> {
     return $Call.ByID(4257610239, text);
 }
 
+/**
+ * ParseDotenv reads a .env file for the import dialog's preview: what is in it, and which names
+ * look like secrets. The dialog decides what to keep; parsing it is not the window's job.
+ */
+export function ParseDotenv(text: string): $CancellablePromise<dotenv$0.Entry[] | null> {
+    return $Call.ByID(265416718, text);
+}
+
 export function RemoveVariable(scope: domain$0.EnvScope, id: string): $CancellablePromise<domain$0.EnvState> {
     return $Call.ByID(2903571973, scope, id);
 }
@@ -66,22 +81,17 @@ export function Resolve(name: string): $CancellablePromise<$models.ResolvedVaria
 }
 
 /**
+ * ResolveTexts fills a whole request in at once: the URL, the header names and values, the body.
+ */
+export function ResolveTexts(texts: string[] | null, mask: boolean): $CancellablePromise<string[] | null> {
+    return $Call.ByID(518220333, texts, mask);
+}
+
+/**
  * Reveal is the eye button: the only call that hands a secret's value to the window.
  */
 export function Reveal(id: string): $CancellablePromise<string> {
     return $Call.ByID(510563592, id);
-}
-
-export function SecretDelete(envID: string, name: string): $CancellablePromise<void> {
-    return $Call.ByID(4292650974, envID, name);
-}
-
-export function SecretGet(envID: string, name: string): $CancellablePromise<string> {
-    return $Call.ByID(1721142299, envID, name);
-}
-
-export function SecretSet(envID: string, name: string, value: string): $CancellablePromise<void> {
-    return $Call.ByID(3564894735, envID, name, value);
 }
 
 /**

@@ -12,6 +12,7 @@ import {
   DropdownMenuItem,
 } from '../ui/dropdown-menu'
 import { RequestsService } from '../../../bindings/json-inspector/internal/transport/wails'
+import { EnvironmentsService } from '../../../bindings/json-inspector/internal/transport/wails'
 import { useRequestsStore } from '../../stores/requests'
 import { useEnvironmentsStore } from '../../stores/environments'
 import { usePlatform } from '../../composables/usePlatform'
@@ -92,19 +93,6 @@ watch(
   { immediate: true }
 )
 
-function resolvedHeaders(): Record<string, string> {
-  const map: Record<string, string> = {}
-  for (const h of store.draft.headers) {
-    const name = envStore.substitute(h.name.trim())
-    if (name && h.enabled) map[name] = envStore.substitute(h.value)
-  }
-  const cookieHeader = cookieHeaderValue(
-    store.draft.cookies.map((c) => ({ ...c, name: envStore.substitute(c.name), value: envStore.substitute(c.value) }))
-  )
-  if (cookieHeader) map['Cookie'] = cookieHeader
-  return map
-}
-
 function maskedHeaders(): Record<string, string> {
   const map: Record<string, string> = {}
   for (const h of store.draft.headers) {
@@ -134,12 +122,39 @@ function createMissing() {
   envStore.openSheet({ envId, varName: missingVarNames.value[0] ?? '' })
 }
 
+// The outgoing request, with its variables filled in. Go does the filling: a secret's value lives
+// on that side, and the window only ever asks for the finished request.
+async function resolveForSending(): Promise<{ url: string; body: string; headers: Record<string, string> }> {
+  const headerRows = store.draft.headers.filter((h) => h.enabled && h.name.trim())
+  const cookieRows = store.draft.cookies
+
+  const texts = [
+    store.draft.url.trim(),
+    store.draft.body,
+    ...headerRows.flatMap((h) => [h.name.trim(), h.value]),
+    ...cookieRows.flatMap((c) => [c.name, c.value]),
+  ]
+
+  const resolved = (await EnvironmentsService.ResolveTexts(texts, false)) ?? texts
+  let at = 2
+
+  const headers: Record<string, string> = {}
+  for (let i = 0; i < headerRows.length; i++) {
+    const name = resolved[at++]
+    const value = resolved[at++]
+    if (name) headers[name] = value
+  }
+  const cookies = cookieRows.map((c) => ({ ...c, name: resolved[at++], value: resolved[at++] }))
+  const cookieHeader = cookieHeaderValue(cookies)
+  if (cookieHeader) headers['Cookie'] = cookieHeader
+
+  return { url: resolved[0], body: resolved[1], headers }
+}
+
 async function send() {
   if (!store.draft.url.trim() || store.loading || sendBlocked.value) return
   store.loading = true
-  const requestHeaders = resolvedHeaders()
-  const url = envStore.substitute(store.draft.url.trim())
-  const body = envStore.substitute(store.draft.body)
+  const { url, body, headers: requestHeaders } = await resolveForSending()
   const recordUrl = envStore.maskSecrets(store.draft.url.trim())
   const recordBody = envStore.maskSecrets(store.draft.body)
   const recordHeaders = maskedHeaders()

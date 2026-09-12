@@ -5,7 +5,6 @@ import (
 
 	"json-inspector/internal/domain"
 	"json-inspector/internal/dotenv"
-	"json-inspector/internal/infra/keychain"
 	"json-inspector/internal/usecase/environment"
 )
 
@@ -42,8 +41,19 @@ func (s *EnvironmentsService) ActivateEnvironment(ctx context.Context, id string
 	return s.environments.Activate(ctx, id)
 }
 
-func (s *EnvironmentsService) AddVariable(ctx context.Context, scope domain.EnvScope, kind domain.VariableKind) (domain.EnvState, error) {
-	return s.environments.AddVariable(ctx, scope, kind)
+func (s *EnvironmentsService) AddVariable(ctx context.Context, scope domain.EnvScope, draft environment.VariableDraft) (domain.EnvState, error) {
+	return s.environments.AddVariable(ctx, scope, draft)
+}
+
+// EnsureDefaults seeds a fresh database with the environment the app has always started with.
+func (s *EnvironmentsService) EnsureDefaults(ctx context.Context) (domain.EnvState, error) {
+	return s.environments.EnsureDefaults(ctx)
+}
+
+// ParseDotenv reads a .env file for the import dialog's preview: what is in it, and which names
+// look like secrets. The dialog decides what to keep; parsing it is not the window's job.
+func (s *EnvironmentsService) ParseDotenv(text string) []dotenv.Entry {
+	return dotenv.Parse(text)
 }
 
 func (s *EnvironmentsService) UpdateVariable(ctx context.Context, scope domain.EnvScope, patch environment.VariablePatch) (domain.EnvState, error) {
@@ -88,25 +98,13 @@ func (s *EnvironmentsService) Missing(ctx context.Context, text string) ([]strin
 	return s.environments.Missing(ctx, text)
 }
 
+// ResolveTexts fills a whole request in at once: the URL, the header names and values, the body.
+func (s *EnvironmentsService) ResolveTexts(ctx context.Context, texts []string, mask bool) ([]string, error) {
+	return s.environments.ResolveTexts(ctx, texts, mask)
+}
+
 // ImportLegacy moves what the old frontend kept in localStorage into the database, once. The
 // payload is the raw string: parsing the old shape is this side's job, not the window's.
 func (s *EnvironmentsService) ImportLegacy(ctx context.Context, raw string) (environment.ImportReport, error) {
 	return s.environments.ImportLegacy(ctx, raw, s.secrets)
-}
-
-// The three below are the keychain API the window used before variables moved into the database.
-// They stay bound while the window is still the old one — the switch is its own change, and a
-// binding that disappears under a running frontend breaks it — and go together with the keychain
-// package a release after the import has run.
-
-func (s *EnvironmentsService) SecretSet(envID, name, value string) error {
-	return keychain.Set(envID, name, value)
-}
-
-func (s *EnvironmentsService) SecretGet(envID, name string) (string, error) {
-	return keychain.Get(envID, name)
-}
-
-func (s *EnvironmentsService) SecretDelete(envID, name string) error {
-	return keychain.Delete(envID, name)
 }

@@ -38,9 +38,9 @@ func (u *UseCase) Snapshot(ctx context.Context) (domain.EnvState, error) {
 
 // Patch is a partial update: a nil field is left as it is.
 type Patch struct {
-	Name     *string
-	Color    *string
-	Readonly *bool
+	Name     *string `json:"name,omitempty"`
+	Color    *string `json:"color,omitempty"`
+	Readonly *bool   `json:"readonly,omitempty"`
 }
 
 // Create adds an environment at the end of the list. It becomes the active one: a new environment
@@ -148,8 +148,16 @@ func (u *UseCase) Activate(ctx context.Context, id string) (domain.EnvState, err
 	return u.Snapshot(ctx)
 }
 
-// AddVariable appends an empty variable to a scope, which is what the sheet's "add row" needs.
-func (u *UseCase) AddVariable(ctx context.Context, scope domain.EnvScope, kind domain.VariableKind) (domain.EnvState, error) {
+// VariableDraft is a variable on its way in: the sheet's "add row" leaves it empty, the .env
+// dialog fills it in, and both go through one call.
+type VariableDraft struct {
+	Name  string              `json:"name"`
+	Kind  domain.VariableKind `json:"kind"`
+	Value string              `json:"value,omitempty"`
+}
+
+// AddVariable appends a variable to a scope.
+func (u *UseCase) AddVariable(ctx context.Context, scope domain.EnvScope, draft VariableDraft) (domain.EnvState, error) {
 	state, err := u.store.EnvState(ctx)
 	if err != nil {
 		return domain.EnvState{}, err
@@ -158,14 +166,20 @@ func (u *UseCase) AddVariable(ctx context.Context, scope domain.EnvScope, kind d
 	if err != nil {
 		return domain.EnvState{}, err
 	}
-	if kind != domain.VariableSecret {
-		kind = domain.VariableText
+
+	name := strings.TrimSpace(draft.Name)
+	if name != "" && !vars.ValidName(name) {
+		return domain.EnvState{}, fmt.Errorf("имя переменной: %w", domain.ErrNotAllowed)
+	}
+	if draft.Kind != domain.VariableSecret {
+		draft.Kind = domain.VariableText
 	}
 
 	v := domain.Variable{
 		ID:       u.ids(),
-		Name:     "",
-		Kind:     kind,
+		Name:     name,
+		Value:    draft.Value,
+		Kind:     draft.Kind,
 		Enabled:  true,
 		Position: position,
 	}
@@ -175,15 +189,49 @@ func (u *UseCase) AddVariable(ctx context.Context, scope domain.EnvScope, kind d
 	return u.Snapshot(ctx)
 }
 
+// EnsureDefaults gives a fresh database the one environment the app has always started with, so a
+// new install has somewhere to type a base URL instead of an empty screen. It only ever acts on an
+// empty state: as soon as anything exists, the user's own setup is the answer.
+func (u *UseCase) EnsureDefaults(ctx context.Context) (domain.EnvState, error) {
+	state, err := u.store.EnvState(ctx)
+	if err != nil {
+		return domain.EnvState{}, err
+	}
+	if len(state.Environments) > 0 || len(state.Globals) > 0 {
+		return u.Snapshot(ctx)
+	}
+
+	env := domain.Environment{ID: u.ids(), Name: "Local · dev", Position: 1}
+	if err := u.store.SaveEnvironment(ctx, env); err != nil {
+		return domain.EnvState{}, err
+	}
+	baseURL := domain.Variable{
+		ID:      u.ids(),
+		Name:    "baseUrl",
+		Value:   "http://localhost:8000",
+		Kind:    domain.VariableText,
+		Enabled: true,
+		// One-based to match the environment above: positions are ordered, not indexed.
+		Position: 1,
+	}
+	if err := u.store.SaveVariable(ctx, domain.EnvScope{Environment: env.ID}, baseURL); err != nil {
+		return domain.EnvState{}, err
+	}
+	if err := u.store.SetActiveEnvironment(ctx, env.ID); err != nil {
+		return domain.EnvState{}, err
+	}
+	return u.Snapshot(ctx)
+}
+
 // VariablePatch edits one variable. SetValue is what keeps a secret's value when only its name or
 // its enabled flag is being changed: the sheet never has the old value to send back.
 type VariablePatch struct {
-	ID       string
-	Name     string
-	Kind     domain.VariableKind
-	Enabled  bool
-	Value    string
-	SetValue bool
+	ID       string              `json:"id"`
+	Name     string              `json:"name"`
+	Kind     domain.VariableKind `json:"kind"`
+	Enabled  bool                `json:"enabled"`
+	Value    string              `json:"value,omitempty"`
+	SetValue bool                `json:"setValue"`
 }
 
 func (u *UseCase) UpdateVariable(ctx context.Context, scope domain.EnvScope, patch VariablePatch) (domain.EnvState, error) {
