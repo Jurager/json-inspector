@@ -1,8 +1,6 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
-import { DialogTitle } from 'reka-ui'
 import Icon from '../ui/Icon.vue'
-import Dialog from '../ui/dialog/Dialog.vue'
 import { Button, IconButton } from '../ui/button'
 import { Input } from '../ui/input'
 import {
@@ -12,17 +10,14 @@ import {
   DropdownMenuItem,
 } from '../ui/dropdown-menu'
 import type { JsonApiDocument, Resource } from '../../lib/jsonapi'
-import { dataResources, isJsonApi, resourceKey, resourceLabel } from '../../lib/jsonapi'
-import { buildTypeInfos, diffSchemas, capitalizeType, type TypeDiff } from '../../lib/schema'
+import { dataResources, resourceKey, resourceLabel } from '../../lib/jsonapi'
+import { buildTypeInfos, capitalizeType } from '../../lib/schema'
 import { copyToClipboard } from '../../lib/clipboard'
-import { tryParseJson } from '../../lib/json'
-import { useRequestsStore } from '../../stores/requests'
 import { usePlatform } from '../../composables/usePlatform'
 
 const props = defineProps<{ doc: JsonApiDocument | null; highlightKey?: string | null }>()
 const emit = defineEmits<{ (e: 'fetch', url: string): void; (e: 'select', key: string): void }>()
 
-const store = useRequestsStore()
 const { shortcut } = usePlatform()
 
 const all = computed<Resource[]>(() => {
@@ -217,77 +212,6 @@ async function copyExport(format: ExportId) {
   }
 }
 
-const compareOpen = ref(false)
-const compareDoc = ref<JsonApiDocument | null>(null)
-const compareFilter = ref('')
-const pasteBody = ref('')
-const pasteError = ref('')
-
-const compareOptions = computed(() => {
-  const q = compareFilter.value.trim().toLowerCase()
-  return store.requests
-    .map((r) => {
-      const p = tryParseJson(r.responseBody)
-      return {
-        id: r.id,
-        method: r.method,
-        url: r.url,
-        startedAt: r.startedAt,
-        doc: p.ok && isJsonApi(p.value) ? (p.value as JsonApiDocument) : null,
-      }
-    })
-    .filter((o) => o.doc != null)
-    .filter((o) => {
-      if (!q) return true
-      return o.method.toLowerCase().includes(q) || o.url.toLowerCase().includes(q)
-    })
-})
-
-const diff = computed<TypeDiff[] | null>(() => {
-  if (!compareDoc.value) return null
-  return diffSchemas(types.value, buildTypeInfos(compareDoc.value))
-})
-
-function formatTime(startedAt: number): string {
-  const d = new Date(startedAt)
-  return d.toLocaleString('ru-RU', {
-    day: '2-digit',
-    month: '2-digit',
-    year: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-  })
-}
-
-function pickCompare(id: string) {
-  const o = compareOptions.value.find((x) => x.id === id)
-  if (o && o.doc) {
-    compareDoc.value = o.doc
-    compareOpen.value = false
-  }
-}
-
-function comparePaste() {
-  const p = tryParseJson(pasteBody.value)
-  if (p.ok && isJsonApi(p.value)) {
-    compareDoc.value = p.value as JsonApiDocument
-    compareOpen.value = false
-    pasteError.value = ''
-  } else {
-    pasteError.value = 'Невалидный JSON:API документ'
-  }
-}
-
-function closeCompare() {
-  compareDoc.value = null
-}
-
-function statusLabel(s: string): string {
-  if (s === 'added') return 'добавлен'
-  if (s === 'removed') return 'удалён'
-  return 'изменён'
-}
-
 </script>
 
 <template>
@@ -307,16 +231,12 @@ function statusLabel(s: string): string {
         <IconButton hint="Закрыть (Esc)" @click="closeSearch"><Icon name="xmark" :size="14" /></IconButton>
       </template>
       <template v-else>
-        <span v-if="types.length && !diff" class="summary">{{ types.length }} типов · {{ all.length }} ресурсов</span>
+        <span v-if="types.length" class="summary">{{ types.length }} типов · {{ all.length }} ресурсов</span>
 
         <span class="head-spacer"></span>
 
         <Button size="sm" @click="openSearch"><span>Поиск</span><kbd class="keycap">{{ searchShortcut }}</kbd></Button>
 
-        <Button size="sm" @click="compareOpen = true">
-          <Icon name="compare" :size="14" />
-          <span>Сравнить</span>
-        </Button>
         <DropdownMenu>
           <DropdownMenuTrigger as-child>
             <Button size="sm" :disabled="!types.length">
@@ -335,132 +255,81 @@ function statusLabel(s: string): string {
     </div>
 
     <div class="schema-body">
-      <template v-if="diff">
-        <div class="diff-head">
-          <span class="diff-title">Сравнение схем</span>
-          <Button @click="closeCompare">Закрыть</Button>
-        </div>
-        <div v-if="diff.length === 0" class="empty">Схемы идентичны</div>
-        <div v-else class="diff-list">
-          <div v-for="d in diff" :key="d.type" class="diff-type">
-            <div class="diff-type-head">
-              <span class="diff-badge" :class="d.status">{{ statusLabel(d.status) }}</span>
-              <span class="diff-type-name">{{ d.label }}</span>
+      <div v-if="filteredTypes.length === 0" class="empty">
+        {{ types.length === 0 ? 'Нет данных для карты' : 'Ничего не найдено' }}
+      </div>
+
+      <div v-else class="cards">
+        <section
+          v-for="t in filteredTypes"
+          :key="t.type"
+          :data-type="t.type"
+          class="type-card"
+          :class="{ highlight: highlightType === t.type }"
+        >
+          <button class="type-head" @click="toggleType(t.type)">
+            <span class="caret" :class="{ open: expandedTypes.has(t.type) }">
+              <Icon name="chevron-right" :size="10" />
+            </span>
+            <span class="type-name">{{ t.label }}</span>
+            <span class="type-count">{{ t.count }}</span>
+          </button>
+
+          <div class="type-body">
+            <div v-if="t.attributes.length" class="type-attrs">
+              <span v-for="a in t.attributes" :key="a" class="attr-chip mono">{{ a }}</span>
             </div>
-            <div class="diff-lines">
-              <div v-for="a in d.addedAttrs" :key="'aa' + a" class="diff-line added">+ {{ a }}</div>
-              <div v-for="a in d.removedAttrs" :key="'ra' + a" class="diff-line removed">− {{ a }}</div>
-              <div v-for="a in d.addedRels" :key="'ar' + a" class="diff-line added">+ {{ a }}</div>
-              <div v-for="a in d.removedRels" :key="'rr' + a" class="diff-line removed">− {{ a }}</div>
+
+            <div v-if="t.rels.length" class="type-rels">
+              <div v-for="r in t.rels" :key="r.name + r.targetType" class="type-rel">
+                <span class="rel-name">{{ r.name }}</span>
+                <span class="rel-card">{{ r.many ? '1:N' : '1:1' }}</span>
+                <span class="rel-arrow"><Icon name="arrow-right" :size="12" /></span>
+                <button v-if="r.inDoc" class="rel-target in-doc" @click="goToType(r.targetType)">
+                  {{ capitalizeType(r.targetType) }}
+                </button>
+                <button v-else-if="r.relatedUrl" class="rel-target missing" @click="emit('fetch', r.relatedUrl)">
+                  <span>{{ capitalizeType(r.targetType) }}</span>
+                  <Icon name="arrow-up-right" :size="12" />
+                </button>
+                <span v-else class="rel-target ghost">{{ capitalizeType(r.targetType) }}</span>
+              </div>
             </div>
-          </div>
-        </div>
-      </template>
 
-      <template v-else>
-        <div v-if="filteredTypes.length === 0" class="empty">
-          {{ types.length === 0 ? 'Нет данных для карты' : 'Ничего не найдено' }}
-        </div>
-
-        <div v-else class="cards">
-          <section
-            v-for="t in filteredTypes"
-            :key="t.type"
-            :data-type="t.type"
-            class="type-card"
-            :class="{ highlight: highlightType === t.type }"
-          >
-            <button class="type-head" @click="toggleType(t.type)">
-              <span class="caret" :class="{ open: expandedTypes.has(t.type) }">
-                <Icon name="chevron-right" :size="10" />
-              </span>
-              <span class="type-name">{{ t.label }}</span>
-              <span class="type-count">{{ t.count }}</span>
-            </button>
-
-            <div class="type-body">
-              <div v-if="t.attributes.length" class="type-attrs">
-                <span v-for="a in t.attributes" :key="a" class="attr-chip mono">{{ a }}</span>
-              </div>
-
-              <div v-if="t.rels.length" class="type-rels">
-                <div v-for="r in t.rels" :key="r.name + r.targetType" class="type-rel">
-                  <span class="rel-name">{{ r.name }}</span>
-                  <span class="rel-card">{{ r.many ? '1:N' : '1:1' }}</span>
-                  <span class="rel-arrow"><Icon name="arrow-right" :size="12" /></span>
-                  <button v-if="r.inDoc" class="rel-target in-doc" @click="goToType(r.targetType)">
-                    {{ capitalizeType(r.targetType) }}
-                  </button>
-                  <button v-else-if="r.relatedUrl" class="rel-target missing" @click="emit('fetch', r.relatedUrl)">
-                    <span>{{ capitalizeType(r.targetType) }}</span>
-                    <Icon name="arrow-up-right" :size="12" />
-                  </button>
-                  <span v-else class="rel-target ghost">{{ capitalizeType(r.targetType) }}</span>
-                </div>
-              </div>
-
-              <div v-if="t.incoming.length" class="type-incoming">
-                <div class="incoming-title">Связан из</div>
-                <div class="incoming-list">
-                  <button
-                    v-for="inc in t.incoming"
-                    :key="inc.fromType + inc.rel"
-                    class="incoming-chip"
-                    @click="goToType(inc.fromType)"
-                  >
-                    <Icon name="arrow-left" :size="12" />
-                    <span>{{ capitalizeType(inc.fromType) }}</span>
-                    <span class="incoming-rel">{{ inc.rel }}</span>
-                  </button>
-                </div>
-              </div>
-
-              <div v-if="expandedTypes.has(t.type)" class="type-instances">
-                <div class="instances-title">Экземпляры</div>
+            <div v-if="t.incoming.length" class="type-incoming">
+              <div class="incoming-title">Связан из</div>
+              <div class="incoming-list">
                 <button
-                  v-for="res in instancesOf(t.type)"
-                  :key="resourceKey(res.type, res.id)"
-                  :id="'inst-' + resourceKey(res.type, res.id)"
-                  class="instance"
-                  :class="{ highlighted: highlightInstance === resourceKey(res.type, res.id) }"
-                  @click="emit('select', resourceKey(res.type, res.id))"
+                  v-for="inc in t.incoming"
+                  :key="inc.fromType + inc.rel"
+                  class="incoming-chip"
+                  @click="goToType(inc.fromType)"
                 >
-                  {{ instanceLabel(res) }}
+                  <Icon name="arrow-left" :size="12" />
+                  <span>{{ capitalizeType(inc.fromType) }}</span>
+                  <span class="incoming-rel">{{ inc.rel }}</span>
                 </button>
               </div>
             </div>
-          </section>
-        </div>
-      </template>
+
+            <div v-if="expandedTypes.has(t.type)" class="type-instances">
+              <div class="instances-title">Экземпляры</div>
+              <button
+                v-for="res in instancesOf(t.type)"
+                :key="resourceKey(res.type, res.id)"
+                :id="'inst-' + resourceKey(res.type, res.id)"
+                class="instance"
+                :class="{ highlighted: highlightInstance === resourceKey(res.type, res.id) }"
+                @click="emit('select', resourceKey(res.type, res.id))"
+              >
+                {{ instanceLabel(res) }}
+              </button>
+            </div>
+          </div>
+        </section>
+      </div>
     </div>
   </div>
-
-  <Dialog :open="compareOpen" class="compare-modal" @update:open="compareOpen = false">
-      <div class="compare-modal-head">
-        <DialogTitle class="compare-modal-title">Сравнить схему с…</DialogTitle>
-        <IconButton @click="compareOpen = false"><Icon name="xmark" :size="14" /></IconButton>
-      </div>
-
-      <div class="compare-search">
-        <Input v-model="compareFilter" size="sm" mono class="w-full" placeholder="Поиск по методу, URL…" spellcheck="false" />
-      </div>
-
-      <div class="compare-modal-body">
-        <div v-if="compareOptions.length === 0" class="compare-empty">Нет JSON:API ответов в истории</div>
-        <button v-for="o in compareOptions" :key="o.id" class="compare-item" @click="pickCompare(o.id)">
-          <span class="compare-method">{{ o.method }}</span>
-          <span class="compare-url mono">{{ o.url }}</span>
-          <span class="compare-time">{{ formatTime(o.startedAt) }}</span>
-        </button>
-      </div>
-
-      <div class="compare-paste">
-        <div class="compare-paste-label">Или вставьте JSON</div>
-        <textarea v-model="pasteBody" class="compare-textarea mono" placeholder="{ … JSON:API документ … }" spellcheck="false"></textarea>
-        <div v-if="pasteError" class="compare-error">{{ pasteError }}</div>
-        <Button variant="primary" :disabled="!pasteBody.trim()" @click="comparePaste">Сравнить с этим JSON</Button>
-      </div>
-  </Dialog>
 </template>
 
 <style scoped>
@@ -472,7 +341,7 @@ function statusLabel(s: string): string {
 }
 
 .schema-head {
-  @apply flex-none flex items-center gap-2 py-2 px-3 border-b border-border bg-bg-panel;
+  @apply flex-none flex items-center gap-2 py-2 px-5 border-b border-border bg-bg-panel;
 }
 
 .schema-body {
@@ -482,10 +351,6 @@ function statusLabel(s: string): string {
 
 .export-item {
   @apply overflow-hidden text-ellipsis whitespace-nowrap;
-}
-
-.compare-empty {
-  @apply p-5 text-center text-text-tertiary text-[13px];
 }
 
 .summary {
@@ -651,128 +516,5 @@ function statusLabel(s: string): string {
 
 .instance.highlighted {
   @apply text-accent bg-accent-soft;
-}
-
-.diff-head {
-  @apply flex items-center justify-between mb-3;
-}
-
-.diff-title {
-  @apply text-[13px] font-semibold;
-}
-
-.diff-list {
-  @apply flex flex-col gap-2.5;
-}
-
-.diff-type {
-  @apply rounded-xl py-3 px-3.5;
-  background: var(--bg-panel);
-  border: 1px solid var(--border);
-}
-
-.diff-type-head {
-  @apply flex items-center gap-2 mb-1.5;
-}
-
-.diff-badge {
-  @apply text-[10px] font-semibold uppercase tracking-wide py-px px-[7px] rounded-full;
-}
-
-.diff-badge.added {
-  @apply text-green bg-green-soft;
-}
-
-.diff-badge.removed {
-  @apply text-red bg-red-soft;
-}
-
-.diff-badge.changed {
-  color: var(--orange);
-  background: color-mix(in srgb, var(--orange) 14%, transparent);
-}
-
-.diff-type-name {
-  @apply font-semibold text-[13px];
-}
-
-.diff-lines {
-  @apply flex flex-col gap-[3px] pl-2;
-}
-
-.diff-line {
-  @apply text-xs;
-  font-family: var(--mono);
-}
-
-.diff-line.added {
-  @apply text-green;
-}
-
-.diff-line.removed {
-  @apply text-red;
-}
-
-
-.compare-modal-head {
-  @apply flex items-center justify-between py-3 px-4 border-b border-border;
-}
-
-.compare-modal-title {
-  @apply text-sm font-semibold;
-}
-
-.compare-modal-body {
-  @apply flex-1 min-h-0 p-2 overflow-auto flex flex-col gap-0.5;
-}
-
-.compare-item {
-  @apply flex items-center gap-2.5 py-2 px-2.5 border-none rounded-lg bg-transparent cursor-pointer text-left;
-  font: inherit;
-  --wails-draggable: no-drag;
-}
-
-.compare-item:hover {
-  @apply bg-bg-hover;
-}
-
-.compare-method {
-  @apply text-[11px] font-semibold text-accent flex-none min-w-11;
-}
-
-.compare-url {
-  @apply flex-1 min-w-0 text-xs text-text overflow-hidden text-ellipsis whitespace-nowrap;
-}
-
-.compare-time {
-  @apply flex-none text-[11px] text-text-tertiary whitespace-nowrap;
-}
-
-.compare-search {
-  @apply py-2 px-3 border-b border-border;
-}
-
-.compare-paste {
-  @apply pt-2.5 px-3 pb-3 border-t border-border flex flex-col gap-1.5;
-}
-
-.compare-paste-label {
-  @apply text-xs text-text-secondary;
-}
-
-.compare-textarea {
-  @apply w-full min-h-16 resize-y py-1.5 px-2 rounded-md text-xs outline-none select-text;
-  border: 1px solid var(--border);
-  background: var(--bg-inset);
-  color: var(--text);
-}
-
-.compare-textarea:focus {
-  border-color: var(--accent);
-  box-shadow: 0 0 0 3px var(--accent-soft);
-}
-
-.compare-error {
-  @apply text-xs text-red;
 }
 </style>

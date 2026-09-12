@@ -4,7 +4,7 @@ import Icon from '../ui/Icon.vue'
 import RequestChipPopover from './RequestChipPopover.vue'
 import { Button } from '../ui/button'
 import { Popover, PopoverAnchor } from '../ui/popover'
-import VarToken from './VarToken.vue'
+import VarToken from '../ui/VarToken.vue'
 import {
   DropdownMenu,
   DropdownMenuTrigger,
@@ -18,10 +18,33 @@ import { usePlatform } from '../../composables/usePlatform'
 import { registerUrlField } from '../../composables/urlFocus'
 import { tokenSegments } from '../../lib/vars'
 import { normalizeHeaders } from '../../lib/headers'
+import { cookieHeaderValue } from '../../lib/cookies'
+import { parseRequestCommand, type ParseErrorReason } from '../../lib/parseRequest'
+import type { ExportFormat } from '../../lib/export'
+import { useToast } from '../../composables/useToast'
 
 const store = useRequestsStore()
 const { shortcut } = usePlatform()
 const envStore = useEnvironmentsStore()
+const toast = useToast()
+
+const FORMAT_LABELS: Record<ExportFormat, string> = {
+  curl: 'cURL',
+  fetch: 'fetch',
+  wget: 'wget',
+  httpie: 'HTTPie',
+  powershell: 'PowerShell',
+}
+
+const PARSE_ERROR_MESSAGES: Record<ParseErrorReason, string> = {
+  'no-url': 'в команде не нашлось ссылки',
+  'bad-quotes': 'не закрыта кавычка',
+  leftover: 'часть аргументов не разобралась — проверьте флаги команды',
+  'bad-fetch-init': 'не разобрался объект настроек fetch',
+  'unsupported-variable': 'значение задано переменной PowerShell — взять его негде',
+  'unsupported-field': 'поля HTTPie вроде `:=` и `@file` не поддерживаются',
+  'unsupported-multipart': 'загрузка файла (multipart) не поддерживается',
+}
 
 const sendShortcut = computed(() => shortcut('↵'))
 
@@ -61,26 +84,41 @@ function toggleChip(chip: 'params' | 'headers' | 'auth' | 'body') {
   store.setOpenChip(store.openChip === chip ? null : chip)
 }
 
+const displayedChip = ref<'params' | 'headers' | 'auth' | 'body' | null>(null)
+watch(
+  () => store.openChip,
+  (chip) => {
+    if (chip) displayedChip.value = chip
+  },
+  { immediate: true }
+)
+
 function resolvedHeaders(): Record<string, string> {
   const map: Record<string, string> = {}
   for (const h of store.draft.headers) {
     const name = envStore.substitute(h.name.trim())
     if (name && h.enabled) map[name] = envStore.substitute(h.value)
   }
+  const cookieHeader = cookieHeaderValue(
+    store.draft.cookies.map((c) => ({ ...c, name: envStore.substitute(c.name), value: envStore.substitute(c.value) }))
+  )
+  if (cookieHeader) map['Cookie'] = cookieHeader
   return map
 }
 
-// The masked shape the preview and exports read - a credential must never land in the record.
 function maskedHeaders(): Record<string, string> {
   const map: Record<string, string> = {}
   for (const h of store.draft.headers) {
     const name = envStore.maskSecrets(h.name.trim())
     if (name && h.enabled) map[name] = envStore.maskSecrets(h.value)
   }
+  const cookieHeader = cookieHeaderValue(
+    store.draft.cookies.map((c) => ({ ...c, name: envStore.maskSecrets(c.name), value: envStore.maskSecrets(c.value) }))
+  )
+  if (cookieHeader) map['Cookie'] = cookieHeader
   return map
 }
 
-// An unresolved `{{name}}` would go on the wire as braces and come back a confusing 404, so send is blocked.
 const missingVarNames = computed(() => store.missingVars)
 const sendBlocked = computed(() => missingVarNames.value.length > 0)
 
@@ -90,7 +128,6 @@ const sendBlockedReason = computed(() =>
     : undefined
 )
 
-// Opens the editor focused on the first new name; with no environment chosen there is nothing to create into.
 function createMissing() {
   const envId = envStore.activeId
   if (envId === null) return
@@ -104,7 +141,6 @@ async function send() {
   const requestHeaders = resolvedHeaders()
   const url = envStore.substitute(store.draft.url.trim())
   const body = envStore.substitute(store.draft.body)
-  // What the record keeps: resolved like the real request, but a secret stays masked.
   const recordUrl = envStore.maskSecrets(store.draft.url.trim())
   const recordBody = envStore.maskSecrets(store.draft.body)
   const recordHeaders = maskedHeaders()
@@ -128,6 +164,7 @@ async function send() {
       tlsMs: res.tlsMs,
       waitMs: res.waitMs,
       downloadMs: res.downloadMs,
+      requestCookies: store.draft.cookies.map((c) => ({ ...c })),
       source: 'manual',
     })
   } finally {
@@ -148,7 +185,6 @@ const urlDisplayRef = ref<HTMLElement | null>(null)
 const urlSegments = computed(() => tokenSegments(store.draft.url))
 const showUrlDisplay = computed(() => urlSegments.value.length > 0)
 
-// The layer above has to follow the input's scroll, or the two texts drift apart.
 function syncUrlScroll() {
   const input = urlInputRef.value
   const display = urlDisplayRef.value
@@ -160,6 +196,23 @@ function onWindowKeydown(e: KeyboardEvent) {
     e.preventDefault()
     send()
   }
+}
+
+function onUrlPaste(e: ClipboardEvent) {
+  const text = e.clipboardData?.getData('text/plain') ?? ''
+  const result = parseRequestCommand(text)
+  if (result.kind === 'none') return
+
+  e.preventDefault()
+  if (result.kind === 'error') {
+    toast.show(`Не удалось разобрать команду: ${PARSE_ERROR_MESSAGES[result.reason]}`, 'error')
+    return
+  }
+
+  store.loadDraft(result.request)
+  store.setOpenChip(null)
+  void nextTick(syncUrlScroll)
+  toast.show(`Распознан ${FORMAT_LABELS[result.format]}`)
 }
 
 onMounted(() => window.addEventListener('keydown', onWindowKeydown))
@@ -201,9 +254,9 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onWindowKeydown))
             spellcheck="false"
             @input="store.setUrl(($event.target as HTMLInputElement).value); syncUrlScroll()"
             @keydown.enter="send"
+            @paste="onUrlPaste"
             @scroll="syncUrlScroll"
           />
-          <!-- Decorative: the input above holds the real value and is the only editable control. -->
           <div v-if="showUrlDisplay" ref="urlDisplayRef" class="url-display mono" aria-hidden="true">
             <template v-for="(seg, i) in urlSegments" :key="i">
               <VarToken v-if="seg.tokenName" :name="seg.tokenName" :offset="seg.start" />
@@ -230,9 +283,13 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onWindowKeydown))
               Тело
             </button>
           </PopoverAnchor>
-          <RequestChipPopover v-if="store.openChip" :chip="store.openChip" />
+          <RequestChipPopover v-if="displayedChip" :chip="displayedChip" />
         </Popover>
       </div>
+
+      <button class="bookmark-btn" disabled title="Сохранение в коллекцию — скоро">
+        <Icon name="bookmark" :size="14" />
+      </button>
 
       <Button
         variant="primary"
@@ -287,7 +344,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onWindowKeydown))
 }
 
 .request-bar {
-  @apply relative flex items-center gap-2 h-14 py-3 px-4;
+  @apply relative flex items-center gap-2 h-12 py-3 px-4;
 }
 
 .url-field {
@@ -337,7 +394,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onWindowKeydown))
 }
 
 .url-input {
-  @apply flex-1 min-w-0 bg-transparent border-0 outline-none px-2 text-[12.5px];
+  @apply flex-1 min-w-0 bg-transparent border-0 outline-none px-2 text-[13px];
   font-family: var(--mono);
   color: var(--text);
 }
@@ -348,7 +405,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onWindowKeydown))
 }
 
 .url-display {
-  @apply absolute inset-0 flex items-center overflow-hidden px-2 text-[12.5px] pointer-events-none;
+  @apply absolute inset-0 flex items-center overflow-hidden px-2 text-[13px] pointer-events-none;
   font-family: var(--mono);
   white-space: pre;
   color: var(--text);
@@ -400,6 +457,20 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onWindowKeydown))
 }
 
 .chip-body:disabled {
+  @apply opacity-50 cursor-default;
+}
+
+.bookmark-btn {
+  @apply flex-none w-8 h-8 rounded-lg flex items-center justify-center text-accent bg-bg-panel cursor-pointer;
+  border: 1px solid var(--border-strong);
+  --wails-draggable: no-drag;
+}
+
+.bookmark-btn:hover:not(:disabled) {
+  background: var(--accent-soft);
+}
+
+.bookmark-btn:disabled {
   @apply opacity-50 cursor-default;
 }
 

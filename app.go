@@ -38,6 +38,8 @@ type App struct {
 	// need reopening — and markReady plays them back.
 	pendingTab    int
 	pendingUpdate *update.Info
+	// A check requested for the About window before it existed; taken by TakeUpdateCheckRequest.
+	pendingUpdateCheck bool
 }
 
 func (a *App) setBridge(s *bridge.Server) {
@@ -140,6 +142,11 @@ func (a *App) Version() string {
 	return update.CurrentVersion
 }
 
+// Build is the CI run number, empty for local builds.
+func (a *App) Build() string {
+	return update.CurrentBuild
+}
+
 func (a *App) Name() string {
 	return appName
 }
@@ -183,29 +190,63 @@ func tabFromURL(rawURL string) (int, bool) {
 	return id, true
 }
 
+// The update UI lives in the About window (design section 07), so these three are what the
+// main window's check item and the native menu use to hand the work over to it.
+
+// RequestUpdateCheck reuses or opens the About window and asks it to run a check. The request
+// is parked as well as sent, because only the About window listens for it here — and a window
+// that is being created right now has no listeners yet. It picks the parked request up on mount.
+//
+// The flag is cleared by TakeUpdateCheckRequest alone, never here: that is what makes the two
+// paths deliver exactly one check between them, however they interleave.
+func (a *App) RequestUpdateCheck() {
+	a.mu.Lock()
+	a.pendingUpdateCheck = true
+	a.mu.Unlock()
+
+	// Events go to every window in this version of Wails; nothing but the About window listens.
+	if a.app != nil {
+		a.app.Event.Emit("update-check")
+	}
+	a.ShowAbout()
+}
+
+// TakeUpdateCheckRequest reports and clears a request parked by RequestUpdateCheck. Destructive
+// on purpose: it is called from both the mount and the event handler, and only the first caller
+// may act on it, or an old request would fire a check the next time the window opens.
+func (a *App) TakeUpdateCheckRequest() bool {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	pending := a.pendingUpdateCheck
+	a.pendingUpdateCheck = false
+	return pending
+}
+
+// CheckForUpdates answers the About window's own check. A release it finds is also announced to
+// the main window, so the status bar's link appears without waiting for the next launch — the
+// one place a manual check and the startup check have to agree.
 func (a *App) CheckForUpdates() (*update.Info, error) {
 	u, err := update.Check()
 	if err != nil {
 		return nil, err
 	}
+	if u.Available {
+		a.announceUpdate(&u)
+	}
 	return &u, nil
+}
+
+// UpdateStatus is what the last check saw, without touching the network.
+func (a *App) UpdateStatus() (*update.Info, error) {
+	s, err := update.Status()
+	if err != nil {
+		return nil, err
+	}
+	return &s, nil
 }
 
 func (a *App) UpdateNow(version string) error {
 	return update.Install(version)
-}
-
-func (a *App) checkForUpdatesFromMenu() {
-	u, err := update.Check()
-	if err != nil {
-		a.emit("update-error", err.Error())
-		return
-	}
-	if u.Available {
-		a.emit("update-available", &u)
-	} else {
-		a.emit("update-up-to-date", &u)
-	}
 }
 
 // Response is what a request comes back as: the body plus the per-phase timings.

@@ -10,14 +10,9 @@ import {
   type JsonApiDocument,
 } from '../../lib/jsonapi'
 import { tryParseJson } from '../../lib/json'
-import { formatBytes } from '../../lib/format'
+import { formatBytes, formatVersion } from '../../lib/format'
 import { useEnvironmentsStore } from '../../stores/environments'
-
-interface UpdateInfo {
-  available: boolean
-  current: string
-  latest: string
-}
+import type { UpdateInfo } from '../../composables/useUpdates'
 
 const props = defineProps<{ updateInfo: UpdateInfo | null }>()
 const emit = defineEmits<{ (e: 'open-update'): void }>()
@@ -131,7 +126,7 @@ const captureDotClass = computed(() => {
     <span class="spacer"></span>
 
     <button v-if="updateInfo" class="update-link" @click="emit('open-update')">
-      Доступна версия {{ updateInfo.latest }}
+      Доступна версия {{ formatVersion(updateInfo.latest) }}
     </button>
 
     <span v-if="summary" class="summary">{{ summary }}</span>
@@ -142,7 +137,7 @@ const captureDotClass = computed(() => {
 @reference "../../style.css";
 
 .status-bar {
-  @apply flex-none flex items-center gap-2.5 h-7 px-3.5 text-[11.5px];
+  @apply flex-none flex items-center gap-2.5 h-7 px-3.5 text-xs;
   border-top: 1px solid var(--border);
   background: var(--bg-sidebar);
   color: var(--text-secondary);
@@ -181,7 +176,7 @@ const captureDotClass = computed(() => {
 }
 
 .update-link {
-  @apply text-accent bg-transparent border-none cursor-pointer p-0 text-[11.5px];
+  @apply text-accent bg-transparent border-none cursor-pointer p-0 text-xs;
   font: inherit;
 }
 

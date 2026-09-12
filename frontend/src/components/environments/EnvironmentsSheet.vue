@@ -69,11 +69,11 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
 }
 
 .sheet-title {
-  @apply text-[13px] font-semibold;
+  @apply text-sm font-semibold;
 }
 
 .sheet-hint {
-  @apply flex-1 text-[10.5px] text-text-tertiary;
+  @apply flex-1 text-xs text-text-tertiary;
 }
 
 

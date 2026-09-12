@@ -3,7 +3,7 @@ import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import Icon from '../ui/Icon.vue'
 import { Button, IconButton } from '../ui/button'
 import { Input } from '../ui/input'
-import { Popover, PopoverTrigger, PopoverContent } from '../ui/popover'
+import { Popover, PopoverTrigger, PopoverContent, PopoverClose } from '../ui/popover'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '../ui/tabs'
 import {
   DropdownMenu,
@@ -20,7 +20,7 @@ import JsonApiTree from '../json/JsonApiTree.vue'
 import TextViewerTab from './TextViewerTab.vue'
 import SchemaMap from '../json/SchemaMap.vue'
 import NodeInspector from '../json/NodeInspector.vue'
-import CookiesTab from './CookiesTab.vue'
+import RequestCookiesTab from './RequestCookiesTab.vue'
 import TimingsTab from './TimingsTab.vue'
 import TestsTab from './TestsTab.vue'
 import { App as Backend } from '../../../bindings/json-inspector'
@@ -40,6 +40,17 @@ const envStore = useEnvironmentsStore()
 
 type Tab = 'body' | 'map' | 'raw' | 'headers' | 'cookies' | 'timings' | 'tests' | 'request'
 const activeTab = ref<Tab>('body')
+
+const TAB_LABELS: Record<Tab, string> = {
+  body: 'Тело',
+  map: 'Карта',
+  raw: 'Raw',
+  headers: 'Заголовки',
+  cookies: 'Cookies',
+  timings: 'Тайминги',
+  tests: 'Тесты',
+  request: 'Запрос',
+}
 
 const parsed = computed(() => tryParseJson(props.record.responseBody))
 const isJson = computed(() => parsed.value.ok)
@@ -86,21 +97,29 @@ function closeBodySearch() {
 
 const highlightKey = ref<string | null>(null)
 
+// The active tab is deliberately NOT reset here — switching between history entries (both
+// panels share this component) should keep whichever tab you were reading. It only snaps
+// back to "Тело" when the new record doesn't have the tab at all, checked against
+// `availableTabs` rather than naming tabs here — otherwise a new conditional tab would need
+// this list updated too, and it's easy to forget.
 watch(
   () => props.record.id,
   () => {
-    activeTab.value = 'body'
     highlightKey.value = null
-  },
-  { immediate: true }
+    if (!availableTabs.value.includes(activeTab.value)) {
+      activeTab.value = 'body'
+    }
+  }
 )
 
 function highlightResource(key: string) {
   highlightKey.value = key
 }
 
+// Every click in the tree (even just expanding a node) fires this — it only updates what the
+// panel would show, never opens it. Opening is manual: the button or ⌥I, via `toggleInspector`.
 function inspectNode(path: string) {
-  store.setInspector({ path, open: true })
+  store.setInspector({ path })
 }
 
 function toggleInspector() {
@@ -159,21 +178,41 @@ function hostPath(url: string): string {
   }
 }
 
+// Values with commas are list-style JSON:API params (include, fields[type]) — chipped one
+// item at a time rather than read as one long string.
 const urlQueryParams = computed(() => {
-  const out: { name: string; value: string }[] = []
+  const out: { name: string; values: string[] }[] = []
   try {
     const u = new URL(props.record.url)
-    u.searchParams.forEach((value, name) => out.push({ name, value }))
+    u.searchParams.forEach((value, name) => out.push({ name, values: value.split(',') }))
   } catch {
     // invalid URL — no params to show
   }
   return out
 })
 
+function paramValueClass(v: string): string {
+  return /^-?\d+(\.\d+)?$/.test(v.trim()) ? 'num' : 'str'
+}
 
-const hasCookies = computed(() =>
-  Object.keys(props.record.responseHeaders ?? {}).some((k) => k.toLowerCase() === 'set-cookie')
-)
+
+// The one place that decides which tabs exist for this record — drives both the tab bar and
+// the fallback below, so a tab added here doesn't also need a separate check somewhere else.
+const availableTabs = computed<Tab[]>(() => {
+  const tabs: Tab[] = ['body']
+  if (isJsonApiDoc.value) tabs.push('map')
+  tabs.push('raw', 'headers')
+  // "Cookies" is the request's own cookie jar, which only a manual send has — a captured
+  // response can't show its cookies at all (Set-Cookie is a forbidden header for fetch/XHR,
+  // and the browser-side workaround wasn't worth its cost), so the tab would always be empty.
+  if (props.record.source === 'manual') tabs.push('cookies')
+  tabs.push('timings')
+  if (isJsonApiDoc.value) tabs.push('tests')
+  // A manual record's request is the one already open in the command line above this viewer —
+  // the tab would only repeat it. A captured one has no command line, so there it stays.
+  if (props.record.source === 'browser') tabs.push('request')
+  return tabs
+})
 
 const responseHeaderEntries = computed(() => Object.entries(props.record.responseHeaders ?? {}))
 const requestHeaderEntries = computed(() => Object.entries(props.record.requestHeaders ?? {}))
@@ -222,6 +261,15 @@ async function copyHeaders() {
   if (await copyToClipboard(text)) {
     headersCopied.value = true
     setTimeout(() => (headersCopied.value = false), 1500)
+  }
+}
+
+const urlCopied = ref(false)
+
+async function copyUrl() {
+  if (await copyToClipboard(props.record.url)) {
+    urlCopied.value = true
+    setTimeout(() => (urlCopied.value = false), 1500)
   }
 }
 
@@ -274,20 +322,7 @@ async function copyAs(format: ExportFormat, { keepTokens = false } = {}) {
       <span class="badge" :class="statusBadgeClass(record.status)">{{ record.status }}</span>
 
       <!-- URL only for captured requests: a manual one already sits in the command line. -->
-      <template v-if="record.source === 'browser'">
-        <span class="resp-url mono" :title="record.url">{{ hostPath(record.url) }}</span>
-        <Popover v-if="urlQueryParams.length">
-          <PopoverTrigger as-child>
-            <Button size="sm">Параметры {{ urlQueryParams.length }}</Button>
-          </PopoverTrigger>
-          <PopoverContent class="params-menu">
-            <div v-for="p in urlQueryParams" :key="p.name" class="params-item">
-              <span class="params-name mono">{{ p.name }}</span>
-              <span class="params-value mono">{{ p.value }}</span>
-            </div>
-          </PopoverContent>
-        </Popover>
-      </template>
+      <span v-if="record.source === 'browser'" class="resp-url mono" :title="record.url">{{ hostPath(record.url) }}</span>
       <template v-else>
         <span class="divider"></span>
         <span class="resp-meta">{{ formatDuration(record.durationMs) }}</span>
@@ -299,11 +334,44 @@ async function copyAs(format: ExportFormat, { keepTokens = false } = {}) {
 
       <span class="resp-spacer"></span>
 
-      <!-- The handoff keeps "742 мс · 35,1 КБ" here, so duration/size must not
-           vanish when a captured URL has query params. -->
-      <span v-if="record.source === 'browser'" class="resp-meta">
-        {{ formatDuration(record.durationMs) }} · {{ formatBytes(bodySize) }}
-      </span>
+      <!-- Params kept off the URL's own row so a long link keeps the full width up to here. -->
+      <template v-if="record.source === 'browser'">
+        <IconButton hint="Копировать ссылку" size="sm" @click="copyUrl">
+          <Icon :name="urlCopied ? 'check' : 'link'" :size="14" />
+        </IconButton>
+        <Popover v-if="urlQueryParams.length">
+          <PopoverTrigger as-child>
+            <Button size="sm">Параметры {{ urlQueryParams.length }}</Button>
+          </PopoverTrigger>
+          <PopoverContent class="params-menu" align="end">
+            <div class="params-head">
+              <span class="params-title">Параметры запроса</span>
+              <span class="params-count mono">{{ urlQueryParams.length }}</span>
+              <span class="params-spacer"></span>
+              <span class="params-readonly">только чтение</span>
+              <PopoverClose as-child>
+                <IconButton hint="Закрыть" size="sm"><Icon name="xmark" :size="13" /></IconButton>
+              </PopoverClose>
+            </div>
+
+            <div class="params-grid">
+              <template v-for="p in urlQueryParams" :key="p.name">
+                <div class="params-name-cell">
+                  <span class="params-name mono">{{ p.name }}</span>
+                  <span v-if="p.values.length > 1" class="params-item-count mono">{{ p.values.length }}</span>
+                </div>
+                <div v-if="p.values.length > 1" class="params-chips">
+                  <span v-for="(v, i) in p.values" :key="i" class="params-chip mono">{{ v }}</span>
+                </div>
+                <div v-else class="params-value mono" :class="paramValueClass(p.values[0])">{{ p.values[0] }}</div>
+              </template>
+            </div>
+          </PopoverContent>
+        </Popover>
+        <!-- The handoff keeps "742 мс · 35,1 КБ" here, so duration/size must not
+             vanish when a captured URL has query params. -->
+        <span class="resp-meta">{{ formatDuration(record.durationMs) }} · {{ formatBytes(bodySize) }}</span>
+      </template>
 
       <Button size="sm" disabled title="Сравнение ответов — скоро">Сравнить</Button>
       <DropdownMenu>
@@ -322,21 +390,13 @@ async function copyAs(format: ExportFormat, { keepTokens = false } = {}) {
           <DropdownMenuItem @select="copyAs('curl', { keepTokens: true })">cURL с токенами</DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
-      <Button size="sm" title="Инспектор узла (⌥I)" @click="toggleInspector">Инспектор <kbd class="keycap">⌥I</kbd></Button>
     </div>
 
     <div v-if="record.error" class="resp-error">Ошибка: {{ record.error }}</div>
 
     <Tabs v-model="activeTab" class="resp-tabs">
       <TabsList>
-        <TabsTrigger value="body">Тело</TabsTrigger>
-        <TabsTrigger v-if="isJsonApiDoc" value="map">Карта</TabsTrigger>
-        <TabsTrigger value="raw">Raw</TabsTrigger>
-        <TabsTrigger value="headers">Заголовки</TabsTrigger>
-        <TabsTrigger v-if="hasCookies" value="cookies">Cookies</TabsTrigger>
-        <TabsTrigger value="timings">Тайминги</TabsTrigger>
-        <TabsTrigger v-if="isJsonApiDoc" value="tests">Тесты</TabsTrigger>
-        <TabsTrigger value="request">Запрос</TabsTrigger>
+        <TabsTrigger v-for="tab in availableTabs" :key="tab" :value="tab">{{ TAB_LABELS[tab] }}</TabsTrigger>
       </TabsList>
 
     <div class="resp-main">
@@ -367,6 +427,7 @@ async function copyAs(format: ExportFormat, { keepTokens = false } = {}) {
             <span class="head-spacer"></span>
             <Button v-if="record.source === 'browser'" size="sm" class="open-in-request" @click="openInRequest">Открыть в «Запросе»</Button>
             <Button size="sm" @click="copyBody"><Icon v-if="bodyCopied" name="check" :size="12" /><span>{{ bodyCopied ? 'Скопировано' : 'Копировать' }}</span></Button>
+            <Button size="sm" title="Инспектор узла (⌥I)" @click="toggleInspector">Инспектор <kbd class="keycap">⌥I</kbd></Button>
             <Button size="sm" @click="openBodySearch"><span>Поиск</span><kbd class="keycap">{{ searchShortcut }}</kbd></Button>
           </template>
         </div>
@@ -399,7 +460,7 @@ async function copyAs(format: ExportFormat, { keepTokens = false } = {}) {
         <div class="toolbar">
           <Button size="sm" @click="copyHeaders"><Icon v-if="headersCopied" name="check" :size="12" /><span>{{ headersCopied ? 'Скопировано' : 'Копировать' }}</span></Button>
         </div>
-        <div class="resp-content">
+        <div class="resp-content resp-pad resp-white">
           <table class="kv-table">
             <tbody>
               <tr v-for="[k, v] in responseHeaderEntries" :key="k">
@@ -407,7 +468,7 @@ async function copyAs(format: ExportFormat, { keepTokens = false } = {}) {
                 <td class="kv-val mono">{{ v }}</td>
               </tr>
               <tr v-if="responseHeaderEntries.length === 0">
-                <td class="kv-key">Нет заголовков ответа</td>
+                <td class="kv-key" colspan="2">Нет заголовков ответа</td>
               </tr>
             </tbody>
           </table>
@@ -416,7 +477,7 @@ async function copyAs(format: ExportFormat, { keepTokens = false } = {}) {
 
       <TabsContent class="resp-tab" value="cookies">
         <div class="resp-content">
-          <CookiesTab :headers="record.responseHeaders" />
+          <RequestCookiesTab />
         </div>
       </TabsContent>
 
@@ -428,15 +489,15 @@ async function copyAs(format: ExportFormat, { keepTokens = false } = {}) {
 
       <TabsContent class="resp-tab" value="tests">
         <div class="resp-content">
-          <TestsTab v-if="doc" :doc="doc" />
+          <TestsTab />
         </div>
       </TabsContent>
 
       <TabsContent class="resp-tab" value="request">
         <div class="toolbar">
-          <span class="request-caption">Показаны после подстановки переменных окружения</span>
+          <span class="request-caption">Данные показаны после подстановки переменных окружения</span>
         </div>
-        <div class="resp-content resp-pad">
+        <div class="resp-content resp-pad resp-white">
           <div class="kv-row"><span class="kv-label">Метод</span><span class="mono">{{ record.method }}</span></div>
           <div class="kv-row"><span class="kv-label">URL</span><span class="mono break">{{ record.url }}</span></div>
           <div class="ja-section-title" style="padding-left: 0">Заголовки запроса</div>
@@ -446,7 +507,7 @@ async function copyAs(format: ExportFormat, { keepTokens = false } = {}) {
                 <td class="kv-key mono">{{ k }}</td>
                 <td class="kv-val mono">{{ v }}</td>
               </tr>
-              <tr v-if="requestHeaderEntries.length === 0"><td class="kv-key">—</td></tr>
+              <tr v-if="requestHeaderEntries.length === 0"><td class="kv-key" colspan="2">—</td></tr>
             </tbody>
           </table>
           <div v-if="record.requestBody" class="ja-section-title" style="padding-left: 0">Тело запроса</div>
@@ -471,7 +532,7 @@ async function copyAs(format: ExportFormat, { keepTokens = false } = {}) {
 }
 
 .resp-url {
-  @apply flex-1 min-w-0 overflow-hidden text-ellipsis whitespace-nowrap text-text-secondary text-xs;
+  @apply flex-1 min-w-0 overflow-hidden text-ellipsis whitespace-nowrap text-text-secondary text-[13px];
 }
 
 .resp-meta {
@@ -487,7 +548,7 @@ async function copyAs(format: ExportFormat, { keepTokens = false } = {}) {
 }
 
 .request-caption {
-  @apply mr-auto text-[11.5px] text-text-tertiary;
+  @apply mr-auto text-xs text-text-tertiary;
 }
 
 .resp-error {
@@ -513,19 +574,30 @@ async function copyAs(format: ExportFormat, { keepTokens = false } = {}) {
 }
 
 .resp-pad {
-  @apply py-3 px-4 m-0;
+  @apply py-3 px-5 m-0;
+}
+
+/* The handoff's "table" tabs (Raw, Headers, Cookies, Timings, Tests, Request) sit on a solid
+   panel; Body/Map keep the gray canvas underneath their own white cards, so this is opt-in
+   per tab rather than a default on `.resp-content`. */
+.resp-white {
+  @apply bg-bg-panel;
 }
 
 .kv-table {
-  @apply border-collapse w-full text-xs;
+  @apply border-collapse w-full;
+  font-size: 11.5px;
 }
 
 .kv-key {
-  @apply text-text-secondary py-1 px-4 align-top whitespace-nowrap;
+  @apply text-text-secondary align-top whitespace-nowrap border-b border-border;
+  width: 220px;
+  padding: 5px 12px 5px 0;
 }
 
 .kv-val {
-  @apply text-text break-all select-text py-1 px-0;
+  @apply text-text break-all select-text align-top border-b border-border;
+  padding: 5px 0;
 }
 
 .kv-row {
@@ -541,18 +613,66 @@ async function copyAs(format: ExportFormat, { keepTokens = false } = {}) {
 }
 
 
-.params-item {
-  @apply flex gap-2 py-1 px-2;
+.params-head {
+  @apply flex items-center gap-2 px-1 pb-2;
+}
+
+.params-title {
+  @apply text-xs font-semibold;
+}
+
+.params-count,
+.params-readonly {
+  @apply text-[11px] text-text-tertiary;
+}
+
+.params-spacer {
+  @apply flex-1;
+}
+
+.params-grid {
+  @apply grid items-start;
+  grid-template-columns: 148px minmax(0, 1fr);
+  gap: 0 10px;
+}
+
+.params-name-cell,
+.params-grid > .params-chips,
+.params-grid > .params-value {
+  @apply py-2 px-1 border-t border-border;
+}
+
+.params-name-cell {
+  @apply flex items-baseline gap-1.5;
 }
 
 .params-name {
-  @apply flex-none min-w-[110px] text-[11.5px] text-text-secondary;
-  font-family: var(--mono);
+  @apply text-xs text-text;
+}
+
+.params-item-count {
+  @apply text-xs text-text-tertiary;
+}
+
+.params-chips {
+  @apply flex flex-wrap gap-1;
+}
+
+.params-chip {
+  @apply text-[11px] text-accent py-0.5 px-1.5 rounded-sm;
+  background: var(--accent-soft);
 }
 
 .params-value {
-  @apply flex-1 min-w-0 text-[11.5px] text-text overflow-hidden text-ellipsis whitespace-nowrap;
-  font-family: var(--mono);
+  @apply text-xs text-text break-all;
+}
+
+.params-value.num {
+  @apply text-tok-num;
+}
+
+.params-value.str {
+  @apply text-tok-str;
 }
 
 /* Names .btn to outrank the colour the primitive sets on its own root. */

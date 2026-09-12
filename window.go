@@ -9,7 +9,23 @@ const (
 
 	windowMain  = "main"
 	windowAbout = "about"
+
+	// The About panel is sized to its content (design section 07): 336 wide, fixed. Both
+	// heights are measured from About.vue — the design's stack plus the chrome above it, which
+	// differs per platform. Re-measure if the layout changes.
+	aboutWidth          = 336
+	aboutHeightBarred   = 449 // our own 52px bar above the body
+	aboutHeightInset    = 425 // macOS: the body's own top padding stands in for the title bar
+	aboutTitleBarHeight = 50
 )
+
+// aboutHeight is the panel's height on this platform.
+func aboutHeight() int {
+	if useCustomTitlebar() {
+		return aboutHeightBarred
+	}
+	return aboutHeightInset
+}
 
 // singleInstanceKey encrypts the handoff between instances and never leaves the
 // machine; the [32]byte conversion makes any length other than 32 a compile error.
@@ -22,7 +38,7 @@ func (a *App) ShowAbout() {
 	}
 	// A closed window leaves the manager, so look it up by name — a cached
 	// pointer would stack a second window instead of focusing the existing one.
-	if w, ok := a.app.Window.GetByName(windowAbout); ok {
+	if w, ok := a.aboutWindow(); ok {
 		bringToFront(w)
 		return
 	}
@@ -30,10 +46,10 @@ func (a *App) ShowAbout() {
 	a.app.Window.NewWithOptions(application.WebviewWindowOptions{
 		Name:      windowAbout,
 		Title:     "О программе",
-		Width:     460,
-		Height:    560,
-		MinWidth:  460,
-		MinHeight: 560,
+		Width:     aboutWidth,
+		Height:    aboutHeight(),
+		MinWidth:  aboutWidth,
+		MinHeight: aboutHeight(),
 		// This flag disables resizing; v3 inverted it from v2's Resizable.
 		DisableResize:    true,
 		Frameless:        useCustomTitlebar(),
@@ -41,9 +57,18 @@ func (a *App) ShowAbout() {
 		URL:              "/about.html",
 		Mac: application.MacWindow{
 			TitleBar:                application.MacTitleBarHiddenInset,
-			InvisibleTitleBarHeight: 50,
+			InvisibleTitleBarHeight: aboutTitleBarHeight,
 		},
 	})
+}
+
+// aboutWindow is the open About window, if there is one — looked up by name every time, since
+// the user can close it and a stored handle would then point at a destroyed window.
+func (a *App) aboutWindow() (application.Window, bool) {
+	if a.app == nil {
+		return nil, false
+	}
+	return a.app.Window.GetByName(windowAbout)
 }
 
 func bringToFront(w application.Window) {

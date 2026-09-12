@@ -29,6 +29,7 @@ defineOptions({ inheritAttrs: false })
   border-radius: 3px;
   border: 1px solid var(--border-strong);
   background: var(--bg-panel);
+  transition: background-color 0.15s ease, border-color 0.15s ease;
 }
 
 .check[data-state='checked'] {

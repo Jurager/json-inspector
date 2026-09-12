@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import Icon from '../ui/Icon.vue'
-import VarToken from './VarToken.vue'
+import VarToken from '../ui/VarToken.vue'
 import { PopoverContent } from '../ui/popover'
 import { Button, IconButton } from '../ui/button'
 import { Checkbox } from '../ui/checkbox'
@@ -40,6 +40,18 @@ function dismiss() {
   store.setOpenChip(null)
 }
 
+// A chip button sits outside the popover's own content, so clicking it — even the one already
+// open, to toggle it shut — reaches reka-ui as an outside interaction (both the pointerdown and,
+// since a button click also moves focus onto it, the focus that follows) and closes the popover
+// on its own; the button's own `click` handler then runs against that now-closed state and
+// reopens it. Left alone this reads as "clicking the open chip does nothing" or "reopens instead
+// of closing". `interactOutside` covers both paths, so suppressing it for chip clicks hands the
+// whole open/close decision to `toggleChip`.
+function onInteractOutside(e: Event) {
+  const target = (e as CustomEvent<{ originalEvent?: Event }>).detail?.originalEvent?.target
+  if (target instanceof HTMLElement && target.closest('.chip')) e.preventDefault()
+}
+
 // Same as the URL field: the input stays the editable control and a transparent layer paints tokens above it.
 function hasTokens(value: string): boolean {
   return parseTokens(value).length > 0
@@ -64,6 +76,7 @@ function valueClass(v: string): string {
     :class="{ auth: props.chip === 'auth', spaced: props.chip === 'auth' || props.chip === 'body' }"
     align="end"
     :side-offset="6"
+    @interact-outside="onInteractOutside"
   >
     <div class="popover-head">
       <span class="popover-title">{{ title }}</span>
@@ -72,33 +85,35 @@ function valueClass(v: string): string {
 
     <template v-if="props.chip === 'params' || props.chip === 'headers'">
       <template v-if="props.chip === 'params'">
-        <div v-for="(p, i) in store.draft.params" :key="i" class="row" :class="{ off: !p.enabled }">
-          <Checkbox :model-value="p.enabled" @update:model-value="store.toggleParam(i)" @click.stop />
-          <input :value="p.name" class="row-input mono" placeholder="имя" spellcheck="false" @input="store.updateParam(i, { name: ($event.target as HTMLInputElement).value })" />
-          <div class="row-cell">
-            <input
-              :value="p.value"
-              class="row-input mono"
-              :class="[valueClass(p.value), { 'row-input-veiled': hasTokens(p.value) }]"
-              placeholder="значение"
-              spellcheck="false"
-              @input="store.updateParam(i, { value: ($event.target as HTMLInputElement).value }); syncCellScroll($event)"
-              @scroll="syncCellScroll"
-            />
-            <span
-              v-if="hasTokens(p.value)"
-              class="row-input row-display mono"
-              :class="valueClass(p.value)"
-              aria-hidden="true"
-            >
-              <template v-for="(seg, si) in tokenSegments(p.value)" :key="si">
-                <VarToken v-if="seg.tokenName" :name="seg.tokenName" :offset="seg.start" />
-                <span v-else>{{ seg.text }}</span>
-              </template>
-            </span>
+        <TransitionGroup tag="div" name="row" class="rows">
+          <div v-for="(p, i) in store.draft.params" :key="i" class="row" :class="{ off: !p.enabled }">
+            <Checkbox :model-value="p.enabled" @update:model-value="store.toggleParam(i)" @click.stop />
+            <input :value="p.name" class="row-input mono" placeholder="имя" spellcheck="false" @input="store.updateParam(i, { name: ($event.target as HTMLInputElement).value })" />
+            <div class="row-cell">
+              <input
+                :value="p.value"
+                class="row-input mono"
+                :class="[valueClass(p.value), { 'row-input-veiled': hasTokens(p.value) }]"
+                placeholder="значение"
+                spellcheck="false"
+                @input="store.updateParam(i, { value: ($event.target as HTMLInputElement).value }); syncCellScroll($event)"
+                @scroll="syncCellScroll"
+              />
+              <span
+                v-if="hasTokens(p.value)"
+                class="row-input row-display mono"
+                :class="valueClass(p.value)"
+                aria-hidden="true"
+              >
+                <template v-for="(seg, si) in tokenSegments(p.value)" :key="si">
+                  <VarToken v-if="seg.tokenName" :name="seg.tokenName" :offset="seg.start" />
+                  <span v-else>{{ seg.text }}</span>
+                </template>
+              </span>
+            </div>
+            <IconButton variant="danger" size="sm" hint="Удалить" @click.stop="store.removeParam(i)"><Icon name="xmark" :size="12" /></IconButton>
           </div>
-          <IconButton variant="danger" size="sm" hint="Удалить" @click.stop="store.removeParam(i)"><Icon name="xmark" :size="12" /></IconButton>
-        </div>
+        </TransitionGroup>
         <div class="popover-foot">
           <Button variant="ghost" size="sm" @click="store.addParam()">+ Параметр</Button>
           <span class="foot-hint">Выключенные не уходят в запрос</span>
@@ -106,33 +121,35 @@ function valueClass(v: string): string {
       </template>
 
       <template v-else>
-        <div v-for="(h, i) in store.draft.headers" :key="i" class="row" :class="{ off: !h.enabled }">
-          <Checkbox :model-value="h.enabled" @update:model-value="store.toggleHeader(i)" @click.stop />
-          <input :value="h.name" class="row-input mono" placeholder="Header" spellcheck="false" @input="store.updateHeader(i, { name: ($event.target as HTMLInputElement).value })" />
-          <div class="row-cell">
-            <input
-              :value="h.value"
-              class="row-input mono"
-              :class="[valueClass(h.value), { 'row-input-veiled': hasTokens(h.value) }]"
-              placeholder="Value"
-              spellcheck="false"
-              @input="store.updateHeader(i, { value: ($event.target as HTMLInputElement).value }); syncCellScroll($event)"
-              @scroll="syncCellScroll"
-            />
-            <span
-              v-if="hasTokens(h.value)"
-              class="row-input row-display mono"
-              :class="valueClass(h.value)"
-              aria-hidden="true"
-            >
-              <template v-for="(seg, si) in tokenSegments(h.value)" :key="si">
-                <VarToken v-if="seg.tokenName" :name="seg.tokenName" :offset="seg.start" />
-                <span v-else>{{ seg.text }}</span>
-              </template>
-            </span>
+        <TransitionGroup tag="div" name="row" class="rows">
+          <div v-for="(h, i) in store.draft.headers" :key="i" class="row" :class="{ off: !h.enabled }">
+            <Checkbox :model-value="h.enabled" @update:model-value="store.toggleHeader(i)" @click.stop />
+            <input :value="h.name" class="row-input mono" placeholder="Header" spellcheck="false" @input="store.updateHeader(i, { name: ($event.target as HTMLInputElement).value })" />
+            <div class="row-cell">
+              <input
+                :value="h.value"
+                class="row-input mono"
+                :class="[valueClass(h.value), { 'row-input-veiled': hasTokens(h.value) }]"
+                placeholder="Value"
+                spellcheck="false"
+                @input="store.updateHeader(i, { value: ($event.target as HTMLInputElement).value }); syncCellScroll($event)"
+                @scroll="syncCellScroll"
+              />
+              <span
+                v-if="hasTokens(h.value)"
+                class="row-input row-display mono"
+                :class="valueClass(h.value)"
+                aria-hidden="true"
+              >
+                <template v-for="(seg, si) in tokenSegments(h.value)" :key="si">
+                  <VarToken v-if="seg.tokenName" :name="seg.tokenName" :offset="seg.start" />
+                  <span v-else>{{ seg.text }}</span>
+                </template>
+              </span>
+            </div>
+            <IconButton variant="danger" size="sm" hint="Удалить" @click.stop="store.removeHeader(i)"><Icon name="xmark" :size="12" /></IconButton>
           </div>
-          <IconButton variant="danger" size="sm" hint="Удалить" @click.stop="store.removeHeader(i)"><Icon name="xmark" :size="12" /></IconButton>
-        </div>
+        </TransitionGroup>
         <div class="popover-foot">
           <Button variant="ghost" size="sm" @click="store.addHeader()">+ Заголовок</Button>
           <span class="foot-hint">Accept подставлен по умолчанию</span>
@@ -203,8 +220,28 @@ function valueClass(v: string): string {
   @apply opacity-55;
 }
 
+/* Keyed by index, not identity — rows have none (`updateParam`/`updateHeader` replace the object
+   on every keystroke) — so removing one above the last animates the last row out and snaps the
+   rest into place, rather than animating the row that actually left. */
+.row-enter-active,
+.row-leave-active {
+  transition: opacity 0.15s ease, transform 0.15s ease;
+}
+
+/* No `.row-move` transition on purpose: reka-ui's floating-ui repositions the popover itself a
+   frame after mount (its size depends on this very content), and Vue's TransitionGroup reads that
+   as its rows having moved — it would animate a translate computed against the popover's own
+   pre-position offset, flying the whole row in from wherever the popover started. Left undefined,
+   that same correction still runs but resolves in one frame instead of over a visible transition. */
+
+.row-enter-from,
+.row-leave-to {
+  opacity: 0;
+  transform: translateY(-4px);
+}
+
 .row-input {
-  @apply min-w-0 bg-transparent border-0 outline-none text-[11.5px] p-0 rounded-sm;
+  @apply min-w-0 bg-transparent border-0 outline-none text-xs p-0 rounded-sm;
   font-family: var(--mono);
   color: var(--text);
 }
@@ -264,7 +301,7 @@ function valueClass(v: string): string {
 }
 
 .seg {
-  @apply relative flex-1 text-center text-[11.5px] py-1 border-none bg-transparent text-text-secondary cursor-pointer;
+  @apply relative flex-1 text-center text-xs py-1 border-none bg-transparent text-text-secondary cursor-pointer;
   border-radius: 5px;
   transition: color 0.18s ease;
 }
@@ -274,7 +311,7 @@ function valueClass(v: string): string {
 }
 
 .body-area {
-  @apply w-full text-[11.5px] outline-none select-text;
+  @apply w-full text-xs outline-none select-text;
   font-family: var(--mono);
   height: 132px;
   border-radius: 8px;

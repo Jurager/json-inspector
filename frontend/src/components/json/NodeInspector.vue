@@ -167,7 +167,7 @@ function openRelated() {
 }
 
 .block-path {
-  @apply text-[11.5px] text-text leading-relaxed break-all;
+  @apply text-xs text-text leading-relaxed break-all;
 }
 
 .block-text {

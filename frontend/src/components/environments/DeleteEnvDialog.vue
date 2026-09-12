@@ -2,14 +2,14 @@
 import Dialog from '../ui/dialog/Dialog.vue'
 import { Button } from '../ui/button'
 
-defineProps<{ name: string }>()
+defineProps<{ name: string; open: boolean }>()
 
 const emit = defineEmits<{ (e: 'cancel'): void; (e: 'confirm'): void }>()
 </script>
 
 <template>
   <Dialog
-    :open="true"
+    :open="open"
     title="Удалить окружение?"
     class="w-90 p-4.5"
     @escape-key-down.prevent

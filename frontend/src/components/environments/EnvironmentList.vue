@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, nextTick, ref, type ComponentPublicInstance } from 'vue'
+import { computed, nextTick, ref, watch, type ComponentPublicInstance } from 'vue'
 import Icon from '../ui/Icon.vue'
 import { Button, IconButton } from '../ui/button'
 import DeleteEnvDialog from './DeleteEnvDialog.vue'
@@ -108,8 +108,16 @@ function onEnvRowEnter(id: string) {
 
 const confirmingEnvId = ref<string | null>(null)
 
-const confirmingName = computed(
-  () => envStore.environments.find((e) => e.id === confirmingEnvId.value)?.name ?? ''
+// Kept mounted with the last known id/entries through the close animation — an outer `v-if` on
+// `confirmingEnvId`/`importEntries` going to null would unmount the dialog before reka-ui's own
+// close animation gets to run (same fix as RequestBuilder's `displayedChip`).
+const displayedConfirmingId = ref<string | null>(null)
+watch(confirmingEnvId, (id) => {
+  if (id) displayedConfirmingId.value = id
+})
+
+const displayedConfirmingName = computed(
+  () => envStore.environments.find((e) => e.id === displayedConfirmingId.value)?.name ?? ''
 )
 
 function isNameReferenced(name: string): boolean {
@@ -144,6 +152,11 @@ function removeEnv(id: string) {
 const fileInput = ref<HTMLInputElement | null>(null)
 const importEntries = ref<ImportChoice[] | null>(null)
 
+const displayedImportEntries = ref<ImportChoice[] | null>(null)
+watch(importEntries, (entries) => {
+  if (entries) displayedImportEntries.value = entries
+})
+
 function pickFile() {
   if (isGlobals.value) return
   fileInput.value?.click()
@@ -169,7 +182,8 @@ const existingNames = computed(
 )
 
 const importCount = computed(
-  () => importEntries.value?.filter((e) => e.mode === 'replace' || !existingNames.value.has(e.name)).length ?? 0
+  () =>
+    displayedImportEntries.value?.filter((e) => e.mode === 'replace' || !existingNames.value.has(e.name)).length ?? 0
 )
 
 function importEntriesIntoEnv() {
@@ -274,8 +288,9 @@ defineExpose({ cancelTop })
     </div>
 
     <ImportDialog
-      v-if="importEntries"
-      :entries="importEntries"
+      v-if="displayedImportEntries"
+      :open="importEntries !== null"
+      :entries="displayedImportEntries"
       :existing-names="existingNames"
       :target-name="env?.name ?? 'Глобальные'"
       :count="importCount"
@@ -283,10 +298,11 @@ defineExpose({ cancelTop })
       @apply="importEntriesIntoEnv"
     />
     <DeleteEnvDialog
-      v-if="confirmingEnvId"
-      :name="confirmingName"
+      v-if="displayedConfirmingId"
+      :open="confirmingEnvId !== null"
+      :name="displayedConfirmingName"
       @cancel="confirmingEnvId = null"
-      @confirm="removeEnv(confirmingEnvId)"
+      @confirm="removeEnv(displayedConfirmingId)"
     />
   </div>
 </template>
@@ -301,7 +317,6 @@ defineExpose({ cancelTop })
 
 .side-label {
   @apply pt-1.5 px-2 pb-1.5 text-[10px] uppercase tracking-[0.08em] text-text-tertiary;
-  font-family: var(--mono);
 }
 
 .side-row {
@@ -324,7 +339,7 @@ defineExpose({ cancelTop })
 }
 
 .side-dot {
-  @apply flex-none w-[7px] h-[7px] rounded-full;
+  @apply w-[7px] h-[7px] rounded-full flex-none;
 }
 
 .side-dot.on {
@@ -352,7 +367,7 @@ defineExpose({ cancelTop })
 }
 
 .side-count {
-  @apply flex-none text-[10.5px] text-text-tertiary;
+  @apply flex-none text-xs text-text-tertiary;
 }
 
 .side-lock {

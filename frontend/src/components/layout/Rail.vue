@@ -3,7 +3,6 @@ import { computed } from 'vue'
 import { App as Backend } from '../../../bindings/json-inspector'
 import { useEnvironmentsStore } from '../../stores/environments'
 import { useRequestsStore } from '../../stores/requests'
-import { useUpdates } from '../../composables/useUpdates'
 import { buildSampleRecord } from '../../lib/sample'
 import { usePlatform } from '../../composables/usePlatform'
 import Icon from '../ui/Icon.vue'
@@ -18,7 +17,6 @@ import {
 const store = useRequestsStore()
 const envStore = useEnvironmentsStore()
 const { customTitlebar, shortcut } = usePlatform()
-const { isChecking, checkForUpdates } = useUpdates()
 
 const envSheetHint = computed(() => shortcut('E'))
 
@@ -29,6 +27,11 @@ function loadSample() {
 
 function openAbout() {
   Backend.ShowAbout()
+}
+
+// The check itself runs in the About window; this opens it and asks it to start.
+function requestUpdateCheck() {
+  Backend.RequestUpdateCheck()
 }
 
 function openBrowser() {
@@ -50,8 +53,8 @@ function openBrowser() {
           <DropdownMenuItem @select="loadSample">
             <Icon name="sparkles" :size="14" /> Загрузить образец
           </DropdownMenuItem>
-          <DropdownMenuItem @select="checkForUpdates">
-            <Icon name="arrow-down" :size="14" /> {{ isChecking ? 'Проверка…' : 'Проверить обновления' }}
+          <DropdownMenuItem @select="requestUpdateCheck">
+            <Icon name="arrow-down" :size="14" /> Проверить обновления
           </DropdownMenuItem>
           <!-- On macOS this lives in the native app menu instead. -->
           <DropdownMenuItem v-if="customTitlebar" @select="openAbout">

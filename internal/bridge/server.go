@@ -19,8 +19,6 @@ type DisconnectHandler func()
 
 type FocusHandler func(FocusRequest)
 
-// What the app answers for; an unset callback is a no-op, so a caller only names the ones
-// it cares about instead of passing four positional functions of different types.
 type Handlers struct {
 	Request    Handler
 	State      StateHandler
@@ -120,8 +118,11 @@ func (s *Server) handleWS(w http.ResponseWriter, r *http.Request) {
 	defer func() {
 		s.mu.Lock()
 		delete(s.clients, conn)
+		remaining := len(s.clients)
 		s.mu.Unlock()
-		s.handlers.Disconnect()
+		if remaining == 0 {
+			s.handlers.Disconnect()
+		}
 	}()
 	for {
 		_, msg, err := conn.ReadMessage()

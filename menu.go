@@ -19,7 +19,7 @@ func buildMenu(a *App) *application.Menu {
 	helpMenu := menu.AddSubmenu("Справка")
 	helpMenu.Add("Проверить обновления…").
 		SetAccelerator("CmdOrCtrl+U").
-		OnClick(func(*application.Context) { a.checkForUpdatesFromMenu() })
+		OnClick(func(*application.Context) { a.RequestUpdateCheck() })
 
 	// The stock Edit and Window menus bring the standard roles along with them.
 	menu.AddRole(application.EditMenu)

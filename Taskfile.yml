@@ -6,11 +6,12 @@ vars:
   APP_PATH: '{{.BIN_DIR}}/{{.APP_NAME}}'
   VITE_PORT: '{{.WAILS_VITE_PORT | default 9245}}'
   VERSION: '{{.VERSION | default "dev"}}'
+  BUILD: '{{.BUILD | default ""}}'
 
   PRODUCT_NAME: "JSON Inspector"
   PRODUCT_DESCRIPTION: "Inspect JSON with environment variables, schema mapping, and browser request interception."
 
-  LDFLAGS: '-w -s -X main.version={{.VERSION}}'
+  LDFLAGS: '-w -s -X main.version={{.VERSION}} -X main.build={{.BUILD}}'
   BUILD_FLAGS: '{{if eq .DEV "true"}}-buildvcs=false -gcflags=all="-l"{{else}}-tags production -trimpath -buildvcs=false -ldflags="{{.LDFLAGS}}"{{end}}'
 
 tasks:

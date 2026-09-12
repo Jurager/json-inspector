@@ -19,6 +19,9 @@ var appIcon []byte
 
 var version = "dev"
 
+// build is the CI run number, empty for local builds; shown in brackets in About.
+var build = ""
+
 const (
 	appName        = "JSON Inspector"
 	appDescription = "Просмотр JSON:API: подстановка переменных окружения, карта схемы, перехват запросов из браузера."
@@ -26,6 +29,7 @@ const (
 
 func main() {
 	update.CurrentVersion = version
+	update.CurrentBuild = build
 
 	appService := NewApp()
 

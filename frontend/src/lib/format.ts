@@ -21,3 +21,21 @@ export function statusBadgeClass(status: number): string {
   if (status >= 300 && status < 400) return 'badge-status-3xx'
   return 'badge-status-4xx'
 }
+
+export function formatVersion(tag: string): string {
+  return tag.replace(/^v/, '')
+}
+
+const sameDay = (a: Date, b: Date) => a.toDateString() === b.toDateString()
+
+export function formatCheckedAt(ms: number): string {
+  if (!ms) return '—'
+  const at = new Date(ms)
+  const time = at.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })
+  const now = new Date()
+  if (sameDay(at, now)) return `сегодня в ${time}`
+  const yesterday = new Date(now)
+  yesterday.setDate(now.getDate() - 1)
+  if (sameDay(at, yesterday)) return `вчера в ${time}`
+  return `${at.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' })}, ${time}`
+}

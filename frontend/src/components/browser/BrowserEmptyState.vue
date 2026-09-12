@@ -95,7 +95,7 @@ function openInstructions() {
 }
 
 .step-num {
-  @apply flex-none w-[18px] h-[18px] rounded-full bg-bg-inset text-text-secondary text-[10.5px] font-semibold inline-flex items-center justify-center;
+  @apply flex-none w-[18px] h-[18px] rounded-full bg-bg-inset text-text-secondary text-xs font-semibold inline-flex items-center justify-center;
 }
 
 .step-text {

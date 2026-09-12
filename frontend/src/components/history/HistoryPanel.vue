@@ -213,7 +213,7 @@ watch(() => [store.focusTabId, store.requests.length, props.sourceKind] as const
           @keydown.enter="select(r.id)"
           @keydown.space.prevent="select(r.id)"
         >
-          <span class="item-method mono" :class="{ active: r.id === activeId }">{{ r.method }}</span>
+          <span class="badge badge-method item-method">{{ r.method }}</span>
           <span class="item-status" :class="statusBadgeClass(r.status)">{{ r.status }}</span>
           <span class="item-path mono" :title="r.url">{{ pathOf(r.url) }}</span>
           <span class="item-time">{{ timeLabel(r.startedAt) }}</span>
@@ -264,7 +264,7 @@ watch(() => [store.focusTabId, store.requests.length, props.sourceKind] as const
             @keydown.enter="select(r.id)"
             @keydown.space.prevent="select(r.id)"
           >
-            <span class="item-method mono" :class="{ active: r.id === activeId }">{{ r.method }}</span>
+            <span class="badge badge-method item-method">{{ r.method }}</span>
             <span class="item-status" :class="statusBadgeClass(r.status)">{{ r.status }}</span>
             <span class="item-path mono" :title="r.url">{{ pathOf(r.url) }}</span>
             <span class="item-time">{{ timeLabel(r.startedAt) }}</span>
@@ -291,16 +291,15 @@ watch(() => [store.focusTabId, store.requests.length, props.sourceKind] as const
 }
 
 .panel-head {
-  @apply flex items-center justify-between h-10 px-2 pl-3.5 border-b border-border;
+  @apply flex items-center justify-between h-12 px-2 pl-3.5 border-b border-border;
 }
 
 .panel-title {
-  @apply text-xs font-semibold text-text-secondary;
+  @apply text-sm font-semibold text-text-secondary;
 }
 
 .date-sep {
   @apply text-[10px] uppercase tracking-[0.08em] text-text-tertiary pt-1.5 px-2 pb-1;
-  font-family: var(--mono);
 }
 
 .panel-filter-dock {
@@ -390,7 +389,7 @@ watch(() => [store.focusTabId, store.requests.length, props.sourceKind] as const
 }
 
 .recording-label {
-  @apply flex-none inline-flex items-center gap-1 text-[10.5px] text-red;
+  @apply flex-none inline-flex items-center gap-1 text-xs text-red;
 }
 
 .recording-dot {
@@ -427,13 +426,10 @@ watch(() => [store.focusTabId, store.requests.length, props.sourceKind] as const
   @apply bg-accent-soft;
 }
 
+/* .badge.badge-method already looks right; this just keeps DELETE from shifting the row. */
 .item-method {
-  @apply flex-none min-w-[48px] text-[10.5px] font-semibold text-text-secondary;
-  font-family: var(--mono);
-}
-
-.item-method.active {
-  color: var(--accent);
+  @apply flex-none inline-flex items-center px-1.5 py-px rounded-sm text-[10px] font-semibold;
+  font-variant-numeric: tabular-nums;
 }
 
 .item-status {
@@ -442,12 +438,12 @@ watch(() => [store.focusTabId, store.requests.length, props.sourceKind] as const
 }
 
 .item-path {
-  @apply flex-1 min-w-0 text-[11.5px] text-text overflow-hidden text-ellipsis whitespace-nowrap;
+  @apply flex-1 min-w-0 text-xs text-text overflow-hidden text-ellipsis whitespace-nowrap;
   font-family: var(--mono);
 }
 
 .item-time {
-  @apply flex-none text-[10.5px] text-text-tertiary;
+  @apply flex-none text-[11px] text-text-tertiary;
   font-variant-numeric: tabular-nums;
 }
 </style>

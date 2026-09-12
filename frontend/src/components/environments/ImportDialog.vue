@@ -10,6 +10,7 @@ const props = defineProps<{
   existingNames: Set<string>
   targetName: string
   count: number
+  open: boolean
 }>()
 
 const emit = defineEmits<{ (e: 'cancel'): void; (e: 'apply'): void }>()
@@ -17,7 +18,7 @@ const emit = defineEmits<{ (e: 'cancel'): void; (e: 'apply'): void }>()
 
 <template>
   <Dialog
-    :open="true"
+    :open="props.open"
     class="import-panel"
     @escape-key-down.prevent
     @update:open="emit('cancel')"
@@ -109,6 +110,6 @@ const emit = defineEmits<{ (e: 'cancel'): void; (e: 'apply'): void }>()
 }
 
 .import-summary {
-  @apply flex-1 text-[11.5px] text-text-tertiary;
+  @apply flex-1 text-xs text-text-tertiary;
 }
 </style>

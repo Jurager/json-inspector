@@ -71,7 +71,6 @@ function loadState(): Persisted {
       activeId: typeof parsed.activeId === 'string' ? parsed.activeId : null,
     }
   } catch {
-    // Corrupt or unavailable storage shouldn't cost the user the feature.
     return defaultState()
   }
 }
@@ -99,8 +98,6 @@ export const useEnvironmentsStore = defineStore('environments', {
   },
 
   actions: {
-    // Shared by the substitution actions and the token tooltips: environment first, then
-    // globals, and a disabled variable never participates.
     resolveVariable(name: string): VarResolution | null {
       const env = this.activeEnvironment
       if (env) {
@@ -112,7 +109,6 @@ export const useEnvironmentsStore = defineStore('environments', {
       return null
     },
 
-    // A secret's value lives in the keychain-backed map, not in the model.
     effectiveValue(envId: string | null, v: Variable): string {
       return v.kind === 'secret' ? (this.secretValues[secretKey(envId, v.name)] ?? '') : v.value
     },
@@ -228,16 +224,13 @@ export const useEnvironmentsStore = defineStore('environments', {
       let carried: string | undefined
 
       if (renamingSecret) {
-        // Carried along, or the vault entry is orphaned and the variable reads as empty.
         carried = this.secretValues[key] ?? ''
         this.secretValues[nextKey] = carried
         delete this.secretValues[key]
       } else if (wasKind !== 'secret' && nextKind === 'secret') {
-        // Promotion: the plaintext leaves the model entirely.
         this.secretValues[nextKey] = v.value
         carried = v.value
       } else if (wasKind === 'secret' && nextKind !== 'secret') {
-        // Demotion: hand the value back to the model so the field isn't blank.
         if (patch.value === undefined) patch = { ...patch, value: this.secretValues[key] ?? '' }
         delete this.secretValues[key]
       }
@@ -253,8 +246,6 @@ export const useEnvironmentsStore = defineStore('environments', {
       }
       Object.assign(v, clean)
 
-      // The keychain is the only home for a secret's value: a rename must rewrite it (entries
-      // are keyed by name) and a demotion must clear it, or the credential stays alive.
       if (nextKind === 'secret' && written !== undefined) {
         this.writeSecretToKeychain(envId, nextName, written)
       }
@@ -344,7 +335,6 @@ export const useEnvironmentsStore = defineStore('environments', {
 
     openSheet(focus: { envId: string | null; varName: string } | null = null) {
       this.sheetFocus = focus
-      // Opening on a variable implies its environment; otherwise it starts on the active one.
       this.editedEnvId = focus ? focus.envId : this.activeId
       this.sheetOpen = true
     },
@@ -355,7 +345,6 @@ export const useEnvironmentsStore = defineStore('environments', {
       this.unlockedEnvIds = []
     },
 
-    /** Read-only environments are edited only after an explicit unlock. */
     isUnlocked(envId: string | null): boolean {
       return envId !== null && this.unlockedEnvIds.includes(envId)
     },

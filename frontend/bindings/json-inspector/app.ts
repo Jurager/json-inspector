@@ -17,10 +17,22 @@ export function BridgePort(): $CancellablePromise<number> {
     return $Call.ByID(3557041683);
 }
 
+/**
+ * Build is the CI run number, empty for local builds.
+ */
+export function Build(): $CancellablePromise<string> {
+    return $Call.ByID(504336667);
+}
+
 export function CancelRequest(): $CancellablePromise<void> {
     return $Call.ByID(980174012);
 }
 
+/**
+ * CheckForUpdates answers the About window's own check. A release it finds is also announced to
+ * the main window, so the status bar's link appears without waiting for the next launch — the
+ * one place a manual check and the startup check have to agree.
+ */
 export function CheckForUpdates(): $CancellablePromise<update$0.Info | null> {
     return $Call.ByID(2675659504);
 }
@@ -35,6 +47,18 @@ export function Name(): $CancellablePromise<string> {
 
 export function PauseCapture(): $CancellablePromise<void> {
     return $Call.ByID(2598102529);
+}
+
+/**
+ * RequestUpdateCheck reuses or opens the About window and asks it to run a check. The request
+ * is parked as well as sent, because only the About window listens for it here — and a window
+ * that is being created right now has no listeners yet. It picks the parked request up on mount.
+ * 
+ * The flag is cleared by TakeUpdateCheckRequest alone, never here: that is what makes the two
+ * paths deliver exactly one check between them, however they interleave.
+ */
+export function RequestUpdateCheck(): $CancellablePromise<void> {
+    return $Call.ByID(2320128613);
 }
 
 export function ResumeCapture(): $CancellablePromise<void> {
@@ -64,12 +88,28 @@ export function ShowAbout(): $CancellablePromise<void> {
     return $Call.ByID(2874201689);
 }
 
+/**
+ * TakeUpdateCheckRequest reports and clears a request parked by RequestUpdateCheck. Destructive
+ * on purpose: it is called from both the mount and the event handler, and only the first caller
+ * may act on it, or an old request would fire a check the next time the window opens.
+ */
+export function TakeUpdateCheckRequest(): $CancellablePromise<boolean> {
+    return $Call.ByID(939177566);
+}
+
 export function ToggleMaximize(): $CancellablePromise<void> {
     return $Call.ByID(963143607);
 }
 
 export function UpdateNow(version: string): $CancellablePromise<void> {
     return $Call.ByID(4106324996, version);
+}
+
+/**
+ * UpdateStatus is what the last check saw, without touching the network.
+ */
+export function UpdateStatus(): $CancellablePromise<update$0.Info | null> {
+    return $Call.ByID(1098431686);
 }
 
 export function Version(): $CancellablePromise<string> {

@@ -3,7 +3,7 @@ import { computed, ref } from 'vue'
 import { useEnvironmentsStore } from '../../stores/environments'
 import { usePlatform } from '../../composables/usePlatform'
 import { useHoverArrival } from '../../composables/useHoverArrival'
-import { Tooltip } from '../ui/tooltip'
+import { Tooltip } from './tooltip'
 
 const props = defineProps<{ name: string; offset?: number }>()
 
@@ -107,12 +107,12 @@ function nearestInput(from: HTMLElement | null): HTMLInputElement | null {
 }
 
 .var-tip-value {
-  @apply text-[11.5px] break-all;
+  @apply text-xs break-all;
   font-family: var(--mono);
 }
 
 .var-tip-meta {
-  @apply text-[11px];
+  @apply text-xs;
   color: color-mix(in srgb, var(--tip-text) 60%, transparent);
 }
 </style>

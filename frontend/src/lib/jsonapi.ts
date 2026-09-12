@@ -1,5 +1,3 @@
-// JSON:API (https://jsonapi.org/) helpers used by the tree view.
-
 export interface ResourceIdentifier {
   type: string
   id: string

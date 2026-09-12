@@ -43,7 +43,7 @@ async function toggleCapture() {
 }
 
 .capture-source {
-  @apply text-[11.5px] text-text-secondary min-w-0 overflow-hidden text-ellipsis whitespace-nowrap;
+  @apply text-xs text-text-secondary min-w-0 overflow-hidden text-ellipsis whitespace-nowrap;
 }
 
 .capture-spacer {
@@ -51,7 +51,7 @@ async function toggleCapture() {
 }
 
 .capture-hint {
-  @apply text-[11.5px] text-text-tertiary whitespace-nowrap;
+  @apply text-xs text-text-tertiary whitespace-nowrap;
 }
 
 </style>

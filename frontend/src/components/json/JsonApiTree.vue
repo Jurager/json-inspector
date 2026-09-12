@@ -51,24 +51,26 @@ function includedPath(r: Resource): string {
 const highlightedKey = ref<string | null>(null)
 
 const typeFilter = ref<string | null>(null)
-const toggledGroupTypes = ref<Set<string>>(new Set())
+const openGroups = ref<Set<string>>(new Set())
 const showAllTypes = ref(false)
 
 function toggleTypeFilter(type: string) {
   typeFilter.value = typeFilter.value === type ? null : type
 }
 
+// A group shows its resources only when asked for: a search or a picked type is that request, and
+// so is a click on its head — or a jump from a relationship, see `forceExpand`. Otherwise
+// `included` reads as a summary of what is in the document rather than a wall of cards.
 function isGroupOpen(type: string): boolean {
   if (props.query.trim() || typeFilter.value) return true
-  const defaultOpen = included.value.length <= 20
-  return toggledGroupTypes.value.has(type) ? !defaultOpen : defaultOpen
+  return openGroups.value.has(type)
 }
 
 function toggleGroup(type: string) {
-  const next = new Set(toggledGroupTypes.value)
+  const next = new Set(openGroups.value)
   if (next.has(type)) next.delete(type)
   else next.add(type)
-  toggledGroupTypes.value = next
+  openGroups.value = next
 }
 
 function forceExpand(type: string) {
@@ -265,7 +267,7 @@ const noResults = computed(
 }
 
 .type-chip {
-  @apply text-[10.5px] text-purple py-px px-[7px] rounded-sm border-0 cursor-pointer;
+  @apply text-xs text-purple py-px px-[7px] rounded-sm border-0 cursor-pointer;
   font-family: var(--mono);
   background: color-mix(in srgb, var(--purple) 14%, transparent);
 }

@@ -1,5 +1,7 @@
 import { defineStore } from 'pinia'
 import type { RequestRecord } from '../lib/requestRecord'
+import type { CookieRow } from '../lib/cookies'
+import { emptyCookieRow, parseCookieHeader } from '../lib/cookies'
 import { useEnvironmentsStore } from './environments'
 import { focusUrlField } from '../composables/urlFocus'
 
@@ -9,7 +11,6 @@ function nextId(): string {
   return `req-${Date.now()}-${counter}`
 }
 
-// The status bar's source of truth for the extension's state, fed by its capture-state messages.
 interface CaptureState {
   connected: boolean
   recording: boolean
@@ -31,6 +32,7 @@ interface DraftState {
   headers: KeyValueRow[]
   auth: { type: AuthType; token: string }
   body: string
+  cookies: CookieRow[]
 }
 
 export const useRequestsStore = defineStore('requests', {
@@ -49,6 +51,7 @@ export const useRequestsStore = defineStore('requests', {
       headers: [{ name: 'Accept', value: 'application/vnd.api+json', enabled: true }] as KeyValueRow[],
       auth: { type: 'none' as AuthType, token: '' },
       body: '',
+      cookies: [] as CookieRow[],
     } as DraftState,
     openChip: null as 'params' | 'headers' | 'auth' | 'body' | null,
     focusTabId: null as number | null,
@@ -69,6 +72,7 @@ export const useRequestsStore = defineStore('requests', {
         ...state.draft.headers.filter((h) => h.enabled).map((h) => `${h.name}\n${h.value}`),
         state.draft.body,
         state.draft.auth.token,
+        ...state.draft.cookies.map((c) => `${c.name}\n${c.value}`),
       ]
       return envs.missingVarNames(parts.join('\n'))
     },
@@ -130,15 +134,26 @@ export const useRequestsStore = defineStore('requests', {
     setInspector(partial: Partial<{ open: boolean; path: string | null; width: number }>) {
       this.inspector = { ...this.inspector, ...partial }
     },
-    loadDraft(record: Pick<RequestRecord, 'method' | 'url' | 'requestHeaders' | 'requestBody'>) {
+    loadDraft(
+      record: Pick<RequestRecord, 'method' | 'url' | 'requestHeaders' | 'requestBody' | 'requestCookies'>
+    ) {
       this.draft.method = record.method
+      this.draft.auth = { type: 'none', token: '' }
       this.setUrl(record.url)
-      this.draft.headers = Object.entries(record.requestHeaders).map(([name, value]) => ({
-        name,
-        value,
-        enabled: true,
-      }))
+
+      const rawCookieHeader = Object.entries(record.requestHeaders).find(
+        ([name]) => name.toLowerCase() === 'cookie'
+      )?.[1]
+      this.draft.headers = Object.entries(record.requestHeaders)
+        .filter(([name]) => name.toLowerCase() !== 'cookie')
+        .map(([name, value]) => ({ name, value, enabled: true }))
       this.draft.body = record.requestBody
+
+      this.draft.cookies = record.requestCookies?.length
+        ? record.requestCookies.map((c) => ({ ...c }))
+        : rawCookieHeader
+          ? parseCookieHeader(rawCookieHeader)
+          : []
     },
     setUrl(url: string) {
       this.draft.url = url
@@ -162,8 +177,6 @@ export const useRequestsStore = defineStore('requests', {
       for (const p of this.draft.params) {
         if (p.enabled && p.name.trim()) sp.append(p.name.trim(), p.value)
       }
-      // URLSearchParams percent-encodes braces, so `{{tenant}}` would come back as
-      // `%7B%7Btenant%7D%7D` and stop being a token; restore just those delimiters.
       const qs = sp.toString().replace(/%7B%7B/g, '{{').replace(/%7D%7D/g, '}}')
       this.draft.url = qs ? `${base}?${qs}` : base
     },
@@ -193,6 +206,18 @@ export const useRequestsStore = defineStore('requests', {
     },
     updateHeader(i: number, patch: Partial<KeyValueRow>) {
       this.draft.headers[i] = { ...this.draft.headers[i], ...patch }
+    },
+    addCookie() {
+      this.draft.cookies.push(emptyCookieRow())
+    },
+    removeCookie(i: number) {
+      this.draft.cookies.splice(i, 1)
+    },
+    updateCookie(i: number, patch: Partial<CookieRow>) {
+      this.draft.cookies[i] = { ...this.draft.cookies[i], ...patch }
+    },
+    toggleCookieFlag(i: number, flag: 'secure' | 'httpOnly') {
+      this.draft.cookies[i] = { ...this.draft.cookies[i], [flag]: !this.draft.cookies[i][flag] }
     },
     clearRequests(ids: string[]) {
       if (ids.length === 0) return

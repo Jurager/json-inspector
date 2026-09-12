@@ -5,7 +5,6 @@ export type ExportFormat = 'curl' | 'fetch' | 'wget' | 'httpie' | 'powershell'
 
 export interface ExportOptions {
   resolve?: ResolveFn
-  // Shares the snippet with `{{tokens}}` intact instead of the values they stand for.
   keepTokens?: boolean
 }
 
@@ -13,8 +12,10 @@ function shellQuote(s: string): string {
   return `'${s.replace(/'/g, `'\\''`)}'`
 }
 
-// Like the send path, but a secret never comes out: an export is shared, pasted
-// and screenshotted, so it carries the dots.
+function psQuote(s: string): string {
+  return `'${s.replace(/'/g, "''")}'`
+}
+
 function substituteForExport(text: string, options?: ExportOptions): string {
   if (!options?.resolve || options.keepTokens) return text
   return substituteTokensMasked(text, options.resolve)
@@ -64,12 +65,12 @@ export function exportRequest(
       return parts.join(' ')
     }
     case 'powershell': {
-      const parts = [`Invoke-RestMethod -Method ${method} -Uri ${shellQuote(url)}`]
+      const parts = [`Invoke-RestMethod -Method ${method} -Uri ${psQuote(url)}`]
       if (entries.length) {
-        const h = entries.map(([k, v]) => `${k} = ${shellQuote(v)}`).join('; ')
+        const h = entries.map(([k, v]) => `${psQuote(k)} = ${psQuote(v)}`).join('; ')
         parts.push(`-Headers @{ ${h} }`)
       }
-      if (body) parts.push(`-Body ${shellQuote(body)}`)
+      if (body) parts.push(`-Body ${psQuote(body)}`)
       return parts.join(' ')
     }
   }

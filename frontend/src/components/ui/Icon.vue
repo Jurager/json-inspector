@@ -13,7 +13,6 @@ import {
   X,
   Check,
   CircleDot,
-  ArrowLeftRight,
   ChevronsLeft,
   ChevronsRight,
   Menu,
@@ -34,6 +33,8 @@ import {
   Sun,
   Moon,
   Monitor,
+  Link,
+  Bookmark,
 } from 'lucide-vue-next'
 
 const props = defineProps<{ name: string; size?: number; strokeWidth?: number }>()
@@ -50,7 +51,6 @@ const ICONS: Record<string, Component> = {
   'arrow-left': ArrowLeft,
   xmark: X,
   check: Check,
-  compare: ArrowLeftRight,
   'chevrons-left': ChevronsLeft,
   'chevrons-right': ChevronsRight,
   menu: Menu,
@@ -71,6 +71,8 @@ const ICONS: Record<string, Component> = {
   sun: Sun,
   moon: Moon,
   monitor: Monitor,
+  link: Link,
+  bookmark: Bookmark,
 }
 
 const icon = computed(() => ICONS[props.name] ?? ArrowUpRight)

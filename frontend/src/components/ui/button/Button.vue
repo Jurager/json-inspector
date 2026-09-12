@@ -85,9 +85,6 @@ withDefaults(
   @apply brightness-95;
 }
 
-/* Text buttons: no frame, no shadow. The handoff draws «+ Параметр» at
-   3px 4px on a 5px radius and «Очистить» at 4px 8px on a 6px radius, both 12px,
-   so the height above doesn't apply to them. */
 .btn.btn--ghost,
 .btn.btn--quiet {
   @apply border-transparent bg-transparent shadow-none;

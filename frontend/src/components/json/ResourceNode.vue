@@ -20,8 +20,15 @@ const emit = defineEmits<{
 
 const open = ref(false)
 
+// `<Transition>` is only mounted once a node has actually been opened — a resource list can run
+// into the hundreds, nearly all collapsed, and giving every one of them its own Transition
+// instance up front was measurably slower to mount (~70ms vs ~30ms at 500 resources) for an
+// animation almost none of them will ever play.
+const everOpened = ref(false)
+
 function toggleOpen() {
   open.value = !open.value
+  if (open.value) everOpened.value = true
   emit('inspect', props.path)
 }
 
@@ -33,7 +40,10 @@ function relPath(name: string): string {
 watch(
   () => props.highlighted,
   (h) => {
-    if (h) open.value = true
+    if (h) {
+      open.value = true
+      everOpened.value = true
+    }
   }
 )
 
@@ -106,26 +116,30 @@ async function copyVal(k: string, v: unknown) {
       <span class="ja-label">{{ label }}</span>
     </button>
 
-    <div v-if="open" class="ja-body">
-      <div v-if="attributes.length" class="ja-section-title" style="padding-left: 0">attributes</div>
-      <div v-for="[k, v] in attributes" :key="k" class="ja-attr">
-        <span class="ja-attr-key" title="Скопировать ключ" :class="{ copied: copiedKeys.has(k) }" @click.stop="copyKey(k)">{{ k }}</span>
-        <span
-          class="ja-attr-val"
-          title="Скопировать значение"
-          :class="[valueClass(v), { copied: copiedVals.has(k) }]"
-          @click.stop="copyVal(k, v)"
-          >{{ formatValue(v) }}</span
-        >
-      </div>
+    <Transition v-if="everOpened" name="ja-body">
+      <div v-if="open" class="ja-body">
+        <div class="ja-body-inner">
+          <div v-if="attributes.length" class="ja-section-title" style="padding-left: 0">attributes</div>
+          <div v-for="[k, v] in attributes" :key="k" class="ja-attr">
+            <span class="ja-attr-key" title="Скопировать ключ" :class="{ copied: copiedKeys.has(k) }" @click.stop="copyKey(k)">{{ k }}</span>
+            <span
+              class="ja-attr-val"
+              title="Скопировать значение"
+              :class="[valueClass(v), { copied: copiedVals.has(k) }]"
+              @click.stop="copyVal(k, v)"
+              >{{ formatValue(v) }}</span
+            >
+          </div>
 
-      <template v-if="relationships.length">
-        <div class="ja-section-title" style="padding-left: 0">relationships</div>
-        <div v-for="[name, rel] in relationships" :key="name" class="ja-rel">
-          <span class="ja-rel-name">{{ name }}</span>
-          <RelationshipLink :rel="rel" :resource-index="resourceIndex" @jump="(k) => emit('jump', k)" @fetch="(u) => emit('fetch', u)" @inspect="emit('inspect', relPath(name))" />
+          <template v-if="relationships.length">
+            <div class="ja-section-title" style="padding-left: 0">relationships</div>
+            <div v-for="[name, rel] in relationships" :key="name" class="ja-rel">
+              <span class="ja-rel-name">{{ name }}</span>
+              <RelationshipLink :rel="rel" :resource-index="resourceIndex" @jump="(k) => emit('jump', k)" @fetch="(u) => emit('fetch', u)" @inspect="emit('inspect', relPath(name))" />
+            </div>
+          </template>
         </div>
-      </template>
-    </div>
+      </div>
+    </Transition>
   </div>
 </template>

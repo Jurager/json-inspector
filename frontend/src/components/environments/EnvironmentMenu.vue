@@ -86,7 +86,7 @@ function edit() {
 }
 
 .env-row-name {
-  @apply flex-1 min-w-0 overflow-hidden text-ellipsis whitespace-nowrap;
+  @apply flex-1 min-w-0 overflow-hidden text-ellipsis whitespace-nowrap text-xs;
 }
 
 .env-row-name.none {
@@ -94,12 +94,12 @@ function edit() {
 }
 
 .env-count {
-  @apply flex-none text-[10.5px] text-text-tertiary;
+  @apply flex-none text-xs text-text-tertiary;
   font-family: var(--mono);
 }
 
 .env-badge {
-  @apply flex-none text-red bg-red-soft text-[10px] font-semibold py-px px-[5px] rounded-sm;
+  @apply flex-none text-red bg-red-soft text-xs font-semibold py-px px-[5px] rounded-sm;
 }
 
 .env-divider {
@@ -107,6 +107,6 @@ function edit() {
 }
 
 .env-hint {
-  @apply flex-none text-[10.5px] text-text-tertiary;
+  @apply flex-none text-xs text-text-tertiary;
 }
 </style>

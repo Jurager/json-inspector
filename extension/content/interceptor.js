@@ -1,6 +1,9 @@
 (() => {
   const MESSAGE_MARKER = '__JSON_INSPECTOR_CAPTURE__';
   const MAX_BODY_CHARS = 2 * 1024 * 1024;
+  const HOOK_VERSION = 3;
+
+  window.__jsonInspectorLastInjection = HOOK_VERSION;
 
   if (window.__jsonInspectorHook) {
     window.__jsonInspectorEnabled = true;
@@ -8,6 +11,7 @@
   }
 
   window.__jsonInspectorHook = true;
+  window.__jsonInspectorHookVersion = HOOK_VERSION;
   window.__jsonInspectorEnabled = true;
 
   const isCaptureEnabled = () => window.__jsonInspectorEnabled === true;
@@ -150,6 +154,14 @@
     return `[binary response: ${contentType.split(';')[0]}]`;
   }
 
+  function phases(startedAt, headersAt, bodyAt) {
+    return {
+      hasTiming: true,
+      waitMs: Math.max(0, Math.round(headersAt - startedAt)),
+      downloadMs: Math.max(0, Math.round(bodyAt - headersAt)),
+    };
+  }
+
   function installFetchHook() {
     const originalFetch = window.fetch;
 
@@ -159,6 +171,7 @@
 
     window.fetch = function patchedFetch(input, init = {}) {
       const startedAt = Date.now();
+      const startedPerf = performance.now();
       const promise = originalFetch.call(this, input, init);
 
       if (!isCaptureEnabled()) {
@@ -184,11 +197,14 @@
 
       promise.then(
           async (response) => {
-            const durationMs = Date.now() - startedAt;
+            // Resolved means the headers are in — see phases().
+            const headersPerf = performance.now();
             const responseHeaders = serializeHeaders(response.headers);
             const contentType = response.headers.get('content-type') || '';
 
             if (isBinaryContentType(contentType)) {
+              // The body is deliberately not read here, so its download time is unknown and
+              // the phases are left out rather than reported as zero.
               capture({
                 method,
                 url,
@@ -198,7 +214,7 @@
                 statusText: response.statusText,
                 responseHeaders,
                 responseBody: getBinaryResponseBody(contentType),
-                durationMs,
+                durationMs: Date.now() - startedAt,
               });
 
               return;
@@ -212,6 +228,8 @@
               // Keep empty response body when it cannot be read.
             }
 
+            // Measured after the body, so the total stays the whole round trip and the two
+            // phases above add up to it — otherwise "Всего" would silently mean "до заголовков".
             capture({
               method,
               url,
@@ -221,7 +239,8 @@
               statusText: response.statusText,
               responseHeaders,
               responseBody,
-              durationMs,
+              durationMs: Date.now() - startedAt,
+              ...phases(startedPerf, headersPerf, performance.now()),
             });
           },
           (error) => {
@@ -276,17 +295,23 @@
 
       if (state && isCaptureEnabled()) {
         const requestBody = bodyToString(body);
+        const startedPerf = performance.now();
+        // readyState 2 is HEADERS_RECEIVED — the same instant fetch()'s promise resolves at.
+        let headersPerf = 0;
 
         const captureResponse = () => {
           const contentType =
               this.getResponseHeader?.('content-type') || '';
 
           let responseBody = '';
+          let timing = null;
 
           if (isBinaryContentType(contentType)) {
             responseBody = getBinaryResponseBody(contentType);
           } else if (typeof this.responseText === 'string') {
             responseBody = limitBody(this.responseText);
+            // Only a body that was actually read has a download time to report.
+            if (headersPerf) timing = phases(startedPerf, headersPerf, performance.now());
           }
 
           capture({
@@ -301,6 +326,7 @@
             ),
             responseBody,
             durationMs: Date.now() - state.startedAt,
+            ...(timing ?? {}),
           });
         };
 
@@ -316,6 +342,11 @@
           });
         };
 
+        this.addEventListener('readystatechange', () => {
+          if (!headersPerf && this.readyState >= 2) {
+            headersPerf = performance.now();
+          }
+        });
         this.addEventListener('load', captureResponse, { once: true });
         this.addEventListener('error', captureError, { once: true });
       }

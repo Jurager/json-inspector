@@ -19,6 +19,9 @@ type CapturedRequest struct {
 	TabTitle        string            `json:"tabTitle"`
 	TabURL          string            `json:"tabURL"`
 	FavIconURL      string            `json:"favIconUrl"`
+	HasTiming       bool              `json:"hasTiming,omitempty"`
+	WaitMs          int64             `json:"waitMs,omitempty"`
+	DownloadMs      int64             `json:"downloadMs,omitempty"`
 }
 
 type CaptureState struct {

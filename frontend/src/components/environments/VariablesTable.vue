@@ -373,7 +373,6 @@ defineExpose({ cancelTop })
 
 .table-head {
   @apply flex-none h-[30px] mt-2 border-b border-border text-[10px] uppercase tracking-[0.08em] text-text-tertiary;
-  font-family: var(--mono);
 }
 
 .table-body {
@@ -421,7 +420,7 @@ defineExpose({ cancelTop })
 }
 
 .tag {
-  @apply text-[10px] font-semibold py-px px-[5px] rounded-sm border-none;
+  @apply text-xs font-semibold py-px px-[5px] rounded-sm border-none;
 }
 
 .tag-text {
@@ -450,15 +449,14 @@ defineExpose({ cancelTop })
 
 .group-title {
   @apply text-[10px] uppercase tracking-[0.08em] text-text-secondary;
-  font-family: var(--mono);
 }
 
 .group-count {
-  @apply text-[10.5px] text-text-tertiary;
+  @apply text-xs text-text-tertiary;
 }
 
 .group-hint {
-  @apply flex-1 text-right text-[11.5px] text-text-tertiary;
+  @apply flex-1 text-right text-xs text-text-tertiary;
 }
 
 .row.inherited {
@@ -511,7 +509,7 @@ defineExpose({ cancelTop })
 }
 
 .sheet-foot {
-  @apply flex-none flex items-center h-[34px] px-3.5 border-t border-border text-[11.5px] text-text-tertiary;
+  @apply flex-none flex items-center py-3 px-4 border-t border-border text-xs text-text-tertiary;
 }
 
 .foot-error {

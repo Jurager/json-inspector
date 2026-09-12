@@ -9,16 +9,29 @@ interface Phase {
   ms: number
 }
 
-// Phases exist only for app-made requests (httptrace); the extension sends just a total.
-const phases = computed<Phase[]>(() => [
-  { label: 'DNS', ms: props.record.dnsMs ?? 0 },
-  { label: 'TCP', ms: props.record.connectMs ?? 0 },
-  { label: 'TLS', ms: props.record.tlsMs ?? 0 },
-  { label: 'Ожидание', ms: props.record.waitMs ?? 0 },
-  { label: 'Загрузка', ms: props.record.downloadMs ?? 0 },
-])
+// An app-made request is traced by Go's own httptrace, which knows the whole connection
+// handshake. A captured one only ever has the two phases the page itself can time — when the
+// response headers arrived and when the body finished — so it is not offered DNS/TCP/TLS
+// rather than showing them as three honest-looking zeros.
+const phases = computed<Phase[]>(() => {
+  if (props.record.source !== 'manual') {
+    return [
+      { label: 'Ожидание', ms: props.record.waitMs ?? 0 },
+      { label: 'Загрузка', ms: props.record.downloadMs ?? 0 },
+    ]
+  }
+  return [
+    { label: 'DNS', ms: props.record.dnsMs ?? 0 },
+    { label: 'TCP', ms: props.record.connectMs ?? 0 },
+    { label: 'TLS', ms: props.record.tlsMs ?? 0 },
+    { label: 'Ожидание', ms: props.record.waitMs ?? 0 },
+    { label: 'Загрузка', ms: props.record.downloadMs ?? 0 },
+  ]
+})
 
-const hasDetail = computed(() => props.record.source === 'manual')
+// `hasTiming` rather than "is a phase non-zero": a real phase can legitimately be 0 (a reused
+// connection, a body that arrived with the headers).
+const hasDetail = computed(() => props.record.source === 'manual' || props.record.hasTiming === true)
 
 const maxMs = computed(() => Math.max(1, ...phases.value.map((p) => p.ms)))
 </script>
@@ -49,7 +62,7 @@ const maxMs = computed(() => Math.max(1, ...phases.value.map((p) => p.ms)))
         </div>
         <span class="timing-value mono">{{ record.durationMs }} мс</span>
       </div>
-      <div class="timing-note">Детализация доступна только для запросов из приложения</div>
+      <div class="timing-note">Запрос не удалось засечь по фазам — тело не читалось или запрос не дошёл.</div>
     </template>
   </div>
 </template>
@@ -58,7 +71,7 @@ const maxMs = computed(() => Math.max(1, ...phases.value.map((p) => p.ms)))
 @reference "../../style.css";
 
 .timings {
-  @apply p-4.5 flex flex-col gap-3;
+  @apply p-4.5 min-h-full flex flex-col gap-3 bg-bg-panel;
 }
 
 .timing-row {
@@ -78,12 +91,12 @@ const maxMs = computed(() => Math.max(1, ...phases.value.map((p) => p.ms)))
 }
 
 .timing-value {
-  @apply text-[11.5px] text-text text-right;
+  @apply text-xs text-text text-right;
   font-variant-numeric: tabular-nums;
 }
 
 .timing-note {
-  @apply text-[11.5px] text-text-tertiary;
+  @apply text-xs text-text-tertiary;
 }
 
 .timing-total .timing-label {

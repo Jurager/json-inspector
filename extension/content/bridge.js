@@ -25,6 +25,9 @@
           responseHeaders: data.responseHeaders,
           responseBody: data.responseBody,
           durationMs: data.durationMs,
+          hasTiming: data.hasTiming,
+          waitMs: data.waitMs,
+          downloadMs: data.downloadMs,
           tabTitle: document.title,
           tabURL: location.href,
         })

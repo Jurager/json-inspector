@@ -131,7 +131,7 @@ onBeforeUnmount(() => {
 }
 
 .titlebar-key {
-  @apply text-[10.5px] leading-none px-1 py-0.5 rounded-sm text-text-tertiary;
+  @apply text-xs leading-none px-1 py-0.5 rounded-sm text-text-tertiary;
   font-family: var(--mono);
   background: var(--bg-inset);
   border: 1px solid var(--border);

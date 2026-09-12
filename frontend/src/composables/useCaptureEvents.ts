@@ -14,6 +14,9 @@ interface CapturedRequest {
   responseHeaders?: Record<string, string>
   responseBody?: string
   durationMs?: number
+  hasTiming?: boolean
+  waitMs?: number
+  downloadMs?: number
   tabTitle?: string
   tabURL?: string
   tabId?: number
@@ -29,6 +32,10 @@ export function useCaptureEvents(store: ReturnType<typeof useRequestsStore>) {
       Events.On('captured-request', (ev) => {
         const c = ev.data as CapturedRequest
         const headers = c.responseHeaders ?? {}
+        // A request arriving is itself proof the extension is connected and recording — a
+        // belt-and-suspenders check against a stray `capture-disconnected` for a since-replaced
+        // socket clobbering `connected` after this one already came back (see server.go).
+        store.setCaptureState({ connected: true, recording: true })
         store.addCaptured({
           method: c.method,
           url: c.url,
@@ -40,6 +47,9 @@ export function useCaptureEvents(store: ReturnType<typeof useRequestsStore>) {
           responseBody: c.responseBody ?? '',
           durationMs: c.durationMs ?? 0,
           contentType: headers['content-type'] ?? headers['Content-Type'] ?? '',
+          hasTiming: c.hasTiming,
+          waitMs: c.waitMs,
+          downloadMs: c.downloadMs,
           tabTitle: c.tabTitle,
           tabURL: c.tabURL,
           tabId: c.tabId,

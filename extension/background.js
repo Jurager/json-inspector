@@ -787,6 +787,9 @@ function handleCapturedRequest(message, sender) {
         ? ''
         : message.responseBody || '',
     durationMs: message.durationMs || 0,
+    hasTiming: Boolean(message.hasTiming),
+    waitMs: message.waitMs || 0,
+    downloadMs: message.downloadMs || 0,
     startedAt: Date.now(),
     tabId,
     tabTitle: message.tabTitle,

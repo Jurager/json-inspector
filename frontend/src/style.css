@@ -246,6 +246,7 @@ body {
 .rail-item {
   @apply relative flex flex-col items-center gap-[5px] w-full pt-[9px] pb-[7px] border-none rounded-[9px] bg-transparent text-text-secondary cursor-pointer;
   --wails-draggable: no-drag;
+  transition: background-color 0.15s ease, color 0.15s ease;
 }
 
 .rail-item:hover {
@@ -261,7 +262,7 @@ body {
 }
 
 .rail-label {
-  @apply text-[10px] font-semibold leading-none;
+  @apply text-xs font-semibold leading-none;
 }
 
 .rail-badge {
@@ -273,11 +274,20 @@ body {
   @apply flex-1;
 }
 
+/* reka-ui's Presence keeps a menu/popover mounted for `[data-state='closed']`'s animation before
+   removing it, and sets the transform origin to the anchor corner it opened from — grow/shrink
+   toward that point reads as coming from the trigger, not from nowhere. */
 .menu {
   @apply z-200 rounded-lg p-1 min-w-[200px];
   background: var(--bg-panel);
   border: 1px solid var(--border);
   box-shadow: var(--shadow);
+  transform-origin: var(--reka-dropdown-menu-content-transform-origin);
+  animation: panel-in 0.15s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.menu[data-state='closed'] {
+  animation: panel-out 0.1s ease-in forwards;
 }
 
 .popover {
@@ -286,6 +296,34 @@ body {
   background: var(--bg-panel);
   border: 1px solid var(--border);
   box-shadow: 0 12px 32px rgba(0, 0, 0, 0.16);
+  transform-origin: var(--reka-popover-content-transform-origin);
+  animation: panel-in 0.15s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.popover[data-state='closed'] {
+  animation: panel-out 0.1s ease-in forwards;
+}
+
+@keyframes panel-in {
+  from {
+    opacity: 0;
+    transform: scale(0.94);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes panel-out {
+  from {
+    opacity: 1;
+    transform: scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: scale(0.96);
+  }
 }
 
 .tooltip {
@@ -296,6 +334,21 @@ body {
   font-size: 11.5px;
   border: 1px solid var(--border-strong);
   box-shadow: 0 8px 22px rgba(0, 0, 0, 0.28);
+  animation: tooltip-fade 0.1s ease;
+}
+
+/* `reverse` plays the same keyframes 1→0 instead of duplicating them for the close case. */
+.tooltip[data-state='closed'] {
+  animation: tooltip-fade 0.08s ease-in reverse forwards;
+}
+
+@keyframes tooltip-fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
 }
 
 .chip-popover {
@@ -316,7 +369,7 @@ body {
 }
 
 .params-menu {
-  @apply w-[360px] max-h-64 overflow-auto;
+  @apply w-[560px] max-h-[420px] p-2.5 overflow-auto;
 }
 
 .export-menu {
@@ -351,7 +404,7 @@ body {
 }
 
 .toolbar {
-  @apply flex items-center justify-end gap-1.5 py-2 px-3 border-b border-border bg-bg-panel;
+  @apply flex items-center justify-end gap-1.5 py-3 px-5 border-b border-border bg-bg-panel;
 }
 
 .search-count {
@@ -481,9 +534,22 @@ mark.search-match.current {
   transition: box-shadow 0.15s ease, border-color 0.15s ease;
 }
 
+/* A flash, not a sticky ring: it has to fade on its own, since nothing clears `highlighted` until
+   the next jump — landing on a resource and then browsing elsewhere would otherwise leave the
+   last jump target marked forever. */
 .ja-resource.highlight {
-  border-color: var(--accent);
-  box-shadow: 0 0 0 3px var(--accent-soft);
+  animation: ja-highlight-flash 1.4s ease-out;
+}
+
+@keyframes ja-highlight-flash {
+  from {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px var(--accent-soft);
+  }
+  to {
+    border-color: var(--border);
+    box-shadow: 0 0 0 3px transparent;
+  }
 }
 
 .ja-resource-head {
@@ -519,8 +585,26 @@ mark.search-match.current {
   @apply text-text font-medium overflow-hidden text-ellipsis whitespace-nowrap;
 }
 
+/* The collapsing element itself, so its own padding/border can't stop it reaching 0 height —
+   those live on `.ja-body-inner`, the single grid item `.ja-body-enter/leave-active` resize. */
 .ja-body {
+  overflow: hidden;
+}
+
+.ja-body-inner {
   @apply pt-1 px-3 pb-2.5 pl-[30px] border-t border-border;
+}
+
+.ja-body-enter-active,
+.ja-body-leave-active {
+  display: grid;
+  grid-template-rows: 1fr;
+  transition: grid-template-rows 0.18s ease;
+}
+
+.ja-body-enter-from,
+.ja-body-leave-to {
+  grid-template-rows: 0fr;
 }
 
 .ja-attr {
@@ -581,6 +665,7 @@ mark.search-match.current {
   font-family: var(--mono);
   border: 1px solid var(--border-strong);
   background: var(--bg-inset);
+  transition: border-color 0.15s ease;
 }
 
 .rel-chip:hover {
@@ -613,6 +698,7 @@ mark.search-match.current {
 .tab {
   @apply flex items-center px-3.5 text-[13px] text-text-secondary cursor-pointer bg-transparent border-0 border-b-2 border-b-transparent;
   --wails-draggable: no-drag;
+  transition: color 0.15s ease, border-color 0.15s ease;
 }
 
 .tab:hover {
@@ -666,6 +752,18 @@ button:focus-visible,
   outline-offset: 2px;
 }
 
+/* The overlay a view transition builds covers the whole window. Chromium hands it the hit test
+   whether or not it is here — which is why the switch answers by coordinates while a wipe runs —
+   but an engine that left the overlay clickable would swallow every click for the wipe's whole
+   second. */
+::view-transition,
+::view-transition-group(*),
+::view-transition-image-pair(*),
+::view-transition-old(*),
+::view-transition-new(*) {
+  pointer-events: none;
+}
+
 ::view-transition-old(root),
 ::view-transition-new(root) {
   animation: none;
@@ -688,5 +786,80 @@ button:focus-visible,
   }
   to {
     clip-path: circle(150% at 0 0);
+  }
+}
+
+/* The switch's pill becomes a layer of the transition while the wipe runs, so it can travel over
+   a frozen window. It is named inside the transition's callback only — the outgoing snapshot
+   therefore keeps the pill where the user left it, in the old palette, and the layer is free to
+   move (see ThemeSwitch for why naming it in both states would not do). */
+::view-transition-group(theme-indicator) {
+  z-index: 3;
+}
+
+/* It lifts off the moment the fill's front reaches it — `--wipe-arrival`, computed from the pill's
+   place in ThemeSwitch, because a fixed delay would be in step in one window size only. The new
+   palette arrives at the pill's old tile on that same instant: any earlier and a pill in the new
+   palette would sit over the old one, with the outgoing snapshot's own pill left behind. */
+::view-transition-new(theme-indicator) {
+  mix-blend-mode: normal;
+  opacity: 0;
+  animation: pill-slide 0.3s var(--wipe-arrival, 0.4s) forwards;
+}
+
+/* The pill has sat invisible up to this instant, so the slide needs a fast start of its own — the
+   wipe's easing (slow out of the gate) would read as a stall right where the fill just arrived.
+   Duration is duplicated as SWITCH_TAIL_MS in lib/themeWipe.ts. */
+@keyframes pill-slide {
+  from {
+    transform: translateX(var(--pill-shift, 0px));
+    opacity: 0;
+    animation-timing-function: linear;
+  }
+  18% {
+    opacity: 1;
+    animation-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+/* Standing in for the glyphs of the frozen switch, one layer above the pill, so only its
+   background moves. The copies are the same size and in the same places as the buttons' own
+   glyphs, which is why nothing shows but the change of palette under them: that waits for the
+   fill's front, exactly like the pill's own layer. */
+::view-transition-group(theme-glyphs) {
+  z-index: 4;
+}
+
+::view-transition-old(theme-glyphs) {
+  mix-blend-mode: normal;
+  opacity: 1;
+  animation: theme-glyphs-out 0.25s linear var(--wipe-arrival, 0.4s) forwards;
+}
+
+::view-transition-new(theme-glyphs) {
+  mix-blend-mode: normal;
+  opacity: 0;
+  animation: theme-glyphs-in 0.25s linear var(--wipe-arrival, 0.4s) forwards;
+}
+
+@keyframes theme-glyphs-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes theme-glyphs-out {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
   }
 }

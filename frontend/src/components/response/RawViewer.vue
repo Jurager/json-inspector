@@ -248,8 +248,9 @@ defineExpose({
 <style scoped>
 @reference "../../style.css";
 
-/* Fills its column and scrolls inside it, so the toolbar above never moves. */
+/* Fills its column and scrolls inside it, so the toolbar above never moves. CodeMirror's own
+   theme paints no background of its own (see `appTheme` above) — this is what shows through it. */
 .raw-viewer {
-  @apply flex-1 min-h-0 overflow-hidden;
+  @apply flex-1 min-h-0 overflow-hidden bg-bg-panel;
 }
 </style>
