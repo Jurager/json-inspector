@@ -85,8 +85,6 @@ function relLabel(r: RelInfo): string {
   return `${r.name} → ${humanize(r.targetType)}`
 }
 
-// `base` is the current response, `target` the one compared against: "added"
-// means present in target only, "removed" in base only.
 export function diffSchemas(base: TypeInfo[], target: TypeInfo[]): TypeDiff[] {
   const bm = new Map(base.map((t) => [t.type, t]))
   const tm = new Map(target.map((t) => [t.type, t]))

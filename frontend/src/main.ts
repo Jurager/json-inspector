@@ -1,6 +1,5 @@
-// Side-effect import, and it must come first: the runtime's index pulls in the
-// contextmenu, drag and appregion modules. Without it the --wails-draggable
-// regions silently stop working — the window just won't drag.
+// Must come first: the runtime's index pulls in the contextmenu, drag and appregion
+// modules, without which the --wails-draggable regions silently stop working.
 import '@wailsio/runtime'
 
 import { createApp } from 'vue'

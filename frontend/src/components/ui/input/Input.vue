@@ -1,9 +1,6 @@
 <script setup lang="ts">
-// The handoff's field: 32px with an 8px radius at md, 28px and 7px at sm,
-// --bg-inset inside a --border, accent border and --accent-soft ring on focus.
-//
-// `bare` drops that chrome, for a field whose container draws the frame itself
-// (the filter pills, the command line's URL box). Layout stays with the caller.
+// The handoff's field: 32px and an 8px radius at md, 28px and 7px at sm. `bare` drops the
+// chrome for a field whose container draws the frame (the filter pills, the command line).
 import { ref } from 'vue'
 
 withDefaults(

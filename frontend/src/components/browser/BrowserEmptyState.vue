@@ -17,8 +17,6 @@ onMounted(async () => {
   }
 })
 
-// Live bridge state, not a hardcoded "not found": the extension can be
-// connected (or recording) with no captured requests to show yet.
 const statusText = computed(() => {
   const p = port.value || '…'
   return store.capture.connected
@@ -26,7 +24,6 @@ const statusText = computed(() => {
     : `Расширение не найдено · порт ${p} слушает`
 })
 
-// Points at the README's extension/ setup steps.
 function openInstructions() {
   Browser.OpenURL('https://github.com/Jurager/json-inspector')
 }

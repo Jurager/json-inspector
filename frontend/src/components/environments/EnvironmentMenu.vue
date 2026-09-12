@@ -9,8 +9,6 @@ const store = useEnvironmentsStore()
 
 const editHint = shortcut('E')
 
-// The rows keep their own .env-row look (marks, counts, badges) rather than the generic .menu-item,
-// so they use reka-ui's item directly and answer to [data-highlighted] themselves.
 function choose(id: string | null) {
   store.setActive(id)
 }
@@ -36,7 +34,6 @@ function edit() {
       </span>
       <span class="env-row-name">{{ env.name }}</span>
       <span v-if="env.readonly" class="env-badge">только чтение</span>
-      <!-- The active row spells the unit out; the others stay compact, per the handoff. -->
       <span v-else class="env-count">
         {{ env.vars.length }}<template v-if="env.id === store.activeId"> перем.</template>
       </span>
@@ -83,7 +80,6 @@ function edit() {
   @apply bg-accent-soft font-semibold;
 }
 
-/* Fixed slot instead of per-state padding, so names of active and inactive rows line up. */
 .env-row-mark {
   @apply flex-none w-3 inline-flex items-center justify-center text-accent;
 }

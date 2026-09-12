@@ -18,7 +18,6 @@ const envStore = useEnvironmentsStore()
 const reqStore = useRequestsStore()
 const { setNotice, clearNotice } = useSheetNotice()
 
-// `null` is "Глобальные" — a first-class scope, not a separate screen.
 const envId = computed(() => envStore.sheetEnvId)
 const env = computed(() => envStore.environments.find((e) => e.id === envId.value) ?? null)
 const isGlobals = computed(() => envId.value === null)
@@ -26,14 +25,12 @@ const isGlobals = computed(() => envId.value === null)
 const renamingId = ref<string | null>(null)
 const envDraft = ref('')
 const renameInput = ref<HTMLInputElement | null>(null)
-// An unsaveable name keeps the field open with a red frame, so a duplicate is fixed in place.
 const renameInvalid = ref(false)
 
 function setRenameInput(el: Element | ComponentPublicInstance | null) {
   renameInput.value = (el as HTMLInputElement | null) ?? null
 }
 
-// Finder's pattern: `+` opens the new row already in edit mode with its name selected.
 function addEnv() {
   const id = envStore.addEnv()
   envStore.selectSheetEnv(id)
@@ -71,8 +68,6 @@ function commitRename(): boolean {
   return true
 }
 
-// Unmounting the previous input fires its blur after `renamingId` has moved on: a blind commit
-// would rename the fresh row and close it immediately.
 function commitRenameFrom(id: string) {
   if (renamingId.value !== id) return
   commitRename()
@@ -96,8 +91,6 @@ function renameNext(dir: 1 | -1) {
 }
 
 function onRenameKeydown(e: KeyboardEvent) {
-  // The row underneath also listens for Enter; without this the save would reopen the editor at
-  // once and look like it didn't take.
   e.stopPropagation()
   if (e.key === 'Enter') {
     e.preventDefault()
@@ -187,7 +180,6 @@ function applyImport() {
   importEntries.value = null
 }
 
-// Esc backs out one level at a time — see the cascade in EnvironmentsSheet.
 function cancelTop(): boolean {
   if (renamingId.value) {
     cancelRename()
@@ -210,9 +202,6 @@ defineExpose({ cancelTop })
 <template>
   <div class="sheet-side">
     <div class="side-label">Окружения</div>
-    <!-- Rows are divs, not buttons: the name turns into an input in place, and interactive content
-         can't live in a <button>.
-    -->
     <div
       v-for="e in envStore.environments"
       :key="e.id"
@@ -332,7 +321,6 @@ defineExpose({ cancelTop })
   @apply bg-accent-soft font-semibold;
 }
 
-/* Enter on the selected row starts renaming, so the row keeps a visible keyboard affordance. */
 .side-row:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: -2px;
@@ -350,9 +338,6 @@ defineExpose({ cancelTop })
   @apply flex-1 min-w-0 overflow-hidden text-ellipsis whitespace-nowrap;
 }
 
-/* The input sits in the row's rhythm, not stretched by it: same 30px row, 26px field, and a
-   negative margin that puts its text on the names' vertical line (border 1px + padding 7px = 8px
-   back). */
 .side-rename {
   @apply flex-1 min-w-0 h-[26px] box-border text-[13px] outline-none;
   margin-left: -8px;

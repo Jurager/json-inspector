@@ -14,16 +14,8 @@ function pointerInside(node: HTMLElement): boolean {
   return pointer.x >= r.left && pointer.x <= r.right && pointer.y >= r.top && pointer.y <= r.bottom
 }
 
-/**
- * Whether the pointer arrived at `el` by moving, rather than `el` appearing
- * under a pointer that was already sitting there — a popover opening where the
- * user just clicked. Until it has, a hint for that element fires on the first
- * twitch of the mouse, which reads as a glitch rather than as a hint.
- *
- * A control that appears with the pointer already inside starts unarmed, and
- * arms on the first pointerleave: the pointer has to come back in, which is the
- * only thing that tells "they hovered it" from "it showed up underneath them".
- */
+// Whether the pointer arrived at `el` by moving rather than `el` appearing under it (a popover
+// opening where the user clicked). Starts unarmed then, and arms on pointerleave.
 export function useHoverArrival(el: Ref<HTMLElement | null>) {
   const armed = ref(false)
 

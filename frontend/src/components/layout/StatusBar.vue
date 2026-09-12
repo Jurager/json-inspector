@@ -42,9 +42,11 @@ const missingLabel = computed(
   () => `${missingCount.value} ${plural(missingCount.value, ['переменная', 'переменные', 'переменных'])} не найдено`
 )
 
-const selected = computed(() =>
-  store.activeView === 'request' ? store.manualSelected : store.browserSelected
-)
+const selected = computed(() => {
+  if (store.activeView === 'request') return store.manualSelected
+  if (store.activeView === 'browser') return store.browserSelected
+  return null
+})
 
 const doc = computed<JsonApiDocument | null>(() => {
   const r = selected.value
@@ -62,8 +64,6 @@ function jsonapiVersion(d: JsonApiDocument): string {
   return ''
 }
 
-// Counts relationship references whose target isn't present in data + included
-// — the "незагруженные связи" shown in the summary.
 function countMissing(d: JsonApiDocument): number {
   const idx = buildIndex(d)
   let n = 0
@@ -122,7 +122,7 @@ const captureDotClass = computed(() => {
         <span class="missing">{{ missingLabel }}</span>
       </template>
     </template>
-    <template v-else>
+    <template v-else-if="store.activeView === 'browser'">
       <span :class="captureDotClass"></span>
       <span>{{ captureLabel }}</span>
     </template>

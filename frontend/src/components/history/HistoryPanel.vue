@@ -7,7 +7,6 @@ import { useRequestsStore } from '../../stores/requests'
 import type { RequestRecord } from '../../lib/types'
 import { statusClass } from '../../lib/json'
 
-// One component for both sources — same records, filtered differently (and grouped by tab for the browser one) — so their wording and styling can't drift apart.
 const props = defineProps<{ source: 'manual' | 'browser' }>()
 
 const store = useRequestsStore()
@@ -35,7 +34,6 @@ function timeLabel(startedAt: number): string {
   return d.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit', second: '2-digit' })
 }
 
-// Path + query only: the host already shows in the group header or the command line, and the full URL stays in the row's title.
 function pathOf(url: string): string {
   try {
     const u = new URL(url)
@@ -124,7 +122,6 @@ const isEmptyFiltered = computed(() =>
   props.source === 'browser' ? filteredGroups.value.length === 0 : filteredRecords.value.length === 0
 )
 
-// "запись" is a heuristic: the most recently active group is assumed to be the one still being written to.
 function isRecording(g: TabGroup): boolean {
   return store.capture.recording && filteredGroups.value[0]?.key === g.key
 }
@@ -167,7 +164,8 @@ function groupHue(key: string): number {
   return h % 360
 }
 
-// A deep link's tab may have nothing yet, but the link is clicked right after the page loads and the first request lands a moment later — so the request is kept.
+// A deep link's tab may have nothing yet, but the link is clicked right after the page loads
+// and the first request lands a moment later — so the request is kept.
 function applyDeepLink() {
   if (props.source !== 'browser') return
   const tabId = store.focusTabId
@@ -182,7 +180,6 @@ function applyDeepLink() {
   store.focusTabId = null
 }
 
-// Watches the source too — the link both switches the rail and asks for a tab — and runs immediately, because the panel isn't rendered while nothing has been captured.
 watch(() => [store.focusTabId, store.requests.length, props.source] as const, applyDeepLink, {
   immediate: true,
 })
@@ -195,9 +192,6 @@ watch(() => [store.focusTabId, store.requests.length, props.source] as const, ap
       <Button variant="quiet" :disabled="records.length === 0" @click="clearAll">Очистить</Button>
     </div>
 
-    <!-- No empty text for the browser source: BrowserEmptyState in the main column already explains
-         the next step.
-    -->
     <div v-if="records.length === 0 && source === 'manual'" class="empty">
       <span class="empty-title">Пока пусто</span>
       <span class="empty-hint">{{ emptyHint }}</span>
@@ -310,15 +304,10 @@ watch(() => [store.focusTabId, store.requests.length, props.source] as const, ap
   font-family: var(--mono);
 }
 
-/* Docked to the bottom, level with the sidebar's "Проверить обновления" row — within reach of the
-   resize handle. It floats over the list, a gradient fading items under it rather than a hard
-   clip. */
 .panel-filter-dock {
   @apply absolute left-0 right-0 bottom-0 flex flex-col pointer-events-none;
 }
 
-/* A smoothstep curve (3t²-2t³): zero slope at both ends, so the fade eases in and out with no
-   visible kink. */
 .panel-filter-fade {
   @apply h-8;
   background: linear-gradient(
@@ -341,8 +330,6 @@ watch(() => [store.focusTabId, store.requests.length, props.source] as const, ap
   @apply pointer-events-auto flex items-center py-1.5 px-3 bg-bg-panel;
 }
 
-/* Solid background down to the panel's true bottom edge, so list items never show through under
-   the input. */
 .panel-filter-backdrop {
   @apply h-2 bg-bg-panel;
 }
@@ -417,8 +404,6 @@ watch(() => [store.focusTabId, store.requests.length, props.source] as const, ap
   font-variant-numeric: tabular-nums;
 }
 
-/* The button fades in with its row, so the rule reaches in from the group header — Vue puts the
-   parent's scope attribute on a child's root, which is why the selector matches. */
 .group-head :deep(.icon-btn) {
   opacity: 0.55;
 }
@@ -431,8 +416,6 @@ watch(() => [store.focusTabId, store.requests.length, props.source] as const, ap
   @apply list-none m-0 pt-0.5 pr-0 pb-0.5 pl-3.5;
 }
 
-/* One dense row: method → status → path → time. Duration lives in the response header, and the
-   host is redundant with the group header / URL. */
 .item {
   @apply flex items-center gap-2 py-[7px] px-2.5 rounded-md cursor-pointer mb-px;
 }

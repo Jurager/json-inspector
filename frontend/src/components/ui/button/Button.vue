@@ -1,7 +1,6 @@
 <script setup lang="ts">
-// Sizes are the handoff's: md is «Готово», lg is the command line's send button,
-// sm is the small button for tight rows. ghost and quiet size by padding rather
-// than by height — see the variant rules below.
+// Sizes are the handoff's: md is «Готово», lg is the command line's send button, sm is the
+// small button for tight rows. ghost and quiet size by padding, not by height.
 withDefaults(
   defineProps<{
     variant?: 'outline' | 'primary' | 'ghost' | 'quiet'

@@ -1,15 +1,9 @@
-// Generates copy-paste representations of an HTTP request for various tools.
-
 import { parseTokens, SECRET_MASK, type ResolveFn } from './vars'
 
 export type ExportFormat = 'curl' | 'fetch' | 'wget' | 'httpie' | 'powershell'
 
 export interface ExportOptions {
-  // Resolves `{{tokens}}`; without it the text is exported verbatim, which is
-  // what a request that was already sent looks like.
   resolve?: ResolveFn
-  // Leave the tokens in place instead of substituting, for sharing a request
-  // without its values.
   keepTokens?: boolean
 }
 

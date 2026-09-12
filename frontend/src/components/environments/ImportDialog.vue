@@ -5,7 +5,6 @@ import { Checkbox } from '../ui/checkbox'
 import { Button } from '../ui/button'
 import type { ImportChoice } from '../../stores/environments'
 
-// The rows are edited in place: the array is the caller's, and only its items change.
 const props = defineProps<{
   entries: ImportChoice[]
   existingNames: Set<string>
@@ -17,9 +16,6 @@ const emit = defineEmits<{ (e: 'cancel'): void; (e: 'apply'): void }>()
 </script>
 
 <template>
-  <!-- Own full-width header instead of the dialog's title bar, with the list scrolling under it.
-       Escape goes to the sheet's cascade, as in DeleteEnvDialog.
-  -->
   <Dialog
     :open="true"
     class="import-panel"
@@ -35,7 +31,7 @@ const emit = defineEmits<{ (e: 'cancel'): void; (e: 'apply'): void }>()
           :model-value="e.secret"
           tone="secret"
           :title="e.secret ? 'Импортировать как секрет' : 'Импортировать как обычную переменную'"
-          @update:model-value="(v) => (e.secret = Boolean(v))"
+          @update:model-value="(v: any) => (e.secret = Boolean(v))"
         />
         <span class="import-name mono">{{ e.name }}</span>
         <span class="import-value mono" :class="{ masked: e.secret }">{{ e.secret ? '••••' : e.value }}</span>

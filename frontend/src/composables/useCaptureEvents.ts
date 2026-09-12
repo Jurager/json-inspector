@@ -52,9 +52,8 @@ export function useCaptureEvents(store: ReturnType<typeof useRequestsStore>) {
       Events.On('capture-disconnected', () => {
         store.setCaptureState({ connected: false, recording: false, tabs: 0 })
       }),
-      // The extension's "open this tab" deep link. Subscribed here rather than in
-      // the browser list, which isn't always mounted — the link must still switch
-      // the rail even when nothing has been captured yet.
+      // Subscribed here, not in the browser list (which isn't always mounted): the link
+      // must switch the rail even when nothing has been captured yet.
       Events.On('open-tab', (ev) => {
         store.focusBrowserTab(ev.data as number)
       })

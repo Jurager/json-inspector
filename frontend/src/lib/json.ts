@@ -27,8 +27,6 @@ function escapeHtml(s: string): string {
   return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
 }
 
-// Wraps the source in <span class="tok-*">; scans char-by-char rather than with
-// a regex, which would end a string at an escaped quote.
 export function highlightJson(text: string): string {
   const out: string[] = []
   const n = text.length

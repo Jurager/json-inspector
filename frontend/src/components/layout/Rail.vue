@@ -26,7 +26,6 @@ function loadSample() {
   store.add(buildSampleRecord())
 }
 
-// Opens or focuses the About window; the window itself is created in Go.
 function openAbout() {
   Backend.ShowAbout()
 }
@@ -42,8 +41,6 @@ function openBrowser() {
     <div class="rail-menu-wrap">
       <DropdownMenu>
         <DropdownMenuTrigger as-child>
-          <!-- Native title, not the styled hint: a hint's provider would sit between
-               this trigger and its button, and the as-child binding would land on it. -->
           <IconButton variant="bare" size="lg" title="Меню">
             <Icon name="menu" :size="18" />
           </IconButton>

@@ -59,7 +59,6 @@ function valueClass(v: string): string {
 </script>
 
 <template>
-  <!-- Sits inside the chip's own ui/Popover, which owns placement, outside click and Escape. -->
   <PopoverContent
     class="chip-popover"
     :class="{ auth: props.chip === 'auth', spaced: props.chip === 'auth' || props.chip === 'body' }"
@@ -68,9 +67,6 @@ function valueClass(v: string): string {
   >
     <div class="popover-head">
       <span class="popover-title">{{ title }}</span>
-      <!-- Lands under the cursor when the panel opens, so useHoverArrival holds its hint until the
-           pointer returns.
-      -->
       <IconButton hint="Закрыть (Esc)" size="sm" @click="close"><Icon name="xmark" :size="13" /></IconButton>
     </div>
 
@@ -183,12 +179,6 @@ function valueClass(v: string): string {
 <style scoped>
 @reference "../../style.css";
 
-/* The panel is built by reka-ui inside a Teleport, so it never carries this component's scope attribute and a
-   scoped rule here would match nothing — its size and rhythm live in style.css, next to .popover.
-   The head below is slot content, so that part keeps working scoped. */
-
-/* Spaced panels put 8px between children instead of 2px, so the head carries no bottom padding of
-   its own. */
 .chip-popover.spaced .popover-head {
   padding-bottom: 0;
 }
@@ -213,8 +203,6 @@ function valueClass(v: string): string {
   @apply opacity-55;
 }
 
-/* No padding of its own: the row already carries 3px 4px and the handoff's cell text starts at that edge —
-   an inset here shifts every name and value 4px to the right of where the design puts them. */
 .row-input {
   @apply min-w-0 bg-transparent border-0 outline-none text-[11.5px] p-0 rounded-sm;
   font-family: var(--mono);
@@ -229,15 +217,11 @@ function valueClass(v: string): string {
   @apply relative flex min-w-0;
 }
 
-/* Painted over the input: its glyphs are hidden rather than removed and the caret gets its colour back, since
-   it follows `color`. Scoped through .row-cell so it also beats the .str/.num value colours. */
 .row-cell .row-input.row-input-veiled {
   color: transparent;
   caret-color: var(--text);
 }
 
-/* Transparent to the mouse so the input keeps native caret and selection; tokens opt back in for
-   their tooltip. */
 .row-display {
   @apply absolute inset-0 flex items-center overflow-hidden pointer-events-none;
   white-space: pre;
@@ -259,7 +243,6 @@ function valueClass(v: string): string {
   @apply text-[11px] text-text-tertiary;
 }
 
-/* The auth panel's note, in the panel's 8px rhythm rather than in a bordered foot. */
 .hint {
   color: var(--text-tertiary);
   font-size: 11.5px;
@@ -272,8 +255,6 @@ function valueClass(v: string): string {
   border-radius: 7px;
 }
 
-/* One of four equal segments minus the 4px padding and 3×2px gaps; translateX steps it one segment (+gap) per
-   mode, so the highlight glides rather than jumps. */
 .seg-indicator {
   @apply absolute top-0.5 bottom-0.5 left-0.5 bg-bg-panel;
   border-radius: 5px;

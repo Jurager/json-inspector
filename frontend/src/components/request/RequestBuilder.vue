@@ -59,8 +59,6 @@ function toggleChip(chip: 'params' | 'headers' | 'auth' | 'body') {
   store.setOpenChip(store.openChip === chip ? null : chip)
 }
 
-// Values that go on the wire: the draft keeps the tokens, so switching environments never touches
-// the saved request.
 function collectHeaders(): Record<string, string> {
   const map: Record<string, string> = {}
   for (const h of store.draft.headers) {
@@ -70,7 +68,7 @@ function collectHeaders(): Record<string, string> {
   return map
 }
 
-// The masked shape the preview and exports read — a credential must never land in the record.
+// The masked shape the preview and exports read - a credential must never land in the record.
 function maskedHeaders(): Record<string, string> {
   const map: Record<string, string> = {}
   for (const h of store.draft.headers) {
@@ -80,8 +78,7 @@ function maskedHeaders(): Record<string, string> {
   return map
 }
 
-// An unresolved `{{name}}` would go on the wire as braces and come back a confusing 404, so the
-// send is blocked.
+// An unresolved `{{name}}` would go on the wire as braces and come back a confusing 404, so send is blocked.
 const missing = computed(() => store.missingVars)
 const sendBlocked = computed(() => missing.value.length > 0)
 
@@ -91,8 +88,7 @@ const blockedHint = computed(() =>
     : undefined
 )
 
-// Opens the editor focused on the first new name; with no environment chosen there is nothing to
-// create into.
+// Opens the editor focused on the first new name; with no environment chosen there is nothing to create into.
 function createMissing() {
   const envId = envStore.activeId
   if (envId === null) return
@@ -112,8 +108,6 @@ async function send() {
   const recordHeaders = maskedHeaders()
   try {
     const res = await Backend.SendRequest(store.draft.method, url, requestHeaders, body)
-    // The binding types the Go pointer as nullable but the Go side always returns a result: a type
-    // guard, not a branch.
     if (!res || res.cancelled) return
     store.add({
       method: store.draft.method,
@@ -153,10 +147,6 @@ watch(
   }
 )
 
-// The input stays the real editable control; highlights are painted by a layer above it whose
-// glyphs are hidden
-// (not removed), so caret, selection, drag and IME stay native — only tokens opt into mouse events,
-// for their tooltip.
 const urlDisplayRef = ref<HTMLElement | null>(null)
 
 const urlSegments = computed(() => segments(store.draft.url))
@@ -169,8 +159,6 @@ function syncUrlScroll() {
   if (input && display) display.scrollLeft = input.scrollLeft
 }
 
-// No dismissal handling here: ui/DropdownMenu and ui/Popover close themselves on outside click and
-// Escape.
 function onWindowKeydown(e: KeyboardEvent) {
   if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
     e.preventDefault()
@@ -247,9 +235,6 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onWindowKeydown))
               Тело
             </button>
           </PopoverAnchor>
-          <!-- One panel for all four chips, anchored to the row: the handoff hangs each under the
-               line's right edge.
-          -->
           <RequestChipPopover v-if="store.openChip" :chip="store.openChip" />
         </Popover>
       </div>
@@ -273,9 +258,6 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onWindowKeydown))
 
     </div>
 
-    <!-- The one thing allowed to add height to the command line: an unresolved variable blocks the
-         request.
-    -->
     <div v-if="sendBlocked" class="missing-row">
       <span class="missing-text">
         <template v-if="envStore.activeId === null">
@@ -309,8 +291,6 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onWindowKeydown))
   @apply flex-none border-b border-border bg-bg-panel;
 }
 
-/* The command line is exactly one 56px row; settings open as a popover layered over the response
-   below. */
 .request-bar {
   @apply relative flex items-center gap-2 h-14 py-3 px-4;
 }
@@ -325,7 +305,6 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onWindowKeydown))
   box-shadow: 0 0 0 3px var(--accent-soft);
 }
 
-/* A blocked send keeps its red edge even while focused — the accent ring would read as "all good". */
 .url-field.url-field-invalid,
 .url-field.url-field-invalid:focus-within {
   border-color: color-mix(in srgb, var(--red) 45%, transparent);
@@ -368,15 +347,11 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onWindowKeydown))
   color: var(--text);
 }
 
-/* The input's own glyphs would show through the layer above doubled, so they are hidden, not removed — and the
-   caret gets its colour back, since it follows `color` and would otherwise vanish with them. */
 .url-input-veiled {
   color: transparent;
   caret-color: var(--text);
 }
 
-/* Transparent to the mouse: click, drag and caret go to the input underneath; tokens opt back in
-   for their tooltip. */
 .url-display {
   @apply absolute inset-0 flex items-center overflow-hidden px-2 text-[12.5px] pointer-events-none;
   font-family: var(--mono);

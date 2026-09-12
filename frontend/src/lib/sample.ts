@@ -1,7 +1,5 @@
 import type { RequestRecord } from './types'
 
-// A JSON:API compound document taken from the spec's examples, used to show the
-// tree and map views without a network call.
 export const SAMPLE_JSON_API = `{
   "jsonapi": { "version": "1.0" },
   "links": {

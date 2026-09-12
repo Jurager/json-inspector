@@ -1,14 +1,13 @@
-// Template tokens for environment variables: `{{name}}` (spaces allowed inside);
-// `\{{` escapes the sequence. A token only counts when its contents are a valid
-// variable name, so payloads that merely look like one (`{{"a": 1}}`) pass through
-// untouched instead of blowing up the parse.
+// Environment tokens: `{{name}}`, spaces allowed inside, `\{{` escapes the sequence. Only
+// a valid variable name counts, so payloads like `{{"a": 1}}` pass through untouched.
 
 export type VarKind = 'text' | 'secret'
 
 // What a secret looks like anywhere it isn't deliberately revealed: tooltips, preview, exports.
 export const SECRET_MASK = '••••'
 
-// `source` and `kind` travel with the value: the tooltip names where it came from and whether it may be shown.
+// `source` and `kind` travel with the value: the tooltip names where it came from and whether it
+// may be shown.
 export interface VarResolution {
   value: string
   source: 'env' | 'global'
@@ -84,7 +83,8 @@ export function missing(text: string, resolve: ResolveFn): string[] {
 export interface Segment {
   text: string
   token?: string
-  // The highlight layer sits over a real input, so a token click must translate back into a caret index.
+  // The highlight layer sits over a real input, so a token click must translate back into a caret
+  // index.
   start: number
 }
 

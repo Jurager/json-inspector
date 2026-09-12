@@ -3,12 +3,8 @@ import { System } from '@wailsio/runtime'
 
 type Platform = 'darwin' | 'windows' | 'linux'
 
-// The host injects window._wails.environment asynchronously — measured on Windows it
-// is still undefined while the module graph evaluates — so System.IsWindows() cannot
-// be sampled at import time; sampling it would latch "not Windows" for the session.
-// The user agent is available synchronously and is right (WebView2 "Windows NT",
-// WKWebView "Macintosh", WebKitGTK "Linux"): it seeds the value so the first paint is
-// correct, and Environment() below has the final say.
+// window._wails.environment is injected asynchronously, so sampling it at import time would
+// latch "not Windows" for the session: the user agent seeds the platform instead.
 function detect(): Platform {
   const ua = navigator.userAgent
   if (/Windows/i.test(ua)) return 'windows'
@@ -31,9 +27,8 @@ System.Environment()
 
 export const isMac = computed(() => platform.value === 'darwin')
 
-// Windows and Linux have no macOS-style hidden-inset title bar, so they run frameless and
-// draw their own caption buttons. Must agree with useCustomTitlebar() in window.go, which
-// decides Frameless.
+// Windows and Linux run frameless with their own caption buttons; must agree with
+// useCustomTitlebar() in window.go, which decides Frameless.
 export const useCustomTitlebar = computed(
   () => platform.value === 'windows' || platform.value === 'linux'
 )

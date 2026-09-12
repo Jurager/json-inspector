@@ -13,9 +13,8 @@ import EnvironmentsSheet from './components/environments/EnvironmentsSheet.vue'
 import Toast from './components/ui/Toast.vue'
 import UpdateModal from './components/update/UpdateModal.vue'
 
-// The shell: layout plus the composables that own app-wide behaviour. State
-// reaches components through the store or a composable, never through props
-// from here.
+// The shell: layout plus the composables that own app-wide behaviour. State reaches
+// components through the store or a composable, never through props from here.
 const store = useRequestsStore()
 const envStore = useEnvironmentsStore()
 const { update, open } = useUpdates()

@@ -38,8 +38,6 @@ function pluralRu(n: number, forms: [string, string, string]): string {
   return forms[2]
 }
 
-// Flat index in doc.included, so a grouped resource still gets a stable
-// "included[j]" path for the inspector.
 const includedFlatIndex = computed(() => {
   const map = new Map<string, number>()
   included.value.forEach((r, i) => map.set(r.type + '/' + r.id, i))
@@ -52,8 +50,6 @@ function includedPath(r: Resource): string {
 
 const highlightedKey = ref<string | null>(null)
 
-// Grouped by type because a flat included list runs to ~94 resources; groups
-// collapse only for large docs, and search or a type chip forces them open.
 const typeFilter = ref<string | null>(null)
 const toggled = ref<Set<string>>(new Set())
 const showAllTypes = ref(false)
@@ -62,8 +58,6 @@ function toggleTypeFilter(type: string) {
   typeFilter.value = typeFilter.value === type ? null : type
 }
 
-// `toggled` holds the types the user flipped, so a group's state is default XOR
-// toggled — every group stays openable, unlike always-open for small docs.
 function isGroupOpen(type: string): boolean {
   if (props.query.trim() || typeFilter.value) return true
   const defaultOpen = included.value.length <= 20
@@ -98,8 +92,6 @@ watch(
   }
 )
 
-// The tree remounts on returning from the map tab; jump on mount so a highlight
-// set while on the map still lands.
 onMounted(() => {
   if (props.highlightKey) highlightAndScroll(props.highlightKey)
 })
@@ -291,8 +283,6 @@ const noResults = computed(
   @apply mb-1;
 }
 
-/* Same white surface as a resource card, so collapsed groups read as peers of
-   the resources they contain, not as bare section labels. */
 .included-group-head {
   @apply flex items-center gap-2 py-2 px-3 rounded-lg text-left cursor-pointer select-none;
   width: calc(100% - 32px);

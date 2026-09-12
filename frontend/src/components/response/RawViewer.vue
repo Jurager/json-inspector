@@ -86,9 +86,8 @@ const folding = codeFolding({
   },
 })
 
-// --- Search ----------------------------------------------------------------
-// Hand-written rather than @codemirror/search: that extension only highlights
-// while its own panel is open, and the search UI here lives in the app toolbar.
+// Search is hand-written rather than @codemirror/search: that extension highlights
+// only while its own panel is open, and the search UI here lives in the app toolbar.
 
 interface Match {
   from: number

@@ -2,12 +2,8 @@
 import { CheckboxIndicator, CheckboxRoot, type CheckboxRootProps } from 'reka-ui'
 import Icon from '../Icon.vue'
 
-// The handoff's row checkbox: 13x13, 3px radius.
-//
-// `tone` is ours, and a checked box means two things here: "this row is on"
-// (accent) or "this value is a credential" (the sheet's "секрет" orange). It is
-// kept out of the forwarded props, or it would land on the button as an
-// attribute.
+// The handoff's row checkbox: 13x13, 3px radius. `tone` is ours, so it is kept out of
+// the forwarded props — spread in, it would land on the button as an attribute.
 const { tone = 'accent', ...rootProps } = defineProps<CheckboxRootProps & { tone?: 'accent' | 'secret' }>()
 
 defineOptions({ inheritAttrs: false })

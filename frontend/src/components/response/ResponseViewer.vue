@@ -132,7 +132,8 @@ async function follow(url: string) {
   store.manualId = null
   try {
     const res = await Backend.Fetch(url, headers)
-    // The binding types the Go pointer as nullable, but Go always returns a result — a type guard, not a real branch.
+    // The binding types the Go pointer as nullable, but Go always returns a result — a type guard,
+    // not a real branch.
     if (!res || res.cancelled) return
     store.add({
       method: 'GET',

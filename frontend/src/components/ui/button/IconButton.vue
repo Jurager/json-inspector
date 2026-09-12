@@ -1,14 +1,6 @@
 <script setup lang="ts">
-// A square button whose only content is a glyph. outline — bordered tile
-// (response bar, rail); bare — --text-secondary (rail menu, sheet +/-); subtle —
-// closes; danger — deletes.
-//
-// On a disabled button `hint` falls back to the native title: a disabled element
-// fires no pointer events, and "why is this disabled" is what matters there.
-//
-// `hint` is unusable on a button that is itself an `as-child` trigger (the rail's
-// menu): the tooltip's root is a provider, so the trigger's props would land on
-// the provider and the menu would stop opening.
+// `hint` is unusable on a button that is itself an `as-child` trigger (the rail's menu): the
+// tooltip's root is a provider and the trigger's props would land on it.
 import { ref } from 'vue'
 import Tooltip from '../tooltip/Tooltip.vue'
 import { useHoverArrival } from '../../../composables/useHoverArrival'

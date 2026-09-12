@@ -17,11 +17,8 @@ const envStore = useEnvironmentsStore()
 const appName = ref('')
 const isMaximised = ref(false)
 
-// Reactive: the platform resolves shortly after load (see lib/platform.ts).
 const searchHint = computed(() => shortcut('K'))
 
-// Environment is a property of the window, not of a request: the chip names the active one and is
-// the only way in — there is no rail section, by design.
 const activeEnvName = computed(() => envStore.active?.name ?? 'Без окружения')
 
 const ENV_DOT_COLORS: Record<string, string> = {
@@ -33,13 +30,10 @@ const ENV_DOT_COLORS: Record<string, string> = {
 
 const envDotStyle = computed(() => {
   const env = envStore.active
-  // No environment: the dot goes neutral rather than claiming a state.
   if (!env) return { background: 'var(--text-tertiary)' }
   return { background: ENV_DOT_COLORS[env.color ?? 'green'] ?? 'var(--green)' }
 })
 
-// The name comes from the backend, so it can't drift from the window title and the macOS menu bar;
-// it arrives a beat after the first paint.
 async function loadAppName() {
   try {
     appName.value = (await Backend.Name()) ?? ''
@@ -56,8 +50,6 @@ async function refreshMaximised() {
   }
 }
 
-// Maximise state is only shown by our own caption buttons, which exist on the frameless platforms
-// only — and the platform resolves asynchronously, so watch it rather than check once.
 watch(
   useCustomTitlebar,
   (custom) => {
@@ -88,9 +80,6 @@ onBeforeUnmount(() => {
 
     <div v-if="useCustomTitlebar" class="titlebar-spacer"></div>
 
-    <!-- The chip and search belong to both titlebars: on macOS they float over the native
-         hidden-inset bar, on the frameless one they sit in the flex row before the caption buttons.
-    -->
     <div class="titlebar-actions" :class="{ 'titlebar-actions-flush': useCustomTitlebar }">
       <div class="env-wrap">
         <DropdownMenu>
@@ -134,7 +123,6 @@ onBeforeUnmount(() => {
 <style scoped>
 @reference "../../style.css";
 
-/* Names .btn to outrank the colour the primitive sets on its own root. */
 .btn.titlebar-search {
   color: var(--text-secondary);
 }

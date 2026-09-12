@@ -1,13 +1,8 @@
 <script setup lang="ts">
 import { DialogContent, DialogOverlay, DialogPortal, DialogRoot, DialogTitle, type DialogRootProps } from 'reka-ui'
 
-// `class` lands on the panel (see the attribute forwarding below), so sizing and
-// padding stay with the caller.
-//
-// Escape closes the dialog unless the caller prevents it: inside the
-// environments sheet reka-ui closing the dialog and the sheet's own cascade
-// would back out two levels at once, so those call sites pass
-// @escape-key-down.prevent and let the cascade decide.
+// `class` lands on the panel, so sizing and padding stay with the caller. Escape closes
+// unless the caller prevents it — the environments sheet does, for its own cascade.
 defineOptions({ inheritAttrs: false })
 
 const props = defineProps<DialogRootProps & { title?: string }>()

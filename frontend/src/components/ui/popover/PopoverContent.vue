@@ -1,12 +1,8 @@
 <script setup lang="ts">
 import { PopoverContent, PopoverPortal, type PopoverContentProps } from 'reka-ui'
 
-// The panel look is the app's `.popover` class; a list of commands is
-// ui/dropdown-menu instead.
-//
-// inheritAttrs is off and $attrs is bound on the content by hand: the root here
-// is the Portal, and a class falling through onto a Teleport is dropped — which
-// is what used to keep a caller's panel class (the width above all) off the panel.
+// The panel look is the app's `.popover`; a list of commands is ui/dropdown-menu. $attrs is
+// bound by hand: the root is the Portal, and a class on a Teleport is dropped.
 defineOptions({ inheritAttrs: false })
 
 const props = withDefaults(defineProps<PopoverContentProps>(), {

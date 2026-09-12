@@ -9,12 +9,10 @@ import { Input } from '../ui/input'
 const envStore = useEnvironmentsStore()
 const { notice, setNotice, clearNotice } = useSheetNotice()
 
-// `null` is "Глобальные" — a first-class scope, not a separate screen.
 const envId = computed(() => envStore.sheetEnvId)
 const env = computed(() => envStore.environments.find((e) => e.id === envId.value) ?? null)
 const isGlobals = computed(() => envId.value === null)
 
-// Read-only is the environment's own property, lifted for the session only: the unlock never outlives the sheet.
 const locked = computed(() => Boolean(env.value?.readonly) && !envStore.unlocked.includes(envId.value as string))
 
 const rows = computed(() => envStore.rowsFor(envId.value))
@@ -33,7 +31,6 @@ const filteredInherited = computed(() => {
   return q ? rows.value.inherited.filter(matches) : rows.value.inherited
 })
 
-// Secrets open one row at a time; the set is component state, so unmounting the sheet re-hides everything.
 const revealed = ref<Set<string>>(new Set())
 
 function isRevealed(v: Variable): boolean {
@@ -56,7 +53,6 @@ function displayValue(v: Variable, scope: string | null): string {
   return isRevealed(v) ? envStore.varValue(scope, v) : '••••'
 }
 
-// One cell at a time, so a single draft ref is enough.
 interface Editing {
   scope: string | null
   varId: string
@@ -67,7 +63,6 @@ const editing = ref<Editing | null>(null)
 const draft = ref('')
 const cellInput = ref<HTMLInputElement | null>(null)
 
-// A function ref, not `ref="cellInput"`: refs inside a v-for are collected into an array.
 function setCellInput(el: Element | ComponentPublicInstance | null) {
   cellInput.value = (el as HTMLInputElement | null) ?? null
 }
@@ -76,12 +71,10 @@ function startEdit(v: Variable, field: 'name' | 'value', scope: string | null = 
   if (locked.value) return
   editing.value = { scope, varId: v.id, field }
   clearNotice()
-  // A secret starts editing from its real value: editing a placeholder would wipe the stored secret on the first keystroke.
   draft.value = field === 'name' ? v.name : envStore.varValue(scope, v)
   nextTick(() => cellInput.value?.focus())
 }
 
-// Blur fires on the cell being left even after Tab opened the next one: a blind commit would close the cell the user just moved into.
 function commitFrom(v: Variable, field: 'name' | 'value') {
   const ed = editing.value
   if (!ed || ed.varId !== v.id || ed.field !== field) return
@@ -126,7 +119,6 @@ function cancel() {
   clearNotice()
 }
 
-// Tab walks name → value → next row's name.
 function moveTo(v: Variable, field: 'name' | 'value') {
   const at = filteredOwn.value.indexOf(v)
   const next = filteredOwn.value[at + 1]
@@ -148,7 +140,6 @@ function onCellKeydown(e: KeyboardEvent, v: Variable, field: 'name' | 'value', s
   }
 }
 
-// An inherited row belongs to "Глобальные": clicking it moves the list there and marks the row it landed on.
 const flashId = ref<string | null>(null)
 
 function openGlobal(g: Variable, edit = false) {
@@ -183,7 +174,6 @@ function toggleKind(v: Variable) {
   envStore.updateVar(envId.value, v.id, { kind: v.kind === 'secret' ? 'text' : 'secret' })
 }
 
-// Esc backs out one level at a time — see the cascade in EnvironmentsSheet.
 function cancelTop(): boolean {
   if (editing.value) {
     cancel()
@@ -332,9 +322,6 @@ defineExpose({ cancelTop })
             <span v-else class="tag tag-global">глобальная</span>
           </div>
           <div class="cell cell-action">
-            <!-- The change lands on the global everywhere; the row can't be deleted from an
-                 environment.
-            -->
             <IconButton
               v-if="!locked"
               size="sm"
@@ -378,9 +365,6 @@ defineExpose({ cancelTop })
   @apply flex-1;
 }
 
-
-/* Cells stretch to the row's full height: an empty value renders zero-height text and a click on
-   it would fall through. */
 .table-head,
 .row {
   @apply grid items-stretch gap-0 px-3.5;
@@ -489,8 +473,6 @@ defineExpose({ cancelTop })
   @apply flex-none mr-1.5 text-purple;
 }
 
-/* A variable of the same name wins, so the inherited row is struck through and labelled rather
-   than removed — it comes back when the own row is deleted. */
 .row.inherited.overridden .cell-text {
   @apply text-text-tertiary line-through;
 }

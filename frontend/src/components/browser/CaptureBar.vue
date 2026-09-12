@@ -11,8 +11,6 @@ const sourceLabel = computed(() => {
   return t ? `Источник: вкладка «${t}»` : 'Источник: браузер'
 })
 
-// One control, two states: while recording it stops every tab, once stopped it
-// restores them — labelled from live state, not from what was last clicked.
 const recording = computed(() => store.capture.recording)
 
 async function toggleCapture() {

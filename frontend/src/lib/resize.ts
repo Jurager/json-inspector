@@ -1,7 +1,5 @@
 import type { Ref } from 'vue'
 
-// `direction` is which edge the handle sits on: the side list's right edge (+1),
-// the inspector's left (-1). Sharing one sign would resize one of them backwards.
 export function makeSideResizer(
   width: Ref<number>,
   min: number,

@@ -23,7 +23,6 @@ interface KeyValueRow {
 
 type AuthType = 'none' | 'bearer' | 'basic' | 'oauth2'
 
-// In the store rather than RequestBuilder's refs so "Открыть в «Запросе»" can fill the command line.
 interface DraftState {
   method: string
   url: string
@@ -52,10 +51,7 @@ export const useRequestsStore = defineStore('requests', {
       body: '',
     } as DraftState,
     openChip: null as 'params' | 'headers' | 'auth' | 'body' | null,
-    // A tab the extension asked us to show (json-inspector://open?tab=42); the browser
-    // list expands that group and selects its newest request.
     focusTabId: null as number | null,
-    // Bumped by "Открыть в «Запросе»" so RequestBuilder focuses its URL field after remounting.
     focusUrlTick: 0,
     inspector: { open: false, path: null as string | null, width: 300 },
   }),
@@ -66,8 +62,6 @@ export const useRequestsStore = defineStore('requests', {
     browserSelected(state): RequestRecord | null {
       return state.requests.find((r) => r.id === state.browserId) ?? null
     },
-    // Only what would actually be sent counts — a disabled row is not part of the
-    // request, so an unknown token in one must not block the send.
     missingVars(state): string[] {
       const envs = useEnvironmentsStore()
       const parts = [
@@ -110,8 +104,6 @@ export const useRequestsStore = defineStore('requests', {
     },
     selectManual(id: string) {
       this.manualId = id
-      // Loads the entry into the command line too, so the editor and the shown response
-      // stay in sync — the same as "Открыть в «Запросе»", minus the view switch.
       const r = this.requests.find((x) => x.id === id)
       if (r) this.loadDraft(r)
     },
@@ -121,7 +113,6 @@ export const useRequestsStore = defineStore('requests', {
     markBrowserRead() {
       this.unreadCount = 0
     },
-    // The panel does the landing — only it knows whether that tab has produced anything yet.
     focusBrowserTab(tabId: number) {
       this.activeView = 'browser'
       this.unreadCount = 0
@@ -136,7 +127,6 @@ export const useRequestsStore = defineStore('requests', {
     requestFocusUrl() {
       this.focusUrlTick++
     },
-    // Global search has no index yet, so it points at the command line; ⌘K and the titlebar button come through here.
     focusSearch() {
       this.activeView = 'request'
       this.requestFocusUrl()
@@ -144,7 +134,6 @@ export const useRequestsStore = defineStore('requests', {
     setInspector(partial: Partial<{ open: boolean; path: string | null; width: number }>) {
       this.inspector = { ...this.inspector, ...partial }
     },
-    // Without sending it — "Открыть в «Запросе»" turns a read-only record back into an editable draft.
     loadDraft(record: Pick<RequestRecord, 'method' | 'url' | 'requestHeaders' | 'requestBody'>) {
       this.draft.method = record.method
       this.setUrl(record.url)
@@ -155,7 +144,6 @@ export const useRequestsStore = defineStore('requests', {
       }))
       this.draft.body = record.requestBody
     },
-    // The URL → params direction: a manual URL edit is the source of truth, so its query string replaces the params.
     setUrl(url: string) {
       this.draft.url = url
       const qi = url.indexOf('?')
@@ -172,8 +160,6 @@ export const useRequestsStore = defineStore('requests', {
         // Invalid query string — leave params untouched.
       }
     },
-    // The params → URL direction: rebuilds the query string from enabled rows only, preserving
-    // order, without normalizing the rest of the URL as the URL API would.
     syncParamsToUrl() {
       const base = this.draft.url.split('?')[0]
       const sp = new URLSearchParams()

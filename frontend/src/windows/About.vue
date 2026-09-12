@@ -24,8 +24,6 @@ onMounted(async () => {
 
 <template>
   <div class="about-window">
-    <!-- macOS keeps its native hidden-inset bar, so this strip exists only where
-         the app draws its own chrome. -->
     <header v-if="useCustomTitlebar" class="about-bar">
       <span class="about-bar-title">О программе</span>
       <button class="cap-btn cap-close" title="Закрыть" @click="Window.Close()">
@@ -57,7 +55,6 @@ onMounted(async () => {
   @apply h-full flex flex-col bg-bg-panel text-text select-none;
 }
 
-/* Frameless platforms: our own strip, so the window can be moved by it. */
 .about-bar {
   @apply relative flex-none h-13 flex items-center justify-center bg-bg-sidebar border-b border-border;
   --wails-draggable: drag;

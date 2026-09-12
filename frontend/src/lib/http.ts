@@ -1,6 +1,5 @@
-// Go's map[string]string reaches TypeScript as `{ [key: string]?: string } | null`
-// (the v3 binding marks map values optional and the map nullable). A header with
-// no value is dropped here, never turned into the literal string "undefined".
+// Go's map[string]string arrives as `{ [key: string]?: string } | null`: the v3 binding marks
+// values optional and the map nullable. A valueless header is dropped, not stringified.
 export function normalizeHeaders(
   headers: { [key: string]: string | undefined } | null | undefined
 ): Record<string, string> {

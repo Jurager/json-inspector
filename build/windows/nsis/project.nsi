@@ -32,10 +32,6 @@ ManifestDPIAware true
 
 !insertmacro MUI_LANGUAGE "English"
 
-# To sign the installer/uninstaller, uncomment: the binary path arrives as %1.
-#!uninstfinalize 'signtool --file "%1"'
-#!finalize 'signtool --file "%1"'
-
 Name "${INFO_PRODUCTNAME}"
 OutFile "..\..\..\bin\${INFO_PROJECTNAME}-${ARCH}-installer.exe"
 !if "${WAILS_INSTALL_SCOPE}" == "user"

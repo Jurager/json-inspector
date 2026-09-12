@@ -23,8 +23,7 @@ const width = computed({
   get: () => store.inspector.width,
   set: (v: number) => store.setInspector({ width: v }),
 })
-// Handle is on the left edge (this is the right-hand column), so dragging right must
-// shrink it — hence -1, the opposite of the left-hand list.
+
 const resize = makeSideResizer(width, 220, 520, -1)
 
 const path = computed(() => store.inspector.path ?? '')
@@ -36,8 +35,6 @@ interface Resolved {
   inDoc: boolean
 }
 
-// Resolves the stored path (e.g. "data[0].relationships.author") to a concrete
-// relationship target for the "Связь" and "Действия" blocks.
 function resolve(): Resolved | null {
   const p = path.value
   if (!p || !props.doc) return null
@@ -201,8 +198,6 @@ onBeforeUnmount(() => {
   background: var(--orange);
 }
 
-/* The one button species the ui layer doesn't cover; the handoff draws these
-   full-width and stacked at a 7px radius, 6px 10px padding. */
 .inspector-action {
   @apply block w-full text-left rounded-[7px] py-1.5 px-2.5 text-xs cursor-pointer;
   border: 1px solid var(--border-strong);

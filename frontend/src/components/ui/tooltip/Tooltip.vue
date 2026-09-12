@@ -7,11 +7,8 @@ import {
   TooltipTrigger,
 } from 'reka-ui'
 
-// The plaque is `.tooltip` in style.css: it lands on an element reka builds
-// inside its portal, where this component's scope attribute never reaches.
-//
-// Props are passed explicitly and always defined. An `undefined` `open` — what
-// `v-bind="props"` sends — leaves the root never opening at all.
+// The plaque is `.tooltip` in style.css: it lands on an element reka builds in its portal,
+// where no scope of ours reaches. Pass props explicitly — `v-bind="props"` never opens.
 const props = withDefaults(
   defineProps<{
     side?: 'top' | 'right' | 'bottom' | 'left'

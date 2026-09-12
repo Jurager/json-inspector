@@ -12,14 +12,11 @@ import { App as Backend } from '../../bindings/json-inspector'
 export interface Variable {
   id: string
   name: string
-  // Empty for secrets by construction: the value lives in `secretValues` (memory
-  // only), so it can never reach localStorage or an export by accident.
   value: string
   kind: VarKind
   enabled: boolean
 }
 
-// A global as seen from inside an environment, plus whether that name is shadowed here.
 export interface InheritedVariable extends Variable {
   overridden: boolean
 }
@@ -28,13 +25,10 @@ export interface Environment {
   id: string
   name: string
   color?: 'green' | 'orange' | 'red' | 'purple'
-  // Prod-like environments are editable only after an explicit unlock.
   readonly: boolean
   vars: Variable[]
 }
 
-// Narrower than the state on purpose: session-only things (`unlocked`, the sheet, the
-// secret vault) can't be persisted by accident.
 interface Persisted {
   environments: Environment[]
   globals: Variable[]
@@ -54,8 +48,6 @@ function newVar(name = '', value = '', kind: VarKind = 'text'): Variable {
 }
 
 function defaultState(): Persisted {
-  // The one environment a fresh install needs for `{{baseUrl}}`. Prod-like ones are
-  // never created for the user — they carry real credentials and must be a deliberate act.
   const local: Environment = {
     id: nextId('env'),
     name: 'Local · dev',
@@ -94,12 +86,8 @@ export interface ImportChoice extends DotenvEntry {
   mode: 'replace' | 'skip'
 }
 
-// Credential-looking names are proposed as secrets: a hint the user can flip, never a decision for
-// them.
 const SECRET_HINT = /(TOKEN|SECRET|PASSWORD|KEY|AUTH)/i
 
-// Malformed lines are skipped rather than reported: an import shouldn't fail as a
-// whole because one line was a stray comment without a `#`.
 export function parseDotenv(text: string): DotenvEntry[] {
   const out: DotenvEntry[] = []
   for (const raw of text.split(/\r?\n/)) {
@@ -122,16 +110,11 @@ export function parseDotenv(text: string): DotenvEntry[] {
 export const useEnvironmentsStore = defineStore('environments', {
   state: () => ({
     ...loadState(),
-    // Session-only: the unlock can't outlive the editing session.
     unlocked: [] as string[],
     sheetOpen: false,
     sheetFocus: null as { envId: string | null; varName: string } | null,
-    // Separate from `activeId` on purpose: editing an environment shouldn't change
-    // what the whole window substitutes.
     sheetEnvId: null as string | null,
-    // Keyed `<envId|globals>:<name>`; never serialised, refilled from the keychain on startup.
     secretValues: {} as Record<string, string>,
-    // False once a keychain call fails; in-memory secrets still work but won't survive a restart.
     keychainAvailable: true,
   }),
 
@@ -140,10 +123,7 @@ export const useEnvironmentsStore = defineStore('environments', {
       return state.environments.find((e) => e.id === state.activeId) ?? null
     },
 
-    // Precedence is environment-then-globals (a value typed straight into the URL
-    // isn't a token); first match wins, and a disabled variable never participates.
     resolve(): ResolveFn {
-      // A secret keeps its value beside the model, never inside it — read it from the vault.
       const valueOf = (envId: string | null, v: Variable): string =>
         v.kind === 'secret' ? (this.secretValues[secretKey(envId, v.name)] ?? '') : v.value
 
@@ -159,8 +139,6 @@ export const useEnvironmentsStore = defineStore('environments', {
       }
     },
 
-    // An environment's own variables plus the globals it inherits; the override rule
-    // lives here so it stays with the resolution chain.
     rowsFor:
       (state) =>
       (envId: string | null): { own: Variable[]; inherited: InheritedVariable[] } => {
@@ -183,8 +161,6 @@ export const useEnvironmentsStore = defineStore('environments', {
       return (text: string) => substituteTokens(text, this.resolve)
     },
 
-    // A secret comes out as dots. Used for anything that outlives the moment of
-    // sending (preview, exports), so a credential can't ride along in a screenshot.
     masked(): (text: string) => string {
       return (text: string) => {
         const tokens = parseTokens(text)
@@ -315,9 +291,8 @@ export const useEnvironmentsStore = defineStore('environments', {
       }
       Object.assign(v, clean)
 
-      // A secret's value belongs in the keychain and nowhere else: leaving one behind
-      // after a demotion keeps a credential alive, and a rename must rewrite it (items
-      // are keyed by name, so moving the vault entry alone strands the stored copy).
+      // The keychain is the only home for a secret's value: a rename must rewrite it (entries
+      // are keyed by name) and a demotion must clear it, or the credential stays alive.
       if (nextKind === 'secret' && written !== undefined) {
         this.storeSecret(envId, nextName, written)
       }
@@ -345,8 +320,6 @@ export const useEnvironmentsStore = defineStore('environments', {
       this.storeSecret(envId, name, value)
     },
 
-    // Fire-and-forget so the editor never blocks on a system dialog; a failure flips
-    // `keychainAvailable`.
     storeSecret(envId: string | null, name: string, value: string) {
       try {
         Backend.SecretSet(envId ?? 'globals', name, value).catch(() => {
@@ -367,7 +340,6 @@ export const useEnvironmentsStore = defineStore('environments', {
       }
     },
 
-    // Called once at startup, before the first request can need one.
     async hydrateSecrets() {
       const targets: { envId: string | null; name: string }[] = []
       for (const e of this.environments) {
@@ -387,8 +359,6 @@ export const useEnvironmentsStore = defineStore('environments', {
       }
     },
 
-    // The value a cell should edit — including the vault, which the model deliberately doesn't
-    // hold.
     varValue(envId: string | null, v: Variable): string {
       return v.kind === 'secret' ? (this.secretValues[secretKey(envId, v.name)] ?? '') : v.value
     },
@@ -397,8 +367,6 @@ export const useEnvironmentsStore = defineStore('environments', {
       this.sheetEnvId = id
     },
 
-    // Everything goes through addVar/updateVar so a row marked as a secret takes the
-    // same path as one typed by hand: into the vault and the keychain, never the model.
     importDotenv(envId: string | null, entries: ImportChoice[]) {
       for (const e of entries) {
         const existing = this.varsOf(envId).find((v) => v.name === e.name)
@@ -426,7 +394,6 @@ export const useEnvironmentsStore = defineStore('environments', {
     closeSheet() {
       this.sheetOpen = false
       this.sheetFocus = null
-      // Read-only environments lock again when the sheet closes.
       this.unlocked = []
     },
 
@@ -436,7 +403,6 @@ export const useEnvironmentsStore = defineStore('environments', {
   },
 })
 
-// One key space for both scopes: globals get the literal `globals` instead of a second map.
 function secretKey(envId: string | null, name: string): string {
   return `${envId ?? 'globals'}:${name}`
 }

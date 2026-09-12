@@ -64,8 +64,6 @@ function formatValue(v: unknown): string {
 
 const rid = computed(() => 'res-' + resourceKey(props.resource.type, props.resource.id))
 
-// Click-to-copy is skipped during an active text selection, so a click-drag
-// meant to select part of the value is not stolen.
 const copiedKeys = ref<Set<string>>(new Set())
 const copiedVals = ref<Set<string>>(new Set())
 

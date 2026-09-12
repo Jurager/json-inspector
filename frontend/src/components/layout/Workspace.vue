@@ -10,13 +10,9 @@ import BrowserEmptyState from '../browser/BrowserEmptyState.vue'
 
 const store = useRequestsStore()
 
-// One side panel for both tabs — content swaps with activeView, so the width is
-// single state that carries over when you switch tabs.
 const sideWidth = ref(300)
 const sideResize = makeSideResizer(sideWidth, 220, 560)
 
-// With no captured requests, the browser view drops the list for the design's full-width empty
-// state.
 const browserEmpty = computed(
   () => store.activeView === 'browser' && !store.requests.some((r) => r.source === 'browser')
 )
@@ -70,7 +66,6 @@ onBeforeUnmount(() => {
 <style scoped>
 @reference "../../style.css";
 
-/* Both views are the same shape, so they share one set of classes. */
 .side-layout {
   @apply flex flex-1 min-h-0;
 }
