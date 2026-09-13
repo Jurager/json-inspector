@@ -77,7 +77,21 @@ func NewHost() *Host {
 // lands while the palette is changing rather than after it.
 func (h *Host) SetTheme(theme domain.Theme) {
 	h.theme.Store(string(theme))
-	dark := theme == domain.ThemeDark || (theme == domain.ThemeSystem && systemIsDark())
+	h.tint(theme == domain.ThemeDark || (theme == domain.ThemeSystem && systemIsDark()))
+}
+
+// SystemThemeChanged is the system's own switch, which matters only while the app follows it. The
+// material is the platform's and the page cannot reach it, so this is the only side that can move it
+// — the frontend wipes its palette when the webview tells it the same news.
+func (h *Host) SystemThemeChanged() {
+	if theme, _ := h.theme.Load().(string); theme != string(domain.ThemeSystem) {
+		return
+	}
+	h.tint(systemIsDark())
+}
+
+// tint moves the material behind the window that is already there to the palette a theme resolves to.
+func (h *Host) tint(dark bool) {
 	if h.tinted.Load() && dark == h.appliedDark.Load() {
 		// A different choice that resolves to the palette already in force — «системная» under a dark
 		// system while the app is dark — must not repaint the window: there is nothing to re-tint.

@@ -186,6 +186,11 @@ func setup(
 	app.Event.OnApplicationEvent(events.Common.ApplicationLaunchedWithUrl, func(e *application.ApplicationEvent) {
 		host.HandleURLOpen(e.Context().URL())
 	})
+	// While the app follows the system, the OS switching its own theme is a theme change like any
+	// other — and one the frontend cannot pass on, since the material is not the page's to move.
+	app.Event.OnApplicationEvent(events.Common.ThemeChanged, func(*application.ApplicationEvent) {
+		host.SystemThemeChanged()
+	})
 
 	if UseCustomTitlebar() {
 		app.Menu.Set(app.NewMenu())
