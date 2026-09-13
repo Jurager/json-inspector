@@ -97,17 +97,12 @@ const summary = computed(() => {
   return ct ? `${ct} · ${size}` : size
 })
 
-// The run of a collection is what the left side says while it lasts: it is the same slot the
-// environment and the capture state use, and no two views are on screen at once.
 const runLabel = computed(() => {
   const run = collections.running
   if (!run) return ''
   return `Прогон: ${run.done} / ${run.total || collections.selectedRequestCount} · ${run.name}`
 })
 
-// What the last run came to, in the slot the design gives it on the right of the bar: the overview
-// draws the same numbers in its own band, and the bar is what still says them when the card of a
-// request in the run is what is open.
 const runOutcome = computed(() => {
   if (store.activeView !== 'collections' || collections.cardOpen) return ''
   const run = collections.lastRun
@@ -155,8 +150,6 @@ const captureDotClass = computed(() => {
         <span>{{ runLabel }}</span>
       </template>
       <template v-else-if="collections.selectedId">
-        <!-- The overview is one level, and its name is what is open; a card is a way into the tree,
-             so there the whole path is what tells the two apart. -->
         <span v-if="!collections.cardOpen" class="crumb-last">{{ collections.levelName }}</span>
         <span v-else class="crumbs">
           <template v-for="(crumb, i) in collections.breadcrumbs" :key="crumb.id">
@@ -254,7 +247,6 @@ const captureDotClass = computed(() => {
   @apply text-text-tertiary;
 }
 
-/* The last crumb is what is open, so it reads as the title of the pane rather than as part of a path. */
 .crumb-last {
   @apply text-text font-semibold overflow-hidden text-ellipsis whitespace-nowrap;
 }

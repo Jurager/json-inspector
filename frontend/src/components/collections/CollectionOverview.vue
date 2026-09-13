@@ -14,13 +14,8 @@ import type { CollectionNode } from '../../../bindings/json-inspector/internal/d
 const store = useCollectionsStore()
 const toast = useToast()
 
-// The header's three panes: what is inside the collection, what it authorizes its requests with, and
-// the code that runs around them. Which one is open is the window's, not Go's — the level's own auth
-// and code live in the store, because they are Go's.
 const tab = ref<'requests' | 'auth' | 'scripts'>('requests')
 
-// What is being exported is what is selected: a folder exports its subtree, a collection everything
-// in it. Go reads the tree again — the rows the list carries have no bodies.
 async function exportSelected() {
   const written = await store.exportFile(store.selectedId ?? '')
   if (written) toast.show('Коллекция сохранена в файл')
@@ -38,19 +33,10 @@ async function importCollection() {
 const title = computed(() => store.selected?.name ?? store.trail?.collection.name ?? '')
 const description = computed(() => store.selected?.description ?? store.trail?.collection.description ?? '')
 const requestTotal = computed(() => store.selectedRequestCount)
-
-// The description is edited where it is read: the line under the title is the field, because a
-// dialog for one line is a window for nothing. Empty is what the placeholder is drawn from, so the
-// row that opens on the title of a fresh collection is the same row that writes it a line.
 const editingDescription = ref(false)
 const descriptionDraft = ref('')
 const descriptionInput = ref<HTMLInputElement | null>(null)
-// What the write is about: the level the overview is drawing — a folder answers it as well as a
-// collection, and the tree row of either carries the id Go saved it under.
 const levelId = computed(() => store.selected?.id ?? store.trail?.collection.id ?? '')
-// The line the open field belongs to, and what it held when it opened. Both are caught at that
-// moment rather than read when the writing happens: clicking another row blurs the field, and a
-// write that read the selection then would file one level's line under the next.
 const descriptionLevel = ref('')
 const descriptionOpen = ref('')
 
@@ -67,7 +53,6 @@ function editDescription() {
 
 async function commitDescription() {
   if (!editingDescription.value) return
-  // Escape unmounts the field, and the blur that follows would otherwise save the abandoned text.
   editingDescription.value = false
   const written = descriptionDraft.value.trim()
   if (!descriptionLevel.value || written === descriptionOpen.value) return
@@ -85,22 +70,16 @@ function onDescriptionKeydown(e: KeyboardEvent) {
   }
 }
 
-// The field is drawn from the line the selection is showing, so a selection that moved hides it.
 watch(levelId, () => {
   editingDescription.value = false
 })
 
-// The rows of the last run, each with the name and method the tree knows: a result keeps the node id
-// and not the node, so what the row is called now is the tree's answer.
 interface RunRow {
   nodeId: string
-  // What the row opens: the record this request produced. Empty for one that never went out.
   recordId: string
   position: number
   status: number | null
   ok: boolean
-  // A request a script kept from going out is neither a pass nor a failure, which is why the sum
-  // below leaves it out of both.
   skipped: boolean
   durationUs: number
   error: string
@@ -137,15 +116,8 @@ const rows = computed<RunRow[]>(() => {
 })
 
 const runName = computed(() => title.value)
-
-// The two counts are read from the rows rather than from the finished run, because the rows are what
-// arrives first: a run that is going has no counters yet, and a summary that stays at zero while its
-// list fills in reads as a run that is failing.
 const passed = computed(() => rows.value.filter((row) => row.ok).length)
 const failed = computed(() => rows.value.filter((row) => !row.ok && !row.skipped).length)
-
-// When the last run ended, which is what the header writes next to the buttons. A run always closes
-// with a time; a row written by an older build that has none falls back to when it started.
 const lastRunAt = computed(() => store.lastRun?.finishedAt || store.lastRun?.startedAt || 0)
 
 async function run() {
@@ -390,8 +362,6 @@ function pluralRequests(n: number): string {
   @apply text-[10.5px] text-text-tertiary;
 }
 
-/* The results sit as one card on the canvas, the way a list of rows does everywhere else in the
-   design — the rows themselves are the card's, divided by a hairline. */
 .results-area {
   @apply flex-1 min-h-0 overflow-y-auto px-6 py-3;
   background: var(--bg);
@@ -414,8 +384,6 @@ function pluralRequests(n: number): string {
   @apply bg-bg-hover;
 }
 
-/* A row that failed is tinted the way the design tints it, so a wall of green and red is readable at
-   a glance. */
 .result.failed {
   background: color-mix(in srgb, var(--red) 4%, transparent);
 }

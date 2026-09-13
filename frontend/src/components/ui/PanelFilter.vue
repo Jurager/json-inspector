@@ -1,9 +1,6 @@
 <script setup lang="ts">
 import Icon from './Icon.vue'
 
-// The filter of a list panel, docked at its foot. The history and the collections draw the same one —
-// the design gives both a grey pill with a magnifier on 26px of gradient — so it is one component and
-// two callers rather than two copies that drift apart.
 const model = defineModel<string>({ required: true })
 
 defineProps<{ placeholder: string }>()
@@ -35,7 +32,6 @@ defineProps<{ placeholder: string }>()
   @apply absolute left-0 right-0 bottom-0 flex flex-col pointer-events-none;
 }
 
-/* The rows scroll away under this: 26px of the panel's own colour, ending in it. */
 .fade {
   height: 26px;
   background: linear-gradient(
@@ -58,16 +54,12 @@ defineProps<{ placeholder: string }>()
   @apply pointer-events-auto px-2 pb-2 bg-bg-panel;
 }
 
-/* A pill rather than a field: the design's filter has no border, because it sits on the panel it
-   filters and a second rectangle in a list of rows reads as one more row. */
 .pill {
   @apply flex items-center gap-1.5 h-8 px-[9px] rounded-[7px] text-text-tertiary;
   background: color-mix(in srgb, var(--text) 4.5%, transparent);
   backdrop-filter: blur(12px);
 }
 
-/* The design's 12px, and the panel's own font: the sizing cannot come from `font: inherit`, which
-   would reset it to the 13px the window is set in. */
 .entry {
   @apply flex-1 min-w-0 text-[12px] text-text bg-transparent border-none outline-none p-0;
   font-family: inherit;
