@@ -8,6 +8,7 @@ import (
 	"json-inspector/internal/domain"
 	"json-inspector/internal/infra/updater"
 	"json-inspector/internal/transport/bridge"
+	"json-inspector/internal/usecase/collection"
 	"json-inspector/internal/usecase/record"
 	"json-inspector/internal/usecase/settings"
 )
@@ -38,6 +39,11 @@ func init() {
 	application.RegisterEvent[domain.Record](record.TopicRecordAdded)
 	application.RegisterEvent[record.RequestFinished](record.TopicRequestFinished)
 	application.RegisterEvent[record.RequestFailed](record.TopicRequestFailed)
+
+	// A run of a collection: one event per request it reaches, and the finished run with its
+	// counters, which is what the overview draws when it opens again.
+	application.RegisterEvent[collection.RunProgress](collection.TopicRunProgress)
+	application.RegisterEvent[domain.CollectionRun](collection.TopicRunFinished)
 }
 
 // bus is the Notifier the features publish to. A topic is the event name — one spelling, so the

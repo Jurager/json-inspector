@@ -3,7 +3,10 @@ package collection
 import (
 	"context"
 	"errors"
+	"fmt"
+	"sync"
 	"testing"
+	"time"
 
 	"json-inspector/internal/domain"
 	"json-inspector/internal/platform"
@@ -12,14 +15,20 @@ import (
 // fakeStore is the tree without a database: collections in their order, nodes in one flat slice,
 // deleted subtrees marked rather than removed. It keeps the two things the use case relies on — the
 // tree nests by parent and a node reads whole while a tree row is shallow.
+//
+// A run writes to it from its own goroutine while a test reads, so the mutex is the fake standing in
+// for the database's own serialisation.
 type fakeStore struct {
+	mu          sync.Mutex
 	collections []domain.Collection
 	nodes       []domain.CollectionNode
+	runs        []domain.CollectionRun
+	results     map[string][]domain.CollectionRunResult
 	gone        map[string]bool
 }
 
 func newFakeStore() *fakeStore {
-	return &fakeStore{gone: map[string]bool{}}
+	return &fakeStore{gone: map[string]bool{}, results: map[string][]domain.CollectionRunResult{}}
 }
 
 func (f *fakeStore) hidden(id string) bool {
@@ -40,6 +49,9 @@ func (f *fakeStore) bury(id string) {
 }
 
 func (f *fakeStore) Collections(context.Context) ([]domain.Collection, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+
 	out := make([]domain.Collection, 0, len(f.collections))
 	for _, collection := range f.collections {
 		if f.hidden(collection.ID) {
@@ -72,6 +84,9 @@ func (f *fakeStore) nest(collectionID string) []domain.CollectionNode {
 }
 
 func (f *fakeStore) Node(_ context.Context, id string) (domain.CollectionNode, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+
 	for _, node := range f.nodes {
 		if node.ID == id && !f.hidden(id) {
 			node.Items = nil
@@ -82,19 +97,24 @@ func (f *fakeStore) Node(_ context.Context, id string) (domain.CollectionNode, e
 }
 
 func (f *fakeStore) SaveCollection(_ context.Context, collection domain.Collection) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+
+	collection.Items = nil
 	for i := range f.collections {
 		if f.collections[i].ID == collection.ID {
-			collection.Items = nil
 			f.collections[i] = collection
 			return nil
 		}
 	}
-	collection.Items = nil
 	f.collections = append(f.collections, collection)
 	return nil
 }
 
 func (f *fakeStore) SaveNode(_ context.Context, node domain.CollectionNode) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+
 	node.Items = nil
 	for i := range f.nodes {
 		if f.nodes[i].ID == node.ID {
@@ -107,6 +127,9 @@ func (f *fakeStore) SaveNode(_ context.Context, node domain.CollectionNode) erro
 }
 
 func (f *fakeStore) DeleteCollection(_ context.Context, id string) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+
 	f.bury(id)
 	for _, node := range f.nodes {
 		if node.CollectionID == id {
@@ -118,11 +141,17 @@ func (f *fakeStore) DeleteCollection(_ context.Context, id string) error {
 }
 
 func (f *fakeStore) DeleteNode(_ context.Context, id string) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+
 	f.bury(id)
 	return nil
 }
 
 func (f *fakeStore) NextPosition(_ context.Context, collectionID string, parentID string) (int64, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+
 	var next int64
 	for _, node := range f.nodes {
 		if node.CollectionID == collectionID && node.ParentID == parentID && !f.hidden(node.ID) {
@@ -134,9 +163,188 @@ func (f *fakeStore) NextPosition(_ context.Context, collectionID string, parentI
 	return next, nil
 }
 
+func (f *fakeStore) SaveRun(_ context.Context, run domain.CollectionRun) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+
+	run.Results = nil
+	for i := range f.runs {
+		if f.runs[i].ID == run.ID {
+			f.runs[i] = run
+			return nil
+		}
+	}
+	f.runs = append(f.runs, run)
+	return nil
+}
+
+func (f *fakeStore) AppendRunResult(_ context.Context, runID string, result domain.CollectionRunResult) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+
+	f.results[runID] = append(f.results[runID], result)
+	return nil
+}
+
+func (f *fakeStore) LastRun(_ context.Context, collectionID string, nodeID string) (domain.CollectionRun, bool, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+
+	for i := len(f.runs) - 1; i >= 0; i-- {
+		run := f.runs[i]
+		if run.CollectionID == collectionID && run.NodeID == nodeID {
+			run.Results = append([]domain.CollectionRunResult{}, f.results[run.ID]...)
+			return run, true, nil
+		}
+	}
+	return domain.CollectionRun{}, false, nil
+}
+
+// fakeSender answers with what the test set up for a URL. It is the only thing the run knows about
+// the network, which is what lets a test decide what a server did.
+type fakeSender struct {
+	mu      sync.Mutex
+	sent    []RunRequest
+	answers map[string]answer
+	// onSend runs inside the send, which is where a test can look at a run while it is going.
+	onSend func(RunRequest)
+}
+
+type answer struct {
+	status      int
+	durationUs  int64
+	transportEr string
+}
+
+func newFakeSender() *fakeSender {
+	return &fakeSender{answers: map[string]answer{}}
+}
+
+func (f *fakeSender) reply(url string, status int, durationUs int64) *fakeSender {
+	f.answers[url] = answer{status: status, durationUs: durationUs}
+	return f
+}
+
+func (f *fakeSender) fail(url string) *fakeSender {
+	f.answers[url] = answer{transportEr: "сервер не ответил"}
+	return f
+}
+
+// hook sets what happens inside a send, which is the only moment a test can look at a run while it
+// is going.
+func (f *fakeSender) hook(onSend func(RunRequest)) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+
+	f.onSend = onSend
+}
+
+func (f *fakeSender) Send(_ context.Context, req RunRequest) (domain.Record, error) {
+	f.mu.Lock()
+	onSend := f.onSend
+	f.sent = append(f.sent, req)
+	answer, ok := f.answers[req.URL]
+	f.mu.Unlock()
+
+	// Outside the lock: a hook that stops the run is a caller of this feature, not of this fake.
+	if onSend != nil {
+		onSend(req)
+	}
+
+	if !ok {
+		return domain.Record{}, fmt.Errorf("нет ответа для %s", req.URL)
+	}
+	return domain.Record{RecordSummary: domain.RecordSummary{
+		Status:     answer.status,
+		DurationUs: answer.durationUs,
+		Error:      answer.transportEr,
+	}}, nil
+}
+
+func (f *fakeSender) urls() []string {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+
+	out := []string{}
+	for _, req := range f.sent {
+		out = append(out, req.URL)
+	}
+	return out
+}
+
+// fakeNotifier keeps what was published and lets a test wait for the end of a run instead of
+// sleeping: the run writes from its own goroutine.
+type fakeNotifier struct {
+	mu     sync.Mutex
+	events []struct {
+		topic   string
+		payload any
+	}
+	finished chan struct{}
+}
+
+func newFakeNotifier() *fakeNotifier {
+	return &fakeNotifier{finished: make(chan struct{}, 1)}
+}
+
+func (n *fakeNotifier) Publish(topic string, payload any) {
+	n.mu.Lock()
+	n.events = append(n.events, struct {
+		topic   string
+		payload any
+	}{topic, payload})
+	n.mu.Unlock()
+
+	if topic == TopicRunFinished {
+		select {
+		case n.finished <- struct{}{}:
+		default:
+		}
+	}
+}
+
+func (n *fakeNotifier) topics() []string {
+	n.mu.Lock()
+	defer n.mu.Unlock()
+
+	out := []string{}
+	for _, event := range n.events {
+		out = append(out, event.topic)
+	}
+	return out
+}
+
+func (n *fakeNotifier) runFinished(t *testing.T) domain.CollectionRun {
+	t.Helper()
+	select {
+	case <-n.finished:
+	case <-time.After(5 * time.Second):
+		t.Fatal("the run never finished")
+	}
+
+	n.mu.Lock()
+	defer n.mu.Unlock()
+	for _, event := range n.events {
+		if event.topic == TopicRunFinished {
+			return event.payload.(domain.CollectionRun)
+		}
+	}
+	t.Fatal("no finished run was published")
+	return domain.CollectionRun{}
+}
+
 func newTestUseCase() (*UseCase, *fakeStore) {
+	uc, store, _, _ := newTestRun()
+	return uc, store
+}
+
+// newTestRun is the use case with all three of its dependencies, for the tests that also look at
+// what was sent and what was published.
+func newTestRun() (*UseCase, *fakeStore, *fakeSender, *fakeNotifier) {
 	store := newFakeStore()
-	return NewUseCase(store, platform.NewIDGen()), store
+	sender := newFakeSender()
+	notifier := newFakeNotifier()
+	return NewUseCase(store, sender, notifier, platform.NewIDGen()), store, sender, notifier
 }
 
 func only(t *testing.T, tree []domain.Collection) domain.Collection {

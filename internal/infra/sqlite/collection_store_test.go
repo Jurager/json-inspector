@@ -300,6 +300,100 @@ func TestDeleteTakesTheSubtreeWithIt(t *testing.T) {
 	}
 }
 
+func TestRunRoundTrip(t *testing.T) {
+	store := newMigratedStore(t)
+	ctx := context.Background()
+	seedTree(t, store)
+
+	if _, found, err := store.LastRun(ctx, "col-1", ""); err != nil || found {
+		t.Fatalf("a run that never happened = %v, %v, want nothing", err, found)
+	}
+
+	run := domain.CollectionRun{
+		ID: "run-1", CollectionID: "col-1", NodeID: "f-1", StartedAt: 1_700_000_000_000,
+		Results: []domain.CollectionRunResult{},
+	}
+	if err := store.SaveRun(ctx, run); err != nil {
+		t.Fatalf("SaveRun: %v", err)
+	}
+
+	created := 200
+	for _, result := range []domain.CollectionRunResult{
+		{NodeID: "r-1", Position: 0, Status: &created, OK: true, DurationUs: 12_345},
+		{NodeID: "r-2", Position: 1, OK: false, Error: "сервер не ответил"},
+	} {
+		if err := store.AppendRunResult(ctx, run.ID, result); err != nil {
+			t.Fatalf("AppendRunResult: %v", err)
+		}
+	}
+
+	run.Passed, run.Failed, run.DurationUs = 1, 1, 90_000
+	run.FinishedAt = 1_700_000_000_500
+	if err := store.SaveRun(ctx, run); err != nil {
+		t.Fatalf("SaveRun: %v", err)
+	}
+
+	last, found, err := store.LastRun(ctx, "col-1", "f-1")
+	if err != nil || !found {
+		t.Fatalf("LastRun = %v, %v", err, found)
+	}
+	if last.Passed != 1 || last.Failed != 1 || last.DurationUs != 90_000 || last.FinishedAt == 0 {
+		t.Errorf("run = %+v, want the counters and the time it was closed with", last)
+	}
+	if len(last.Results) != 2 {
+		t.Fatalf("run kept %d results, want 2", len(last.Results))
+	}
+	if first := last.Results[0]; first.Status == nil || *first.Status != 200 || !first.OK || first.DurationUs != 12_345 {
+		t.Errorf("first result = %+v, want the 200 with its microseconds", first)
+	}
+	if second := last.Results[1]; second.Status != nil || second.OK || second.Error != "сервер не ответил" {
+		t.Errorf("second result = %+v, want no status and the reason", second)
+	}
+
+	// The results hang off the run: dropping it takes them with it, so a deleted collection does not
+	// leave orphan rows behind.
+	if err := store.DeleteCollection(ctx, "col-1"); err != nil {
+		t.Fatalf("DeleteCollection: %v", err)
+	}
+	if _, found, err := store.LastRun(ctx, "col-1", "f-1"); err != nil || found {
+		t.Errorf("a run of a deleted collection = %v, %v, want nothing", err, found)
+	}
+}
+
+func TestLastRunIsTheNewestOfThatNode(t *testing.T) {
+	store := newMigratedStore(t)
+	ctx := context.Background()
+	seedTree(t, store)
+
+	// A run of a folder and a run of the collection are two different things: the overview of one
+	// must not draw the other's summary.
+	for _, run := range []domain.CollectionRun{
+		{ID: "run-old", CollectionID: "col-1", NodeID: "", StartedAt: 100, Passed: 1},
+		{ID: "run-folder", CollectionID: "col-1", NodeID: "f-1", StartedAt: 200, Failed: 1},
+		{ID: "run-new", CollectionID: "col-1", NodeID: "", StartedAt: 300, Passed: 2},
+	} {
+		if err := store.SaveRun(ctx, run); err != nil {
+			t.Fatalf("SaveRun %s: %v", run.ID, err)
+		}
+	}
+
+	whole, _, err := store.LastRun(ctx, "col-1", "")
+	if err != nil {
+		t.Fatalf("LastRun: %v", err)
+	}
+	if whole.ID != "run-new" {
+		t.Errorf("the collection's last run is %s, want the newest of its own", whole.ID)
+	}
+
+	folder, found, err := store.LastRun(ctx, "col-1", "f-1")
+	if err != nil || !found {
+		t.Fatalf("LastRun = %v, %v", err, found)
+	}
+	if folder.ID != "run-folder" {
+		t.Errorf("the folder's last run is %s, want its own", folder.ID)
+	}
+}
+
 func TestNodesSurviveACollectionRename(t *testing.T) {
 	store := newMigratedStore(t)
 	ctx := context.Background()

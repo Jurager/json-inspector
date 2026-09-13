@@ -17,6 +17,8 @@ export type {
     BodyRef,
     Collection,
     CollectionNode,
+    CollectionRun,
+    CollectionRunResult,
     CookieRow,
     Draft,
     EnvScope,

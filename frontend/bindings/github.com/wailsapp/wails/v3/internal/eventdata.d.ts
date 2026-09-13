@@ -16,6 +16,9 @@ import type * as updater$0 from "../../../../../json-inspector/internal/infra/up
 import type * as bridge$0 from "../../../../../json-inspector/internal/transport/bridge/models.js";
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: Unused imports
+import type * as collection$0 from "../../../../../json-inspector/internal/usecase/collection/models.js";
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-ignore: Unused imports
 import type * as record$0 from "../../../../../json-inspector/internal/usecase/record/models.js";
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: Unused imports
@@ -26,6 +29,8 @@ declare module "@wailsio/runtime" {
         interface CustomEvents {
             "capture-disconnected": void;
             "capture-state": bridge$0.CaptureState;
+            "collection:run-finished": domain$0.CollectionRun;
+            "collection:run-progress": collection$0.RunProgress;
             "open-tab": number;
             "record:added": domain$0.Record;
             "request:failed": record$0.RequestFailed;

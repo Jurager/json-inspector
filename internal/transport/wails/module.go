@@ -50,6 +50,10 @@ var Module = fx.Module("wails",
 		func(store *sqlite.Store) record.Store { return store },
 		func(store *sqlite.Store) draft.Store { return store },
 		func(store *sqlite.Store) collection.Store { return store },
+		func(host *Host) collection.Notifier { return newBus(host) },
+		func(drafts *draft.UseCase, records *record.UseCase) collection.Sender {
+			return collectionSender{drafts: drafts, records: records}
+		},
 		func(engine *httpx.Engine) record.Executor { return engineExecutor{engine: engine} },
 		func(host *Host) record.Notifier { return newBus(host) },
 		func(uc *settings.UseCase) record.RetentionSource { return settingsRetention(uc) },

@@ -88,34 +88,62 @@ func (u *UseCase) Send(ctx context.Context, in SendInput) (string, error) {
 	// The attempt runs on its own context: the caller's ends when the frontend call returns, and a
 	// request must not be cancelled by the act of asking for it.
 	go func() {
-		resp, err := u.executor.Execute(context.Background(), Request{
-			ID:      id,
-			Method:  in.Method,
-			URL:     in.URL,
-			Headers: in.Headers,
-			Body:    in.Body,
-		})
+		rec, err := u.attempt(context.Background(), id, started, in)
 		if err != nil {
-			// The engine reports transport failures inside the response; an error here is this side
-			// failing, and there is no record to show for it.
 			u.notifier.Publish(TopicRequestFailed, RequestFailed{ID: id, Error: err.Error()})
 			return
 		}
-		if resp.Cancelled {
+		if rec.Cancelled {
 			// An attempt the user stopped has nothing to keep: history holds what came back, and
 			// nothing did. The window stopped it, so it already knows.
-			return
-		}
-
-		rec := u.recordFrom(id, started, in, resp)
-		if err := u.save(context.Background(), rec); err != nil {
-			u.notifier.Publish(TopicRequestFailed, RequestFailed{ID: id, Error: err.Error()})
 			return
 		}
 		u.notifier.Publish(TopicRequestFinished, RequestFinished{ID: id, Record: rec})
 	}()
 
 	return id, nil
+}
+
+// SendAndWait is Send for a caller that has to see the answer before it can do the next thing: a
+// run of a collection asks for one request, looks at what came back, and moves on. A cancelled
+// attempt comes back saying so rather than as an error — it was stopped on purpose, and that is an
+// answer.
+func (u *UseCase) SendAndWait(ctx context.Context, in SendInput) (domain.Record, error) {
+	id := u.ids()
+	rec, err := u.attempt(ctx, id, time.Now().UnixMilli(), in)
+	if err != nil {
+		return domain.Record{}, err
+	}
+	if rec.Cancelled {
+		return rec, nil
+	}
+	u.notifier.Publish(TopicRequestFinished, RequestFinished{ID: id, Record: rec})
+	return rec, nil
+}
+
+// attempt runs one request to the end: out to the engine, folded into a record, and saved. It
+// answers with the record, with a cancelled attempt, or with why there is none — a transport
+// failure is the engine's to report inside the response, so an error here is this side failing.
+func (u *UseCase) attempt(ctx context.Context, id string, started int64, in SendInput) (domain.Record, error) {
+	resp, err := u.executor.Execute(ctx, Request{
+		ID:      id,
+		Method:  in.Method,
+		URL:     in.URL,
+		Headers: in.Headers,
+		Body:    in.Body,
+	})
+	if err != nil {
+		return domain.Record{}, err
+	}
+	if resp.Cancelled {
+		return domain.Record{Cancelled: true}, nil
+	}
+
+	rec := u.recordFrom(id, started, in, resp)
+	if err := u.save(ctx, rec); err != nil {
+		return domain.Record{}, err
+	}
+	return rec, nil
 }
 
 // Cancel stops an attempt by id. It reports whether anything was still running under it.

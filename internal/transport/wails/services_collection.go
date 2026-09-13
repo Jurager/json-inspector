@@ -52,3 +52,20 @@ func (s *CollectionsService) Delete(ctx context.Context, id string) ([]domain.Co
 func (s *CollectionsService) SaveNode(ctx context.Context, node domain.CollectionNode) ([]domain.Collection, error) {
 	return s.collections.SaveNode(ctx, node)
 }
+
+// Run starts a collection or a folder and answers with the id of the run. What happens next arrives
+// as events: a run of fifty requests outlives the call that started it, and the window draws it as
+// it goes.
+func (s *CollectionsService) Run(ctx context.Context, collectionID string, nodeID string) (string, error) {
+	return s.collections.Run(ctx, collectionID, nodeID)
+}
+
+// Stop ends the run after the request that is already in flight.
+func (s *CollectionsService) Stop(ctx context.Context) (bool, error) {
+	return s.collections.Stop(), nil
+}
+
+// LastRun is what the overview draws when it opens, and nil when nothing has been run here yet.
+func (s *CollectionsService) LastRun(ctx context.Context, collectionID string, nodeID string) (*domain.CollectionRun, error) {
+	return s.collections.LastRun(ctx, collectionID, nodeID)
+}

@@ -36,6 +36,13 @@ export function Duplicate(id: string): $CancellablePromise<domain$0.Collection[]
 }
 
 /**
+ * LastRun is what the overview draws when it opens, and nil when nothing has been run here yet.
+ */
+export function LastRun(collectionID: string, nodeID: string): $CancellablePromise<domain$0.CollectionRun | null> {
+    return $Call.ByID(1189953743, collectionID, nodeID);
+}
+
+/**
  * Node is what opening a saved request needs: a tree row carries its method and nothing else.
  */
 export function Node(id: string): $CancellablePromise<domain$0.CollectionNode> {
@@ -47,11 +54,27 @@ export function Rename(id: string, name: string): $CancellablePromise<domain$0.C
 }
 
 /**
+ * Run starts a collection or a folder and answers with the id of the run. What happens next arrives
+ * as events: a run of fifty requests outlives the call that started it, and the window draws it as
+ * it goes.
+ */
+export function Run(collectionID: string, nodeID: string): $CancellablePromise<string> {
+    return $Call.ByID(3708031267, collectionID, nodeID);
+}
+
+/**
  * SaveNode writes the request the card was editing back into the tree. Sending is a different
  * gesture: it does not save, and nothing here is called by it.
  */
 export function SaveNode(node: domain$0.CollectionNode): $CancellablePromise<domain$0.Collection[] | null> {
     return $Call.ByID(867729327, node);
+}
+
+/**
+ * Stop ends the run after the request that is already in flight.
+ */
+export function Stop(): $CancellablePromise<boolean> {
+    return $Call.ByID(3988284442);
 }
 
 export function Tree(): $CancellablePromise<domain$0.Collection[] | null> {

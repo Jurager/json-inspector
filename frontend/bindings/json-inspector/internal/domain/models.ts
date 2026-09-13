@@ -105,6 +105,45 @@ export interface CollectionNode {
 }
 
 /**
+ * CollectionRun is one execution of a collection or a folder: when it happened and how it went. The
+ * requests it reached are beside it, one row each.
+ */
+export interface CollectionRun {
+    "id": string;
+    "collectionId": string;
+
+    /**
+     * NodeID is what the run was started from. Empty means the collection itself — a saved folder is
+     * a row of its own, not the absence of one.
+     */
+    "nodeId"?: string;
+    "startedAt": number;
+    "finishedAt"?: number;
+    "passed": number;
+    "failed": number;
+    "durationUs": number;
+    "results": CollectionRunResult[] | null;
+}
+
+/**
+ * CollectionRunResult is one request of a run. It names the node it came from rather than carrying
+ * the node: a result says what happened, and it outlives the request being renamed or deleted. What
+ * that node is called now is the tree's answer, and the tree is what the overview has.
+ */
+export interface CollectionRunResult {
+    "nodeId": string;
+    "position": number;
+
+    /**
+     * Status is nil when nothing came back, which is also the only case where a run has an error.
+     */
+    "status"?: number | null;
+    "ok": boolean;
+    "durationUs": number;
+    "error"?: string;
+}
+
+/**
  * CookieRow is one row of the request-side jar the "Cookies" tab edits. Domain, path, expiry and
  * the flags are Set-Cookie attributes rather than parts of a request's own Cookie header; they are
  * kept so a draft can be restored from a record.

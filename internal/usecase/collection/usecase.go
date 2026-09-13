@@ -6,6 +6,7 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"sync/atomic"
 
 	"json-inspector/internal/domain"
 	"json-inspector/internal/platform"
@@ -20,12 +21,19 @@ const copySuffix = " (копия)"
 const maxNameLength = 120
 
 type UseCase struct {
-	store Store
-	ids   platform.IDGen
+	store    Store
+	sender   Sender
+	notifier Notifier
+	ids      platform.IDGen
+
+	// A run holds the tree for as long as it lasts, and only one runs at a time: two of them would
+	// write their rows into the same overview.
+	running atomic.Bool
+	stopped atomic.Bool
 }
 
-func NewUseCase(store Store, ids platform.IDGen) *UseCase {
-	return &UseCase{store: store, ids: ids}
+func NewUseCase(store Store, sender Sender, notifier Notifier, ids platform.IDGen) *UseCase {
+	return &UseCase{store: store, sender: sender, notifier: notifier, ids: ids}
 }
 
 // Tree is every collection with its nodes, which is what the list draws and what a run walks.
@@ -354,12 +362,8 @@ func (u *UseCase) collection(ctx context.Context, id string) (domain.Collection,
 	if err != nil {
 		return domain.Collection{}, false, err
 	}
-	for _, collection := range tree {
-		if collection.ID == id {
-			return collection, true, nil
-		}
-	}
-	return domain.Collection{}, false, nil
+	collection, ok := findCollection(tree, id)
+	return collection, ok, nil
 }
 
 func validName(name string) (string, error) {

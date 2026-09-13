@@ -7,7 +7,8 @@ import (
 )
 
 // Store is the tree as this feature keeps it. The whole thing is read at once — a collection is a
-// document, not a list to page through — and written a node at a time.
+// document, not a list to page through — and written a node at a time. Runs are written beside it:
+// a run row when it starts and again when it ends, and one row per request that was reached.
 type Store interface {
 	Collections(ctx context.Context) ([]domain.Collection, error)
 	Node(ctx context.Context, id string) (domain.CollectionNode, error)
@@ -18,4 +19,30 @@ type Store interface {
 	DeleteNode(ctx context.Context, id string) error
 
 	NextPosition(ctx context.Context, collectionID string, parentID string) (int64, error)
+
+	SaveRun(ctx context.Context, run domain.CollectionRun) error
+	AppendRunResult(ctx context.Context, runID string, result domain.CollectionRunResult) error
+	LastRun(ctx context.Context, collectionID string, nodeID string) (domain.CollectionRun, bool, error)
+}
+
+// RunRequest is one saved request on its way out: what a node asks for, with its rows already
+// narrowed to the ones that are switched on and its jar carried as rows.
+type RunRequest struct {
+	Method  string
+	URL     string
+	Body    string
+	Headers []domain.HeaderPair
+	Cookies []domain.CookieRow
+}
+
+// Sender sends one saved request and answers with what it produced. A run does not know how a
+// request leaves the process — it goes out the way the command line's does, through the draft that
+// fills in its `{{tokens}}` and keeps a secret's value out of what is written down.
+type Sender interface {
+	Send(ctx context.Context, req RunRequest) (domain.Record, error)
+}
+
+// Notifier publishes what happened to whoever is listening.
+type Notifier interface {
+	Publish(topic string, payload any)
 }

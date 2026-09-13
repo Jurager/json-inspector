@@ -16,3 +16,15 @@ export interface NewNode {
     "name": string;
     "method"?: string;
 }
+
+/**
+ * RunProgress is one request of a run finishing. The counters are here and not in the window: the
+ * window that opened the collections view while a run was going would otherwise count from the
+ * middle, and the request that just finished is a row it can draw at once.
+ */
+export interface RunProgress {
+    "runId": string;
+    "done": number;
+    "total": number;
+    "result": domain$0.CollectionRunResult;
+}
