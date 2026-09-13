@@ -2,7 +2,7 @@
 import { computed, nextTick, ref, watch, type ComponentPublicInstance } from 'vue'
 import Icon from '../ui/Icon.vue'
 import { IconButton } from '../ui/button'
-import { Input } from '../ui/input'
+import PanelFilter from '../ui/PanelFilter.vue'
 import {
   ContextMenu,
   ContextMenuTrigger,
@@ -440,13 +440,7 @@ function cancelTop(): boolean {
       <div v-if="visible.length === 0 && store.tree.length > 0" class="no-results">Ничего не найдено</div>
     </div>
 
-    <div class="panel-filter-dock">
-      <div class="panel-filter-fade"></div>
-      <div class="panel-filter">
-        <Input v-model="query" size="sm" class="w-full" placeholder="Поиск по коллекции…" spellcheck="false" />
-      </div>
-      <div class="panel-filter-backdrop"></div>
-    </div>
+    <PanelFilter v-model="query" placeholder="Поиск по коллекции…" />
 
     <DeleteNodeDialog
       v-if="confirming"
@@ -559,26 +553,4 @@ function cancelTop(): boolean {
   @apply pt-4 px-4 text-center text-text-tertiary text-xs;
 }
 
-.panel-filter-dock {
-  @apply absolute left-0 right-0 bottom-0 flex flex-col pointer-events-none;
-}
-
-.panel-filter-fade {
-  @apply h-8;
-  background: linear-gradient(
-    to bottom,
-    color-mix(in srgb, var(--bg-panel) 0%, transparent) 0%,
-    color-mix(in srgb, var(--bg-panel) 30%, transparent) 40%,
-    color-mix(in srgb, var(--bg-panel) 70%, transparent) 70%,
-    var(--bg-panel) 100%
-  );
-}
-
-.panel-filter {
-  @apply pointer-events-auto flex items-center py-1.5 px-3 bg-bg-panel;
-}
-
-.panel-filter-backdrop {
-  @apply h-2 bg-bg-panel;
-}
 </style>

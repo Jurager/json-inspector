@@ -2,7 +2,7 @@
 import { computed, ref, watch } from 'vue'
 import Icon from '../ui/Icon.vue'
 import { Button, IconButton } from '../ui/button'
-import { Input } from '../ui/input'
+import PanelFilter from '../ui/PanelFilter.vue'
 import { useRequestsStore } from '../../stores/requests'
 import { RecordSource, type Record } from '../../../bindings/json-inspector/internal/domain'
 import { statusBadgeClass } from '../../lib/format'
@@ -277,13 +277,11 @@ watch(() => [store.focusTabId, store.records.length, props.sourceKind] as const,
       </section>
     </div>
 
-    <div v-if="records.length > 0" class="panel-filter-dock">
-      <div class="panel-filter-fade"></div>
-      <div class="panel-filter">
-        <Input v-model="query" size="sm" class="w-full" placeholder="Фильтр по ссылке, методу, статусу…" spellcheck="false" />
-      </div>
-      <div class="panel-filter-backdrop"></div>
-    </div>
+    <PanelFilter
+      v-if="records.length > 0"
+      v-model="query"
+      placeholder="Фильтр по ссылке, методу, статусу…"
+    />
   </div>
 </template>
 
@@ -304,36 +302,6 @@ watch(() => [store.focusTabId, store.records.length, props.sourceKind] as const,
 
 .date-sep {
   @apply text-[10px] uppercase tracking-[0.08em] text-text-tertiary pt-1.5 px-2 pb-1;
-}
-
-.panel-filter-dock {
-  @apply absolute left-0 right-0 bottom-0 flex flex-col pointer-events-none;
-}
-
-.panel-filter-fade {
-  @apply h-8;
-  background: linear-gradient(
-    to bottom,
-    color-mix(in srgb, var(--bg-panel) 0%, transparent) 0%,
-    color-mix(in srgb, var(--bg-panel) 3%, transparent) 10%,
-    color-mix(in srgb, var(--bg-panel) 10%, transparent) 20%,
-    color-mix(in srgb, var(--bg-panel) 22%, transparent) 30%,
-    color-mix(in srgb, var(--bg-panel) 35%, transparent) 40%,
-    color-mix(in srgb, var(--bg-panel) 50%, transparent) 50%,
-    color-mix(in srgb, var(--bg-panel) 65%, transparent) 60%,
-    color-mix(in srgb, var(--bg-panel) 78%, transparent) 70%,
-    color-mix(in srgb, var(--bg-panel) 90%, transparent) 80%,
-    color-mix(in srgb, var(--bg-panel) 97%, transparent) 90%,
-    var(--bg-panel) 100%
-  );
-}
-
-.panel-filter {
-  @apply pointer-events-auto flex items-center py-1.5 px-3 bg-bg-panel;
-}
-
-.panel-filter-backdrop {
-  @apply h-2 bg-bg-panel;
 }
 
 .no-results {
