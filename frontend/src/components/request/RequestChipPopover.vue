@@ -5,13 +5,14 @@ import VarToken from '../ui/VarToken.vue'
 import { PopoverContent } from '../ui/popover'
 import { Button, IconButton } from '../ui/button'
 import { Checkbox } from '../ui/checkbox'
+import ScriptsFields from './ScriptsFields.vue'
 import { useRequestsStore } from '../../stores/requests'
 import { useCollectionsStore } from '../../stores/collections'
-import type { RequestSource } from '../../lib/requestSource'
+import type { ChipName, RequestSource } from '../../lib/requestSource'
 import { parseTokens, tokenSegments } from '../../lib/vars'
-import { AuthType, RowKind, type Auth } from '../../../bindings/json-inspector/internal/domain'
+import { AuthType, DraftID, RowKind, type Auth } from '../../../bindings/json-inspector/internal/domain'
 
-const props = defineProps<{ chip: 'params' | 'headers' | 'auth' | 'body'; source?: RequestSource }>()
+const props = defineProps<{ chip: ChipName; source?: RequestSource }>()
 
 const requests = useRequestsStore()
 const collections = useCollectionsStore()
@@ -27,8 +28,18 @@ const title = computed(() => {
       return 'Авторизация'
     case 'body':
       return 'Тело запроса'
+    case 'scripts':
+      return 'Скрипты запроса'
   }
 })
+
+// Where the code sits in the order, in one line. On the command line there is no collection above the
+// request, so the sentence the design gives the card would be saying something untrue there.
+const scriptsNote = computed(() =>
+  store.scriptsLevel === DraftID.DraftCommandLine
+    ? 'Выполняются перед отправкой и после ответа — код этого запроса, тот же редактор, что в «Коллекция → Скрипты».'
+    : 'Наследует скрипты коллекции и выполняется после них — тот же редактор, что в «Коллекция → Скрипты».'
+)
 
 const isBodyDisabled = computed(() => store.bodyDisabled)
 
@@ -101,7 +112,10 @@ function valueClass(v: string): string {
 <template>
   <PopoverContent
     class="chip-popover"
-    :class="{ auth: props.chip === 'auth', spaced: props.chip === 'auth' || props.chip === 'body' }"
+    :class="{
+      auth: props.chip === 'auth',
+      spaced: props.chip === 'auth' || props.chip === 'body' || props.chip === 'scripts',
+    }"
     align="end"
     :side-offset="6"
     @interact-outside="onInteractOutside"
@@ -207,6 +221,10 @@ function valueClass(v: string): string {
         @input="setToken(($event.target as HTMLInputElement).value)"
       />
       <div class="hint">Значение можно взять из окружения — переменные подставляются в URL, заголовки и тело.</div>
+    </template>
+
+    <template v-else-if="props.chip === 'scripts'">
+      <ScriptsFields :source="store" :note="scriptsNote" compact />
     </template>
 
     <template v-else>

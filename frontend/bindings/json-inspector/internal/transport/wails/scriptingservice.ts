@@ -5,8 +5,9 @@
  * ScriptingService is the code of a collection as the window works with it: what a level runs of its
  * own, what runs around a node, and what the scripts of a record did.
  * 
- * It holds both features because they answer different halves of one question and neither may import
- * the other — the tree knows where a level is, the scripts know what it runs.
+ * It holds the feature itself and nothing else: a level's code, what runs around a node and what the
+ * scripts of a record did are all questions the scripting feature answers, whoever the level belongs
+ * to — a collection, a node of one, or the draft the command line is composing.
  * @module
  */
 
@@ -48,6 +49,9 @@ export function SaveScripts(id: string, scripts: domain$0.Scripts | null): $Canc
 /**
  * Scripts is what one level has of its own. Nil is "not set here" — the levels above are what runs —
  * and that is a different answer from a script that is simply empty.
+ * 
+ * A level no row has is read the same way: the editor opens on what is selected, the command line opens
+ * before its draft is written, and neither is a failure to show code for.
  */
 export function Scripts(id: string): $CancellablePromise<domain$0.Scripts | null> {
     return $Call.ByID(2823574710, id);

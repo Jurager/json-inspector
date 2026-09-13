@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
 import { bodyMissing, recordView, type RecordBodies, type RecordView } from '../lib/requestRecord'
 import { requestCount, trailOf, type Trail } from '../lib/collectionTree'
+import type { ChipName } from '../lib/requestSource'
 import {
   BodySide,
   DraftID,
@@ -29,8 +30,6 @@ import {
 // line uses, and for the same reason: the draft is Go's, so every keystroke would otherwise be a
 // write on the other side of the boundary.
 export const FLUSH_MS = 400
-
-export type ChipName = 'params' | 'headers' | 'auth' | 'body'
 
 // The saved requests, mirrored. Go owns the tree and the request a card is editing; what the window
 // owns is what it is typing, which rows are open, and what is selected.
@@ -119,6 +118,11 @@ export const useCollectionsStore = defineStore('collections', {
       return (trail.collection.items ?? []).reduce((total: number, node: CollectionNode) => {
         return total + (node.kind === 'request' ? 1 : requestCount(node))
       }, 0)
+    },
+    // The level whose code the editor shows: a card edits the node it opened, and the overview the
+    // collection or the folder that is selected.
+    scriptsLevel(state): string | null {
+      return state.selectedId
     },
     // The node a run of the current selection is started from: a folder runs its subtree, and the
     // collection itself is the empty id — a saved folder is a row of its own, not the absence of one.
@@ -544,7 +548,8 @@ export const useCollectionsStore = defineStore('collections', {
 
     // What the level runs itself and what runs around it. Both are read together because they are one
     // answer: an empty editor is not empty code, it is the code above it.
-    async loadScripts(id: string | null) {
+    async loadScripts() {
+      const id = this.selectedId
       if (!id) return
       const scripts = await ScriptingService.Scripts(id)
       const chain = (await ScriptingService.Chain(id)) ?? []

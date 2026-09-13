@@ -1,4 +1,4 @@
-import type { Auth, CookieRow, Row, RowKind } from '../../bindings/json-inspector/internal/domain'
+import type { Auth, CookieRow, Row, RowKind, Scripts } from '../../bindings/json-inspector/internal/domain'
 import type { RowPatch, Seed } from '../../bindings/json-inspector/internal/usecase/draft'
 
 // What the request builder and the response viewer need from whichever store is showing them.
@@ -6,7 +6,7 @@ import type { RowPatch, Seed } from '../../bindings/json-inspector/internal/usec
 // The command line and a collection card compose the same thing — a method, an address, rows, a body
 // — and the design asks for the same component in both places. This is the shape that makes them the
 // same component: both stores answer it, so the builder never asks which one it is talking to.
-export type ChipName = 'params' | 'headers' | 'auth' | 'body'
+export type ChipName = 'params' | 'headers' | 'auth' | 'body' | 'scripts'
 
 export interface RequestSource {
   method: string
@@ -22,6 +22,16 @@ export interface RequestSource {
   bodyDisabled: boolean
   loading: boolean
   openChip: ChipName | null
+  // The code this request runs around itself: what it has of its own, and — through the chain — what
+  // would run instead of it while that stays empty. Both come from Go; the editor owns the typing.
+  scripts: Scripts | null
+  // The level whose code belongs in the editor — the node a card opened, or the command line's draft —
+  // and the level the answer in `scripts` is about. The two are equal once the answer has arrived.
+  scriptsLevel: string | null
+  scriptsFor: string | null
+  inheritedScript(scope: 'pre' | 'post'): { text: string; name: string } | null
+  loadScripts(): Promise<void>
+  saveScripts(pre: string, post: string): Promise<void>
 
   setUrl(text: string): void
   setBody(text: string): void

@@ -15,7 +15,7 @@ import {
 import { useRequestsStore } from '../../stores/requests'
 import { useCollectionsStore } from '../../stores/collections'
 import { useEnvironmentsStore } from '../../stores/environments'
-import type { RequestSource } from '../../lib/requestSource'
+import type { ChipName, RequestSource } from '../../lib/requestSource'
 import { usePlatform } from '../../composables/usePlatform'
 import { registerUrlField } from '../../composables/urlFocus'
 import { tokenSegments } from '../../lib/vars'
@@ -81,13 +81,16 @@ function selectMethod(m: string) {
 const enabledParamsCount = computed(() => store.enabledParamsCount)
 const enabledHeadersCount = computed(() => store.enabledHeadersCount)
 const hasBody = computed(() => store.body.trim().length > 0)
+// The chip is dashed until the request has code of its own, the way the body chip is: a dashed chip is
+// a thing that is not there yet, and it is what the design draws in both places.
+const hasScripts = computed(() => Boolean(store.scripts?.pre?.trim() || store.scripts?.post?.trim()))
 const isBodyDisabled = computed(() => store.bodyDisabled)
 
-function toggleChip(chip: 'params' | 'headers' | 'auth' | 'body') {
+function toggleChip(chip: ChipName) {
   store.setOpenChip(store.openChip === chip ? null : chip)
 }
 
-const displayedChip = ref<'params' | 'headers' | 'auth' | 'body' | null>(null)
+const displayedChip = ref<ChipName | null>(null)
 watch(
   () => store.openChip,
   (chip) => {
@@ -264,6 +267,14 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onWindowKeydown))
               @click="toggleChip('body')"
             >
               Тело
+            </button>
+            <button
+              class="chip chip-body chip-scripts"
+              :class="{ 'has-body': hasScripts, active: store.openChip === 'scripts' }"
+              @click="toggleChip('scripts')"
+            >
+              <Icon name="code-xml" :size="10" />
+              Скрипты
             </button>
           </PopoverAnchor>
           <RequestChipPopover v-if="displayedChip" :chip="displayedChip" :source="store" />
@@ -451,6 +462,11 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onWindowKeydown))
   border-color: var(--border);
   color: var(--text);
   background: var(--bg-panel);
+}
+
+/* The code icon is smaller than the text beside it and sits on its baseline. */
+.chip-scripts :deep(svg) {
+  flex: none;
 }
 
 .chip-body:disabled {

@@ -10,6 +10,7 @@ import {
   type Draft,
   type Record,
   type Row,
+  type Scripts,
 } from '../../bindings/json-inspector/internal/domain'
 import {
   TextField,
@@ -19,7 +20,9 @@ import {
   type State,
   type TextResult,
 } from '../../bindings/json-inspector/internal/usecase/draft'
-import { DraftService, RecordsService } from '../../bindings/json-inspector/internal/transport/wails'
+import type { Level } from '../../bindings/json-inspector/internal/usecase/scripting'
+import type { ChipName } from '../lib/requestSource'
+import { DraftService, RecordsService, ScriptingService } from '../../bindings/json-inspector/internal/transport/wails'
 import { useEnvironmentsStore } from './environments'
 import { focusUrlField } from '../composables/urlFocus'
 
@@ -82,7 +85,14 @@ export const useRequestsStore = defineStore('requests', {
     // flush runs on.
     flushTimer: null as ReturnType<typeof setTimeout> | null,
 
-    openChip: null as 'params' | 'headers' | 'auth' | 'body' | null,
+    openChip: null as ChipName | null,
+
+    // The code the command line runs around its own request — nil when it has none — and the chain it
+    // stands in. Nothing is above a request composed here, so the chain is the draft's own level or
+    // nothing at all: the box says «выполняется», not «наследуется».
+    scriptsFor: null as string | null,
+    scripts: null as Scripts | null,
+    chain: [] as Level[],
     focusTabId: null as number | null,
     inspector: { open: false, path: null as string | null, width: 300 },
   }),
@@ -131,12 +141,37 @@ export const useRequestsStore = defineStore('requests', {
     browserSelected(state): RecordView | null {
       return viewOf(state, state.browserId)
     },
+    // The level the code belongs to here is always the same one: the command line's draft.
+    scriptsLevel(): string {
+      return DRAFT
+    },
+    // What the level would run for one half if its own box stayed empty. Nothing is above the command
+    // line, so this is the empty answer — kept so both request sources answer the same way.
+    inheritedScript(): (_scope: 'pre' | 'post') => { text: string; name: string } | null {
+      return () => null
+    },
   },
+
   actions: {
     // ---- the draft, from Go ----------------------------------------------
 
     async loadDraft() {
       this.apply(await DraftService.Snapshot(DRAFT))
+    },
+
+    // The code of the request being composed: written into the draft's own row, and read back from it.
+    async loadScripts() {
+      this.scripts = await ScriptingService.Scripts(DRAFT)
+      this.chain = (await ScriptingService.Chain(DRAFT)) ?? []
+    },
+
+    async saveScripts(pre: string, post: string) {
+      const written = pre.trim() || post.trim() ? { pre, post } : null
+      const saved = await ScriptingService.SaveScripts(DRAFT, written)
+      const chain = (await ScriptingService.Chain(DRAFT)) ?? []
+      this.scriptsFor = DRAFT
+      this.scripts = saved
+      this.chain = chain
     },
 
     // Every answer from the draft side lands here: the draft and its preview are replaced, and the
@@ -397,7 +432,7 @@ export const useRequestsStore = defineStore('requests', {
 
     // ---- the window's own state ------------------------------------------
 
-    setOpenChip(chip: 'params' | 'headers' | 'auth' | 'body' | null) {
+    setOpenChip(chip: ChipName | null) {
       this.openChip = chip
     },
 

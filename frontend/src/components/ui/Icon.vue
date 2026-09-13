@@ -39,6 +39,7 @@ import {
   Square,
   Download,
   Upload,
+  CodeXml,
 } from 'lucide-vue-next'
 
 const props = defineProps<{ name: string; size?: number; strokeWidth?: number }>()
@@ -55,6 +56,7 @@ const ICONS: Record<string, Component> = {
   'arrow-left': ArrowLeft,
   xmark: X,
   check: Check,
+  'code-xml': CodeXml,
   'chevrons-left': ChevronsLeft,
   'chevrons-right': ChevronsRight,
   menu: Menu,
