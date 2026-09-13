@@ -20,6 +20,7 @@ export {
 
 export type {
     CreatedNode,
+    DocumentFormats,
     Failure,
     NodeEditor,
     StartupStatus

@@ -234,9 +234,9 @@ func withoutCancellation(err error) error {
 	return err
 }
 
-// SaveFile asks where to write a file, offering the name to start from, and answers with the path
-// the user chose — or with nothing, when they chose none.
-func (h *Host) SaveFile(title string, suggestedName string) (string, error) {
+// SaveFile asks where to write a file, offering the name to start from and the filters the caller
+// wants offered, and answers with the path the user chose — or with nothing, when they chose none.
+func (h *Host) SaveFile(title string, suggestedName string, filters ...application.FileFilter) (string, error) {
 	app := h.App()
 	if app == nil {
 		return "", errors.New("окно ещё не создано")
@@ -247,7 +247,7 @@ func (h *Host) SaveFile(title string, suggestedName string) (string, error) {
 		// The name is a suggestion: the dialog opens on it, and the user types over it or picks
 		// another place, which is what a save dialog is for.
 		Filename: suggestedName,
-		Filters:  []application.FileFilter{{DisplayName: "Коллекция Postman", Pattern: "*.json"}},
+		Filters:  filters,
 	}).PromptForSingleSelection()
 	return path, withoutCancellation(err)
 }

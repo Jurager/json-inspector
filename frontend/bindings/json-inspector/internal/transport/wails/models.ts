@@ -19,6 +19,16 @@ export interface CreatedNode {
 }
 
 /**
+ * DocumentFormats is what the window draws its file dialogs from: the names it can offer for an
+ * import and for an export. It names none of them itself, so a format added in Go appears in a menu
+ * that already exists.
+ */
+export interface DocumentFormats {
+    "readers": string[] | null;
+    "writers": string[] | null;
+}
+
+/**
  * Failure is a startup problem the frontend has to explain. It cannot be a dialog: a dialog needs
  * a running app, and the failures recorded here happen before one exists.
  */

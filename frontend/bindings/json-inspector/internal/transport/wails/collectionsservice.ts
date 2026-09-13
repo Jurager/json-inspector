@@ -43,11 +43,18 @@ export function Duplicate(id: string): $CancellablePromise<domain$0.Collection[]
 
 /**
  * ExportFile writes a collection — or one request, when the id names one — into a file the user
- * chooses, and answers whether anything was written: a cancelled dialog is not an error, and the
- * window says nothing about it.
+ * picks, in the format they named. It answers whether anything was written: a cancelled save dialog
+ * is not an error, and the window says nothing about it.
+ * 
+ * An empty format is the first one the app can write, which is what a window that has only ever
+ * known about one of them passes.
  */
-export function ExportFile(id: string): $CancellablePromise<boolean> {
-    return $Call.ByID(4114312118, id);
+export function ExportFile(id: string, format: string): $CancellablePromise<boolean> {
+    return $Call.ByID(4114312118, id, format);
+}
+
+export function Formats(): $CancellablePromise<$models.DocumentFormats> {
+    return $Call.ByID(643151990);
 }
 
 /**
