@@ -3,6 +3,7 @@ package record
 import (
 	"context"
 	"errors"
+	"strings"
 	"testing"
 	"time"
 
@@ -153,7 +154,50 @@ func (f *fakeNotifier) waitFor(t *testing.T, topic string) any {
 	}
 }
 
+// fakeScreen is the scripting feature seen from here: it keeps the passes it was handed and can
+// change the request or call it off, which is everything this feature has to act on.
+type fakeScreen struct {
+	passes []domain.ScriptPass
+	skip   bool
+	fail   error
+	change func(pass *domain.ScriptPass)
+}
+
+func (f *fakeScreen) Before(_ context.Context, pass domain.ScriptPass) (bool, error) {
+	if f.fail != nil {
+		return false, f.fail
+	}
+	if f.change != nil {
+		f.change(&pass)
+	}
+	f.passes = append(f.passes, pass)
+	return f.skip, nil
+}
+
+func (f *fakeScreen) After(_ context.Context, pass domain.ScriptPass) {
+	f.passes = append(f.passes, pass)
+}
+
+// fakeMask is the mask asked for again, for a request a script made into something else.
+type fakeMask struct {
+	asked  int
+	masked Masked
+	fail   error
+}
+
+func (f *fakeMask) Mask(_ context.Context, _ domain.ScriptRequest) (Masked, error) {
+	f.asked++
+	if f.fail != nil {
+		return Masked{}, f.fail
+	}
+	return f.masked, nil
+}
+
 func newUseCase() (*UseCase, *fakeStore, *fakeExecutor, *fakeNotifier) {
+	return newScriptedUseCase(nil, nil)
+}
+
+func newScriptedUseCase(screen Screener, mask Masker) (*UseCase, *fakeStore, *fakeExecutor, *fakeNotifier) {
 	store := newFakeStore()
 	micros := func(us int64) *int64 { return &us }
 	executor := &fakeExecutor{response: domain.Response{
@@ -164,7 +208,7 @@ func newUseCase() (*UseCase, *fakeStore, *fakeExecutor, *fakeNotifier) {
 	retention := RetentionSourceFunc(func(context.Context) (domain.Retention, error) {
 		return domain.RetainWeek, nil
 	})
-	return NewUseCase(store, executor, notifier, retention, platform.NewIDGen()), store, executor, notifier
+	return NewUseCase(store, executor, notifier, retention, screen, mask, platform.NewIDGen()), store, executor, notifier
 }
 
 func input() SendInput {
@@ -222,6 +266,122 @@ func TestSendRecordsTheMaskedRequest(t *testing.T) {
 	}
 	if len(store.saved) != 1 || store.saved[0].ID != id {
 		t.Errorf("saved %d records, want the one that finished", len(store.saved))
+	}
+}
+
+// The scripts of a collection run around the attempt: before it goes out, with the request they may
+// change, and after the answer came back, with the answer in hand. What goes out is what they left.
+func TestTheScriptsRunAroundTheAttempt(t *testing.T) {
+	screen := &fakeScreen{change: func(pass *domain.ScriptPass) {
+		pass.Request.Headers = append(pass.Request.Headers, domain.HeaderPair{Name: "X-Sign", Value: "подпись"})
+	}}
+	mask := &fakeMask{masked: Masked{
+		URL:     "https://api.example.com/articles?token=••••&sign=••••",
+		Headers: []domain.HeaderPair{{Name: "X-Sign", Value: "••••"}},
+	}}
+	uc, _, executor, notifier := newScriptedUseCase(screen, mask)
+
+	in := input()
+	in.Node, in.Run = "r-1", "run-1"
+	id, err := uc.Send(context.Background(), in)
+	if err != nil {
+		t.Fatalf("Send: %v", err)
+	}
+	finished, _ := notifier.waitFor(t, TopicRequestFinished).(RequestFinished)
+
+	if len(screen.passes) != 2 {
+		t.Fatalf("the scripts were asked %d times, want once before and once after", len(screen.passes))
+	}
+	before, after := screen.passes[0], screen.passes[1]
+	if before.NodeID != "r-1" || before.Run != "run-1" || before.RecordID != id {
+		t.Errorf("pass before = %+v, want it named by node, run and record", before)
+	}
+	if before.Response != nil {
+		t.Error("a pre-request script was handed an answer that does not exist yet")
+	}
+	if after.Response == nil || after.Response.Status != 200 {
+		t.Errorf("pass after = %+v, want the answer", after)
+	}
+
+	// What was sent is what the pre-request script left, and what is written down is that request
+	// masked — the preparation could not know what a script would add.
+	if len(executor.got[0].Headers) != 2 || executor.got[0].Headers[1].Name != "X-Sign" {
+		t.Errorf("sent headers = %+v, want the one the script added", executor.got[0].Headers)
+	}
+	if mask.asked != 1 {
+		t.Errorf("the mask was asked %d times, want once for the request that changed", mask.asked)
+	}
+	if finished.Record.URL != mask.masked.URL {
+		t.Errorf("recorded url = %q, want the request as it went out, masked", finished.Record.URL)
+	}
+	if len(finished.Record.RequestHeaders) != 1 || finished.Record.RequestHeaders[0].Name != "X-Sign" {
+		t.Errorf("recorded headers = %+v, want the masked ones from the second preparation", finished.Record.RequestHeaders)
+	}
+}
+
+// A request the scripts did not touch is already masked by the caller's preparation, and asking for
+// the same answer twice would be two substitutions per request of every run.
+func TestAnUnchangedRequestIsNotMaskedAgain(t *testing.T) {
+	uc, _, _, notifier := newScriptedUseCase(&fakeScreen{}, &fakeMask{})
+
+	in := input()
+	in.Node = "r-1"
+	if _, err := uc.Send(context.Background(), in); err != nil {
+		t.Fatalf("Send: %v", err)
+	}
+	finished, _ := notifier.waitFor(t, TopicRequestFinished).(RequestFinished)
+
+	if finished.Record.URL != in.MaskedURL {
+		t.Errorf("recorded url = %q, want the preparation's mask", finished.Record.URL)
+	}
+}
+
+// A script that says the request must not go out is obeyed: nothing is sent, nothing is written to
+// history, and whoever asked is told which of the two happened.
+func TestASkippedRequestNeverGoesOut(t *testing.T) {
+	uc, store, executor, notifier := newScriptedUseCase(&fakeScreen{skip: true}, &fakeMask{})
+
+	in := input()
+	in.Node = "r-1"
+	id, err := uc.Send(context.Background(), in)
+	if err != nil {
+		t.Fatalf("Send: %v", err)
+	}
+	finished, _ := notifier.waitFor(t, TopicRequestFinished).(RequestFinished)
+
+	if len(executor.got) != 0 {
+		t.Errorf("the engine was asked %d times, want nothing sent", len(executor.got))
+	}
+	if len(store.saved) != 0 {
+		t.Errorf("history kept %d records, want nothing", len(store.saved))
+	}
+	if !finished.Record.Skipped || finished.Record.Status != 0 {
+		t.Errorf("record = %+v, want it saying the request was not sent", finished.Record)
+	}
+	if finished.Record.ID != id {
+		t.Errorf("record = %+v, want the id Send returned", finished.Record)
+	}
+}
+
+// A script that cannot run at all is this side failing, and the attempt says so rather than sending a
+// request whose scripts never happened.
+func TestAScriptThatCannotRunFailsTheAttempt(t *testing.T) {
+	screen := &fakeScreen{fail: errors.New("база недоступна")}
+	uc, _, executor, notifier := newScriptedUseCase(screen, &fakeMask{})
+
+	in := input()
+	in.Node = "r-1"
+	id, err := uc.Send(context.Background(), in)
+	if err != nil {
+		t.Fatalf("Send: %v", err)
+	}
+	failed, ok := notifier.waitFor(t, TopicRequestFailed).(RequestFailed)
+
+	if !ok || failed.ID != id || !strings.Contains(failed.Error, "база недоступна") {
+		t.Errorf("failure = %+v, want the reason the scripts could not run", failed)
+	}
+	if len(executor.got) != 0 {
+		t.Error("the request went out although its scripts could not run")
 	}
 }
 

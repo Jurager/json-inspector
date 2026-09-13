@@ -103,4 +103,8 @@ type Record struct {
 	RequestCookies  []CookieRow  `json:"requestCookies,omitempty"`
 	RequestBody     *BodyRef     `json:"requestBody,omitempty"`
 	ResponseBody    *BodyRef     `json:"responseBody,omitempty"`
+	// Skipped is a request that never went out, because a pre-request script said so. There is no
+	// answer to fold in and nothing for history to keep — the flag is how whoever asked learns that
+	// the request was not sent rather than that it failed.
+	Skipped bool `json:"skipped,omitempty"`
 }

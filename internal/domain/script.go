@@ -58,21 +58,44 @@ type ScriptRequest struct {
 	Body    string       `json:"body"`
 }
 
-// VarStore is where a script's variables live, under the three names the scripts themselves use.
-// Reading `variables` reads the run's own scope and, through it, the environment and the globals —
-// the order a request is resolved in; reading either of the other two reads that one alone, which is
-// what tells a script whether a name is set in the environment or only borrowed from a run.
-type VarStore interface {
-	Get(scope string, name string) (string, bool)
-	Set(scope string, name string, value string) error
+// ScriptPass is one attempt as the scripts around it see it: which run it belongs to — the scope the
+// run's own variables live in — which record the reports are written against, which node of the tree
+// the request came from, and the request itself, which a pre-request script may change.
+//
+// The type is not the wire's: it is the shape two features hand each other inside the app, which is
+// why it has no tags. The feature that sends a request builds it, the feature that runs scripts reads
+// it, and neither imports the other.
+type ScriptPass struct {
+	Run      string
+	RecordID string
+	NodeID   string
+	Request  *ScriptRequest
+	Response *Response
 }
 
+// VarScope names one of the three places a script's variables live, by the name the script itself
+// uses. It is not an EnvScope: "the active environment" is a place a script only knows exists, and
+// which environment that is is the environments screen's business.
+type VarScope string
+
 const (
-	// VarsRun lives as long as the run it belongs to and disappears with it.
-	VarsRun         = "variables"
-	VarsEnvironment = "environment"
-	VarsGlobals     = "globals"
+	// ScopeRun lives as long as the run it belongs to and disappears with it.
+	ScopeRun         VarScope = "variables"
+	ScopeEnvironment VarScope = "environment"
+	ScopeGlobals     VarScope = "globals"
 )
+
+// VarStore is where a script's variables live. Reading `variables` reads the run's own scope and,
+// through it, the environment and the globals — the order a request is resolved in; reading either of
+// the other two reads that one alone, which is what tells a script whether a name is set in the
+// environment or only borrowed from a run.
+//
+// Reading answers with an error and not with nothing: `нет значения` and `не удалось прочитать` are
+// different answers, and a script that asks is entitled to tell them apart.
+type VarStore interface {
+	Get(scope VarScope, name string) (string, bool, error)
+	Set(scope VarScope, name string, value string) error
+}
 
 // ScriptRun is one execution of one script: what ran, whether it went through, what it printed and
 // what it asserted. A run that failed is still a run — the failure is what the tab has to show.

@@ -33,5 +33,10 @@ func (s collectionSender) Send(ctx context.Context, req collection.RunRequest) (
 	if err != nil {
 		return domain.Record{}, err
 	}
-	return s.records.SendAndWait(ctx, recordInput(prepared))
+
+	input := recordInput(prepared)
+	// The scripts of everything above this request run around it, and they are found by where it came
+	// from: the node, and the run whose own variables they share.
+	input.Node, input.Run = req.NodeID, req.Run
+	return s.records.SendAndWait(ctx, input)
 }

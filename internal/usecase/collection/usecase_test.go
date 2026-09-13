@@ -267,6 +267,7 @@ type answer struct {
 	status      int
 	durationUs  int64
 	transportEr string
+	skipped     bool
 }
 
 func newFakeSender() *fakeSender {
@@ -280,6 +281,13 @@ func (f *fakeSender) reply(url string, status int, durationUs int64) *fakeSender
 
 func (f *fakeSender) fail(url string) *fakeSender {
 	f.answers[url] = answer{transportEr: "сервер не ответил"}
+	return f
+}
+
+// skip is a request a pre-request script kept from going out: nothing is sent, and the answer says so
+// rather than pretending the server said something.
+func (f *fakeSender) skip(url string) *fakeSender {
+	f.answers[url] = answer{skipped: true}
 	return f
 }
 
@@ -306,6 +314,9 @@ func (f *fakeSender) Send(_ context.Context, req RunRequest) (domain.Record, err
 
 	if !ok {
 		return domain.Record{}, fmt.Errorf("нет ответа для %s", req.URL)
+	}
+	if answer.skipped {
+		return domain.Record{Skipped: true}, nil
 	}
 	return domain.Record{RecordSummary: domain.RecordSummary{
 		Status:     answer.status,

@@ -39,7 +39,14 @@ func (s *RecordsService) Send(ctx context.Context, draftID domain.DraftID) (stri
 	if err != nil {
 		return "", err
 	}
-	return s.records.Send(ctx, recordInput(prepared))
+
+	input := recordInput(prepared)
+	// A node whose card sent this is a node of a collection, and the scripts above it are part of what
+	// sending it means. The command line's draft names no node: nothing is above it, so nothing runs.
+	if draftID != domain.DraftCommandLine {
+		input.Node = string(draftID)
+	}
+	return s.records.Send(ctx, input)
 }
 
 // SendSpec starts a request that is not the one being composed — following a link out of a

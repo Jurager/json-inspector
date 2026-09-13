@@ -12,33 +12,33 @@ import (
 // fakeVars is the three scopes without a database. Reading `variables` runs through all three, the way
 // a request is resolved; reading either of the others reads that one alone.
 type fakeVars struct {
-	values map[string]map[string]string
-	refuse map[string]string
+	values map[domain.VarScope]map[string]string
+	refuse map[domain.VarScope]string
 }
 
 func newFakeVars() *fakeVars {
-	return &fakeVars{values: map[string]map[string]string{}, refuse: map[string]string{}}
+	return &fakeVars{values: map[domain.VarScope]map[string]string{}, refuse: map[domain.VarScope]string{}}
 }
 
-func (f *fakeVars) with(scope string, name string, value string) *fakeVars {
+func (f *fakeVars) with(scope domain.VarScope, name string, value string) *fakeVars {
 	_ = f.Set(scope, name, value)
 	return f
 }
 
-func (f *fakeVars) Get(scope string, name string) (string, bool) {
-	if scope == domain.VarsRun {
-		for _, one := range []string{domain.VarsRun, domain.VarsEnvironment, domain.VarsGlobals} {
+func (f *fakeVars) Get(scope domain.VarScope, name string) (string, bool, error) {
+	if scope == domain.ScopeRun {
+		for _, one := range []domain.VarScope{domain.ScopeRun, domain.ScopeEnvironment, domain.ScopeGlobals} {
 			if value, ok := f.values[one][name]; ok {
-				return value, true
+				return value, true, nil
 			}
 		}
-		return "", false
+		return "", false, nil
 	}
 	value, ok := f.values[scope][name]
-	return value, ok
+	return value, ok, nil
 }
 
-func (f *fakeVars) Set(scope string, name string, value string) error {
+func (f *fakeVars) Set(scope domain.VarScope, name string, value string) error {
 	if reason, refused := f.refuse[scope]; refused {
 		return errors.New(reason)
 	}
@@ -467,8 +467,8 @@ func TestAPreRequestScriptCanSkipTheRequest(t *testing.T) {
 
 func TestVariablesAreScopedAndWrittenBack(t *testing.T) {
 	vars := newFakeVars().
-		with(domain.VarsEnvironment, "base", "https://api.example.com").
-		with(domain.VarsGlobals, "token", "from-globals")
+		with(domain.ScopeEnvironment, "base", "https://api.example.com").
+		with(domain.ScopeGlobals, "token", "from-globals")
 
 	report := NewEngine().Run(domain.ScriptInput{
 		Scope: domain.ScriptPost,
@@ -503,13 +503,13 @@ func TestVariablesAreScopedAndWrittenBack(t *testing.T) {
 	if len(report.Tests) != 2 || !report.Tests[0].Passed || !report.Tests[1].Passed {
 		t.Errorf("checks = %+v, want the scopes kept apart", report.Tests)
 	}
-	if got := vars.values[domain.VarsRun]["page"]; got != "2" {
+	if got := vars.values[domain.ScopeRun]["page"]; got != "2" {
 		t.Errorf("run scope = %q, want the value the script set there", got)
 	}
-	if got := vars.values[domain.VarsEnvironment]["token"]; got != "from-environment" {
+	if got := vars.values[domain.ScopeEnvironment]["token"]; got != "from-environment" {
 		t.Errorf("environment = %q, want the value the script set there", got)
 	}
-	if got := vars.values[domain.VarsGlobals]["auth"]; got != "from-globals-too" {
+	if got := vars.values[domain.ScopeGlobals]["auth"]; got != "from-globals-too" {
 		t.Errorf("globals = %q, want the value the script set there", got)
 	}
 }
@@ -518,7 +518,7 @@ func TestVariablesAreScopedAndWrittenBack(t *testing.T) {
 // script's business to see, so it arrives as a thrown error rather than as a silent nothing.
 func TestAVariableThatCannotBeWrittenIsThrown(t *testing.T) {
 	vars := newFakeVars()
-	vars.refuse[domain.VarsEnvironment] = "окружение только для чтения"
+	vars.refuse[domain.ScopeEnvironment] = "окружение только для чтения"
 
 	report := NewEngine().Run(domain.ScriptInput{
 		Scope:     domain.ScriptPre,

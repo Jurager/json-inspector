@@ -32,6 +32,8 @@ type UseCase struct {
 	executor  Executor
 	notifier  Notifier
 	retention RetentionSource
+	screen    Screener
+	mask      Masker
 	ids       platform.IDGen
 
 	sincePrune int
@@ -42,9 +44,14 @@ func NewUseCase(
 	executor Executor,
 	notifier Notifier,
 	retention RetentionSource,
+	screen Screener,
+	mask Masker,
 	ids platform.IDGen,
 ) *UseCase {
-	return &UseCase{store: store, executor: executor, notifier: notifier, retention: retention, ids: ids}
+	return &UseCase{
+		store: store, executor: executor, notifier: notifier, retention: retention,
+		screen: screen, mask: mask, ids: ids,
+	}
 }
 
 // RequestFinished carries the record the attempt produced — the same shape history lists, so the
@@ -76,6 +83,13 @@ type SendInput struct {
 	MaskedHeaders []domain.HeaderPair `json:"maskedHeaders"`
 	MaskedBody    string              `json:"maskedBody"`
 	Cookies       []domain.CookieRow  `json:"cookies"`
+
+	// Node is the request this came from, when it came from a collection, and Run is the scope the
+	// run's own variables live in — a collection run's id, or the send itself for a request sent on
+	// its own. Both are what the scripts around the attempt are found by; both are empty for a
+	// request composed on the command line, which has nothing above it.
+	Node string `json:"node,omitempty"`
+	Run  string `json:"run,omitempty"`
 }
 
 // Send starts a request and returns its id at once. The answer arrives as an event: it has to outlive
@@ -84,6 +98,7 @@ type SendInput struct {
 func (u *UseCase) Send(ctx context.Context, in SendInput) (string, error) {
 	id := u.ids()
 	started := time.Now().UnixMilli()
+	in.Run = runScope(in.Run, id)
 
 	// The attempt runs on its own context: the caller's ends when the frontend call returns, and a
 	// request must not be cancelled by the act of asking for it.
@@ -110,6 +125,7 @@ func (u *UseCase) Send(ctx context.Context, in SendInput) (string, error) {
 // answer.
 func (u *UseCase) SendAndWait(ctx context.Context, in SendInput) (domain.Record, error) {
 	id := u.ids()
+	in.Run = runScope(in.Run, id)
 	rec, err := u.attempt(ctx, id, time.Now().UnixMilli(), in)
 	if err != nil {
 		return domain.Record{}, err
@@ -121,16 +137,51 @@ func (u *UseCase) SendAndWait(ctx context.Context, in SendInput) (domain.Record,
 	return rec, nil
 }
 
-// attempt runs one request to the end: out to the engine, folded into a record, and saved. It
-// answers with the record, with a cancelled attempt, or with why there is none — a transport
-// failure is the engine's to report inside the response, so an error here is this side failing.
+// attempt runs one request to the end: through the scripts around it, out to the engine, folded into
+// a record, and saved. It answers with the record, with a cancelled attempt, or with why there is
+// none — a transport failure is the engine's to report inside the response, so an error here is this
+// side failing.
 func (u *UseCase) attempt(ctx context.Context, id string, started int64, in SendInput) (domain.Record, error) {
+	pass := domain.ScriptPass{
+		Run:      in.Run,
+		RecordID: id,
+		NodeID:   in.Node,
+		Request: &domain.ScriptRequest{
+			Method:  in.Method,
+			URL:     in.URL,
+			Headers: in.Headers,
+			Body:    in.Body,
+		},
+	}
+
+	if u.screen != nil {
+		skip, err := u.screen.Before(ctx, pass)
+		if err != nil {
+			return domain.Record{}, err
+		}
+		if skip {
+			// Nothing goes out, so there is no answer to fold in and nothing for history to keep.
+			// What is left is the shape of the attempt — which request it was, and that it was not
+			// sent — so whoever asked learns that rather than that a request failed.
+			return domain.Record{
+				RecordSummary: domain.RecordSummary{
+					ID:        id,
+					Source:    domain.SourceManual,
+					Method:    pass.Request.Method,
+					URL:       in.MaskedURL,
+					StartedAt: started,
+				},
+				Skipped: true,
+			}, nil
+		}
+	}
+
 	resp, err := u.executor.Execute(ctx, Request{
 		ID:      id,
-		Method:  in.Method,
-		URL:     in.URL,
-		Headers: in.Headers,
-		Body:    in.Body,
+		Method:  pass.Request.Method,
+		URL:     pass.Request.URL,
+		Headers: pass.Request.Headers,
+		Body:    pass.Request.Body,
 	})
 	if err != nil {
 		return domain.Record{}, err
@@ -139,11 +190,56 @@ func (u *UseCase) attempt(ctx context.Context, id string, started int64, in Send
 		return domain.Record{Cancelled: true}, nil
 	}
 
-	rec := u.recordFrom(id, started, in, resp)
+	if u.screen != nil {
+		pass.Response = resp
+		u.screen.After(ctx, pass)
+	}
+
+	rec := u.recordFrom(id, started, in, pass, u.masked(ctx, in, pass.Request), resp)
 	if err := u.save(ctx, rec); err != nil {
 		return domain.Record{}, err
 	}
 	return rec, nil
+}
+
+// masked is the request as history keeps it. What the caller prepared is the answer until a script
+// changes the request — the mask is made where the values are, and that is not here.
+//
+// A mask that cannot be made leaves the prepared one in place: the unusable answer is the masked one,
+// because the other would be a secret written down in the clear.
+func (u *UseCase) masked(ctx context.Context, in SendInput, sent *domain.ScriptRequest) Masked {
+	prepared := Masked{URL: in.MaskedURL, Headers: in.MaskedHeaders, Body: in.MaskedBody}
+	if u.mask == nil || !changed(in, sent) {
+		return prepared
+	}
+	again, err := u.mask.Mask(ctx, *sent)
+	if err != nil {
+		return prepared
+	}
+	return again
+}
+
+// runScope is where this request's `pm.variables` live: the run it belongs to, or — for a request
+// sent on its own, from the command line or from a card — the send itself. Every request has a scope;
+// only a run shares one between requests.
+func runScope(run string, id string) string {
+	if run != "" {
+		return run
+	}
+	return id
+}
+
+// changed says whether the scripts made the request something else than what was prepared.
+func changed(in SendInput, sent *domain.ScriptRequest) bool {
+	if in.URL != sent.URL || in.Body != sent.Body || len(in.Headers) != len(sent.Headers) {
+		return true
+	}
+	for i, header := range in.Headers {
+		if sent.Headers[i] != header {
+			return true
+		}
+	}
+	return false
 }
 
 // Cancel stops an attempt by id. It reports whether anything was still running under it.
@@ -151,15 +247,22 @@ func (u *UseCase) Cancel(id string) bool {
 	return u.executor.Cancel(id)
 }
 
-// recordFrom folds a response into the record history keeps: the masked request on one side, what
-// came back on the other.
-func (u *UseCase) recordFrom(id string, started int64, in SendInput, resp *domain.Response) domain.Record {
+// recordFrom folds a response into the record history keeps: the request that went out, as it can be
+// shown, on one side, and what came back on the other.
+func (u *UseCase) recordFrom(
+	id string,
+	started int64,
+	in SendInput,
+	pass domain.ScriptPass,
+	masked Masked,
+	resp *domain.Response,
+) domain.Record {
 	return domain.Record{
 		RecordSummary: domain.RecordSummary{
 			ID:          id,
 			Source:      domain.SourceManual,
-			Method:      in.Method,
-			URL:         in.MaskedURL,
+			Method:      pass.Request.Method,
+			URL:         masked.URL,
 			Status:      resp.Status,
 			StatusText:  resp.StatusText,
 			ContentType: resp.ContentType,
@@ -173,12 +276,12 @@ func (u *UseCase) recordFrom(id string, started int64, in SendInput, resp *domai
 		TLSUs:           resp.TLSUs,
 		WaitUs:          resp.WaitUs,
 		DownloadUs:      resp.DownloadUs,
-		RequestBytes:    int64(len(in.Body)),
+		RequestBytes:    int64(len(pass.Request.Body)),
 		ResponseBytes:   int64(len(resp.Body)),
-		RequestHeaders:  orEmptyPairs(in.MaskedHeaders),
+		RequestHeaders:  orEmptyPairs(masked.Headers),
 		ResponseHeaders: orEmptyPairs(resp.Headers),
 		RequestCookies:  in.Cookies,
-		RequestBody:     bodyRef(in.MaskedBody),
+		RequestBody:     bodyRef(masked.Body),
 		ResponseBody:    bodyRef(resp.Body, resp.BodyTruncated),
 	}
 }

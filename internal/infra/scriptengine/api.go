@@ -67,7 +67,13 @@ func (s *runState) get(call goja.FunctionCall) goja.Value {
 	if s.in.Variables == nil {
 		return goja.Undefined()
 	}
-	if value, ok := s.in.Variables.Get(text(call.Argument(0)), text(call.Argument(1))); ok {
+	value, ok, err := s.in.Variables.Get(domain.VarScope(text(call.Argument(0))), text(call.Argument(1)))
+	if err != nil {
+		// A scope that cannot be read is thrown and not answered with nothing: a script that checks a
+		// token has to be able to tell "его нет" from "его не прочитали".
+		panic(s.vm.NewGoError(err))
+	}
+	if ok {
 		return s.vm.ToValue(value)
 	}
 	return goja.Undefined()
@@ -79,7 +85,7 @@ func (s *runState) set(call goja.FunctionCall) goja.Value {
 	if s.in.Variables == nil {
 		panic(s.vm.NewTypeError("в этом скрипте переменных нет"))
 	}
-	if err := s.in.Variables.Set(text(call.Argument(0)), text(call.Argument(1)), text(call.Argument(2))); err != nil {
+	if err := s.in.Variables.Set(domain.VarScope(text(call.Argument(0))), text(call.Argument(1)), text(call.Argument(2))); err != nil {
 		// A variable that cannot be written — a read-only environment, a name that is not a name — is
 		// the script's business to see, so it is thrown rather than logged.
 		panic(s.vm.NewGoError(err))

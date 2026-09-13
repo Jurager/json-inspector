@@ -215,6 +215,35 @@ func TestRunGoesOnAfterAFailure(t *testing.T) {
 	}
 }
 
+// A request a pre-request script kept from going out is neither a pass nor a failure: the row says
+// which of the three happened, so a run that skipped half its requests is not a run that failed half
+// of them.
+func TestRunCountsASkippedRequestAsNeither(t *testing.T) {
+	r := setupRunnable(t)
+	r.sender.skip(r.requests["Второй"])
+
+	if _, err := r.uc.Run(context.Background(), r.collectionID, ""); err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+	run := r.notifier.runFinished(t)
+
+	if run.Passed != 3 || run.Failed != 0 {
+		t.Errorf("run = %d passed, %d failed, want 3 and none: the skipped one is neither", run.Passed, run.Failed)
+	}
+	skipped := run.Results[1]
+	if !skipped.Skipped || skipped.Status != nil || skipped.OK {
+		t.Errorf("skipped result = %+v, want a row that says it was not sent", skipped)
+	}
+	if skipped.Error != "пропущен скриптом" {
+		t.Errorf("error = %q, want the reason the row gives", skipped.Error)
+	}
+	// The run asks about every request it walks — whether one of them goes out is decided where the
+	// scripts are, not here, and a run that skipped a request still reached it.
+	if len(r.sender.sent) != 4 {
+		t.Errorf("the run reached %d requests, want all four", len(r.sender.sent))
+	}
+}
+
 func TestRunStopWaitsForTheRequestInFlight(t *testing.T) {
 	r := setupRunnable(t)
 

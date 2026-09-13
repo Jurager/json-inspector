@@ -41,6 +41,32 @@ type Notifier interface {
 	Publish(topic string, payload any)
 }
 
+// Screener is the code that belongs around one attempt: the scripts of the collection the request came
+// from, run before it goes out and after the answer came back. This feature owns the attempt and knows
+// nothing about scripts — it says when, and somebody else says what.
+//
+// The signature is the shape the scripting feature already has, which is why the composition root
+// binds it without an adapter: the port is declared here, next to the moment it describes.
+type Screener interface {
+	Before(ctx context.Context, pass domain.ScriptPass) (bool, error)
+	After(ctx context.Context, pass domain.ScriptPass)
+}
+
+// Masker is a request as everything that outlives the send sees it: the same request with a secret's
+// value left as its mask. The caller prepares one already, and this is asked again only for a request
+// a script changed — the mask cannot be made where the values are not.
+type Masker interface {
+	Mask(ctx context.Context, req domain.ScriptRequest) (Masked, error)
+}
+
+// Masked is a request written down: its address, its headers and its body with their secrets left as
+// masks.
+type Masked struct {
+	URL     string
+	Headers []domain.HeaderPair
+	Body    string
+}
+
 // RetentionSource answers how long history is kept — one question, so this feature does not depend
 // on the settings screen. The composition root adapts the settings use case to it.
 type RetentionSource interface {

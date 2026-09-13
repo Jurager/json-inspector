@@ -9,6 +9,7 @@ import (
 	"json-inspector/internal/usecase/draft"
 	"json-inspector/internal/usecase/environment"
 	"json-inspector/internal/usecase/record"
+	"json-inspector/internal/usecase/scripting"
 	"json-inspector/internal/usecase/settings"
 )
 
@@ -17,5 +18,6 @@ var Module = fx.Module("usecase",
 	draft.Module,
 	environment.Module,
 	record.Module,
+	scripting.Module,
 	settings.Module,
 )

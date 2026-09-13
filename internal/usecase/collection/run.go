@@ -114,16 +114,20 @@ func (u *UseCase) execute(run domain.CollectionRun, requests []domain.Collection
 			break
 		}
 
-		result := u.attempt(ctx, node, int64(position))
+		result := u.attempt(ctx, node, int64(position), run.ID)
 		// The row goes in before it is counted: a run whose results cannot be written is over, and
 		// a summary that counts a row the database does not have is a summary that lies.
 		if err := u.store.AppendRunResult(ctx, run.ID, result); err != nil {
 			break
 		}
 		run.Results = append(run.Results, result)
-		if result.OK {
+		switch {
+		case result.Skipped:
+			// Neither a pass nor a failure: a script kept this request from going out, and counting
+			// it either way would say something that did not happen.
+		case result.OK:
 			run.Passed++
-		} else {
+		default:
 			run.Failed++
 		}
 		u.notifier.Publish(TopicRunProgress, RunProgress{
@@ -146,7 +150,12 @@ func (u *UseCase) execute(run domain.CollectionRun, requests []domain.Collection
 // cannot be read, a `{{token}}` that resolves to nothing and a server that never answered are one
 // line each, and the run goes on. Stopping at the first broken endpoint would hide the twenty
 // behind it, which is the opposite of what a run is for.
-func (u *UseCase) attempt(ctx context.Context, node domain.CollectionNode, position int64) domain.CollectionRunResult {
+func (u *UseCase) attempt(
+	ctx context.Context,
+	node domain.CollectionNode,
+	position int64,
+	runID string,
+) domain.CollectionRunResult {
 	result := domain.CollectionRunResult{NodeID: node.ID, Position: position}
 
 	// The row the tree carries has the method and nothing else; what is sent is the node whole.
@@ -156,9 +165,16 @@ func (u *UseCase) attempt(ctx context.Context, node domain.CollectionNode, posit
 		return result
 	}
 
-	rec, err := u.sender.Send(ctx, requestFrom(full))
+	rec, err := u.sender.Send(ctx, requestFrom(full, runID))
 	if err != nil {
 		result.Error = err.Error()
+		return result
+	}
+	if rec.Skipped {
+		// A pre-request script said this request must not go out. There is no answer and no error:
+		// the row says which of the two happened, and the run counts it as neither.
+		result.Skipped = true
+		result.Error = "пропущен скриптом"
 		return result
 	}
 
@@ -179,8 +195,10 @@ func (u *UseCase) attempt(ctx context.Context, node domain.CollectionNode, posit
 // requestFrom turns a node into what goes out: the rows a person switched on, and the jar beside
 // them. The URL is the request's own — a query string is a URL's rows, not a second copy of them —
 // so the parameters travel for the record and do not rewrite the address.
-func requestFrom(node domain.CollectionNode) RunRequest {
+func requestFrom(node domain.CollectionNode, runID string) RunRequest {
 	request := RunRequest{
+		Run:     runID,
+		NodeID:  node.ID,
 		Method:  node.Method,
 		URL:     node.URL,
 		Body:    node.Body,

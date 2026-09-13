@@ -90,4 +90,7 @@ type CollectionRunResult struct {
 	OK         bool   `json:"ok"`
 	DurationUs int64  `json:"durationUs"`
 	Error      string `json:"error,omitempty"`
+	// Skipped is a request a pre-request script kept from going out. It is neither a pass nor a
+	// failure, which is why it is a flag of its own: the run counts it as neither.
+	Skipped bool `json:"skipped,omitempty"`
 }

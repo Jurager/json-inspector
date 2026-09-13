@@ -9,12 +9,14 @@ import (
 	"go.uber.org/fx"
 
 	"json-inspector/internal/infra/httpx"
+	"json-inspector/internal/infra/scriptengine"
 	"json-inspector/internal/infra/sqlite"
 	"json-inspector/internal/platform"
 	"json-inspector/internal/usecase/collection"
 	"json-inspector/internal/usecase/draft"
 	"json-inspector/internal/usecase/environment"
 	"json-inspector/internal/usecase/record"
+	"json-inspector/internal/usecase/scripting"
 	"json-inspector/internal/usecase/settings"
 )
 
@@ -58,6 +60,14 @@ var Module = fx.Module("wails",
 		func(host *Host) record.Notifier { return newBus(host) },
 		func(uc *settings.UseCase) record.RetentionSource { return settingsRetention(uc) },
 		func(uc *environment.UseCase) draft.VariableSource { return environmentVariables{uc} },
+		func(engine *scriptengine.Engine) scripting.Engine { return engine },
+		func(store *sqlite.Store) scripting.Tree { return store },
+		func(store *sqlite.Store) scripting.Store { return store },
+		func(uc *environment.UseCase) scripting.Variables { return uc },
+		// The scripts around a request are asked by the feature that sends it, and they are told what
+		// to run by the feature that keeps them. Neither knows the other; this is the pair.
+		func(scripts *scripting.UseCase) record.Screener { return scripts },
+		func(drafts *draft.UseCase) record.Masker { return requestMask{drafts} },
 		NewHost,
 		NewStatus,
 		openStorage,

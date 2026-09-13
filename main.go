@@ -11,6 +11,7 @@ import (
 	"go.uber.org/fx"
 
 	"json-inspector/internal/infra/httpx"
+	"json-inspector/internal/infra/scriptengine"
 	"json-inspector/internal/infra/sqlite"
 	"json-inspector/internal/infra/updater"
 	"json-inspector/internal/platform"
@@ -49,6 +50,7 @@ func appOptions() []fx.Option {
 		platform.Module,
 		sqlite.Module,
 		httpx.Module,
+		scriptengine.Module,
 		bridge.Module,
 		usecase.Module,
 		wails.Module,

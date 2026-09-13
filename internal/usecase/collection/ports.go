@@ -32,7 +32,14 @@ type Store interface {
 
 // RunRequest is one saved request on its way out: what a node asks for, with its rows already
 // narrowed to the ones that are switched on and its jar carried as rows.
+//
+// The run and the node travel with it although a run does not use them itself: a request that came
+// from a collection has the scripts of everything above it around it, and whoever sends it has to be
+// able to say which node it was.
 type RunRequest struct {
+	Run    string
+	NodeID string
+
 	Method  string
 	URL     string
 	Body    string
