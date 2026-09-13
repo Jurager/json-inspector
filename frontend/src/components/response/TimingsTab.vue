@@ -10,10 +10,10 @@ interface Phase {
   us: number
 }
 
-// Only the phases that happened are drawn, and which those are is Go's answer. A request this app
-// sends dials every time, so it has all five; a captured one carries only the two phases a page can
-// time. An absent phase is one that did not take place at all — a zero would say it was measured and
-// took no time.
+// Only the phases that happened are drawn, and which those are is Go's answer. An absent phase is one
+// that did not take place at all — a zero would say it was measured and took no time. A request sent
+// with connection reuse has no DNS, TCP or TLS because nothing was dialled; a captured one carries
+// only the two phases a page can time.
 const phases = computed<Phase[]>(() =>
   (
     [
@@ -37,6 +37,16 @@ function width(us: number): string {
   return `${Math.min(100, (us / totalUs.value) * 100)}%`
 }
 
+// A request that reused a connection has no dial phases to show. The connect phase is what tells the
+// two apart — a fresh connection always has one, a reused one never does, and a request that never
+// reached a server has neither it nor a wait, so it is already answered for by the note above.
+const reusedConnection = computed(
+  () =>
+    props.record.connectUs == null &&
+    props.record.source === 'manual' &&
+    (props.record.waitUs != null || props.record.downloadUs != null)
+)
+
 </script>
 
 <template>
@@ -57,6 +67,9 @@ function width(us: number): string {
     </div>
     <div v-if="phases.length === 0" class="timing-note">
       Запрос не удалось засечь по фазам — ответа не было.
+    </div>
+    <div v-else-if="reusedConnection" class="timing-note">
+      Соединение переиспользовано: DNS, TCP и TLS не тратились.
     </div>
   </div>
 </template>

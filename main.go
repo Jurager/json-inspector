@@ -61,7 +61,9 @@ func appOptions() []fx.Option {
 			},
 			wails.Assets{FS: assets, Icon: appIcon},
 			bridge.Port(bridge.DefaultPort),
-			// The engine's defaults: env proxy, verified certificates, redirects followed, no jar.
+			// The engine's defaults: env proxy, verified certificates, redirects followed, no jar, a
+			// fresh connection per request. The settings screen is where these end up; the zero value
+			// is what the app answers with until then.
 			httpx.Config{},
 		),
 	}

@@ -25,6 +25,17 @@ type Config struct {
 	// does, and the default until now has been "each request on its own".
 	UseCookieJar bool
 	UserAgent    string
+	// KeepConnections reuses an open connection for the next request to the same host.
+	//
+	// Off, and deliberately: a reused connection spends nothing on DNS, TCP or TLS, so the same
+	// request sent twice reports a different breakdown — and the second report says nothing about
+	// what a cold request costs. This app is a probe, not a browsing session; what a browser does
+	// with its connections is not the question, what the endpoint does is.
+	//
+	// On, every request after the first is cheaper and the timings tab says so, because a phase that
+	// did not happen is absent rather than zero and the tab draws what it is given. The settings
+	// screen is where this is meant to end up; until then the zero value is the app's answer.
+	KeepConnections bool
 }
 
 const (
@@ -50,13 +61,9 @@ func (c Config) withDefaults() Config {
 // settings apply at all.
 func newTransport(cfg Config) *http.Transport {
 	transport := http.DefaultTransport.(*http.Transport).Clone()
-	// Every request dials. A reused connection spends nothing on DNS, TCP or TLS, so the very
-	// breakdown the timings tab exists to show would come out different for the same request sent
-	// twice — and the second send would say nothing about what a cold request costs. This is a probe,
-	// not a browsing session: what a browser does with its connections is not the question here, what
-	// the endpoint does is. Go sends `Connection: close` for this, and the server lets go of the
-	// socket too.
-	transport.DisableKeepAlives = true
+	// Off means every request dials: Go sends `Connection: close`, and the server lets go of the
+	// socket too. See Config.KeepConnections for why that is the default.
+	transport.DisableKeepAlives = !cfg.KeepConnections
 
 	if cfg.ProxyURL != "" {
 		if parsed, err := url.Parse(cfg.ProxyURL); err == nil {

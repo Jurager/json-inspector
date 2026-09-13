@@ -87,8 +87,9 @@ func TestTimings(t *testing.T) {
 		assertPhasesWithinTotal(t, res)
 	})
 
-	// Every send dials, even a repeat: a probe that reuses a connection reports a breakdown that
-	// depends on when it was last used, and the same request sent twice has to give the same one.
+	// The default: every send dials, even a repeat. A probe that reused a connection would report a
+	// breakdown that depends on when it was last used, and the same request sent twice has to give
+	// the same one.
 	t.Run("a repeat dials again", func(t *testing.T) {
 		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			time.Sleep(20 * time.Millisecond)
@@ -120,6 +121,32 @@ func TestTimings(t *testing.T) {
 		}
 		assertPhasesWithinTotal(t, second)
 	})
+}
+
+// With connection reuse asked for, a repeat keeps the connection: it has no connect phase, which is
+// exactly what the timings tab reads to say so. That is the half of the behaviour a setting will
+// one day switch between.
+func TestKeepingConnectionsReusesThem(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte("ok"))
+	}))
+	defer srv.Close()
+
+	engine := newTestEngine(t, Config{KeepConnections: true})
+	if res := send(engine, http.MethodGet, srv.URL, nil, ""); res.Error != "" {
+		t.Fatalf("first send failed: %s", res.Error)
+	}
+	second := send(engine, http.MethodGet, srv.URL, nil, "")
+
+	if second.Error != "" {
+		t.Fatalf("second send failed: %s", second.Error)
+	}
+	if second.ConnectUs != nil {
+		t.Errorf("connectUs = %v on a reused connection, want none — nothing was dialled", *second.ConnectUs)
+	}
+	if second.WaitUs == nil {
+		t.Error("waitUs is absent: the request did happen, only the dial did not")
+	}
 }
 
 // A request that never got an answer has no phases to show, and says so by having none — the five
