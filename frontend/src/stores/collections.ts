@@ -10,6 +10,7 @@ import {
   type Collection,
   type CollectionNode,
   type CollectionRun,
+  type CollectionRunResult,
   type CookieRow,
   type NodeKind,
   type Record,
@@ -463,6 +464,12 @@ export const useCollectionsStore = defineStore('collections', {
     async finishSend(record: Record) {
       this.pendingId = null
       this.loading = false
+      await this.showRecord(record)
+    },
+
+    // What the pane draws: a record and its bodies. The same call for the answer to a send and for the
+    // answer a run left behind — the only difference is who asked.
+    async showRecord(record: Record) {
       this.record = record
       this.bodies = {
         request: record.requestBody?.inline,
@@ -535,6 +542,20 @@ export const useCollectionsStore = defineStore('collections', {
     applyRunProgress(done: number, total: number) {
       if (!this.running) return
       this.running = { ...this.running, done, total }
+    },
+
+    // A row of the last run opens the request it names, with the answer that run got: the same gesture
+    // a history row makes, and the reason the result carries the record it produced. A request that
+    // never went out — one a script kept back, one whose node was deleted — opens as a plain card.
+    async openRunResult(result: CollectionRunResult) {
+      await this.select(result.nodeId)
+      if (!result.recordId) return
+      try {
+        await this.showRecord(await RecordsService.Record(result.recordId))
+      } catch {
+        // The record is gone — pruned history, or a run from a database that has been cleared — and the
+        // request itself is still worth opening. Losing the answer is not losing the row.
+      }
     },
 
     // A run of another node is not this overview's: the row is drawn from what was run here.

@@ -10,6 +10,7 @@ import (
 // record on its way out never costs a document.
 type Store interface {
 	SaveRecord(ctx context.Context, rec domain.Record) error
+	Record(ctx context.Context, id string) (domain.Record, error)
 	Records(ctx context.Context, source domain.RecordSource, limit int) ([]domain.Record, error)
 	ReadBody(ctx context.Context, id string, side domain.BodySide) (string, error)
 	DeleteRecords(ctx context.Context, ids []string) error

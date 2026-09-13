@@ -319,7 +319,7 @@ func TestRunRoundTrip(t *testing.T) {
 
 	created := 200
 	for _, result := range []domain.CollectionRunResult{
-		{NodeID: "r-1", Position: 0, Status: &created, OK: true, DurationUs: 12_345},
+		{NodeID: "r-1", Position: 0, Status: &created, OK: true, DurationUs: 12_345, RecordID: "rec-1"},
 		{NodeID: "r-2", Position: 1, OK: false, Error: "сервер не ответил"},
 	} {
 		if err := store.AppendRunResult(ctx, run.ID, result); err != nil {
@@ -348,6 +348,14 @@ func TestRunRoundTrip(t *testing.T) {
 	}
 	if second := last.Results[1]; second.Status != nil || second.OK || second.Error != "сервер не ответил" {
 		t.Errorf("second result = %+v, want no status and the reason", second)
+	}
+	// The row names the record it produced: it is what a click on it opens, and without it the row can
+	// only say the status and the time.
+	if last.Results[0].RecordID != "rec-1" {
+		t.Errorf("first result = %+v, want the record it produced", last.Results[0])
+	}
+	if last.Results[1].RecordID != "" {
+		t.Errorf("second result = %+v, want no record for a request that never got an answer", last.Results[1])
 	}
 
 	// The results hang off the run: dropping it takes them with it, so a deleted collection does not

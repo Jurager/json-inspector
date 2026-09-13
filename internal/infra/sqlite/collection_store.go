@@ -287,12 +287,15 @@ func (s *Store) SaveRun(ctx context.Context, run domain.CollectionRun) error {
 // them: a fifty-request run whose window is closed after the tenth keeps the ten.
 func (s *Store) AppendRunResult(ctx context.Context, runID string, result domain.CollectionRunResult) error {
 	_, err := s.db.ExecContext(ctx,
-		`INSERT INTO collection_run_results (run_id, node_id, position, status, ok, duration_us, error)
-		 VALUES (?, ?, ?, ?, ?, ?, ?)
+		`INSERT INTO collection_run_results (run_id, node_id, position, status, ok, duration_us, error,
+		                                     record_id)
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?)
 		 ON CONFLICT(run_id, position) DO UPDATE SET
 		   status = excluded.status, ok = excluded.ok,
-		   duration_us = excluded.duration_us, error = excluded.error`,
-		runID, result.NodeID, result.Position, result.Status, result.OK, result.DurationUs, result.Error)
+		   duration_us = excluded.duration_us, error = excluded.error,
+		   record_id = excluded.record_id`,
+		runID, result.NodeID, result.Position, result.Status, result.OK, result.DurationUs, result.Error,
+		nullIfEmpty(result.RecordID))
 	if err != nil {
 		return fmt.Errorf("saving a result of run %s: %w", runID, err)
 	}
@@ -320,7 +323,7 @@ func (s *Store) LastRun(ctx context.Context, collectionID string, nodeID string)
 	}
 
 	rows, err := s.db.QueryContext(ctx,
-		`SELECT node_id, position, status, ok, duration_us, error
+		`SELECT node_id, position, status, ok, duration_us, error, ifnull(record_id, '')
 		   FROM collection_run_results WHERE run_id = ? ORDER BY position`, run.ID)
 	if err != nil {
 		return domain.CollectionRun{}, false, fmt.Errorf("reading the run %s: %w", run.ID, err)
@@ -334,7 +337,7 @@ func (s *Store) LastRun(ctx context.Context, collectionID string, nodeID string)
 			status sql.NullInt64
 		)
 		if err := rows.Scan(&result.NodeID, &result.Position, &status, &result.OK,
-			&result.DurationUs, &result.Error); err != nil {
+			&result.DurationUs, &result.Error, &result.RecordID); err != nil {
 			return domain.CollectionRun{}, false, fmt.Errorf("reading the run %s: %w", run.ID, err)
 		}
 		if status.Valid {

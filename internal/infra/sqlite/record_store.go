@@ -141,6 +141,56 @@ func (s *Store) Records(ctx context.Context, source domain.RecordSource, limit i
 	return out, nil
 }
 
+// Record reads one record by id, with its body references and nothing in them: a run's row opens the
+// record it produced, and the window asks for the bodies only once the viewer is on screen.
+func (s *Store) Record(ctx context.Context, id string) (domain.Record, error) {
+	var (
+		rec                                      domain.Record
+		seq                                      int64
+		cancelled                                int
+		requestHeaders, responseHeaders, cookies string
+	)
+	err := s.db.QueryRowContext(ctx,
+		`SELECT seq, id, source, method, url, status, status_text, content_type, error, cancelled,
+		        duration_us, dns_us, connect_us, tls_us, wait_us, download_us,
+		        request_bytes, response_bytes, request_headers_json, response_headers_json,
+		        request_cookies_json, started_at, ifnull(tab_id, 0), ifnull(tab_title, ''),
+		        ifnull(tab_url, ''), ifnull(favicon_url, '')
+		   FROM records WHERE id = ?`, id).
+		Scan(&seq, &rec.ID, &rec.Source, &rec.Method, &rec.URL, &rec.Status, &rec.StatusText,
+			&rec.ContentType, &rec.Error, &cancelled, &rec.DurationUs, &rec.DNSUs, &rec.ConnectUs,
+			&rec.TLSUs, &rec.WaitUs, &rec.DownloadUs, &rec.RequestBytes, &rec.ResponseBytes,
+			&requestHeaders, &responseHeaders, &cookies, &rec.StartedAt, &rec.TabID, &rec.TabTitle,
+			&rec.TabURL, &rec.FavIconURL)
+	if errors.Is(err, sql.ErrNoRows) {
+		return domain.Record{}, fmt.Errorf("запись %s: %w", id, domain.ErrNotFound)
+	}
+	if err != nil {
+		return domain.Record{}, fmt.Errorf("reading record %s: %w", id, err)
+	}
+	rec.Cancelled = cancelled != 0
+	for _, part := range []struct {
+		raw  string
+		into any
+		what string
+	}{
+		{requestHeaders, &rec.RequestHeaders, "request headers"},
+		{responseHeaders, &rec.ResponseHeaders, "response headers"},
+		{cookies, &rec.RequestCookies, "cookies"},
+	} {
+		if err := json.Unmarshal([]byte(part.raw), part.into); err != nil {
+			return domain.Record{}, fmt.Errorf("reading the %s of %s: %w", part.what, id, err)
+		}
+	}
+	// The same call the list makes, for a list of one: it fills the record in place, which is where the
+	// body references come from.
+	records := []domain.Record{rec}
+	if err := s.attachBodyRefs(ctx, records, []int64{seq}, ` WHERE id = ?`, []any{id}); err != nil {
+		return domain.Record{}, err
+	}
+	return records[0], nil
+}
+
 // attachBodyRefs says which bodies the listed records have and how big they are, without reading
 // any of them. It is a second query rather than a join because a record has two bodies: a join
 // would repeat every row of the list, and a LIMIT over it would count bodies instead of records.

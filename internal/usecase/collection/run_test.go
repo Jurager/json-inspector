@@ -244,6 +244,37 @@ func TestRunCountsASkippedRequestAsNeither(t *testing.T) {
 	}
 }
 
+// What each row of a run opens: the record that request produced. The fake sender mints an id per
+// answer, and the row has to carry it — otherwise a row can say which endpoint failed and nothing
+// about what it answered.
+func TestARunRowNamesTheRecordItProduced(t *testing.T) {
+	r := setupRunnable(t)
+
+	if _, err := r.uc.Run(context.Background(), r.collectionID, ""); err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+	run := r.notifier.runFinished(t)
+
+	for i, result := range run.Results {
+		if result.RecordID == "" {
+			t.Errorf("result %d = %+v, want the record it produced", i, result)
+		}
+	}
+	// Two requests, two records: a row that named the same record twice would open the wrong answer.
+	if run.Results[0].RecordID == run.Results[1].RecordID {
+		t.Error("two rows name one record")
+	}
+
+	// And the run the window reads back says the same: the link is written, not just published.
+	last, err := r.uc.LastRun(context.Background(), r.collectionID, "")
+	if err != nil || last == nil {
+		t.Fatalf("LastRun = %+v, %v", last, err)
+	}
+	if len(last.Results) != len(run.Results) || last.Results[0].RecordID != run.Results[0].RecordID {
+		t.Errorf("runs read back = %+v, want the same records", last.Results)
+	}
+}
+
 func TestRunStopWaitsForTheRequestInFlight(t *testing.T) {
 	r := setupRunnable(t)
 

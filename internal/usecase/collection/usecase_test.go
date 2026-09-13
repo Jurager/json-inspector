@@ -319,6 +319,7 @@ func (f *fakeSender) Send(_ context.Context, req RunRequest) (domain.Record, err
 		return domain.Record{Skipped: true}, nil
 	}
 	return domain.Record{RecordSummary: domain.RecordSummary{
+		ID:         "rec-" + req.URL,
 		Status:     answer.status,
 		DurationUs: answer.durationUs,
 		Error:      answer.transportEr,

@@ -75,6 +75,14 @@ export function Prune(): $CancellablePromise<number> {
 }
 
 /**
+ * Record is one record by id. A run's row names the record it produced, and this is how the window
+ * opens it — the same thing a click on a history row does, for a row that is not in history.
+ */
+export function Record(id: string): $CancellablePromise<domain$0.Record> {
+    return $Call.ByID(958301344, id);
+}
+
+/**
  * Send starts the request a draft holds and answers with its id at once. The draft is read here
  * rather than handed in: sending it means resolving its `{{tokens}}`, and a secret's value is on
  * this side of the boundary — handing the window a request to send would mean handing it the

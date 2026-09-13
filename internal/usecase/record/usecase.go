@@ -373,6 +373,12 @@ func (u *UseCase) List(ctx context.Context, source domain.RecordSource, limit in
 	return u.store.Records(ctx, source, limit)
 }
 
+// Record is one record by id — what a run's row opens: the run knows which record it produced, and the
+// row says which endpoint it was, but what it answered lives here.
+func (u *UseCase) Record(ctx context.Context, id string) (domain.Record, error) {
+	return u.store.Record(ctx, id)
+}
+
 // Body is the call a viewer makes for a body that did not travel with the record.
 func (u *UseCase) Body(ctx context.Context, id string, side domain.BodySide) (string, error) {
 	return u.store.ReadBody(ctx, id, side)

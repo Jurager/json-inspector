@@ -83,6 +83,12 @@ func (s *RecordsService) List(ctx context.Context, source domain.RecordSource, l
 	return s.records.List(ctx, source, limit)
 }
 
+// Record is one record by id. A run's row names the record it produced, and this is how the window
+// opens it — the same thing a click on a history row does, for a row that is not in history.
+func (s *RecordsService) Record(ctx context.Context, id string) (domain.Record, error) {
+	return s.records.Record(ctx, id)
+}
+
 // Body is the call a viewer makes for a body that did not travel with the record — either because
 // it is large or because the record arrived in a list. An absent side is an empty string, not an
 // error: "this request had no body" is an answer, not a failure.

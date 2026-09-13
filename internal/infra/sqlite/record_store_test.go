@@ -145,6 +145,49 @@ func TestBodyIsReadBackWhole(t *testing.T) {
 	}
 }
 
+// One record by id, read the way the list reads a page of them: a run's row opens the record it
+// produced, and the viewer then asks for the body that did not travel with it.
+func TestRecordReadsOneByID(t *testing.T) {
+	store := newMigratedStore(t)
+	ctx := context.Background()
+
+	if err := store.SaveRecord(ctx, domain.Record{
+		RecordSummary: domain.RecordSummary{
+			ID: "rec-1", Source: domain.SourceManual, Method: "GET", URL: "https://api.example.com/users",
+			Status: 200, StatusText: "200 OK",
+		},
+		RequestHeaders:  []domain.HeaderPair{{Name: "Accept", Value: "application/vnd.api+json"}},
+		ResponseHeaders: []domain.HeaderPair{{Name: "Content-Type", Value: "application/json"}},
+		RequestBody:     &domain.BodyRef{Inline: `{"a": 1}`, Size: 8},
+		ResponseBody:    &domain.BodyRef{Inline: `{"data": []}`, Size: 12},
+	}); err != nil {
+		t.Fatalf("SaveRecord: %v", err)
+	}
+
+	rec, err := store.Record(ctx, "rec-1")
+	if err != nil {
+		t.Fatalf("Record: %v", err)
+	}
+	if rec.URL != "https://api.example.com/users" || rec.Status != 200 || rec.Method != "GET" {
+		t.Errorf("record = %+v, want the saved one", rec.RecordSummary)
+	}
+	if len(rec.RequestHeaders) != 1 || len(rec.ResponseHeaders) != 1 {
+		t.Errorf("record = %+v, want its headers", rec)
+	}
+	// The bodies come as references and not as text, for the reason the list does the same: the viewer
+	// asks for a body only once it is on screen.
+	if rec.RequestBody == nil || rec.RequestBody.Size != 8 || rec.RequestBody.Inline != "" {
+		t.Errorf("request body = %+v, want a reference to it", rec.RequestBody)
+	}
+	if rec.ResponseBody == nil || rec.ResponseBody.Size != 12 {
+		t.Errorf("response body = %+v, want a reference to it", rec.ResponseBody)
+	}
+
+	if _, err := store.Record(ctx, "нет-такой"); !errors.Is(err, domain.ErrNotFound) {
+		t.Errorf("a record that does not exist = %v, want ErrNotFound", err)
+	}
+}
+
 func TestRecordsFilterAndOrder(t *testing.T) {
 	store := newMigratedStore(t)
 	ctx := context.Background()

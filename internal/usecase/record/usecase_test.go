@@ -40,6 +40,16 @@ func (f *fakeStore) SaveRecord(_ context.Context, rec domain.Record) error {
 	return nil
 }
 
+// Record answers the way the store does: the record with this id, or nothing found.
+func (f *fakeStore) Record(_ context.Context, id string) (domain.Record, error) {
+	for _, rec := range f.saved {
+		if rec.ID == id {
+			return rec, nil
+		}
+	}
+	return domain.Record{}, domain.ErrNotFound
+}
+
 func (f *fakeStore) Records(_ context.Context, source domain.RecordSource, limit int) ([]domain.Record, error) {
 	f.listed = append(f.listed, limit)
 	out := []domain.Record{}

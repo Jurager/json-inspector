@@ -41,6 +41,8 @@ const requestTotal = computed(() => store.selectedRequestCount)
 // and not the node, so what the row is called now is the tree's answer.
 interface RunRow {
   nodeId: string
+  // What the row opens: the record this request produced. Empty for one that never went out.
+  recordId: string
   position: number
   status: number | null
   ok: boolean
@@ -66,6 +68,7 @@ const rows = computed<RunRow[]>(() => {
     .sort((a, b) => a.position - b.position)
     .map((result) => ({
       nodeId: result.nodeId,
+      recordId: result.recordId ?? '',
       position: result.position,
       status: result.status ?? null,
       ok: result.ok,
@@ -166,7 +169,7 @@ function pluralRequests(n: number): string {
                 :key="row.nodeId"
                 class="result"
                 :class="{ failed: !row.ok }"
-                @click="store.select(row.nodeId)"
+                @click="store.openRunResult(row)"
               >
                 <span class="result-icon" :class="row.ok ? 'ok' : 'bad'">
                   <Icon :name="row.ok ? 'check' : 'xmark'" :size="12" :stroke-width="2.5" />

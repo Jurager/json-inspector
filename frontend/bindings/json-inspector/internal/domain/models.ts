@@ -153,6 +153,13 @@ export interface CollectionRunResult {
      * failure, which is why it is a flag of its own: the run counts it as neither.
      */
     "skipped"?: boolean;
+
+    /**
+     * RecordID is what this request produced, and the only link from a run to what was actually sent:
+     * the row opens it the way a history row opens its own record. Empty for a request that never
+     * went out — there is nothing to open.
+     */
+    "recordId"?: string;
 }
 
 /**

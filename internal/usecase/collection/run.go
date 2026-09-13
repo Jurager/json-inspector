@@ -178,6 +178,9 @@ func (u *UseCase) attempt(
 		return result
 	}
 
+	// What the request produced is what the row opens: without it a run can say which endpoint failed
+	// and nothing about what it answered.
+	result.RecordID = rec.ID
 	result.DurationUs = rec.DurationUs
 	if rec.Status == 0 {
 		// Nothing came back, so the error is all there is to report. A status of zero is not a
