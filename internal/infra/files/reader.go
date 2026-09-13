@@ -5,12 +5,11 @@ package files
 
 import (
 	"errors"
-	"fmt"
 	"io"
 	"io/fs"
-	"os"
-
 	"json-inspector/internal/domain"
+	"os"
+	"strconv"
 )
 
 // Reader reads a file whole, up to a limit. Zero means the default.
@@ -41,18 +40,24 @@ func (r *Reader) Read(path string) ([]byte, error) {
 	file, err := os.Open(path)
 	if err != nil {
 		if errors.Is(err, fs.ErrNotExist) {
-			return nil, fmt.Errorf("file %s: %w", path, domain.ErrNotFound)
+			return nil, domain.Refuse(domain.CodeFileMissing, domain.ErrNotFound, domain.Args{"path": path})
 		}
-		return nil, fmt.Errorf("opening %s: %w", path, err)
+		return nil, domain.Refuse(domain.CodeFileUnreadable, domain.ErrNotAllowed,
+			domain.Args{"path": path, "reason": err.Error()})
 	}
 	defer file.Close()
 
 	data, err := io.ReadAll(io.LimitReader(file, limit+1))
 	if err != nil {
-		return nil, fmt.Errorf("reading %s: %w", path, err)
+		return nil, domain.Refuse(domain.CodeFileUnreadable, domain.ErrNotAllowed,
+			domain.Args{"path": path, "reason": err.Error()})
 	}
 	if int64(len(data)) > limit {
-		return nil, fmt.Errorf("file %s is over %d bytes: %w", path, limit, domain.ErrNotAllowed)
+		// The limit is named in the unit its sentence names, so the catalogue never has to say "bytes".
+		return nil, domain.Refuse(domain.CodeFileTooLarge, domain.ErrNotAllowed, domain.Args{
+			"path":  path,
+			"limit": strconv.Itoa(int(limit >> 20)),
+		})
 	}
 	return data, nil
 }

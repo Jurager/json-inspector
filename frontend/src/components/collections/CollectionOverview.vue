@@ -8,7 +8,7 @@ import CollectionScripts from './CollectionScripts.vue'
 import { useCollectionsStore } from '../../stores/collections'
 import { useToast } from '../../composables/useToast'
 import { requestCount } from '../../lib/collectionTree'
-import { formatAgo, formatMicros, useMessages } from '../../i18n'
+import { describeFailure, formatAgo, formatMicros, useMessages } from '../../i18n'
 import type { CollectionNode } from '../../../bindings/json-inspector/internal/domain'
 
 const { t } = useMessages()
@@ -28,7 +28,7 @@ async function importCollection() {
     const name = await store.importFile()
     if (name) toast.show(t('collections.imported', { name }))
   } catch (error) {
-    toast.show(t('collections.importFailed', { error: String(error) }), 'error')
+    toast.show(t('collections.importFailed', { error: describeFailure(error) }), 'error')
   }
 }
 

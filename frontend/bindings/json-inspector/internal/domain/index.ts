@@ -5,6 +5,7 @@ export {
     AuthType,
     BodyKind,
     BodySide,
+    Code,
     DraftID,
     Language,
     NodeKind,
@@ -17,6 +18,7 @@ export {
 } from "./models.js";
 
 export type {
+    Args,
     Auth,
     BodyRef,
     Collection,
@@ -28,6 +30,7 @@ export type {
     EnvScope,
     EnvState,
     Environment,
+    Failure,
     FormRow,
     HeaderPair,
     Record,

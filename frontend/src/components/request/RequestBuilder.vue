@@ -22,7 +22,7 @@ import { tokenSegments } from '../../lib/vars'
 import { parseRequestCommand, type ParseErrorReason } from '../../lib/parseRequest'
 import type { ExportFormat } from '../../lib/export'
 import { useToast } from '../../composables/useToast'
-import { useMessages } from '../../i18n'
+import { describeFailure, useMessages } from '../../i18n'
 
 // Which request this builder is composing: the command line's, or the card of a saved one. The two
 // stores answer the same shape, so nothing below this line has to know which it is.
@@ -118,7 +118,7 @@ async function send() {
     await store.send()
   } catch (error) {
     store.failSend()
-    toast.show(t('request.sendFailed', { error: String(error) }), 'error')
+    toast.show(t('request.sendFailed', { error: describeFailure(error) }), 'error')
   }
 }
 

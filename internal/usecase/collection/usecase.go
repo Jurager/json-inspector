@@ -5,11 +5,11 @@ package collection
 import (
 	"context"
 	"fmt"
-	"strings"
-	"sync/atomic"
-
 	"json-inspector/internal/domain"
 	"json-inspector/internal/platform"
+	"strconv"
+	"strings"
+	"sync/atomic"
 )
 
 // The suffix that marks a duplicate for what it is arrives from the window: a name is read by the
@@ -108,7 +108,8 @@ func (u *UseCase) CreateNode(ctx context.Context, in NewNode) (domain.Collection
 		return domain.CollectionNode{}, nil, err
 	}
 	if in.Kind != domain.NodeFolder && in.Kind != domain.NodeRequest {
-		return domain.CollectionNode{}, nil, fmt.Errorf("node kind %q: %w", in.Kind, domain.ErrNotAllowed)
+		return domain.CollectionNode{}, nil, domain.Refuse(domain.CodeUnknownNodeKind, domain.ErrNotAllowed,
+			domain.Args{"kind": string(in.Kind)})
 	}
 	if _, ok, err := u.collection(ctx, in.CollectionID); err != nil {
 		return domain.CollectionNode{}, nil, err
@@ -681,10 +682,10 @@ func (u *UseCase) collection(ctx context.Context, id string) (domain.Collection,
 func validName(name string) (string, error) {
 	name = strings.TrimSpace(name)
 	if name == "" {
-		return "", fmt.Errorf("the name is empty: %w", domain.ErrNotAllowed)
+		return "", domain.Refuse(domain.CodeNameEmpty, domain.ErrNotAllowed, nil)
 	}
 	if len([]rune(name)) > maxNameLength {
-		return "", fmt.Errorf("the name is over %d characters: %w", maxNameLength, domain.ErrNotAllowed)
+		return "", domain.Refuse(domain.CodeNameTooLong, domain.ErrNotAllowed, domain.Args{"max": strconv.Itoa(maxNameLength)})
 	}
 	return name, nil
 }
@@ -694,7 +695,8 @@ func validName(name string) (string, error) {
 func validDescription(description string) (string, error) {
 	description = strings.TrimSpace(description)
 	if len([]rune(description)) > maxDescriptionLength {
-		return "", fmt.Errorf("the description is over %d characters: %w", maxDescriptionLength, domain.ErrNotAllowed)
+		return "", domain.Refuse(domain.CodeDescriptionTooLong, domain.ErrNotAllowed,
+			domain.Args{"max": strconv.Itoa(maxDescriptionLength)})
 	}
 	return description, nil
 }

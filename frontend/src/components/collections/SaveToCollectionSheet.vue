@@ -5,7 +5,7 @@ import { Button } from '../ui/button'
 import { Input } from '../ui/input'
 import { Popover, PopoverAnchor, PopoverContent, PopoverClose } from '../ui/popover'
 import { useCollectionsStore } from '../../stores/collections'
-import { useMessages } from '../../i18n'
+import { describeFailure, useMessages } from '../../i18n'
 import { useToast } from '../../composables/useToast'
 import type { CollectionNode } from '../../../bindings/json-inspector/internal/domain'
 
@@ -77,7 +77,7 @@ async function save() {
     toast.show(t('collections.savedTo', { name: place.name }))
     emit('update:open', false)
   } catch (error) {
-    toast.show(t('collections.saveFailed', { error: String(error) }), 'error')
+    toast.show(t('collections.saveFailed', { error: describeFailure(error) }), 'error')
   } finally {
     saving.value = false
   }

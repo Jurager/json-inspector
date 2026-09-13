@@ -376,10 +376,10 @@ func (h *Host) ShowAbout() {
 		return
 	}
 
+	// The title is the app's own name until the page replaces it: the word on a title bar is the page's
+	// to give, and "About" is not a name Go could write in a language it does not know.
 	app.Window.NewWithOptions(application.WebviewWindowOptions{
 		Name:      windowAbout,
-		// The app's own name until the page titles it: the word on the title bar is the page's, and
-		// "About" is not a name Go could write in a language it does not know.
 		Title:     h.windowTitle(),
 		Width:     aboutWidth,
 		Height:    aboutHeight(),

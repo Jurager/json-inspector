@@ -117,6 +117,43 @@ export function formatDate(value: number | Date, options: Intl.DateTimeFormatOpt
   return dateFormat(options).format(value)
 }
 
+/** The codes the catalogue has a sentence for — the shape Go names a refusal with. */
+type FailureCode = keyof Messages['errors']['codes']
+
+const CODES: Record<string, string> = en.errors.codes
+
+/** A code this build knows: the catalogue is the list, so a newer build's code is not one. */
+function isFailureCode(value: unknown): value is FailureCode {
+  return typeof value === 'string' && CODES[value] !== undefined
+}
+
+/** A failure as it crosses: the code Go named and the values its sentence needs. The values are
+ * optional as well as nullable — a Go map's keys reach the window as an index signature. */
+type Refusal = { code?: unknown; args?: Record<string, string | undefined> | null }
+
+/**
+ * The window's words for a refusal, or nothing when the code is not one this build words — a newer
+ * build's code, or a failure nobody wrote a sentence for.
+ */
+export function refusalText(refusal: Refusal | null | undefined): string | null {
+  if (!isFailureCode(refusal?.code)) return null
+  return t(`errors.codes.${refusal.code}`, refusal.args ?? {})
+}
+
+/**
+ * What went wrong, in the window's own words.
+ *
+ * A call Go refused carries the refusal's code and the values its sentence needs, and the sentence is
+ * read from the catalogue — which is what makes a failure the app is responsible for read in the
+ * language the window is in. A failure with no code belongs to the machine: the network, the disk, a
+ * socket. Its message is shown as it is, because nobody has written a sentence for it and inventing
+ * one would say less than the machine does.
+ */
+export function describeFailure(error: unknown): string {
+  const cause = (error as { cause?: Refusal } | null)?.cause
+  return refusalText(cause) ?? String(error)
+}
+
 // Every time in the app is microseconds, because a millisecond is too coarse to say anything about a
 // warm connection: its phases are over before the second millisecond ticks, and rounding them to zero
 // made a measured request look like one that failed to be measured. A phase under a millisecond gets a

@@ -66,6 +66,10 @@ type RequestFinished struct {
 type RequestFailed struct {
 	ID    string `json:"id"`
 	Error string `json:"error"`
+	// Failure is the same news in the window's terms — the code and the values its sentence needs —
+	// when the app is the side that refused. An error from the network has none, and the window shows
+	// the message beside it.
+	Failure *domain.Failure `json:"failure,omitempty"`
 }
 
 // SendInput is one attempt. The request in it is ready to go — its variables are already filled in —
@@ -111,7 +115,11 @@ func (u *UseCase) Send(ctx context.Context, in SendInput) (string, error) {
 	go func() {
 		rec, err := u.attempt(context.Background(), id, started, in)
 		if err != nil {
-			u.notifier.Publish(TopicRequestFailed, RequestFailed{ID: id, Error: err.Error()})
+			u.notifier.Publish(TopicRequestFailed, RequestFailed{
+				ID:      id,
+				Error:   err.Error(),
+				Failure: domain.AsFailure(err),
+			})
 			return
 		}
 		if rec.Cancelled {

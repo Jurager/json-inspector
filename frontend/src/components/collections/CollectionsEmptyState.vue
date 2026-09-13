@@ -2,7 +2,7 @@
 import Icon from '../ui/Icon.vue'
 import { Button } from '../ui/button'
 import { useCollectionsStore } from '../../stores/collections'
-import { useMessages } from '../../i18n'
+import { describeFailure, useMessages } from '../../i18n'
 import { useToast } from '../../composables/useToast'
 
 // Until the first collection exists there is nothing to list, so the window says what a collection
@@ -21,7 +21,7 @@ async function importCollection() {
     const name = await store.importFile()
     if (name) toast.show(t('collections.imported', { name }))
   } catch (error) {
-    toast.show(t('collections.importFailed', { error: String(error) }), 'error')
+    toast.show(t('collections.importFailed', { error: describeFailure(error) }), 'error')
   }
 }
 </script>

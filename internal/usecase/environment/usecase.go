@@ -5,12 +5,12 @@ package environment
 import (
 	"context"
 	"fmt"
-	"strings"
-
 	"json-inspector/internal/domain"
 	"json-inspector/internal/dotenv"
 	"json-inspector/internal/platform"
 	"json-inspector/internal/vars"
+	"strconv"
+	"strings"
 )
 
 // maxNameLength is the design's limit for an environment's name: long enough for "Prod · EU-West",
@@ -48,10 +48,11 @@ type Patch struct {
 func (u *UseCase) Create(ctx context.Context, name string) (domain.EnvState, error) {
 	name = strings.TrimSpace(name)
 	if name == "" {
-		return domain.EnvState{}, fmt.Errorf("the environment name is empty: %w", domain.ErrNotAllowed)
+		return domain.EnvState{}, domain.Refuse(domain.CodeNameEmpty, domain.ErrNotAllowed, nil)
 	}
 	if len([]rune(name)) > maxNameLength {
-		return domain.EnvState{}, fmt.Errorf("the name is over %d characters: %w", maxNameLength, domain.ErrNotAllowed)
+		return domain.EnvState{}, domain.Refuse(domain.CodeNameTooLong, domain.ErrNotAllowed,
+			domain.Args{"max": strconv.Itoa(maxNameLength)})
 	}
 
 	current, err := u.store.EnvState(ctx)

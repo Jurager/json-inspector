@@ -40,7 +40,7 @@ func (u *UseCase) Run(ctx context.Context, collectionID string, nodeID string) (
 	// One run at a time: two of them would interleave their rows into the same overview, and the
 	// button that started the second one says "Остановить" rather than "Запустить".
 	if !u.running.CompareAndSwap(false, true) {
-		return "", fmt.Errorf("a run is already going: %w", domain.ErrNotAllowed)
+		return "", domain.Refuse(domain.CodeRunInProgress, domain.ErrNotAllowed, nil)
 	}
 
 	tree, err := u.store.Collections(ctx)
@@ -64,7 +64,7 @@ func (u *UseCase) Run(ctx context.Context, collectionID string, nodeID string) (
 		// Nothing to send is a thing the window asks by mistake — an empty folder, a collection not
 		// filled yet — and a run that reports "0 из 0" reads as a failure of the app.
 		u.running.Store(false)
-		return "", fmt.Errorf("this node has no requests: %w", domain.ErrNotAllowed)
+		return "", domain.Refuse(domain.CodeNodeHasNoRequests, domain.ErrNotAllowed, nil)
 	}
 
 	run := domain.CollectionRun{

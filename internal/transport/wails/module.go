@@ -100,6 +100,9 @@ func newApplication(host *Host, info platform.BuildInfo, assets Assets) *applica
 		Assets: application.AssetOptions{
 			Handler: application.AssetFileServerFS(assets.FS),
 		},
+		// A refused call carries its code beside its message, so the window can word the refusal in the
+		// language it is in. This is the only hook that reaches every bound method at once.
+		MarshalError: marshalFailure,
 		Mac: application.MacOptions{
 			ApplicationShouldTerminateAfterLastWindowClosed: true,
 		},

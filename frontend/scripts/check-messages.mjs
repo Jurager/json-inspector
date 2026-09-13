@@ -48,6 +48,14 @@ const problems = []
 for (const key of en) if (!ru.has(key)) problems.push(`en has ${key}, ru does not`)
 for (const key of ru) if (!en.has(key)) problems.push(`ru has ${key}, en does not`)
 
+// Every code Go can refuse with needs a sentence: a code the catalogue does not know is a failure the
+// window shows as the machine's text, and nothing else would notice.
+const GO_CODES = join(root, '..', 'internal', 'domain', 'failure.go')
+const declared = [...readFileSync(GO_CODES, 'utf8').matchAll(/Code = "([^"]+)"/g)].map((m) => m[1])
+for (const code of declared) {
+  if (!en.has(`errors.codes.${code}`)) problems.push(`Go refuses with '${code}', which no catalogue words`)
+}
+
 for (const path of files(SRC)) {
   for (const [, , raw] of readFileSync(path, 'utf8').matchAll(CALL)) {
     // A key with no dot names nothing in a nested catalogue.

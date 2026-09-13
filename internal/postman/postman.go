@@ -110,11 +110,10 @@ type auth struct {
 func Import(data []byte) (domain.Collection, error) {
 	var doc document
 	if err := json.Unmarshal(data, &doc); err != nil {
-		return domain.Collection{}, fmt.Errorf("the file does not read as JSON: %w", domain.ErrNotAllowed)
+		return domain.Collection{}, domain.Refuse(domain.CodeNotJSON, domain.ErrNotAllowed, nil)
 	}
 	if doc.Info.Name == "" && len(doc.Item) == 0 {
-		return domain.Collection{}, fmt.Errorf(
-			"not a Postman collection: the file has neither info nor item: %w", domain.ErrNotAllowed)
+		return domain.Collection{}, domain.Refuse(domain.CodeNotPostman, domain.ErrNotAllowed, nil)
 	}
 
 	return domain.Collection{

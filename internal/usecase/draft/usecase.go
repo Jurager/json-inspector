@@ -133,7 +133,7 @@ func (u *UseCase) Load(ctx context.Context) error {
 // nobody will free.
 func (u *UseCase) Open(ctx context.Context, d domain.Draft) (State, error) {
 	if d.ID == "" {
-		return State{}, fmt.Errorf("a draft with no id: %w", domain.ErrNotAllowed)
+		return State{}, domain.Refuse(domain.CodeDraftWithoutID, domain.ErrNotAllowed, nil)
 	}
 	d = u.withRowIDs(d)
 	// The rows follow the address, exactly as they do when it is typed: a request that came from a
@@ -229,7 +229,7 @@ func (u *UseCase) SetText(ctx context.Context, id domain.DraftID, in TextInput) 
 		case FieldBody:
 			d.Body = in.Text
 		default:
-			return fmt.Errorf("field %q: %w", in.Field, domain.ErrNotAllowed)
+			return domain.Refuse(domain.CodeUnknownField, domain.ErrNotAllowed, domain.Args{"field": string(in.Field)})
 		}
 		return nil
 	})
@@ -671,9 +671,10 @@ func findCookie(rows []domain.CookieRow, id string) int {
 }
 
 func unknownKind(kind domain.RowKind) error {
-	return fmt.Errorf("list %q: %w", kind, domain.ErrNotAllowed)
+	return domain.Refuse(domain.CodeUnknownList, domain.ErrNotAllowed, domain.Args{"list": string(kind)})
 }
 
 func notFound(kind domain.RowKind, id string) error {
-	return fmt.Errorf("row %s of list %q: %w", id, kind, domain.ErrNotFound)
+	return domain.Refuse(domain.CodeUnknownList, domain.ErrNotFound,
+		domain.Args{"list": string(kind), "row": id})
 }

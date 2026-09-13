@@ -4,7 +4,6 @@ package settings
 
 import (
 	"context"
-	"fmt"
 	"strconv"
 
 	"json-inspector/internal/domain"
@@ -67,7 +66,8 @@ func (u *UseCase) Theme(ctx context.Context) (domain.Theme, error) {
 // palette: "system" means "ask the platform", and only a window can.
 func (u *UseCase) SetTheme(ctx context.Context, theme domain.Theme) (domain.Settings, error) {
 	if !theme.Valid() {
-		return domain.Settings{}, fmt.Errorf("theme %q: %w", theme, domain.ErrNotAllowed)
+		return domain.Settings{}, domain.Refuse(domain.CodeUnknownTheme, domain.ErrNotAllowed,
+			domain.Args{"theme": string(theme)})
 	}
 	if err := u.save(ctx, domain.SettingTheme, string(theme)); err != nil {
 		return domain.Settings{}, err
@@ -95,7 +95,8 @@ func (u *UseCase) Language(ctx context.Context) (domain.Language, error) {
 // choice and not a resolved language: "system" means "ask the webview", and only a window can.
 func (u *UseCase) SetLanguage(ctx context.Context, language domain.Language) (domain.Settings, error) {
 	if !language.Valid() {
-		return domain.Settings{}, fmt.Errorf("language %q: %w", language, domain.ErrNotAllowed)
+		return domain.Settings{}, domain.Refuse(domain.CodeUnknownLanguage, domain.ErrNotAllowed,
+			domain.Args{"language": string(language)})
 	}
 	if err := u.save(ctx, domain.SettingLanguage, string(language)); err != nil {
 		return domain.Settings{}, err
@@ -139,7 +140,8 @@ func (u *UseCase) SetLayout(ctx context.Context, patch LayoutPatch) (domain.Sett
 
 func (u *UseCase) SetRetention(ctx context.Context, retention domain.Retention) (domain.Settings, error) {
 	if !retention.Valid() {
-		return domain.Settings{}, fmt.Errorf("history retention %q: %w", retention, domain.ErrNotAllowed)
+		return domain.Settings{}, domain.Refuse(domain.CodeUnknownRetention, domain.ErrNotAllowed,
+			domain.Args{"retention": string(retention)})
 	}
 	if err := u.save(ctx, domain.SettingHistoryRetention, string(retention)); err != nil {
 		return domain.Settings{}, err

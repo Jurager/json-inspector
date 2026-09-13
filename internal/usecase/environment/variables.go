@@ -57,7 +57,7 @@ func (u *UseCase) SetVariable(ctx context.Context, scope domain.VarScope, name s
 	switch scope {
 	case domain.ScopeEnvironment:
 		if _, ok := findEnvironment(state, state.ActiveID); !ok {
-			return fmt.Errorf("no environment is selected, so there is nowhere to write")
+			return domain.Refuse(domain.CodeNoEnvironment, domain.ErrNotAllowed, nil)
 		}
 		where.Environment = state.ActiveID
 	case domain.ScopeGlobals:

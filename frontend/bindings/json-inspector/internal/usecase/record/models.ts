@@ -53,6 +53,13 @@ export interface IngestInput {
 export interface RequestFailed {
     "id": string;
     "error": string;
+
+    /**
+     * Failure is the same news in the window's terms — the code and the values its sentence needs —
+     * when the app is the side that refused. An error from the network has none, and the window shows
+     * the message beside it.
+     */
+    "failure"?: domain$0.Failure | null;
 }
 
 /**
