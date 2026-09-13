@@ -12,7 +12,7 @@ const store = useCollectionsStore()
 <template>
   <Dialog
     :open="store.pendingLeave !== null"
-    class="w-[420px] p-5"
+    class="w-[420px] p-5 system"
     @escape-key-down.prevent
     @update:open="store.answerUnsaved('cancel')"
   >

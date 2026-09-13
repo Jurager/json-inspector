@@ -16,6 +16,13 @@
           var dark =
             stored === 'dark' || (followsSystem && matchMedia('(prefers-color-scheme: dark)').matches)
           document.documentElement.classList.add(dark ? 'dark' : 'light')
+
+          // The same query says whether this window has a material behind it. A window that has one
+          // must not paint its own ground, or the desktop would stop at the edge of the chrome; the
+          // About window loads this same stylesheet and has no material, so it keeps the ground.
+          if (new URLSearchParams(location.search).get('translucent') === '1') {
+            document.documentElement.classList.add('window-translucent')
+          }
         } catch {
           document.documentElement.classList.add('light')
         }

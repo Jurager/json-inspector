@@ -40,11 +40,24 @@ const emit = defineEmits<{ (e: 'update:open'): void }>()
 .dialog {
   @apply fixed left-1/2 top-1/2 max-w-[90vw] z-1500;
   transform: translate(-50%, -50%);
-  background: var(--bg-panel);
-  border: 1px solid var(--border);
+  background: var(--glass-overlay);
+  backdrop-filter: var(--blur-overlay);
+  -webkit-backdrop-filter: var(--blur-overlay);
+  border: 1px solid var(--glass-overlay-border);
   border-radius: 12px;
-  box-shadow: var(--shadow);
+  box-shadow: inset 0 1px 0 var(--glass-overlay-hairline), var(--shadow);
   animation: dialog-in 0.16s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* One dialog is not glass: the alert about unsaved changes is drawn as a system alert in the mockup —
+   opaque, with the app's own shadow — and a frosted window over a card being edited would read as one
+   more layer of the app rather than as the system asking. */
+.dialog.system {
+  background: var(--bg-panel);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow);
 }
 
 .dialog[data-state='closed'] {

@@ -10,6 +10,7 @@ import (
 
 	"github.com/wailsapp/wails/v3/pkg/application"
 
+	"json-inspector/internal/domain"
 	"json-inspector/internal/infra/updater"
 )
 
@@ -63,19 +64,38 @@ func NewHost() *Host {
 	return host
 }
 
-// SetTheme remembers the choice for the windows this process has yet to create.
-func (h *Host) SetTheme(theme string) {
-	h.theme.Store(theme)
+// SetTheme is the one writer of the theme: the windows this process has yet to create read it from
+// here, and the ones that already exist are re-tinted by it — the material behind a window is not
+// something the page can reach, so switching the palette has to be said twice.
+func (h *Host) SetTheme(theme domain.Theme) {
+	h.theme.Store(string(theme))
+	dark := theme == domain.ThemeDark || (theme == domain.ThemeSystem && systemIsDark())
+	if main := h.MainWindow(); main != nil {
+		retintWindow(main, dark)
+	}
+	if about, ok := h.aboutWindow(); ok {
+		if window, ok := about.(*application.WebviewWindow); ok {
+			retintWindow(window, dark)
+		}
+	}
 }
 
-// themeQuery is what goes on a window's URL: the pre-paint script reads it and sets the palette
-// before the first frame, which is a thing no IPC call can do.
-func (h *Host) themeQuery() string {
-	theme, _ := h.theme.Load().(string)
-	if theme == "" {
+// windowQuery is what goes on a window's URL: the pre-paint script reads it before the first frame,
+// which is a thing no IPC call can do — the palette, and whether the window has a material behind it
+// that its ground must not cover. Both windows load the same stylesheet, so the second one is how a
+// single page can be the ground of one window and the glass of another.
+func (h *Host) windowQuery(translucent bool) string {
+	query := url.Values{}
+	if theme, _ := h.theme.Load().(string); theme != "" {
+		query.Set("theme", theme)
+	}
+	if translucent {
+		query.Set("translucent", "1")
+	}
+	if len(query) == 0 {
 		return ""
 	}
-	return "?theme=" + theme
+	return "?" + query.Encode()
 }
 
 // Attach is the one writer of the application handle: the app cannot be built before the graph
@@ -293,7 +313,7 @@ func (h *Host) ShowAbout() {
 		DisableResize:    true,
 		Frameless:        UseCustomTitlebar(),
 		BackgroundColour: application.NewRGB(30, 30, 30),
-		URL:              "/about.html" + h.themeQuery(),
+		URL:              "/about.html" + h.windowQuery(false),
 		Mac: application.MacWindow{
 			TitleBar:                application.MacTitleBarHiddenInset,
 			InvisibleTitleBarHeight: aboutTitleBarHeight,
@@ -323,6 +343,63 @@ func (h *Host) Quit() {
 func UseCustomTitlebar() bool {
 	return application.System.IsPlatform(application.PlatformWindows) ||
 		application.System.IsPlatform(application.PlatformLinux)
+}
+
+// glassBackgroundType is how a window shows what is behind it: translucent where the machine can
+// draw a material there, and solid where it cannot. The two are not a matter of taste — a window
+// that lets the desktop through on a platform with nothing to blur shows the desktop under the
+// app's chrome, which reads as a bug rather than as glass.
+func glassBackgroundType() application.BackgroundType {
+	if glassShows() {
+		return application.BackgroundTypeTranslucent
+	}
+	return application.BackgroundTypeSolid
+}
+
+// glassWindowsBackdrop is the material Windows draws behind the webview. Acrylic rather than Mica:
+// Mica tints the desktop wallpaper, and the chrome here is meant to be glass over what is behind the
+// window. It is read only when the window is translucent.
+func glassWindowsBackdrop() application.BackdropType {
+	return application.Acrylic
+}
+
+// glassMacBackdrop is the macOS side of the same material: the frosted one rather than Liquid Glass,
+// which needs macOS 26 and would make the app look like a different product. It is inert until the
+// build carries `private_mac_apis` — see glassShows.
+func glassMacBackdrop() application.MacBackdrop {
+	return application.MacBackdropTranslucent
+}
+
+// windowTheme is the appearance the native material is tinted by. It is set once, when the window is
+// created — this version of Wails has no runtime setter — and the stored theme is read before the
+// window exists, so the two agree at startup. A theme switched while the app runs reaches the
+// material on the next launch; the CSS half of the material switches at once.
+func windowTheme(theme domain.Theme) application.Theme {
+	switch theme {
+	case domain.ThemeDark:
+		return application.Dark
+	case domain.ThemeLight:
+		return application.Light
+	}
+	// Not SystemDefault: that value leaves the window's own attributes alone — a window that never
+	// says which way it is dark gets the light ones, and the material behind it would be tinted
+	// against the app. So "follow the system" is resolved here, once, at creation.
+	if systemIsDark() {
+		return application.Dark
+	}
+	return application.Light
+}
+
+// macWindowAppearance is the same choice for macOS, which spells appearances as names.
+func macWindowAppearance(theme domain.Theme) application.MacAppearanceType {
+	switch theme {
+	case domain.ThemeDark:
+		return application.NSAppearanceNameDarkAqua
+	case domain.ThemeLight:
+		return application.NSAppearanceNameAqua
+	default:
+		return application.DefaultAppearance
+	}
 }
 
 // aboutHeight is the panel's height on this platform.

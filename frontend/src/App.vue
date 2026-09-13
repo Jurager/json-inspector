@@ -105,8 +105,10 @@ function closeSheet() {
 <style scoped>
 @reference "./style.css";
 
+/* The page paints nothing — the window shows the material behind it — so a full-width screen has to
+   bring its own ground: on the failure screen there is no chrome and no content to do it. */
 .startup-failure {
-  @apply flex-1 flex flex-col items-center justify-center gap-3 px-8 min-h-0;
+  @apply flex-1 flex flex-col items-center justify-center gap-3 px-8 min-h-0 bg-bg;
 }
 
 .startup-title {

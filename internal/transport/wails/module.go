@@ -8,6 +8,7 @@ import (
 	"github.com/wailsapp/wails/v3/pkg/events"
 	"go.uber.org/fx"
 
+	"json-inspector/internal/domain"
 	"json-inspector/internal/infra/httpx"
 	"json-inspector/internal/infra/scriptengine"
 	"json-inspector/internal/infra/sqlite"
@@ -120,10 +121,14 @@ func setup(
 	settingsUC *settings.UseCase,
 ) {
 	// The window's first paint happens before any frontend code runs, so the theme travels on its
-	// URL rather than over IPC. Reading it here is safe: the database opened before this ran.
-	if theme, err := settingsUC.Theme(context.Background()); err == nil {
-		host.SetTheme(string(theme))
+	// URL rather than over IPC. Reading it here is safe: the database opened before this ran. The
+	// same value is what the native glass material is tinted by, and that one can only be told to
+	// the window as it is created.
+	theme, err := settingsUC.Theme(context.Background())
+	if err != nil {
+		theme = domain.ThemeSystem
 	}
+	host.SetTheme(theme)
 	system := application.NewService(in.System)
 	settingsService := application.NewService(in.Settings)
 	recordsService := application.NewService(in.Records)
@@ -147,19 +152,30 @@ func setup(
 		app.RegisterService(bridgeService)
 	}
 
+	// The window is translucent: what the chrome and the overlays paint is a glass material, and the
+	// material has nothing to show unless the window itself lets the platform draw behind it.
 	mainWin := app.Window.NewWithOptions(application.WebviewWindowOptions{
-		Name:             windowMain,
-		Title:            info.Name,
-		Width:            1280,
-		Height:           820,
-		MinWidth:         900,
-		MinHeight:        600,
-		Frameless:        UseCustomTitlebar(),
-		BackgroundColour: application.NewRGB(30, 30, 30),
-		URL:              "/" + host.themeQuery(),
+		Name:      windowMain,
+		Title:     info.Name,
+		Width:     1280,
+		Height:    820,
+		MinWidth:  900,
+		MinHeight: 600,
+		Frameless: UseCustomTitlebar(),
+		// A fully transparent background: the page paints the ground of its content itself, and every
+		// other pixel is the material behind the window.
+		BackgroundType:   glassBackgroundType(),
+		BackgroundColour: application.NewRGBA(0, 0, 0, 0),
+		URL:              "/" + host.windowQuery(glassShows()),
 		Mac: application.MacWindow{
+			Backdrop:                glassMacBackdrop(),
+			Appearance:              macWindowAppearance(theme),
 			TitleBar:                application.MacTitleBarHiddenInset,
 			InvisibleTitleBarHeight: 50,
+		},
+		Windows: application.WindowsWindow{
+			BackdropType: glassWindowsBackdrop(),
+			Theme:        windowTheme(theme),
 		},
 	})
 	host.SetMainWindow(mainWin)

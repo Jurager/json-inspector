@@ -59,13 +59,19 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
 .sheet {
   @apply flex flex-col rounded-xl overflow-hidden w-[1040px] max-w-[95vw];
   max-height: calc(100vh - 72px);
-  background: var(--bg-panel);
-  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.18), 0 0 0 1px var(--border);
+  background: var(--glass-overlay);
+  backdrop-filter: var(--blur-overlay);
+  -webkit-backdrop-filter: var(--blur-overlay);
+  box-shadow: inset 0 1px 0 var(--glass-overlay-hairline), 0 24px 60px rgba(0, 0, 0, 0.18),
+    0 0 0 1px var(--glass-overlay-border);
 }
 
+/* The sheet's own toolbar, in the lighter material: it is chrome inside the overlay. */
 .sheet-head {
   @apply flex-none flex items-center gap-3 h-[46px] px-3.5 border-b border-border;
-  background: var(--bg-sidebar);
+  background: var(--glass-chrome);
+  backdrop-filter: var(--blur-chrome);
+  -webkit-backdrop-filter: var(--blur-chrome);
 }
 
 .sheet-title {

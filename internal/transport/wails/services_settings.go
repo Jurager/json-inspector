@@ -10,10 +10,11 @@ import (
 // SettingsService is the preferences the window reads at startup and writes as the user works.
 type SettingsService struct {
 	settings *settings.UseCase
+	host     *Host
 }
 
-func NewSettingsService(uc *settings.UseCase) *SettingsService {
-	return &SettingsService{settings: uc}
+func NewSettingsService(uc *settings.UseCase, host *Host) *SettingsService {
+	return &SettingsService{settings: uc, host: host}
 }
 
 func (s *SettingsService) Snapshot(ctx context.Context) (domain.Settings, error) {
@@ -23,7 +24,14 @@ func (s *SettingsService) Snapshot(ctx context.Context) (domain.Settings, error)
 // SetTheme stores the choice and broadcasts it, so every window follows — the About window is not
 // told by whoever changed it.
 func (s *SettingsService) SetTheme(ctx context.Context, theme domain.Theme) (domain.Settings, error) {
-	return s.settings.SetTheme(ctx, theme)
+	saved, err := s.settings.SetTheme(ctx, theme)
+	if err != nil {
+		return saved, err
+	}
+	// The frontend follows the broadcast; the window's own material has to be told separately, because
+	// it lives outside the page.
+	s.host.SetTheme(theme)
+	return saved, nil
 }
 
 func (s *SettingsService) SetLayout(ctx context.Context, patch settings.LayoutPatch) (domain.Settings, error) {

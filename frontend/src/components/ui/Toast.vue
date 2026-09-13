@@ -17,9 +17,11 @@ const { message, kind } = useToast()
 .toast {
   @apply fixed bottom-4 left-1/2 px-4 py-2 rounded-lg text-xs z-2000 max-w-[80%];
   transform: translateX(-50%);
-  background: var(--bg-panel);
-  border: 1px solid var(--border);
-  box-shadow: var(--shadow);
+  background: var(--glass-overlay);
+  backdrop-filter: var(--blur-overlay);
+  -webkit-backdrop-filter: var(--blur-overlay);
+  border: 1px solid var(--glass-overlay-border);
+  box-shadow: inset 0 1px 0 var(--glass-overlay-hairline), var(--shadow);
 }
 
 .toast.error {
