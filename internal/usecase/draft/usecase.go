@@ -13,19 +13,27 @@ import (
 	"json-inspector/internal/platform"
 )
 
-// UseCase is the draft the command line edits. There is one of it per draft id, and it lives in
-// memory: the window reads and writes it on every keystroke, and only the mutations touch the
-// database.
+// UseCase keeps the drafts the window is editing, addressed by id: the command line's, and one for
+// the collection node whose card is open.
+//
+// They live in memory because a keystroke is a call, and only the command line's is written down:
+// that draft is a document the window opens on, while a card's draft is a proposal — saving it into
+// the collection is a separate gesture, and until it is made, the request belongs to the window.
 type UseCase struct {
-	mu      sync.Mutex
-	store   Store
-	vars    VariableSource
-	ids     platform.IDGen
-	current domain.Draft
+	mu     sync.Mutex
+	store  Store
+	vars   VariableSource
+	ids    platform.IDGen
+	drafts map[domain.DraftID]domain.Draft
 }
 
 func NewUseCase(store Store, vars VariableSource, ids platform.IDGen) *UseCase {
-	return &UseCase{store: store, vars: vars, ids: ids, current: domain.NewDraft()}
+	return &UseCase{
+		store:  store,
+		vars:   vars,
+		ids:    ids,
+		drafts: map[domain.DraftID]domain.Draft{},
+	}
 }
 
 // TextField names one of the two texts the window owns while they are being typed in. Everything
@@ -90,40 +98,79 @@ type Seed struct {
 // Load reads the draft the last run left behind, and gives a window that has none the one this app
 // has always started with.
 func (u *UseCase) Load(ctx context.Context) error {
+	stored, err := u.store.Draft(ctx, domain.DraftCommandLine)
+	if errors.Is(err, domain.ErrNotFound) {
+		stored = u.fresh()
+	} else if err != nil {
+		return err
+	}
+
+	u.mu.Lock()
+	defer u.mu.Unlock()
+	u.drafts[domain.DraftCommandLine] = stored
+	return nil
+}
+
+// Open puts a draft in memory under its own id, replacing whatever that id held. It is how a card
+// opens a saved request — the node's fields become a draft — and how a save starts over: a draft
+// that has just been opened has nothing unsaved in it.
+//
+// A card is the only thing that opens a draft that is not the command line's, and one card is open
+// at a time, so the previous one is dropped rather than kept: a draft nobody is editing is memory
+// nobody will free.
+func (u *UseCase) Open(ctx context.Context, d domain.Draft) (State, error) {
+	if d.ID == "" {
+		return State{}, fmt.Errorf("черновик без id: %w", domain.ErrNotAllowed)
+	}
+	d = u.withRowIDs(d)
+	// The revision counts the edits made since the draft was opened, and the window reads "nothing
+	// unsaved" out of it — a draft that has just been opened is the saved request, not an edit of it.
+	d.Revision = 0
+
+	u.mu.Lock()
+	for id := range u.drafts {
+		if id != domain.DraftCommandLine {
+			delete(u.drafts, id)
+		}
+	}
+	u.drafts[d.ID] = d
+	u.mu.Unlock()
+
+	return u.stateOf(ctx, d)
+}
+
+// Current is the draft itself, without the preview: what the side that turns it back into a saved
+// request needs. Reading costs nothing — no revision moves and nothing is written.
+func (u *UseCase) Current(ctx context.Context, id domain.DraftID) (domain.Draft, error) {
 	u.mu.Lock()
 	defer u.mu.Unlock()
 
-	stored, err := u.store.Draft(ctx, domain.DraftCommandLine)
-	if errors.Is(err, domain.ErrNotFound) {
-		u.current = u.fresh()
-		return nil
+	draft, ok := u.drafts[id]
+	if !ok {
+		return domain.Draft{}, fmt.Errorf("черновик %s: %w", id, domain.ErrNotFound)
 	}
-	if err != nil {
-		return err
-	}
-	u.current = stored
-	return nil
+	return draft, nil
 }
 
 // Snapshot is the draft as it stands: what the window opens on, preview and all. Reading costs
 // nothing — no revision moves and nothing is written, which is what a read has to mean.
-func (u *UseCase) Snapshot(ctx context.Context) (State, error) {
-	u.mu.Lock()
-	draft := u.current
-	u.mu.Unlock()
-
+func (u *UseCase) Snapshot(ctx context.Context, id domain.DraftID) (State, error) {
+	draft, err := u.Current(ctx, id)
+	if err != nil {
+		return State{}, err
+	}
 	return u.stateOf(ctx, draft)
 }
 
-func (u *UseCase) SetMethod(ctx context.Context, method string) (State, error) {
-	return u.result(ctx, func(d *domain.Draft) error {
+func (u *UseCase) SetMethod(ctx context.Context, id domain.DraftID, method string) (State, error) {
+	return u.result(ctx, id, func(d *domain.Draft) error {
 		d.Method = strings.TrimSpace(method)
 		return nil
 	})
 }
 
-func (u *UseCase) SetAuth(ctx context.Context, auth domain.Auth) (State, error) {
-	return u.result(ctx, func(d *domain.Draft) error {
+func (u *UseCase) SetAuth(ctx context.Context, id domain.DraftID, auth domain.Auth) (State, error) {
+	return u.result(ctx, id, func(d *domain.Draft) error {
 		d.Auth = auth
 		return nil
 	})
@@ -132,8 +179,8 @@ func (u *UseCase) SetAuth(ctx context.Context, auth domain.Auth) (State, error) 
 // SetText takes a buffer the window was typing into. The window keeps ownership of the text while
 // it works — an answer never overwrites what is under the caret — so this is the only way a text
 // the user typed reaches this side at all.
-func (u *UseCase) SetText(ctx context.Context, in TextInput) (TextResult, error) {
-	result, err := u.result(ctx, func(d *domain.Draft) error {
+func (u *UseCase) SetText(ctx context.Context, id domain.DraftID, in TextInput) (TextResult, error) {
+	result, err := u.result(ctx, id, func(d *domain.Draft) error {
 		switch in.Field {
 		case FieldURL:
 			d.URL = in.Text
@@ -156,8 +203,8 @@ func (u *UseCase) SetText(ctx context.Context, in TextInput) (TextResult, error)
 
 // AddRow appends an empty row to one of the three lists. Cookies are not rows: the jar carries the
 // attributes a Set-Cookie reply has, and none of them belong to a request.
-func (u *UseCase) AddRow(ctx context.Context, kind domain.RowKind) (State, error) {
-	return u.result(ctx, func(d *domain.Draft) error {
+func (u *UseCase) AddRow(ctx context.Context, id domain.DraftID, kind domain.RowKind) (State, error) {
+	return u.result(ctx, id, func(d *domain.Draft) error {
 		switch kind {
 		case domain.RowParams:
 			d.Params = append(d.Params, domain.Row{ID: u.ids(), Enabled: true})
@@ -174,8 +221,8 @@ func (u *UseCase) AddRow(ctx context.Context, kind domain.RowKind) (State, error
 
 // RemoveRow drops a row by id. A row that is not there is not an error: a double click, or a patch
 // that arrives after its row is gone, has asked for exactly what it got.
-func (u *UseCase) RemoveRow(ctx context.Context, kind domain.RowKind, id string) (State, error) {
-	return u.result(ctx, func(d *domain.Draft) error {
+func (u *UseCase) RemoveRow(ctx context.Context, draftID domain.DraftID, kind domain.RowKind, id string) (State, error) {
+	return u.result(ctx, draftID, func(d *domain.Draft) error {
 		switch kind {
 		case domain.RowParams:
 			d.Params = without(d.Params, id)
@@ -193,8 +240,8 @@ func (u *UseCase) RemoveRow(ctx context.Context, kind domain.RowKind, id string)
 
 // PatchRow changes the fields a patch names and leaves the rest. A parameter edit writes the list
 // back into the URL, because the URL is what goes out and the rows are only how it is edited.
-func (u *UseCase) PatchRow(ctx context.Context, kind domain.RowKind, id string, patch RowPatch) (State, error) {
-	return u.result(ctx, func(d *domain.Draft) error {
+func (u *UseCase) PatchRow(ctx context.Context, draftID domain.DraftID, kind domain.RowKind, id string, patch RowPatch) (State, error) {
+	return u.result(ctx, draftID, func(d *domain.Draft) error {
 		switch kind {
 		case domain.RowParams:
 			at := findRow(d.Params, id)
@@ -225,8 +272,8 @@ func (u *UseCase) PatchRow(ctx context.Context, kind domain.RowKind, id string, 
 // Replace hands the draft a whole request. Everything the draft held is dropped, including the
 // parameters the old URL carried and the choice made in the Auth chip: a seed is a request, not an
 // edit to one.
-func (u *UseCase) Replace(ctx context.Context, seed Seed) (State, error) {
-	return u.result(ctx, func(d *domain.Draft) error {
+func (u *UseCase) Replace(ctx context.Context, id domain.DraftID, seed Seed) (State, error) {
+	return u.result(ctx, id, func(d *domain.Draft) error {
 		d.Method = seed.Method
 		d.URL = seed.URL
 		d.Body = seed.Body
@@ -252,17 +299,17 @@ type Prepared struct {
 	Cookies       []domain.CookieRow
 }
 
-func (u *UseCase) Prepared(ctx context.Context) (Prepared, error) {
-	u.mu.Lock()
-	draft := u.current
-	u.mu.Unlock()
-
+func (u *UseCase) Prepared(ctx context.Context, id domain.DraftID) (Prepared, error) {
+	draft, err := u.Current(ctx, id)
+	if err != nil {
+		return Prepared{}, err
+	}
 	return u.prepare(ctx, draft)
 }
 
-// Prepare fills in a request that is not the one being composed — a followed link, and later a
-// collection run — without disturbing the draft. Resolving and masking live here and not with the
-// caller, so there is one answer to what a request looks like when it leaves.
+// Prepare fills in a request that is not the one being composed — a followed link, a collection run
+// — without disturbing any draft. Resolving and masking live here and not with the caller, so there
+// is one answer to what a request looks like when it leaves.
 func (u *UseCase) Prepare(ctx context.Context, seed Seed) (Prepared, error) {
 	draft := domain.Draft{
 		Method:  seed.Method,
@@ -279,36 +326,68 @@ func (u *UseCase) Prepare(ctx context.Context, seed Seed) (Prepared, error) {
 	return u.prepare(ctx, draft)
 }
 
-// change applies an edit and saves it. Every mutation goes through here, so the revision, what is
-// stored and what is returned cannot disagree — and an edit that cannot be saved is rolled back
-// rather than left in memory as a draft the database does not have.
-func (u *UseCase) change(ctx context.Context, edit func(*domain.Draft) error) (domain.Draft, error) {
+// change applies an edit and keeps it. Every mutation goes through here, so the revision, what is
+// returned and what is written down cannot disagree — and an edit is applied to a copy, so one that
+// fails halfway leaves the draft exactly as it was.
+//
+// Only the command line's draft is written down: it is what the window opens on, while a card's
+// draft becomes a saved request through its own gesture and nothing else.
+func (u *UseCase) change(ctx context.Context, id domain.DraftID, edit func(*domain.Draft) error) (domain.Draft, error) {
 	u.mu.Lock()
 	defer u.mu.Unlock()
 
-	previous := u.current
-	if err := edit(&u.current); err != nil {
-		u.current = previous
-		return domain.Draft{}, err
+	current, ok := u.drafts[id]
+	if !ok {
+		return domain.Draft{}, fmt.Errorf("черновик %s: %w", id, domain.ErrNotFound)
 	}
 
-	u.current.Revision++
-	u.current.ID = domain.DraftCommandLine
-	if err := u.store.SaveDraft(ctx, u.current); err != nil {
-		u.current = previous
+	edited := current
+	if err := edit(&edited); err != nil {
 		return domain.Draft{}, err
 	}
-	return u.current, nil
+	edited.Revision++
+
+	if id == domain.DraftCommandLine {
+		if err := u.store.SaveDraft(ctx, edited); err != nil {
+			return domain.Draft{}, err
+		}
+	}
+	u.drafts[id] = edited
+	return edited, nil
 }
 
 // result turns an edit into an answer: the draft that came of it, and the preview the command line
 // draws from it.
-func (u *UseCase) result(ctx context.Context, edit func(*domain.Draft) error) (State, error) {
-	draft, err := u.change(ctx, edit)
+func (u *UseCase) result(ctx context.Context, id domain.DraftID, edit func(*domain.Draft) error) (State, error) {
+	draft, err := u.change(ctx, id, edit)
 	if err != nil {
 		return State{}, err
 	}
 	return u.stateOf(ctx, draft)
+}
+
+// withRowIDs gives every row an id. A draft that came from somewhere else — a saved request — has
+// rows without them, and the window addresses a row by id: one that has none could not be edited.
+func (u *UseCase) withRowIDs(d domain.Draft) domain.Draft {
+	for i := range d.Params {
+		if d.Params[i].ID == "" {
+			d.Params[i].ID = u.ids()
+		}
+	}
+	for i := range d.Headers {
+		if d.Headers[i].ID == "" {
+			d.Headers[i].ID = u.ids()
+		}
+	}
+	for i := range d.Cookies {
+		if d.Cookies[i].ID == "" {
+			d.Cookies[i].ID = u.ids()
+		}
+		if d.Cookies[i].Path == "" {
+			d.Cookies[i].Path = "/"
+		}
+	}
+	return d
 }
 
 // stateOf is the answer to "what does this draft look like now": the draft itself, and the preview

@@ -24,15 +24,18 @@ func NewRecordsService(records *record.UseCase, drafts *draft.UseCase) *RecordsS
 	return &RecordsService{records: records, drafts: drafts}
 }
 
-// Send starts the request the window is composing and answers with its id at once. The draft is
-// read here rather than handed in: sending it means resolving its `{{tokens}}`, and a secret's
-// value is on this side of the boundary — handing the window a request to send would mean handing
-// it the secrets in it.
+// Send starts the request a draft holds and answers with its id at once. The draft is read here
+// rather than handed in: sending it means resolving its `{{tokens}}`, and a secret's value is on
+// this side of the boundary — handing the window a request to send would mean handing it the
+// secrets in it.
+//
+// The id names which draft: the command line's, or the collection node whose card asked to send —
+// and sending a card's request does not save it, which is a gesture of its own.
 //
 // What comes of the attempt arrives as an event, which is what lets the spinner belong to an id the
 // window can cancel.
-func (s *RecordsService) Send(ctx context.Context) (string, error) {
-	prepared, err := s.drafts.Prepared(ctx)
+func (s *RecordsService) Send(ctx context.Context, draftID domain.DraftID) (string, error) {
+	prepared, err := s.drafts.Prepared(ctx, draftID)
 	if err != nil {
 		return "", err
 	}

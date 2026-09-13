@@ -5,6 +5,8 @@
  * CollectionsService is the saved requests. Every call that changes the tree answers with the whole
  * tree, because a rename moves a row the list is already drawing — a caller that had to splice the
  * change in itself would be a second implementation of the tree's order.
+ * It holds the draft as well, and this is one of the two places that does: a saved request is
+ * edited as a draft, and the layer that knows both features is the one that can put them together.
  * @module
  */
 
@@ -18,6 +20,10 @@ import * as domain$0 from "../../domain/models.js";
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: Unused imports
 import * as collection$0 from "../../usecase/collection/models.js";
+
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-ignore: Unused imports
+import * as $models from "./models.js";
 
 export function CreateCollection(name: string, description: string): $CancellablePromise<domain$0.Collection[] | null> {
     return $Call.ByID(2119561358, name, description);
@@ -49,6 +55,15 @@ export function Node(id: string): $CancellablePromise<domain$0.CollectionNode> {
     return $Call.ByID(2008168702, id);
 }
 
+/**
+ * OpenNode puts a saved request into the draft its card edits, and answers with everything the card
+ * draws. Opening is what a save starts over from as well: a draft that has just been opened has
+ * nothing unsaved in it, which is where the window's "Не сохранено" comes from and goes.
+ */
+export function OpenNode(id: string): $CancellablePromise<$models.NodeEditor> {
+    return $Call.ByID(1109881158, id);
+}
+
 export function Rename(id: string, name: string): $CancellablePromise<domain$0.Collection[] | null> {
     return $Call.ByID(3088890764, id, name);
 }
@@ -63,11 +78,12 @@ export function Run(collectionID: string, nodeID: string): $CancellablePromise<s
 }
 
 /**
- * SaveNode writes the request the card was editing back into the tree. Sending is a different
- * gesture: it does not save, and nothing here is called by it.
+ * SaveNode writes what the card is editing back into the tree. The draft is where the request is —
+ * its method, its address, its rows, its body — and the node keeps what the card does not own: what
+ * it is called, where it sits, when it was made.
  */
-export function SaveNode(node: domain$0.CollectionNode): $CancellablePromise<domain$0.Collection[] | null> {
-    return $Call.ByID(867729327, node);
+export function SaveNode(id: string): $CancellablePromise<$models.NodeEditor> {
+    return $Call.ByID(867729327, id);
 }
 
 /**

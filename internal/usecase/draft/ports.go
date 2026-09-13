@@ -9,7 +9,7 @@ import (
 // Store keeps drafts between runs: a window that is closed mid-request opens on what it was
 // composing. It is keyed by draft id, because a collection node will get a draft of its own.
 type Store interface {
-	Draft(ctx context.Context, id string) (domain.Draft, error)
+	Draft(ctx context.Context, id domain.DraftID) (domain.Draft, error)
 	SaveDraft(ctx context.Context, draft domain.Draft) error
 }
 

@@ -5,17 +5,21 @@ import (
 
 	"json-inspector/internal/domain"
 	"json-inspector/internal/usecase/collection"
+	"json-inspector/internal/usecase/draft"
 )
 
 // CollectionsService is the saved requests. Every call that changes the tree answers with the whole
 // tree, because a rename moves a row the list is already drawing — a caller that had to splice the
 // change in itself would be a second implementation of the tree's order.
+// It holds the draft as well, and this is one of the two places that does: a saved request is
+// edited as a draft, and the layer that knows both features is the one that can put them together.
 type CollectionsService struct {
 	collections *collection.UseCase
+	drafts      *draft.UseCase
 }
 
-func NewCollectionsService(uc *collection.UseCase) *CollectionsService {
-	return &CollectionsService{collections: uc}
+func NewCollectionsService(uc *collection.UseCase, drafts *draft.UseCase) *CollectionsService {
+	return &CollectionsService{collections: uc, drafts: drafts}
 }
 
 func (s *CollectionsService) Tree(ctx context.Context) ([]domain.Collection, error) {
@@ -45,12 +49,6 @@ func (s *CollectionsService) Duplicate(ctx context.Context, id string) ([]domain
 
 func (s *CollectionsService) Delete(ctx context.Context, id string) ([]domain.Collection, error) {
 	return s.collections.Delete(ctx, id)
-}
-
-// SaveNode writes the request the card was editing back into the tree. Sending is a different
-// gesture: it does not save, and nothing here is called by it.
-func (s *CollectionsService) SaveNode(ctx context.Context, node domain.CollectionNode) ([]domain.Collection, error) {
-	return s.collections.SaveNode(ctx, node)
 }
 
 // Run starts a collection or a folder and answers with the id of the run. What happens next arrives

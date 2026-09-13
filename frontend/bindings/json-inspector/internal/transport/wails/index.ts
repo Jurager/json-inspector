@@ -20,5 +20,6 @@ export {
 
 export type {
     Failure,
+    NodeEditor,
     StartupStatus
 } from "./models.js";

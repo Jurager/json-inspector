@@ -1,8 +1,13 @@
 package domain
 
-// DraftCommandLine is the id of the draft the window's command line edits. Drafts are addressed by
-// id because a collection node will get one of its own, and the two must not be the same row.
-const DraftCommandLine = "command-line"
+// DraftID names one of the drafts the window is editing. It is a type of its own so that the one id
+// written by hand — the command line's — reaches the window as a named constant rather than as a
+// string spelled a second time, where a typo would be a draft that cannot be found at runtime.
+type DraftID string
+
+// DraftCommandLine is the id of the draft the window's command line edits. A collection node's
+// draft is keyed by the node it came from, so the two are never the same draft.
+const DraftCommandLine DraftID = "command-line"
 
 // Row is one editable line of a draft: a query parameter or a header. It carries an id because the
 // window addresses an edit by row and not by position — a patch that arrives after the row above it
@@ -47,7 +52,7 @@ const (
 // URL and Body are owned by the window while they are being typed in, which is why they travel as
 // buffers rather than as patches to individual characters.
 type Draft struct {
-	ID       string      `json:"id"`
+	ID       DraftID     `json:"id"`
 	Revision int64       `json:"revision"`
 	Method   string      `json:"method"`
 	URL      string      `json:"url"`

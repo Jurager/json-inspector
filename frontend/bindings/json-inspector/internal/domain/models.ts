@@ -172,7 +172,7 @@ export interface CookieRow {
  * buffers rather than as patches to individual characters.
  */
 export interface Draft {
-    "id": string;
+    "id": DraftID;
     "revision": number;
     "method": string;
     "url": string;
@@ -182,6 +182,24 @@ export interface Draft {
     "body": string;
     "cookies": CookieRow[] | null;
 }
+
+/**
+ * DraftID names one of the drafts the window is editing. It is a type of its own so that the one id
+ * written by hand — the command line's — reaches the window as a named constant rather than as a
+ * string spelled a second time, where a typo would be a draft that cannot be found at runtime.
+ */
+export enum DraftID {
+    /**
+     * The Go zero value for the underlying type of the enum.
+     */
+    $zero = "",
+
+    /**
+     * DraftCommandLine is the id of the draft the window's command line edits. A collection node's
+     * draft is keyed by the node it came from, so the two are never the same draft.
+     */
+    DraftCommandLine = "command-line",
+};
 
 /**
  * EnvScope names where a variable lives: one environment, or the globals that always apply.

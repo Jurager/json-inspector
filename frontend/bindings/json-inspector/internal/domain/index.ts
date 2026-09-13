@@ -4,6 +4,7 @@
 export {
     AuthType,
     BodySide,
+    DraftID,
     NodeKind,
     RecordSource,
     Retention,

@@ -2,6 +2,7 @@ import { defineStore } from 'pinia'
 import { bodyMissing, recordView, type RecordBodies, type RecordView } from '../lib/requestRecord'
 import {
   BodySide,
+  DraftID,
   RecordSource,
   RowKind,
   type Auth,
@@ -21,6 +22,10 @@ import {
 import { DraftService, RecordsService } from '../../bindings/json-inspector/internal/transport/wails'
 import { useEnvironmentsStore } from './environments'
 import { focusUrlField } from '../composables/urlFocus'
+
+// The draft this store edits: the one the command line composes. A collection card has a draft of
+// its own, keyed by the node it came from, and it is the collections store that holds it.
+const DRAFT = DraftID.DraftCommandLine
 
 // What the history lived in before it moved into the database.
 const LEGACY_KEY = 'ji-history-v1'
@@ -127,7 +132,7 @@ export const useRequestsStore = defineStore('requests', {
     // ---- the draft, from Go ----------------------------------------------
 
     async loadDraft() {
-      this.apply(await DraftService.Snapshot())
+      this.apply(await DraftService.Snapshot(DRAFT))
     },
 
     // Every answer from the draft side lands here: the draft and its preview are replaced, and the
@@ -181,35 +186,35 @@ export const useRequestsStore = defineStore('requests', {
       }
       if (this.bufferedUrl) {
         const rev = this.urlRev
-        this.applyText(await DraftService.SetText({ field: TextField.FieldURL, text: this.urlText, rev }))
+        this.applyText(await DraftService.SetText(DRAFT, { field: TextField.FieldURL, text: this.urlText, rev }))
       }
       if (this.bufferedBody) {
         const rev = this.bodyRev
-        this.applyText(await DraftService.SetText({ field: TextField.FieldBody, text: this.bodyText, rev }))
+        this.applyText(await DraftService.SetText(DRAFT, { field: TextField.FieldBody, text: this.bodyText, rev }))
       }
     },
 
     async setMethod(method: string) {
-      this.apply(await DraftService.SetMethod(method))
+      this.apply(await DraftService.SetMethod(DRAFT, method))
     },
 
     async setAuth(auth: Auth) {
-      this.apply(await DraftService.SetAuth(auth))
+      this.apply(await DraftService.SetAuth(DRAFT, auth))
     },
 
     async addRow(kind: RowKind): Promise<string> {
       const before = this.idsOf(kind)
-      this.apply(await DraftService.AddRow(kind))
+      this.apply(await DraftService.AddRow(DRAFT, kind))
       const after = this.idsOf(kind)
       return after.find((id) => !before.includes(id)) ?? ''
     },
 
     async removeRow(kind: RowKind, id: string) {
-      this.apply(await DraftService.RemoveRow(kind, id))
+      this.apply(await DraftService.RemoveRow(DRAFT, kind, id))
     },
 
     async patchRow(kind: RowKind, id: string, patch: RowPatch) {
-      this.apply(await DraftService.PatchRow(kind, id, patch))
+      this.apply(await DraftService.PatchRow(DRAFT, kind, id, patch))
     },
 
     async toggleRow(kind: RowKind, id: string, enabled: boolean) {
@@ -228,7 +233,7 @@ export const useRequestsStore = defineStore('requests', {
       this.bodyRev += 1
       this.bufferedUrl = false
       this.bufferedBody = false
-      this.apply(await DraftService.Replace(seed))
+      this.apply(await DraftService.Replace(DRAFT, seed))
     },
 
     idsOf(kind: RowKind): string[] {
@@ -335,7 +340,7 @@ export const useRequestsStore = defineStore('requests', {
     async send() {
       await this.flush()
       this.loading = true
-      const id = await RecordsService.Send()
+      const id = await RecordsService.Send(DRAFT)
       // The record can outrun the call that asked for it: if it has already arrived, the spinner is
       // off and putting the id back would leave the button waiting for what it just got.
       if (this.loading) this.pendingId = id
