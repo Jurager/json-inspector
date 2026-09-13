@@ -11,8 +11,9 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
 } from '../ui/dropdown-menu'
-import { RequestsService } from '../../../bindings/json-inspector/internal/transport/wails'
 import { EnvironmentsService } from '../../../bindings/json-inspector/internal/transport/wails'
+import type { SendInput } from '../../../bindings/json-inspector/internal/usecase/record'
+import type { HeaderPair } from '../../../bindings/json-inspector/internal/domain'
 import { useRequestsStore } from '../../stores/requests'
 import { useEnvironmentsStore } from '../../stores/environments'
 import { usePlatform } from '../../composables/usePlatform'
@@ -93,19 +94,6 @@ watch(
   { immediate: true }
 )
 
-function maskedHeaders(): Record<string, string> {
-  const map: Record<string, string> = {}
-  for (const h of store.draft.headers) {
-    const name = envStore.maskSecrets(h.name.trim())
-    if (name && h.enabled) map[name] = envStore.maskSecrets(h.value)
-  }
-  const cookieHeader = cookieHeaderValue(
-    store.draft.cookies.map((c) => ({ ...c, name: envStore.maskSecrets(c.name), value: envStore.maskSecrets(c.value) }))
-  )
-  if (cookieHeader) map['Cookie'] = cookieHeader
-  return map
-}
-
 const missingVarNames = computed(() => store.missingVars)
 const sendBlocked = computed(() => missingVarNames.value.length > 0)
 
@@ -122,9 +110,13 @@ function createMissing() {
   envStore.openSheet({ envId, varName: missingVarNames.value[0] ?? '' })
 }
 
-// The outgoing request, with its variables filled in. Go does the filling: a secret's value lives
-// on that side, and the window only ever asks for the finished request.
-async function resolveForSending(): Promise<{ url: string; body: string; headers: Record<string, string> }> {
+// The request as it goes out and the copy history keeps, built in one pass so the two can never
+// disagree about which header is which. Go fills the variables in: a secret's value lives on that
+// side, and the window only ever asks for the finished request. Masking stays local — it needs only
+// which variables are secret, not what they hold.
+const mask = (text: string) => envStore.maskSecrets(text)
+
+async function buildSendInput(): Promise<SendInput> {
   const headerRows = store.draft.headers.filter((h) => h.enabled && h.name.trim())
   const cookieRows = store.draft.cookies
 
@@ -138,56 +130,48 @@ async function resolveForSending(): Promise<{ url: string; body: string; headers
   const resolved = (await EnvironmentsService.ResolveTexts(texts, false)) ?? texts
   let at = 2
 
-  const headers: Record<string, string> = {}
-  for (let i = 0; i < headerRows.length; i++) {
+  const headers: HeaderPair[] = []
+  const maskedHeaders: HeaderPair[] = []
+  for (const row of headerRows) {
     const name = resolved[at++]
     const value = resolved[at++]
-    if (name) headers[name] = value
+    if (!name) continue
+    headers.push({ name, value })
+    maskedHeaders.push({ name: mask(row.name.trim()), value: mask(row.value) })
   }
+
   const cookies = cookieRows.map((c) => ({ ...c, name: resolved[at++], value: resolved[at++] }))
   const cookieHeader = cookieHeaderValue(cookies)
-  if (cookieHeader) headers['Cookie'] = cookieHeader
+  if (cookieHeader) {
+    const masked = cookieHeaderValue(cookieRows.map((c) => ({ ...c, name: mask(c.name), value: mask(c.value) })))
+    headers.push({ name: 'Cookie', value: cookieHeader })
+    maskedHeaders.push({ name: 'Cookie', value: masked })
+  }
 
-  return { url: resolved[0], body: resolved[1], headers }
+  return {
+    method: store.draft.method,
+    url: resolved[0],
+    headers,
+    body: resolved[1],
+    maskedUrl: mask(store.draft.url.trim()),
+    maskedHeaders,
+    maskedBody: mask(store.draft.body),
+    cookies: cookieRows.map((c) => ({ ...c })),
+  }
 }
 
 async function send() {
   if (!store.draft.url.trim() || store.loading || sendBlocked.value) return
-  store.loading = true
-  const { url, body, headers: requestHeaders } = await resolveForSending()
-  const recordUrl = envStore.maskSecrets(store.draft.url.trim())
-  const recordBody = envStore.maskSecrets(store.draft.body)
-  const recordHeaders = maskedHeaders()
   try {
-    const res = await RequestsService.SendRequest(store.draft.method, url, requestHeaders, body)
-    if (!res || res.cancelled) return
-    store.addRequest({
-      method: store.draft.method,
-      url: recordUrl,
-      requestHeaders: recordHeaders,
-      requestBody: recordBody,
-      status: res.status,
-      statusText: res.statusText,
-      responseHeaders: res.headers ?? [],
-      responseBody: res.body,
-      durationMs: res.durationMs,
-      contentType: res.contentType,
-      error: res.error,
-      dnsMs: res.dnsMs,
-      connectMs: res.connectMs,
-      tlsMs: res.tlsMs,
-      waitMs: res.waitMs,
-      downloadMs: res.downloadMs,
-      requestCookies: store.draft.cookies.map((c) => ({ ...c })),
-      source: 'manual',
-    })
-  } finally {
-    store.loading = false
+    await store.send(await buildSendInput())
+  } catch (error) {
+    store.failSend()
+    toast.show(`Запрос не отправлен: ${String(error)}`, 'error')
   }
 }
 
-async function cancel() {
-  await RequestsService.CancelRequest()
+function cancel() {
+  void store.cancel()
 }
 
 const urlInputRef = ref<HTMLInputElement | null>(null)
@@ -223,7 +207,7 @@ function onUrlPaste(e: ClipboardEvent) {
     return
   }
 
-  store.loadDraft(result.request)
+  store.loadCommand(result.request)
   store.setOpenChip(null)
   void nextTick(syncUrlScroll)
   toast.show(`Распознан ${FORMAT_LABELS[result.format]}`)

@@ -3,6 +3,7 @@ import { onMounted, ref } from 'vue'
 import { useEnvironmentsStore } from './stores/environments'
 import { useRequestsStore } from './stores/requests'
 import { useCaptureEvents } from './composables/useCaptureEvents'
+import { useRecordEvents } from './composables/useRecordEvents'
 import { useGlobalShortcuts } from './composables/useGlobalShortcuts'
 import { useSessionPersistence } from './composables/useSessionPersistence'
 import { useUpdates } from './composables/useUpdates'
@@ -50,6 +51,7 @@ function openAbout() {
 
 useSessionPersistence(store, envStore)
 useCaptureEvents(store)
+useRecordEvents(store)
 useGlobalShortcuts(store, envStore)
 
 // The sheet overlays the window with the command line still mounted underneath,

@@ -154,21 +154,6 @@ func (e *Engine) Do(ctx context.Context, spec Spec) *domain.Response {
 	return res
 }
 
-// Send is the plain "method + URL + headers map" call the request builder makes. The map has no
-// order of its own, so the pairs come out sorted — deterministic for tests and for the editor.
-func (e *Engine) Send(method, url string, headers map[string]string, body string) *domain.Response {
-	return e.Do(context.Background(), Spec{
-		Method:  method,
-		URL:     url,
-		Headers: MapToPairs(headers),
-		Body:    body,
-	})
-}
-
-func (e *Engine) Fetch(url string, headers map[string]string) *domain.Response {
-	return e.Send(http.MethodGet, url, headers, "")
-}
-
 // Cancel stops one request by id and reports whether anything was in flight under it.
 func (e *Engine) Cancel(id string) bool {
 	e.mu.Lock()
@@ -178,22 +163,6 @@ func (e *Engine) Cancel(id string) bool {
 		cancel()
 	}
 	return ok
-}
-
-// CancelAll stops every request in flight and reports how many there were — what the toolbar's
-// cancel button needs, since it cannot know which id the window started.
-func (e *Engine) CancelAll() int {
-	e.mu.Lock()
-	cancels := make([]context.CancelFunc, 0, len(e.inflight))
-	for _, cancel := range e.inflight {
-		cancels = append(cancels, cancel)
-	}
-	e.mu.Unlock()
-
-	for _, cancel := range cancels {
-		cancel()
-	}
-	return len(cancels)
 }
 
 // readCapped reads a body up to a limit and says whether there was more. The extra byte is what
@@ -225,16 +194,5 @@ func headerPairs(header http.Header) []domain.HeaderPair {
 			out = append(out, domain.HeaderPair{Name: name, Value: value})
 		}
 	}
-	return out
-}
-
-// MapToPairs converts a header map into sorted pairs. A map is what the editor holds and what the
-// extension sends; the wire wants a sequence.
-func MapToPairs(headers map[string]string) []domain.HeaderPair {
-	out := make([]domain.HeaderPair, 0, len(headers))
-	for name, value := range headers {
-		out = append(out, domain.HeaderPair{Name: name, Value: value})
-	}
-	sort.Slice(out, func(a, b int) bool { return out[a].Name < out[b].Name })
 	return out
 }

@@ -39,22 +39,12 @@ func main() {
 	os.Exit(run())
 }
 
-// run is the composition root and nothing else: every decision about what the app is made of lives
-// in the modules below, and every decision about their order lives in transport/wails.
-func run() int {
-	// The update checker reads these globals itself, so they are set before the graph exists; the
-	// same values travel into the graph as BuildInfo for everything that only displays them.
-	updater.CurrentVersion = version
-	updater.CurrentBuild = build
-
-	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
-	defer stop()
-
-	var app *application.App
-
-	graph := fx.New(
+// appOptions is the whole app as a dependency graph. It is a function of its own so the wiring can
+// be checked without a window: a missing provider is otherwise a blank screen at startup.
+func appOptions() []fx.Option {
+	return []fx.Option{
 		// Quiet, because a GUI process has no console on most platforms: the failures that matter
-		// are reported through the window, and the ones that are not are logged below.
+		// are reported through the window, and the ones that are not are logged by run.
 		fx.NopLogger,
 		platform.Module,
 		sqlite.Module,
@@ -72,11 +62,25 @@ func run() int {
 			wails.Assets{FS: assets, Icon: appIcon},
 			bridge.Port(bridge.DefaultPort),
 			// The engine's defaults: env proxy, verified certificates, redirects followed, no jar.
-			// Settings will supply this once they live in the database.
 			httpx.Config{},
 		),
-		fx.Populate(&app),
-	)
+	}
+}
+
+// run is the composition root and nothing else: every decision about what the app is made of lives
+// in the modules above, and every decision about their order lives in transport/wails.
+func run() int {
+	// The update checker reads these globals itself, so they are set before the graph exists; the
+	// same values travel into the graph as BuildInfo for everything that only displays them.
+	updater.CurrentVersion = version
+	updater.CurrentBuild = build
+
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
+	defer stop()
+
+	var app *application.App
+
+	graph := fx.New(append(appOptions(), fx.Populate(&app))...)
 	// Stopping after Run returns is what puts the database close last: fx hooks run on the way
 	// out, and by then every service has already been shut down.
 	defer func() {

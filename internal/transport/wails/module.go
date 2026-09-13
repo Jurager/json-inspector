@@ -8,9 +8,11 @@ import (
 	"github.com/wailsapp/wails/v3/pkg/events"
 	"go.uber.org/fx"
 
+	"json-inspector/internal/infra/httpx"
 	"json-inspector/internal/infra/sqlite"
 	"json-inspector/internal/platform"
 	"json-inspector/internal/usecase/environment"
+	"json-inspector/internal/usecase/record"
 	"json-inspector/internal/usecase/settings"
 )
 
@@ -28,7 +30,7 @@ type ServicesIn struct {
 	fx.In
 	System       *SystemService
 	Settings     *SettingsService
-	Requests     *RequestsService
+	Records      *RecordsService
 	Environments *EnvironmentsService
 	Bridge       *BridgeService
 }
@@ -41,12 +43,16 @@ var Module = fx.Module("wails",
 		func(store *sqlite.Store) settings.Store { return store },
 		func() environment.SecretSource { return keychainSecrets{} },
 		func(host *Host) settings.Notifier { return newBus(host) },
+		func(store *sqlite.Store) record.Store { return store },
+		func(engine *httpx.Engine) record.Executor { return engineExecutor{engine: engine} },
+		func(host *Host) record.Notifier { return newBus(host) },
+		func(uc *settings.UseCase) record.RetentionSource { return settingsRetention(uc) },
 		NewHost,
 		NewStatus,
 		openStorage,
 		NewSystemService,
 		NewSettingsService,
-		NewRequestsService,
+		NewRecordsService,
 		NewEnvironmentsService,
 		NewBridgeService,
 		newCaptureIngest,
@@ -95,17 +101,17 @@ func setup(
 	}
 	system := application.NewService(in.System)
 	settingsService := application.NewService(in.Settings)
-	requests := application.NewService(in.Requests)
+	recordsService := application.NewService(in.Records)
 	environments := application.NewService(in.Environments)
 	bridgeService := application.NewService(in.Bridge)
 
 	app.RegisterService(system)
 	app.RegisterService(settingsService)
+	app.RegisterService(recordsService)
 	// Without a database there is nothing else to offer, and a reduced surface is the difference
 	// between a window that explains itself and one where half the controls fail. The frontend
 	// reads StartupStatus and renders the failure instead of reaching for these.
 	if status.Ready() {
-		app.RegisterService(requests)
 		app.RegisterService(environments)
 		app.RegisterService(bridgeService)
 	}

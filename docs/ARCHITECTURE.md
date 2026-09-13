@@ -69,14 +69,30 @@ internal/
 
 ### Состояние на сегодня
 
-Готово: `platform`, `domain` (ошибки, `Response`), `infra/sqlite` + миграции 0001–0006 + `migrate` с
-тестами, `infra/httpx` (движок в дорефакторной форме), `infra/keychain`, `infra/updater`,
-`transport/bridge` (с интерфейсом `Ingest`), `transport/wails` (SystemService, RequestsService,
-EnvironmentsService, BridgeService, Host, шина событий, экран ошибки старта), `archtest`.
+Переехали в Go: **окружения и переменные** (`usecase/environment`, секреты лежат в базе открытым
+текстом) и **история** (`usecase/record`: отправка, запись, тела, ретенция, импорт легаси).
+Привязанные сервисы — `SystemService`, `SettingsService`, `RecordsService`, `EnvironmentsService`,
+`BridgeService`; окна и меню живут в `transport/wails`, мост расширения — в `transport/bridge`.
 
-Дальше по плану: `usecase/*` появляется вместе с первой переехавшей фичей (окружения, история,
-черновик), `transport/wails` растёт сервисами по агрегатам, `frontend/src/ipc/` — тонкий
-типизированный клиент событий.
+Ещё живёт в TS и переезжает дальше: черновик (M4), коллекции (M5), скрипты (M6). `lib/` с разбором
+команд, `{{}}`, JSON:API и cookie-банкой удаляется в M7 — порты на Go уже есть (`vars`, `command`,
+`dotenv`, `jsonapi`), но пока ими пользуется только Go-сторона.
+
+### Как устроено зеркало во фронте
+
+Правило одно: **Vue ничего не решает, он повторяет то, что сказал Go**, и запись идёт через вызов,
+а не через локальную правку поля.
+
+- Сервис вызывается прямо из стора (`RecordsService.List`, `EnvironmentsService.Snapshot`), ответ
+  целиком кладётся в состояние. Отдельного слоя `ipc/` нет: пока у каждой фичи один-два вызова и
+  один-два события, лишний слой был бы ещё одним местом, где расходятся имена.
+- События слушает **один комюзбл на область** (`useRecordEvents`, `useCaptureEvents`,
+  `useTheme`), а не стор: подписка живёт ровно столько, сколько окно, и её видно рядом с
+  `onMounted`. Имена событий встречаются только там и в `events.go`.
+- Поля, которые Go отдаёт списком с возможным `null`, нормализуются **на границе** — в геттере или
+  в функции-представлении (`recordView`), один раз, а не в каждом шаблоне.
+- Список записей приезжает без тел, и это не ошибка: тело — это `BodyRef`, и вьюер спрашивает его
+  отдельным вызовом, когда открывает запись (`RecordsService.Body`).
 
 ## Нейминг
 
@@ -141,11 +157,16 @@ func (s *RecordsService) PinRecord(ctx context.Context, id string, pinned bool) 
 ```
 
 ```ts
-// 6. frontend/src/ipc/ — зеркало. Типы приходят из биндингов, руками не пишутся.
-onRecordChanged((e) => {
-  const record = records.value.find((r) => r.id === e.id)
-  if (record) record.pinned = e.pinned
-})
+// 6. Во фронте — зеркало. Типы приходят из биндингов, руками не пишутся.
+// Стор: вызов сервиса и поле состояния.
+async pin(id: string, pinned: boolean) {
+  await RecordsService.Pin(id, pinned)
+  const record = this.records.find((r) => r.id === id)
+  if (record) record.pinned = pinned
+}
+
+// Комюзбл: подписка на событие и ничего больше.
+Events.On('record:changed', (ev) => store.applyPinned(ev.data))
 ```
 
 Проверки: `go test ./internal/archtest/...` (слои не поехали), `wails3 generate bindings -clean=true
@@ -168,9 +189,9 @@ onRecordChanged((e) => {
 `clipboard.ts`, локализованные строки (`format.ts`), подсветка JSON (`highlightJson` — это HTML),
 скрипт темы до первой отрисовки в `index.html`/`about.html` и весь рендер.
 
-Pinia остаётся тонким зеркалом: поля приходят из снимка Go и обновляются событиями, вычислений там
-нет. Один враппер `frontend/src/ipc/` — единственное место, которое знает имена событий и содержит
-`as`.
+Pinia остаётся тонким зеркалом: поля приходят из ответов Go и обновляются событиями, вычислений там
+нет. Имена событий знают только комюзблы подписок и `events.go`; приведений `as` в коде не
+осталось — типы для `Events.On` генерируются вместе с биндингами (`eventdata.d.ts`).
 
 ## Чего не делаем
 

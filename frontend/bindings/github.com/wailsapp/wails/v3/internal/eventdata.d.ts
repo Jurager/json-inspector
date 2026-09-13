@@ -7,10 +7,16 @@ import type { Events } from "@wailsio/runtime";
 
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: Unused imports
+import type * as domain$0 from "../../../../../json-inspector/internal/domain/models.js";
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-ignore: Unused imports
 import type * as updater$0 from "../../../../../json-inspector/internal/infra/updater/models.js";
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: Unused imports
 import type * as bridge$0 from "../../../../../json-inspector/internal/transport/bridge/models.js";
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-ignore: Unused imports
+import type * as record$0 from "../../../../../json-inspector/internal/usecase/record/models.js";
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: Unused imports
 import type * as settings$0 from "../../../../../json-inspector/internal/usecase/settings/models.js";
@@ -20,8 +26,10 @@ declare module "@wailsio/runtime" {
         interface CustomEvents {
             "capture-disconnected": void;
             "capture-state": bridge$0.CaptureState;
-            "captured-request": bridge$0.CapturedRequest;
             "open-tab": number;
+            "record:added": domain$0.Record;
+            "request:failed": record$0.RequestFailed;
+            "request:finished": record$0.RequestFinished;
             "settings:theme": settings$0.ThemeChanged;
             "update-available": updater$0.Info | null;
             "update-check": void;

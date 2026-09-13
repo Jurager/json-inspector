@@ -1,16 +1,17 @@
-// A request's own `Cookie` header — the jar the "Cookies" tab edits in "Запрос" mode.
-export interface CookieRow {
-  name: string
-  value: string
-  domain: string
-  path: string
-  expires: string
-  secure: boolean
-  httpOnly: boolean
-}
+import type { CookieRow as WireCookieRow } from '../../bindings/json-inspector/internal/domain'
+
+// A request's own `Cookie` header — the jar the "Cookies" tab edits in "Запрос" mode. Every
+// attribute is present here, because a form field cannot bind to the ones the wire leaves out when
+// they are empty.
+export type CookieRow = Required<WireCookieRow>
 
 export function emptyCookieRow(): CookieRow {
   return { name: '', value: '', domain: '', path: '/', expires: '', secure: false, httpOnly: false }
+}
+
+// A row out of a stored record, with the attributes the editor binds to filled in.
+export function cookieRowFrom(row: WireCookieRow): CookieRow {
+  return { ...emptyCookieRow(), ...row }
 }
 
 // What actually goes on the wire is just `name=value` pairs — domain/path/expires/flags are
@@ -31,7 +32,7 @@ export function parseCookieHeader(raw: string): CookieRow[] {
       const eq = pair.indexOf('=')
       const name = (eq === -1 ? pair : pair.slice(0, eq)).trim()
       const value = eq === -1 ? '' : pair.slice(eq + 1).trim()
-      return { name, value, domain: '', path: '/', expires: '', secure: false, httpOnly: false }
+      return { ...emptyCookieRow(), name, value }
     })
     .filter((c) => c.name)
 }

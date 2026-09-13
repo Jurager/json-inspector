@@ -7,25 +7,3 @@ export interface CaptureState {
     "tabs": number;
     "browser": string;
 }
-
-export interface CapturedRequest {
-    "type": string;
-    "id": string;
-    "method": string;
-    "url": string;
-    "requestHeaders": { [_ in string]?: string } | null;
-    "requestBody": string;
-    "status": number;
-    "statusText": string;
-    "responseHeaders": { [_ in string]?: string } | null;
-    "responseBody": string;
-    "durationMs": number;
-    "startedAt": number;
-    "tabId": number;
-    "tabTitle": string;
-    "tabURL": string;
-    "favIconUrl": string;
-    "hasTiming"?: boolean;
-    "waitMs"?: number;
-    "downloadMs"?: number;
-}

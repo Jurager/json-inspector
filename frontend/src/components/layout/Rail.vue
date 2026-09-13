@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
-import { SystemService } from '../../../bindings/json-inspector/internal/transport/wails'
+import { RecordsService, SystemService } from '../../../bindings/json-inspector/internal/transport/wails'
 import { useEnvironmentsStore } from '../../stores/environments'
 import { useRequestsStore } from '../../stores/requests'
 import { buildSampleRecord } from '../../lib/sample'
@@ -59,9 +59,13 @@ onBeforeUnmount(() => railObserver?.disconnect())
 
 watch(activeIndex, syncMarker, { flush: 'post' })
 
-function loadSample() {
+async function loadSample() {
+  const record = await RecordsService.Ingest(buildSampleRecord())
+  // The event that announces it may not have reached the window yet, and the pane cannot select a
+  // record the mirror does not hold.
+  store.prepend(record)
   store.activeView = 'request'
-  store.addRequest(buildSampleRecord())
+  await store.selectManual(record.id)
 }
 
 function openAbout() {

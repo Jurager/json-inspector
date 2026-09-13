@@ -12,7 +12,7 @@ import {
   DropdownMenuItem,
   DropdownMenuSeparator,
 } from '../ui/dropdown-menu'
-import type { RequestRecord } from '../../lib/requestRecord'
+import type { RecordView } from '../../lib/requestRecord'
 import { tryParseJson, prettyJson, highlightJson } from '../../lib/json'
 import { formatBytes, formatDuration, statusBadgeClass } from '../../lib/format'
 import { dataResources, linkHref, isJsonApi, resourceMatchesQuery, type JsonApiDocument } from '../../lib/jsonapi'
@@ -23,7 +23,7 @@ import NodeInspector from '../json/NodeInspector.vue'
 import RequestCookiesTab from './RequestCookiesTab.vue'
 import TimingsTab from './TimingsTab.vue'
 import TestsTab from './TestsTab.vue'
-import { RequestsService } from '../../../bindings/json-inspector/internal/transport/wails'
+import { RecordSource } from '../../../bindings/json-inspector/internal/domain'
 import { useRequestsStore } from '../../stores/requests'
 import { useEnvironmentsStore } from '../../stores/environments'
 import { copyToClipboard } from '../../lib/clipboard'
@@ -31,7 +31,7 @@ import { exportRequest, type ExportFormat } from '../../lib/export'
 import { usePlatform } from '../../composables/usePlatform'
 import { focusUrlField } from '../../composables/urlFocus'
 
-const props = defineProps<{ record: RequestRecord }>()
+const props = defineProps<{ record: RecordView }>()
 
 const store = useRequestsStore()
 const { shortcut } = usePlatform()
@@ -130,43 +130,28 @@ function openResourceInBody(key: string) {
   activeTab.value = 'body'
 }
 
-async function follow(url: string) {
+// Following a link is a plain GET with the headers that worked last time. The record it came from
+// is already masked, so the request and the copy history keeps are the same thing here.
+function follow(url: string) {
   if (!url) return
-  const headers = props.record.requestHeaders
   // Switch rails immediately so the user isn't left staring at the stale response.
   store.activeView = 'request'
-  store.loading = true
   store.manualId = null
-  try {
-    const res = await RequestsService.Fetch(url, headers)
-    // The binding types the Go pointer as nullable, but Go always returns a result — a type guard,
-    // not a real branch.
-    if (!res || res.cancelled) return
-    store.addRequest({
-      method: 'GET',
-      url,
-      requestHeaders: headers,
-      requestBody: '',
-      status: res.status,
-      statusText: res.statusText,
-      responseHeaders: res.headers ?? [],
-      responseBody: res.body,
-      durationMs: res.durationMs,
-      contentType: res.contentType,
-      error: res.error,
-      dnsMs: res.dnsMs,
-      connectMs: res.connectMs,
-      tlsMs: res.tlsMs,
-      waitMs: res.waitMs,
-      downloadMs: res.downloadMs,
-      source: 'manual',
-    })
-  } finally {
-    store.loading = false
-  }
+  void store.send({
+    method: 'GET',
+    url,
+    headers: props.record.requestHeaders,
+    body: '',
+    maskedUrl: url,
+    maskedHeaders: props.record.requestHeaders,
+    maskedBody: '',
+    cookies: [],
+  })
 }
 
-const bodySize = computed(() => new Blob([props.record.responseBody]).size)
+// The size Go stored, not the size of the text in hand: a body too large to travel with the record
+// is reported by its real length, and this label is the one place that would otherwise understate it.
+const bodySize = computed(() => props.record.responseBytes ?? new Blob([props.record.responseBody]).size)
 
 function hostPath(url: string): string {
   try {
@@ -204,21 +189,21 @@ const availableTabs = computed<Tab[]>(() => {
   // "Cookies" is the request's own cookie jar, which only a manual send has — a captured
   // response can't show its cookies at all (Set-Cookie is a forbidden header for fetch/XHR,
   // and the browser-side workaround wasn't worth its cost), so the tab would always be empty.
-  if (props.record.source === 'manual') tabs.push('cookies')
+  if (props.record.source === RecordSource.SourceManual) tabs.push('cookies')
   tabs.push('timings')
   if (isJsonApiDoc.value) tabs.push('tests')
   // A manual record's request is the one already open in the command line above this viewer —
   // the tab would only repeat it. A captured one has no command line, so there it stays.
-  if (props.record.source === 'browser') tabs.push('request')
+  if (props.record.source === RecordSource.SourceBrowser) tabs.push('request')
   return tabs
 })
 
-const responseHeaderEntries = computed(() => props.record.responseHeaders ?? [])
-const requestHeaderEntries = computed(() => Object.entries(props.record.requestHeaders ?? {}))
+const responseHeaderEntries = computed(() => props.record.responseHeaders)
+const requestHeaderEntries = computed(() => props.record.requestHeaders)
 
 // "Назад" walks the record's own source list, not the combined one — going back from a
 // captured request must not silently reassign the *manual* selection instead.
-const sourceList = computed(() => store.requests.filter((r) => r.source === props.record.source))
+const sourceList = computed(() => store.records.filter((r) => r.source === props.record.source))
 
 const hasPrev = computed(() => {
   const idx = sourceList.value.findIndex((r) => r.id === props.record.id)
@@ -229,7 +214,7 @@ function goBack() {
   const idx = sourceList.value.findIndex((r) => r.id === props.record.id)
   if (idx >= 0 && idx < sourceList.value.length - 1) {
     const prev = sourceList.value[idx + 1]
-    if (prev.source === 'browser') store.selectBrowser(prev.id)
+    if (prev.source === RecordSource.SourceBrowser) store.selectBrowser(prev.id)
     else store.selectManual(prev.id)
   }
 }
@@ -502,9 +487,9 @@ async function copyAs(format: ExportFormat, { keepTokens = false } = {}) {
           <div class="ja-section-title" style="padding-left: 0">Заголовки запроса</div>
           <table class="kv-table">
             <tbody>
-              <tr v-for="[k, v] in requestHeaderEntries" :key="k">
-                <td class="kv-key mono">{{ k }}</td>
-                <td class="kv-val mono">{{ v }}</td>
+              <tr v-for="(h, i) in requestHeaderEntries" :key="i">
+                <td class="kv-key mono">{{ h.name }}</td>
+                <td class="kv-val mono">{{ h.value }}</td>
               </tr>
               <tr v-if="requestHeaderEntries.length === 0"><td class="kv-key" colspan="2">—</td></tr>
             </tbody>

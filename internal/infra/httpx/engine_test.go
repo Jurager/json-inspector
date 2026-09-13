@@ -24,6 +24,25 @@ func newTestEngine(t *testing.T, cfg Config) *Engine {
 	return NewEngine(cfg, platform.NewIDGen())
 }
 
+// send is the shortest way to make one request from a spec: a method, a URL, and headers as a map.
+// A map has no order, so it is sorted here — a test that cares about the order passes pairs itself.
+func send(engine *Engine, method, url string, headers map[string]string, body string) *domain.Response {
+	return engine.Do(context.Background(), Spec{
+		Method:  method,
+		URL:     url,
+		Headers: domain.PairsFromMap(headers),
+		Body:    body,
+	})
+}
+
+// inflight is how many attempts the engine still holds. It is what a cancelled request must leave
+// behind, and the tests are in this package precisely so they can look.
+func inflight(engine *Engine) int {
+	engine.mu.Lock()
+	defer engine.mu.Unlock()
+	return len(engine.inflight)
+}
+
 // TestTimings adds up: every phase is inside the total, and a plaintext server has no TLS phase at
 // all — the numbers the response viewer draws have to mean something.
 func TestTimings(t *testing.T) {
@@ -34,7 +53,7 @@ func TestTimings(t *testing.T) {
 		}))
 		defer srv.Close()
 
-		res := newTestEngine(t, Config{}).Send(http.MethodGet, srv.URL, nil, "")
+		res := send(newTestEngine(t, Config{}), http.MethodGet, srv.URL, nil, "")
 		if res.Error != "" {
 			t.Fatalf("send failed: %s", res.Error)
 		}
@@ -59,7 +78,7 @@ func TestTimings(t *testing.T) {
 		}))
 		defer srv.Close()
 
-		res := newTestEngine(t, Config{SkipTLSVerify: true}).Send(http.MethodGet, srv.URL, nil, "")
+		res := send(newTestEngine(t, Config{SkipTLSVerify: true}), http.MethodGet, srv.URL, nil, "")
 		if res.Error != "" {
 			t.Fatalf("send failed: %s", res.Error)
 		}
@@ -89,12 +108,12 @@ func TestTLSVerificationIsOnByDefault(t *testing.T) {
 	srv := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {}))
 	defer srv.Close()
 
-	res := newTestEngine(t, Config{}).Send(http.MethodGet, srv.URL, nil, "")
+	res := send(newTestEngine(t, Config{}), http.MethodGet, srv.URL, nil, "")
 	if res.Error == "" {
 		t.Error("a self-signed certificate was accepted with verification on")
 	}
 
-	relaxed := newTestEngine(t, Config{SkipTLSVerify: true}).Send(http.MethodGet, srv.URL, nil, "")
+	relaxed := send(newTestEngine(t, Config{SkipTLSVerify: true}), http.MethodGet, srv.URL, nil, "")
 	if relaxed.Error != "" {
 		t.Errorf("SkipTLSVerify did not take effect: %s", relaxed.Error)
 	}
@@ -113,14 +132,14 @@ func TestRedirects(t *testing.T) {
 	defer first.Close()
 
 	t.Run("followed by default", func(t *testing.T) {
-		res := newTestEngine(t, Config{}).Send(http.MethodGet, first.URL, nil, "")
+		res := send(newTestEngine(t, Config{}), http.MethodGet, first.URL, nil, "")
 		if res.Status != http.StatusOK || res.Body != "final" {
 			t.Errorf("got %d %q, want the redirect target", res.Status, res.Body)
 		}
 	})
 
 	t.Run("stopped when asked", func(t *testing.T) {
-		res := newTestEngine(t, Config{NoRedirects: true}).Send(http.MethodGet, first.URL, nil, "")
+		res := send(newTestEngine(t, Config{NoRedirects: true}), http.MethodGet, first.URL, nil, "")
 		if res.Status != http.StatusFound {
 			t.Errorf("status = %d, want the 302 itself", res.Status)
 		}
@@ -136,7 +155,7 @@ func TestRedirects(t *testing.T) {
 		}))
 		defer srv.Close()
 
-		res := newTestEngine(t, Config{MaxRedirects: 3}).Send(http.MethodGet, srv.URL, nil, "")
+		res := send(newTestEngine(t, Config{MaxRedirects: 3}), http.MethodGet, srv.URL, nil, "")
 		if !strings.Contains(res.Error, "3 redirects") {
 			t.Errorf("error = %q, want the redirect limit named", res.Error)
 		}
@@ -154,7 +173,7 @@ func TestRepeatedHeadersBothSurvive(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	res := newTestEngine(t, Config{}).Send(http.MethodGet, srv.URL, nil, "")
+	res := send(newTestEngine(t, Config{}), http.MethodGet, srv.URL, nil, "")
 	cookies := res.HeaderValues("Set-Cookie")
 	if len(cookies) != 3 {
 		t.Fatalf("Set-Cookie = %v, want all three", cookies)
@@ -185,7 +204,7 @@ func TestBodyCap(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	res := newTestEngine(t, Config{MaxBodyBytes: cap}).Send(http.MethodGet, srv.URL, nil, "")
+	res := send(newTestEngine(t, Config{MaxBodyBytes: cap}), http.MethodGet, srv.URL, nil, "")
 	if !res.BodyTruncated {
 		t.Error("bodyTruncated = false, want the cap reported")
 	}
@@ -193,7 +212,7 @@ func TestBodyCap(t *testing.T) {
 		t.Errorf("body length = %d, want exactly the %d-byte cap", len(res.Body), cap)
 	}
 
-	small := newTestEngine(t, Config{}).Send(http.MethodGet, srv.URL, nil, "")
+	small := send(newTestEngine(t, Config{}), http.MethodGet, srv.URL, nil, "")
 	if small.BodyTruncated {
 		t.Error("a body under the default cap was reported as truncated")
 	}
@@ -255,8 +274,8 @@ func TestCancelStopsOneRequest(t *testing.T) {
 	if engine.Cancel("slow") {
 		t.Error("the id is still in flight after the request returned")
 	}
-	if n := engine.CancelAll(); n != 0 {
-		t.Errorf("CancelAll reported %d in flight, want none", n)
+	if n := inflight(engine); n != 0 {
+		t.Errorf("%d attempts are still in flight, want none", n)
 	}
 }
 
@@ -297,8 +316,11 @@ func TestConcurrentRequestsCancelIndependently(t *testing.T) {
 	}
 	// b is still registered: an attempt leaves the registry when it returns, not when it is
 	// cancelled, and cancelling twice is harmless.
-	if n := engine.CancelAll(); n != 3 {
-		t.Fatalf("CancelAll reported %d, want all three attempts", n)
+	if n := inflight(engine); n != 3 {
+		t.Fatalf("%d attempts are in flight, want all three", n)
+	}
+	if !engine.Cancel("a") || !engine.Cancel("c") {
+		t.Fatal("an attempt could not be cancelled on its own")
 	}
 
 	got := map[string]bool{}
@@ -331,8 +353,8 @@ func TestCookieJarIsOptIn(t *testing.T) {
 
 	t.Run("off by default", func(t *testing.T) {
 		engine := newTestEngine(t, Config{})
-		engine.Send(http.MethodGet, srv.URL, nil, "")
-		second := engine.Send(http.MethodGet, srv.URL, nil, "")
+		send(engine, http.MethodGet, srv.URL, nil, "")
+		second := send(engine, http.MethodGet, srv.URL, nil, "")
 		if second.Body != "set" {
 			t.Errorf("second body = %q, want no cookie carried", second.Body)
 		}
@@ -340,8 +362,8 @@ func TestCookieJarIsOptIn(t *testing.T) {
 
 	t.Run("on when asked", func(t *testing.T) {
 		engine := newTestEngine(t, Config{UseCookieJar: true})
-		engine.Send(http.MethodGet, srv.URL, nil, "")
-		second := engine.Send(http.MethodGet, srv.URL, nil, "")
+		send(engine, http.MethodGet, srv.URL, nil, "")
+		second := send(engine, http.MethodGet, srv.URL, nil, "")
 		if second.Body != "cookie=abc" {
 			t.Errorf("second body = %q, want the cookie carried", second.Body)
 		}
@@ -366,7 +388,7 @@ func TestProxyIsUsed(t *testing.T) {
 	}))
 	defer proxy.Close()
 
-	res := newTestEngine(t, Config{ProxyURL: proxy.URL}).Send(http.MethodGet, target.URL, nil, "")
+	res := send(newTestEngine(t, Config{ProxyURL: proxy.URL}), http.MethodGet, target.URL, nil, "")
 	if res.Error != "" {
 		t.Fatalf("send through the proxy failed: %s", res.Error)
 	}
@@ -414,7 +436,7 @@ func TestRequestHeadersAreSent(t *testing.T) {
 // TestBadURLIsReportedNotPanicked keeps a mistyped URL a message in the response rather than a
 // crash in the app.
 func TestBadURLIsReportedNotPanicked(t *testing.T) {
-	res := newTestEngine(t, Config{}).Send(http.MethodGet, "not a url at all", nil, "")
+	res := send(newTestEngine(t, Config{}), http.MethodGet, "not a url at all", nil, "")
 	if res.Error == "" {
 		t.Error("a malformed URL produced no error")
 	}

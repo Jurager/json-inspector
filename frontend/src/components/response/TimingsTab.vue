@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import type { RequestRecord } from '../../lib/requestRecord'
+import type { RecordView } from '../../lib/requestRecord'
 
-const props = defineProps<{ record: RequestRecord }>()
+const props = defineProps<{ record: RecordView }>()
 
 interface Phase {
   label: string

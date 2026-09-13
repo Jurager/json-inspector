@@ -7,7 +7,17 @@ import (
 	"testing"
 
 	"github.com/wailsapp/wails/v3/pkg/application"
+	"go.uber.org/fx"
 )
+
+// Every service the window calls is built from the graph, and a port with no implementation is not
+// a compile error — it is a failure at startup, when there is no console to say so on. This builds
+// the graph without constructing anything, so a missing or doubled provider is a test failure.
+func TestTheWiringBuilds(t *testing.T) {
+	if err := fx.ValidateApp(appOptions()...); err != nil {
+		t.Fatalf("the dependency graph does not build: %v", err)
+	}
+}
 
 // The window's URL carries the theme (`/?theme=dark`) so the first frame is already painted in the
 // right palette — asking Go over IPC is too late for that. That trick rests on the asset server

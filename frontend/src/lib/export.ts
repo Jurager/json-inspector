@@ -1,5 +1,5 @@
 import { substituteTokensMasked, type ResolveFn } from './vars'
-import type { RequestRecord } from './requestRecord'
+import type { RecordView } from './requestRecord'
 
 export type ExportFormat = 'curl' | 'fetch' | 'wget' | 'httpie' | 'powershell'
 
@@ -23,14 +23,16 @@ function substituteForExport(text: string, options?: ExportOptions): string {
 
 export function exportRequest(
   format: ExportFormat,
-  request: Pick<RequestRecord, 'method' | 'url' | 'requestHeaders' | 'requestBody'>,
+  request: Pick<RecordView, 'method' | 'url' | 'requestHeaders' | 'requestBody'>,
   options?: ExportOptions
 ): string {
   const url = substituteForExport(request.url, options)
   const body = substituteForExport(request.requestBody, options)
+  // A repeat of one name is folded into one header: none of the five formats has a spelling for
+  // two of them, and the last value is the one that would have been sent.
   const headers: Record<string, string> = {}
-  for (const [k, v] of Object.entries(request.requestHeaders)) {
-    headers[substituteForExport(k, options)] = substituteForExport(v, options)
+  for (const { name, value } of request.requestHeaders) {
+    headers[substituteForExport(name, options)] = substituteForExport(value, options)
   }
   const entries = Object.entries(headers)
   const method = request.method

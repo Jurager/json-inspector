@@ -4,29 +4,33 @@ import Icon from '../ui/Icon.vue'
 import { Button, IconButton } from '../ui/button'
 import { Input } from '../ui/input'
 import { useRequestsStore } from '../../stores/requests'
-import type { RequestRecord } from '../../lib/requestRecord'
+import { RecordSource, type Record } from '../../../bindings/json-inspector/internal/domain'
 import { statusBadgeClass } from '../../lib/format'
 
-const props = defineProps<{ sourceKind: 'manual' | 'browser' }>()
+const props = defineProps<{ sourceKind: RecordSource }>()
 
 const store = useRequestsStore()
 
+const browser = computed(() => props.sourceKind === RecordSource.SourceBrowser)
+
 const emptyHint = computed(() =>
-  props.sourceKind === 'browser'
+  browser.value
     ? 'Установите и активируйте расширение. Перехваченные запросы появятся здесь.'
     : 'Здесь появятся запросы, отправленные вручную.'
 )
 
-const records = computed(() => store.requests.filter((r) => r.source === props.sourceKind))
-const activeId = computed(() => (props.sourceKind === 'browser' ? store.browserId : store.manualId))
+const records = computed(() => store.records.filter((r) => r.source === props.sourceKind))
+const activeId = computed(() =>
+  props.sourceKind === RecordSource.SourceBrowser ? store.browserId : store.manualId
+)
 
 function select(id: string) {
-  if (props.sourceKind === 'browser') store.selectBrowser(id)
+  if (props.sourceKind === RecordSource.SourceBrowser) store.selectBrowser(id)
   else store.selectManual(id)
 }
 
 function clearAll() {
-  store.clearRequests(records.value.map((r) => r.id))
+  void store.clearRecords(records.value.map((r) => r.id))
 }
 
 function timeLabel(startedAt: number): string {
@@ -45,7 +49,7 @@ function pathOf(url: string): string {
 
 const query = ref('')
 
-function matches(r: RequestRecord, q: string): boolean {
+function matches(r: Record, q: string): boolean {
   return (
     r.method.toLowerCase().includes(q) ||
     String(r.status).includes(q) ||
@@ -75,7 +79,7 @@ function dateLabel(startedAt: number): string {
 }
 
 const manualGroups = computed(() => {
-  const out: { label: string; items: RequestRecord[] }[] = []
+  const out: { label: string; items: Record[] }[] = []
   for (const r of filteredRecords.value) {
     const label = dateLabel(r.startedAt)
     const last = out[out.length - 1]
@@ -90,7 +94,7 @@ interface TabGroup {
   title: string
   url: string
   favIconUrl: string
-  items: RequestRecord[]
+  items: Record[]
 }
 
 const tabGroups = computed<TabGroup[]>(() => {
@@ -119,7 +123,7 @@ const filteredGroups = computed(() => {
 })
 
 const isEmptyFiltered = computed(() =>
-  props.sourceKind === 'browser' ? filteredGroups.value.length === 0 : filteredRecords.value.length === 0
+  browser.value ? filteredGroups.value.length === 0 : filteredRecords.value.length === 0
 )
 
 function isRecording(g: TabGroup): boolean {
@@ -143,7 +147,7 @@ function markBroken(key: string) {
 }
 
 function clearGroup(g: TabGroup) {
-  store.clearRequests(g.items.map((r) => r.id))
+  void store.clearRecords(g.items.map((r) => r.id))
 }
 
 function hostnameOf(url: string): string {
@@ -167,7 +171,7 @@ function groupHue(key: string): number {
 // A deep link's tab may have nothing yet, but the link is clicked right after the page loads
 // and the first request lands a moment later — so the request is kept.
 function focusDeepLinkedTab() {
-  if (props.sourceKind !== 'browser') return
+  if (props.sourceKind !== RecordSource.SourceBrowser) return
   const tabId = store.focusTabId
   if (tabId == null) return
   const g = tabGroups.value.find((x) => x.key === String(tabId))
@@ -180,7 +184,7 @@ function focusDeepLinkedTab() {
   store.focusTabId = null
 }
 
-watch(() => [store.focusTabId, store.requests.length, props.sourceKind] as const, focusDeepLinkedTab, {
+watch(() => [store.focusTabId, store.records.length, props.sourceKind] as const, focusDeepLinkedTab, {
   immediate: true,
 })
 </script>
@@ -188,18 +192,18 @@ watch(() => [store.focusTabId, store.requests.length, props.sourceKind] as const
 <template>
   <div class="history-panel">
     <div class="panel-head">
-      <span class="panel-title">{{ sourceKind === 'browser' ? 'Перехвачено' : 'История' }}</span>
+      <span class="panel-title">{{ browser ? 'Перехвачено' : 'История' }}</span>
       <Button variant="quiet" :disabled="records.length === 0" @click="clearAll">Очистить</Button>
     </div>
 
-    <div v-if="records.length === 0 && sourceKind === 'manual'" class="empty">
+    <div v-if="records.length === 0 && !browser" class="empty">
       <span class="empty-title">Пока пусто</span>
       <span class="empty-hint">{{ emptyHint }}</span>
     </div>
 
     <div v-else-if="records.length > 0 && isEmptyFiltered" class="no-results">Ничего не найдено</div>
 
-    <ul v-else-if="sourceKind === 'manual'" class="list">
+    <ul v-else-if="!browser" class="list">
       <template v-for="g in manualGroups" :key="g.label">
         <li class="date-sep">{{ g.label }}</li>
         <li

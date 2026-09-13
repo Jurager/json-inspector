@@ -1,35 +1,40 @@
-import type { CookieRow } from './cookies'
-import type { HeaderPair } from '../../bindings/json-inspector/internal/domain'
+import type { BodyRef, CookieRow, HeaderPair, Record } from '../../bindings/json-inspector/internal/domain'
 
-// A request/response from either the manual builder or the browser extension.
-export interface RequestRecord {
-  id: string
-  method: string
-  url: string
-  requestHeaders: Record<string, string>
-  requestBody: string
-  status: number
-  statusText: string
+// A record as the window draws it: the one Go keeps, with its two bodies flattened to text. Storing
+// a record is the record itself; drawing it is this.
+export type RecordView = Omit<
+  Record,
+  'requestBody' | 'responseBody' | 'requestHeaders' | 'responseHeaders' | 'requestCookies'
+> & {
+  // The wire marks a list as possibly null because Go can marshal a nil slice that way; the app
+  // never means that, so the shift from Go to view settles it once here instead of at every use.
+  requestHeaders: HeaderPair[]
   responseHeaders: HeaderPair[]
+  requestCookies: CookieRow[]
+  requestBody: string
   responseBody: string
-  durationMs: number
-  startedAt: number
-  source: 'manual' | 'browser'
-  contentType?: string
-  error?: string
-  dnsMs?: number
-  connectMs?: number
-  tlsMs?: number
-  waitMs?: number
-  downloadMs?: number
-  // Only meaningful for a captured (browser) record — a manual one always has the phases
-  // above from Go's own httptrace, this just isn't set for it. See TimingsTab's hasDetail.
-  hasTiming?: boolean
-  // The structured request-side jar "Cookies" edits in "Запрос" mode — manual only; a captured
-  // record has no draft of its own to have edited one for.
-  requestCookies?: CookieRow[]
-  tabTitle?: string
-  tabURL?: string
-  tabId?: number
-  favIconUrl?: string
+}
+
+// Both sides of a record once they have been read, by side. What a fetch for a body answers with.
+export interface RecordBodies {
+  request?: string
+  response?: string
+}
+
+export function recordView(record: Record, bodies?: RecordBodies): RecordView {
+  return {
+    ...record,
+    requestHeaders: record.requestHeaders ?? [],
+    responseHeaders: record.responseHeaders ?? [],
+    requestCookies: record.requestCookies ?? [],
+    requestBody: bodies?.request ?? record.requestBody?.inline ?? '',
+    responseBody: bodies?.response ?? record.responseBody?.inline ?? '',
+  }
+}
+
+// Whether a body still has to be asked for. `inline` is present exactly when it is the whole text,
+// so its absence next to a non-zero size is the one case where a call is owed — and a body that is
+// merely empty is not one of them.
+export function bodyMissing(ref: BodyRef | null | undefined): boolean {
+  return !!ref && ref.size > 0 && !ref.inline
 }

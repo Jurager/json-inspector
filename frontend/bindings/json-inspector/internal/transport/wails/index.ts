@@ -3,13 +3,13 @@
 
 import * as BridgeService from "./bridgeservice.js";
 import * as EnvironmentsService from "./environmentsservice.js";
-import * as RequestsService from "./requestsservice.js";
+import * as RecordsService from "./recordsservice.js";
 import * as SettingsService from "./settingsservice.js";
 import * as SystemService from "./systemservice.js";
 export {
     BridgeService,
     EnvironmentsService,
-    RequestsService,
+    RecordsService,
     SettingsService,
     SystemService
 };

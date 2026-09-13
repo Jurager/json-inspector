@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
+import { RecordSource } from '../../../bindings/json-inspector/internal/domain'
 import { useRequestsStore } from '../../stores/requests'
 import { useResizableWidth } from '../../composables/useResizableWidth'
 import { useSettings } from '../../composables/useSettings'
@@ -30,7 +31,8 @@ watch(sideWidth, (width) => setLayout({ sideWidth: width }))
 void loadSettings()
 
 const browserEmpty = computed(
-  () => store.activeView === 'browser' && !store.requests.some((r) => r.source === 'browser')
+  () =>
+    store.activeView === 'browser' && !store.records.some((r) => r.source === RecordSource.SourceBrowser)
 )
 </script>
 
@@ -38,7 +40,9 @@ const browserEmpty = computed(
   <main class="main">
     <div class="side-layout">
       <div v-if="!browserEmpty && store.activeView !== 'collections'" class="side-panel" :style="{ width: sideWidth + 'px' }">
-        <HistoryPanel :source-kind="store.activeView === 'request' ? 'manual' : 'browser'" />
+        <HistoryPanel
+          :source-kind="store.activeView === 'request' ? RecordSource.SourceManual : RecordSource.SourceBrowser"
+        />
       </div>
       <div v-if="!browserEmpty && store.activeView !== 'collections'" class="resize-handle" @mousedown.prevent="startSideDrag"></div>
       <div class="side-main">

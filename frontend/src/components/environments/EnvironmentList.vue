@@ -125,9 +125,12 @@ function isNameReferenced(name: string): boolean {
   const texts: string[] = [reqStore.draft.url, reqStore.draft.body]
   for (const p of reqStore.draft.params) texts.push(p.name, p.value)
   for (const h of reqStore.draft.headers) texts.push(h.name, h.value)
-  for (const r of reqStore.requests) {
-    texts.push(r.url, r.requestBody)
-    for (const [k, v] of Object.entries(r.requestHeaders ?? {})) texts.push(k, v)
+  // History keeps a record's URL and headers in full but not its bodies — a body stays in the
+  // database until something opens it — so a name that only ever appeared inside one is missed
+  // here. That is a hint not given, not a wrong answer.
+  for (const r of reqStore.records) {
+    texts.push(r.url)
+    for (const h of r.requestHeaders ?? []) texts.push(h.name, h.value)
   }
   return texts.some((t) => t && parseTokens(t).some((tok) => tok.name === name))
 }

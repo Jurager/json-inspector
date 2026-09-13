@@ -3,12 +3,10 @@ import { useEnvironmentsStore } from '../stores/environments'
 import { useRequestsStore } from '../stores/requests'
 import { useSettings } from './useSettings'
 
-const HISTORY_STORAGE_KEY = 'ji-history-v1'
-const MAX_HISTORY = 200
 const SAVE_DEBOUNCE_MS = 300
 
-// What outlives a window: history (still in localStorage until it moves to the database) and the
-// panel geometry (already in the database, through the settings feature).
+// What outlives a window. Both the history and the panel geometry now live in the database, so this
+// only has to ask for them and, for the geometry, say when it changed.
 export function useSessionPersistence(
   store: ReturnType<typeof useRequestsStore>,
   envStore: ReturnType<typeof useEnvironmentsStore>
@@ -18,25 +16,21 @@ export function useSessionPersistence(
   let saveTimer: ReturnType<typeof setTimeout> | null = null
 
   onMounted(() => {
-    try {
-      const raw = localStorage.getItem(HISTORY_STORAGE_KEY)
-      if (raw) {
-        const parsed = JSON.parse(raw)
-        if (Array.isArray(parsed)) store.hydrate(parsed)
-      }
-    } catch {
-      // ignore corrupt storage
-    }
-
-    // The panel geometry comes from the database, so it survives a reinstall; the store is what the
-    // window draws from while it is open.
     void loadSettings().then(() => {
       const stored = settings.value
       if (!stored) return
       store.setInspector({ open: stored.inspectorOpen, width: stored.inspectorWidth })
     })
 
-    // Secrets come back out of the keychain before the first request needs one.
+    // History first takes over what the old build left in localStorage, then reads the list — which
+    // is what makes an imported record appear in the same pass as a stored one.
+    store
+      .importLegacyOnce()
+      .then(() => store.load())
+      .catch(() => {
+        // An empty list is a state the panel can show; the next launch tries again.
+      })
+
     // The environments now live in the database: read them, take over what the old build left in
     // localStorage, and give a fresh install the environment it has always started with.
     envStore
@@ -48,14 +42,11 @@ export function useSessionPersistence(
         // the sheet can show.
       })
 
+    // Only the geometry is left to save: the history belongs to Go and every change to it is
+    // already a call on that side.
     unsubscribe = store.$subscribe((_m, state) => {
       if (saveTimer) clearTimeout(saveTimer)
       saveTimer = setTimeout(() => {
-        try {
-          localStorage.setItem(HISTORY_STORAGE_KEY, JSON.stringify(state.requests.slice(0, MAX_HISTORY)))
-        } catch {
-          // ignore quota errors
-        }
         setLayout({ inspectorOpen: state.inspector.open, inspectorWidth: state.inspector.width })
       }, SAVE_DEBOUNCE_MS)
     })

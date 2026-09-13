@@ -1,10 +1,23 @@
 package domain
 
+import "sort"
+
 // HeaderPair is one header line. Headers travel as a sequence rather than a map because the wire
 // allows a name to repeat — two Set-Cookie lines are two cookies — and a map would keep one.
 type HeaderPair struct {
 	Name  string `json:"name"`
 	Value string `json:"value"`
+}
+
+// PairsFromMap turns a header map into pairs. A map has no order of its own, so the pairs come out
+// sorted: two runs over the same headers must not disagree, and neither must two ends of the app.
+func PairsFromMap(headers map[string]string) []HeaderPair {
+	out := make([]HeaderPair, 0, len(headers))
+	for name, value := range headers {
+		out = append(out, HeaderPair{Name: name, Value: value})
+	}
+	sort.Slice(out, func(a, b int) bool { return out[a].Name < out[b].Name })
+	return out
 }
 
 // Response is what a request comes back as: the body plus the per-phase timings.

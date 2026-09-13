@@ -5,15 +5,16 @@ package wails
 import (
 	"github.com/wailsapp/wails/v3/pkg/application"
 
+	"json-inspector/internal/domain"
 	"json-inspector/internal/infra/updater"
 	"json-inspector/internal/transport/bridge"
+	"json-inspector/internal/usecase/record"
 	"json-inspector/internal/usecase/settings"
 )
 
 // Event names, declared once here. Each is registered with the payload type it carries, which is
 // what makes the generated TypeScript events typed instead of `any` — see eventdata.d.ts.
 const (
-	eventCapturedRequest     = "captured-request"
 	eventCaptureState        = "capture-state"
 	eventCaptureDisconnected = "capture-disconnected"
 	eventOpenTab             = "open-tab"
@@ -24,7 +25,6 @@ const (
 // The calls must be direct and constant-typed: the binding generator reads them statically, and
 // anything indirect is invisible to it. Names are checked, so a duplicate panics at startup.
 func init() {
-	application.RegisterEvent[bridge.CapturedRequest](eventCapturedRequest)
 	application.RegisterEvent[bridge.CaptureState](eventCaptureState)
 	application.RegisterEvent[application.Void](eventCaptureDisconnected)
 	application.RegisterEvent[int](eventOpenTab)
@@ -32,6 +32,12 @@ func init() {
 	application.RegisterEvent[application.Void](eventUpdateCheck)
 	// A preference change reaches every window: the About window draws in the same palette.
 	application.RegisterEvent[settings.ThemeChanged](settings.TopicThemeChanged)
+
+	// History and the attempts that fill it. A record is the same type the list draws — and the same
+	// event, whether it came from a request this app sent or from the browser.
+	application.RegisterEvent[domain.Record](record.TopicRecordAdded)
+	application.RegisterEvent[record.RequestFinished](record.TopicRequestFinished)
+	application.RegisterEvent[record.RequestFailed](record.TopicRequestFailed)
 }
 
 // bus is the Notifier the features publish to. A topic is the event name — one spelling, so the
