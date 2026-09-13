@@ -214,9 +214,10 @@ func TestAChainIsEmptyWhenNothingRuns(t *testing.T) {
 }
 
 func TestBeforeRunsEveryPreScriptInOrder(t *testing.T) {
-	uc, engine, _, _, _ := newTest()
+	uc, engine, _, store, _ := newTest()
 
-	skip, err := uc.Before(context.Background(), pass("r-1"))
+	asked := pass("r-1")
+	skip, err := uc.Before(context.Background(), &asked)
 	if err != nil {
 		t.Fatalf("Before: %v", err)
 	}
@@ -233,6 +234,15 @@ func TestBeforeRunsEveryPreScriptInOrder(t *testing.T) {
 			t.Errorf("scope = %q, want every one of them before the request", in.Scope)
 		}
 	}
+
+	// Nothing is written yet: a report hangs off the record it ran around, and the record does not
+	// exist until the request has been answered.
+	if len(store.runs) != 0 {
+		t.Errorf("%d report(s) were written before the record they belong to", len(store.runs))
+	}
+	if len(asked.Ran) != 3 {
+		t.Errorf("passes that ran = %d, want the three carried to the other half", len(asked.Ran))
+	}
 }
 
 // A script that changes the request changes what the ones after it see: the collection's script runs
@@ -245,7 +255,7 @@ func TestWhatAScriptChangesTheNextOneSees(t *testing.T) {
 	}
 
 	asked := pass("r-1")
-	if _, err := uc.Before(context.Background(), asked); err != nil {
+	if _, err := uc.Before(context.Background(), &asked); err != nil {
 		t.Fatalf("Before: %v", err)
 	}
 
@@ -263,7 +273,8 @@ func TestAPreRequestScriptCanCallTheRequestOff(t *testing.T) {
 		return domain.ScriptRun{Scope: in.Scope, OK: true, SkipRequest: in.Source == "console.log('папка');"}
 	}
 
-	skip, err := uc.Before(context.Background(), pass("r-1"))
+	asked := pass("r-1")
+	skip, err := uc.Before(context.Background(), &asked)
 	if err != nil {
 		t.Fatalf("Before: %v", err)
 	}
@@ -331,17 +342,19 @@ func TestAfterRunsThePostScriptsAndKeepsTheReports(t *testing.T) {
 	}
 }
 
-// A report that cannot be written stops the pass: it is the storage failing, not a script, and a
-// request that goes out while the database is broken is a request whose report is lost for good.
-func TestAReportThatCannotBeWrittenIsAnError(t *testing.T) {
+// A store that refuses to keep a report is not a reason to fail a request: the answer came back and
+// the request is a record, and a report lost after that is the smaller loss. Neither half may panic
+// over it, and the first half may not even notice — it writes nothing.
+func TestAStoreThatCannotKeepReportsDoesNotFailTheRequest(t *testing.T) {
 	uc, _, _, store, _ := newTest()
 	store.fail = true
 
-	if _, err := uc.Before(context.Background(), pass("r-1")); err == nil {
-		t.Fatal("a pass whose report could not be written came back without an error")
+	asked := pass("r-1")
+	if _, err := uc.Before(context.Background(), &asked); err != nil {
+		t.Fatalf("Before: %v", err)
 	}
-	// After has nowhere to put an error, and it must not panic either.
-	uc.After(context.Background(), pass("r-1"))
+	asked.Response = &domain.Response{Status: 200}
+	uc.After(context.Background(), asked)
 }
 
 // The run's own scope is the run's: the next request of the same run sees what the last one wrote,
@@ -362,7 +375,8 @@ func TestTheRunScopeBelongsToTheRun(t *testing.T) {
 		}
 		return domain.ScriptRun{Scope: in.Scope, OK: true}
 	}
-	if _, err := uc.Before(ctx, pass("r-1")); err != nil {
+	first := pass("r-1")
+	if _, err := uc.Before(ctx, &first); err != nil {
 		t.Fatalf("Before: %v", err)
 	}
 	if seen != "2" {
@@ -379,7 +393,7 @@ func TestTheRunScopeBelongsToTheRun(t *testing.T) {
 		}
 		return domain.ScriptRun{Scope: in.Scope, OK: true}
 	}
-	if _, err := uc.Before(ctx, other); err != nil {
+	if _, err := uc.Before(ctx, &other); err != nil {
 		t.Fatalf("Before: %v", err)
 	}
 	if found {
@@ -409,7 +423,21 @@ func TestReadingAVariableLooksThroughTheScopes(t *testing.T) {
 		return domain.ScriptRun{Scope: in.Scope, OK: true}
 	}
 
-	if _, err := uc.Before(context.Background(), pass("r-1")); err != nil {
+	engine.onRun = func(in domain.ScriptInput) domain.ScriptRun {
+		for _, name := range []string{"base", "token", "нет"} {
+			value, ok, err := in.Variables.Get(domain.ScopeRun, name)
+			if err != nil {
+				t.Errorf("Get(%s): %v", name, err)
+			}
+			if ok {
+				asked[name] = value
+			}
+		}
+		return domain.ScriptRun{Scope: in.Scope, OK: true}
+	}
+
+	first := pass("r-1")
+	if _, err := uc.Before(context.Background(), &first); err != nil {
 		t.Fatalf("Before: %v", err)
 	}
 	if asked["base"] != "https://api.example.com" {
@@ -440,7 +468,8 @@ func TestWritingAVariableGoesWhereTheScopeSays(t *testing.T) {
 		return domain.ScriptRun{Scope: in.Scope, OK: true}
 	}
 
-	if _, err := uc.Before(context.Background(), pass("r-1")); err != nil {
+	asked := pass("r-1")
+	if _, err := uc.Before(context.Background(), &asked); err != nil {
 		t.Fatalf("Before: %v", err)
 	}
 	if len(vars.writes) != 2 {
@@ -470,7 +499,8 @@ func TestAScopeThatRefusesAWriteSaysSo(t *testing.T) {
 		return domain.ScriptRun{Scope: in.Scope, OK: true}
 	}
 
-	if _, err := uc.Before(context.Background(), pass("r-1")); err != nil {
+	asked := pass("r-1")
+	if _, err := uc.Before(context.Background(), &asked); err != nil {
 		t.Fatalf("Before: %v", err)
 	}
 	if refused == nil || !strings.Contains(refused.Error(), "только для чтения") {
@@ -489,17 +519,23 @@ func TestAFailedScriptDoesNotStopTheChain(t *testing.T) {
 		return domain.ScriptRun{Scope: in.Scope, OK: true}
 	}
 
-	if _, err := uc.Before(context.Background(), pass("r-1")); err != nil {
+	asked := pass("r-1")
+	if _, err := uc.Before(context.Background(), &asked); err != nil {
 		t.Fatalf("Before: %v", err)
 	}
-	if len(engine.ran) != 3 {
-		t.Fatalf("%d scripts ran, want all three", len(engine.ran))
+	asked.Response = &domain.Response{Status: 200}
+	uc.After(context.Background(), asked)
+
+	// The three pre-request scripts of the chain and the collection's post-response one: the folder's
+	// failure stopped neither the levels below it nor the second half.
+	if len(engine.ran) != 4 {
+		t.Fatalf("%d scripts ran, want all four", len(engine.ran))
 	}
-	if len(store.runs) != 3 {
+	if len(store.runs) != 4 {
 		t.Fatalf("%d reports were kept, want one per script", len(store.runs))
 	}
-	if store.runs[1].OK {
-		t.Error("the folder's report says it went through, and it did not")
+	if store.runs[1].OK || store.runs[1].Error != "ReferenceError: nope" {
+		t.Errorf("report = %+v, want the failure the folder's script came with", store.runs[1])
 	}
 }
 

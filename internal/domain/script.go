@@ -71,6 +71,12 @@ type ScriptPass struct {
 	NodeID   string
 	Request  *ScriptRequest
 	Response *Response
+
+	// Ran is what the pre-request scripts did, carried to the other half of the same pass. A report
+	// hangs off the record it ran around, and the record is written only once the request has been
+	// answered — so the reports of the first half wait here for the record to exist. Whoever sends the
+	// request carries them and never reads them.
+	Ran []ScriptRun
 }
 
 // VarScope names one of the three places a script's variables live, by the name the script itself

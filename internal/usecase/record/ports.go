@@ -47,8 +47,11 @@ type Notifier interface {
 //
 // The signature is the shape the scripting feature already has, which is why the composition root
 // binds it without an adapter: the port is declared here, next to the moment it describes.
+//
+// The pass goes in as a pointer because the first half fills it in: what the pre-request scripts did
+// is carried back here and handed to the second half, where the record they belong to exists.
 type Screener interface {
-	Before(ctx context.Context, pass domain.ScriptPass) (bool, error)
+	Before(ctx context.Context, pass *domain.ScriptPass) (bool, error)
 	After(ctx context.Context, pass domain.ScriptPass)
 }
 

@@ -161,20 +161,32 @@ type fakeScreen struct {
 	skip   bool
 	fail   error
 	change func(pass *domain.ScriptPass)
+
+	// What the store held when each pass ran. A report hangs off the record it ran around, so the
+	// moment the post-response scripts are handed the attempt is a moment the record has to exist in.
+	records       *fakeStore
+	savedAtBefore int
+	savedAtAfter  int
 }
 
-func (f *fakeScreen) Before(_ context.Context, pass domain.ScriptPass) (bool, error) {
+func (f *fakeScreen) Before(_ context.Context, pass *domain.ScriptPass) (bool, error) {
+	if f.records != nil {
+		f.savedAtBefore = len(f.records.saved)
+	}
 	if f.fail != nil {
 		return false, f.fail
 	}
 	if f.change != nil {
-		f.change(&pass)
+		f.change(pass)
 	}
-	f.passes = append(f.passes, pass)
+	f.passes = append(f.passes, *pass)
 	return f.skip, nil
 }
 
 func (f *fakeScreen) After(_ context.Context, pass domain.ScriptPass) {
+	if f.records != nil {
+		f.savedAtAfter = len(f.records.saved)
+	}
 	f.passes = append(f.passes, pass)
 }
 
@@ -316,6 +328,30 @@ func TestTheScriptsRunAroundTheAttempt(t *testing.T) {
 	}
 	if len(finished.Record.RequestHeaders) != 1 || finished.Record.RequestHeaders[0].Name != "X-Sign" {
 		t.Errorf("recorded headers = %+v, want the masked ones from the second preparation", finished.Record.RequestHeaders)
+	}
+}
+
+// The reports of a request hang off its record, so the record has to be there when they are written:
+// the pre-request scripts run before anything is stored — there is nothing to store yet — and the
+// post-response ones after it. Writing a report first leaves it belonging to nothing, which is a tab
+// that says a request has no scripts while its scripts are sitting in the database.
+func TestTheReportsBelongToARecordThatExists(t *testing.T) {
+	screen := &fakeScreen{}
+	uc, store, _, notifier := newScriptedUseCase(screen, nil)
+	screen.records = store
+
+	in := input()
+	in.Node = "r-1"
+	if _, err := uc.Send(context.Background(), in); err != nil {
+		t.Fatalf("Send: %v", err)
+	}
+	notifier.waitFor(t, TopicRequestFinished)
+
+	if screen.savedAtBefore != 0 {
+		t.Errorf("the pre-request scripts ran with %d record(s) stored, want none", screen.savedAtBefore)
+	}
+	if screen.savedAtAfter != 1 {
+		t.Errorf("the post-response scripts ran with %d record(s) stored, want the one they belong to", screen.savedAtAfter)
 	}
 }
 

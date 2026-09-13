@@ -155,7 +155,7 @@ func (u *UseCase) attempt(ctx context.Context, id string, started int64, in Send
 	}
 
 	if u.screen != nil {
-		skip, err := u.screen.Before(ctx, pass)
+		skip, err := u.screen.Before(ctx, &pass)
 		if err != nil {
 			return domain.Record{}, err
 		}
@@ -190,14 +190,16 @@ func (u *UseCase) attempt(ctx context.Context, id string, started int64, in Send
 		return domain.Record{Cancelled: true}, nil
 	}
 
-	if u.screen != nil {
-		pass.Response = resp
-		u.screen.After(ctx, pass)
-	}
-
 	rec := u.recordFrom(id, started, in, pass, u.masked(ctx, in, pass.Request), resp)
 	if err := u.save(ctx, rec); err != nil {
 		return domain.Record{}, err
+	}
+
+	// The second half of the pass runs after the record is written and not before it: its reports hang
+	// off that record, and the reports of the first half are carried in the pass for the same reason.
+	if u.screen != nil {
+		pass.Response = resp
+		u.screen.After(ctx, pass)
 	}
 	return rec, nil
 }

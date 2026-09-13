@@ -107,17 +107,57 @@ func (u *UseCase) Chain(ctx context.Context, nodeID string) ([]Level, error) {
 //
 // What the scripts do to the request is on the pass, and they all see the same one: a collection's
 // script changes what a folder's is handed, and the folder's changes what the request's own sees.
-func (u *UseCase) Before(ctx context.Context, pass domain.ScriptPass) (bool, error) {
-	return u.half(ctx, pass, domain.ScriptPre)
+//
+// What they did goes back in the pass rather than into the store: a report hangs off the record it ran
+// around, and that record is written only after the request has been answered.
+func (u *UseCase) Before(ctx context.Context, pass *domain.ScriptPass) (bool, error) {
+	chain, err := u.Chain(ctx, pass.NodeID)
+	if err != nil {
+		return false, err
+	}
+
+	skip := false
+	for _, level := range chain {
+		source := scriptSource(level, domain.ScriptPre)
+		if source == "" {
+			continue
+		}
+		report := u.script(ctx, *pass, level, domain.ScriptPre, source)
+		pass.Ran = append(pass.Ran, report)
+		// Only a pre-request script can call a request off; one that does it after the answer came
+		// back is too late to matter, and saying so would be a lie about what happened.
+		skip = skip || report.SkipRequest
+	}
+	return skip, nil
 }
 
-// After runs the post-response scripts of the same chain, in the same order.
+// After writes down what the first half did — the record it belongs to exists by now — and runs the
+// second half, in the same order.
 //
 // It answers with nothing because there is nothing left to say: the answer came back and the request
 // is a record already. A report that cannot be written is lost — the alternative is a request that
-// failed after it had worked.
+// failed after it had worked — and the ones behind it are lost with it, because a store that refuses
+// one will refuse the next.
 func (u *UseCase) After(ctx context.Context, pass domain.ScriptPass) {
-	_, _ = u.half(ctx, pass, domain.ScriptPost)
+	for _, report := range pass.Ran {
+		if err := u.store.SaveScriptRun(ctx, report); err != nil {
+			return
+		}
+	}
+
+	chain, err := u.Chain(ctx, pass.NodeID)
+	if err != nil {
+		return
+	}
+	for _, level := range chain {
+		source := scriptSource(level, domain.ScriptPost)
+		if source == "" {
+			continue
+		}
+		if err := u.store.SaveScriptRun(ctx, u.script(ctx, pass, level, domain.ScriptPost, source)); err != nil {
+			return
+		}
+	}
 }
 
 // Runs is what the response viewer draws: every script that ran around one record, in the order they
@@ -126,47 +166,25 @@ func (u *UseCase) Runs(ctx context.Context, recordID string) ([]domain.ScriptRun
 	return u.store.ScriptRuns(ctx, recordID)
 }
 
-// half is one side of the chain: the scripts of one scope, level by level. A level whose script is
-// empty for this scope is skipped — an empty script is a level with nothing to add, not a level that
-// throws the ones above it away — and a level that fails is a report, so the rest still run.
-func (u *UseCase) half(ctx context.Context, at domain.ScriptPass, scope domain.ScriptScope) (bool, error) {
-	chain, err := u.Chain(ctx, at.NodeID)
-	if err != nil {
-		return false, err
+// scriptSource is what a level has to run for one scope. A script of nothing but whitespace is a level
+// with nothing to say, and a level with nothing to say is not a level that throws the ones above it
+// away: it simply is not in the pass.
+func scriptSource(level Level, scope domain.ScriptScope) string {
+	if scope == domain.ScriptPost {
+		return strings.TrimSpace(level.Scripts.Post)
 	}
-
-	skip := false
-	for _, level := range chain {
-		source := level.Scripts.Pre
-		if scope == domain.ScriptPost {
-			source = level.Scripts.Post
-		}
-		if strings.TrimSpace(source) == "" {
-			continue
-		}
-		report, err := u.runScript(ctx, at, level, scope, source)
-		if err != nil {
-			return false, err
-		}
-		// Only a pre-request script can call a request off; one that does it after the answer came
-		// back is too late to matter, and saying so would be a lie about what happened.
-		if scope == domain.ScriptPre {
-			skip = skip || report.SkipRequest
-		}
-	}
-	return skip, nil
+	return strings.TrimSpace(level.Scripts.Pre)
 }
 
-// runScript executes one level's script and writes its report down. Everything that says who ran —
-// which record, which node, when — is stamped here: the sandbox knows none of it, and the tab draws
-// all of it.
-func (u *UseCase) runScript(
+// script executes one level's script. Everything that says who ran — which record, which node, when —
+// is stamped here: the sandbox knows none of it, and the tab draws all of it.
+func (u *UseCase) script(
 	ctx context.Context,
 	at domain.ScriptPass,
 	level Level,
 	scope domain.ScriptScope,
 	source string,
-) (domain.ScriptRun, error) {
+) domain.ScriptRun {
 	report := u.engine.Run(domain.ScriptInput{
 		Scope:     scope,
 		Source:    source,
@@ -179,10 +197,7 @@ func (u *UseCase) runScript(
 	report.NodeID = level.NodeID
 	report.Scope = scope
 	report.CreatedAt = time.Now().UnixMilli()
-	if err := u.store.SaveScriptRun(ctx, report); err != nil {
-		return domain.ScriptRun{}, err
-	}
-	return report, nil
+	return report
 }
 
 // scriptVariables is where a script reads and writes, seen by one script of one run.
