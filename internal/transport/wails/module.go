@@ -38,6 +38,7 @@ type ServicesIn struct {
 	Drafts       *DraftService
 	Environments *EnvironmentsService
 	Collections  *CollectionsService
+	Scripting    *ScriptingService
 	Bridge       *BridgeService
 }
 
@@ -77,6 +78,7 @@ var Module = fx.Module("wails",
 		NewDraftService,
 		NewEnvironmentsService,
 		NewCollectionsService,
+		NewScriptingService,
 		NewBridgeService,
 		newCaptureIngest,
 		newApplication,
@@ -128,6 +130,7 @@ func setup(
 	draftService := application.NewService(in.Drafts)
 	environments := application.NewService(in.Environments)
 	collections := application.NewService(in.Collections)
+	scripting := application.NewService(in.Scripting)
 	bridgeService := application.NewService(in.Bridge)
 
 	app.RegisterService(system)
@@ -140,6 +143,7 @@ func setup(
 	if status.Ready() {
 		app.RegisterService(environments)
 		app.RegisterService(collections)
+		app.RegisterService(scripting)
 		app.RegisterService(bridgeService)
 	}
 
