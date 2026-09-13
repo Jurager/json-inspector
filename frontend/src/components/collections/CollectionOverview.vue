@@ -297,9 +297,8 @@ function pluralRequests(n: number): string {
   @apply flex-1 min-h-0 flex flex-col;
 }
 
-/* The head closes with a line of its own: the tabs below it belong to the pane, not to the title. */
 .head {
-  @apply flex-none flex flex-col gap-1.5 px-6 pt-5 pb-4 border-b border-border;
+  @apply flex-none flex flex-col gap-1.5 px-6 pt-5 pb-4 border-b border-border bg-bg-panel;
 }
 
 .head-line {
@@ -314,8 +313,6 @@ function pluralRequests(n: number): string {
   @apply text-[11.5px] text-text-tertiary tabular-nums;
 }
 
-/* The line the header invites a description with, and the field it turns into: the same size, the
-   same place, so clicking the line does not move the header. */
 .description {
   @apply min-w-0 overflow-hidden text-ellipsis whitespace-nowrap text-[13px] text-text-secondary cursor-text;
 }
@@ -340,8 +337,6 @@ function pluralRequests(n: number): string {
   @apply ml-auto text-[11.5px] text-text-tertiary;
 }
 
-/* The two tabs are drawn to the design's own numbers, which the shared row does not carry: a
-   collection's tabs are its own height and its own room. */
 .coll-tabs {
   @apply flex-none h-[38px] gap-0.5 px-6;
 }
@@ -371,8 +366,6 @@ function pluralRequests(n: number): string {
   @apply overflow-y-auto bg-bg-panel;
 }
 
-/* The summary is a band under the tabs rather than four cards: the numbers are one line of the
-   pane's own chrome, and a box around each of them made the run look like a table of settings. */
 .summary {
   @apply flex-none flex items-center gap-5 px-6 py-3 border-b border-border bg-bg-panel;
 }
