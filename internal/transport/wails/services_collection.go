@@ -35,8 +35,51 @@ func (s *CollectionsService) CreateCollection(ctx context.Context, name string, 
 	return s.collections.CreateCollection(ctx, name, description)
 }
 
-func (s *CollectionsService) CreateNode(ctx context.Context, in collection.NewNode) ([]domain.Collection, error) {
-	return s.collections.CreateNode(ctx, in)
+// CreatedNode is what a creation answers with: the row that appeared and the tree it appeared in.
+// The window needs the id Go minted — looking it up by name afterwards would find the older row of
+// the same name — and the tree is what every other change to the tree answers with.
+type CreatedNode struct {
+	Node domain.CollectionNode `json:"node"`
+	Tree []domain.Collection   `json:"tree"`
+}
+
+func (s *CollectionsService) CreateNode(ctx context.Context, in collection.NewNode) (CreatedNode, error) {
+	node, tree, err := s.collections.CreateNode(ctx, in)
+	if err != nil {
+		return CreatedNode{}, err
+	}
+	return CreatedNode{Node: node, Tree: tree}, nil
+}
+
+// SaveDraft copies what the command line is composing into a collection as a new request. The draft
+// is not touched: saving a copy is not a move, and what is being composed stays where it is.
+//
+// The request arrives whole — method, address, rows, body, and the auth the chip chose — because the
+// node is written once: an empty request filled in by a second call would be a saved request with no
+// address if that call failed.
+func (s *CollectionsService) SaveDraft(ctx context.Context, collectionID string, parentID string, name string) (CreatedNode, error) {
+	draft, err := s.drafts.Current(ctx, domain.DraftCommandLine)
+	if err != nil {
+		return CreatedNode{}, err
+	}
+
+	node, tree, err := s.collections.CreateNode(ctx, collection.NewNode{
+		CollectionID: collectionID,
+		ParentID:     parentID,
+		Kind:         domain.NodeRequest,
+		Name:         name,
+		Method:       draft.Method,
+		URL:          draft.URL,
+		Params:       draft.Params,
+		Headers:      draft.Headers,
+		Body:         draft.Body,
+		Cookies:      draft.Cookies,
+		Auth:         &draft.Auth,
+	})
+	if err != nil {
+		return CreatedNode{}, err
+	}
+	return CreatedNode{Node: node, Tree: tree}, nil
 }
 
 func (s *CollectionsService) Rename(ctx context.Context, id string, name string) ([]domain.Collection, error) {

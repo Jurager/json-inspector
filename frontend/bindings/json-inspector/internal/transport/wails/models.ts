@@ -9,6 +9,16 @@ import * as domain$0 from "../../domain/models.js";
 import * as draft$0 from "../../usecase/draft/models.js";
 
 /**
+ * CreatedNode is what a creation answers with: the row that appeared and the tree it appeared in.
+ * The window needs the id Go minted — looking it up by name afterwards would find the older row of
+ * the same name — and the tree is what every other change to the tree answers with.
+ */
+export interface CreatedNode {
+    "node": domain$0.CollectionNode;
+    "tree": domain$0.Collection[] | null;
+}
+
+/**
  * Failure is a startup problem the frontend has to explain. It cannot be a dialog: a dialog needs
  * a running app, and the failures recorded here happen before one exists.
  */

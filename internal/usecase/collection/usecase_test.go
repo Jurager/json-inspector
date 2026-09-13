@@ -400,17 +400,17 @@ func TestCreateNodeLandsAtTheEndOfItsGroup(t *testing.T) {
 	}
 	id := only(t, tree).ID
 
-	tree, err = uc.CreateNode(ctx, NewNode{CollectionID: id, Kind: domain.NodeRequest, Name: "Первый"})
+	_, tree, err = uc.CreateNode(ctx, NewNode{CollectionID: id, Kind: domain.NodeRequest, Name: "Первый"})
 	if err != nil {
 		t.Fatalf("CreateNode: %v", err)
 	}
-	folder, err := uc.CreateNode(ctx, NewNode{CollectionID: id, Kind: domain.NodeFolder, Name: "Папка"})
+	_, folder, err := uc.CreateNode(ctx, NewNode{CollectionID: id, Kind: domain.NodeFolder, Name: "Папка"})
 	if err != nil {
 		t.Fatalf("CreateNode: %v", err)
 	}
 	folderID := only(t, folder).Items[1].ID
 
-	tree, err = uc.CreateNode(ctx, NewNode{
+	_, tree, err = uc.CreateNode(ctx, NewNode{
 		CollectionID: id, ParentID: folderID, Kind: domain.NodeRequest, Name: "Внутри", Method: "post",
 	})
 	if err != nil {
@@ -441,15 +441,63 @@ func TestCreateNodeRefusesARequestAsParent(t *testing.T) {
 
 	tree, _ := uc.CreateCollection(ctx, "Коллекция", "")
 	id := only(t, tree).ID
-	tree, err := uc.CreateNode(ctx, NewNode{CollectionID: id, Kind: domain.NodeRequest, Name: "Запрос"})
+	_, tree, err := uc.CreateNode(ctx, NewNode{CollectionID: id, Kind: domain.NodeRequest, Name: "Запрос"})
 	if err != nil {
 		t.Fatalf("CreateNode: %v", err)
 	}
 	requestID := only(t, tree).Items[0].ID
 
-	_, err = uc.CreateNode(ctx, NewNode{CollectionID: id, ParentID: requestID, Kind: domain.NodeFolder, Name: "Внутри"})
+	_, _, err = uc.CreateNode(ctx, NewNode{CollectionID: id, ParentID: requestID, Kind: domain.NodeFolder, Name: "Внутри"})
 	if !errors.Is(err, domain.ErrNotAllowed) {
 		t.Fatalf("a request as parent = %v, want ErrNotAllowed", err)
+	}
+}
+
+// A request saved from a composer is written whole: the row that comes back is the one that
+// appeared, with everything the request already had, so nothing depends on finding it again by name.
+func TestCreateNodeTakesAWholeRequest(t *testing.T) {
+	uc, store := newTestUseCase()
+	ctx := context.Background()
+
+	tree, err := uc.CreateCollection(ctx, "Коллекция", "")
+	if err != nil {
+		t.Fatalf("CreateCollection: %v", err)
+	}
+	collectionID := only(t, tree).ID
+
+	created, tree, err := uc.CreateNode(ctx, NewNode{
+		CollectionID: collectionID,
+		Kind:         domain.NodeRequest,
+		Name:         "Сохранённый",
+		Method:       "patch",
+		URL:          "https://api.example.com/users/1?page=2",
+		Headers:      []domain.Row{{ID: "h1", Name: "Accept", Value: "application/vnd.api+json", Enabled: true}},
+		Body:         `{"data": 1}`,
+		Auth:         &domain.Auth{Type: domain.AuthBearer, Token: "{{token}}"},
+	})
+	if err != nil {
+		t.Fatalf("CreateNode: %v", err)
+	}
+
+	if created.ID == "" || created.Name != "Сохранённый" {
+		t.Fatalf("created = %+v, want the row that appeared", created)
+	}
+	if len(only(t, tree).Items) != 1 || only(t, tree).Items[0].ID != created.ID {
+		t.Errorf("tree = %+v, want the created row in it", only(t, tree).Items)
+	}
+
+	stored, err := store.Node(ctx, created.ID)
+	if err != nil {
+		t.Fatalf("Node: %v", err)
+	}
+	if stored.Method != "PATCH" || stored.URL != "https://api.example.com/users/1?page=2" {
+		t.Errorf("stored = %+v, want the request it was given", stored)
+	}
+	if len(stored.Headers) != 1 || stored.Body != `{"data": 1}` {
+		t.Errorf("stored = %+v, want its headers and body", stored)
+	}
+	if stored.Auth == nil || stored.Auth.Token != "{{token}}" {
+		t.Errorf("auth = %+v, want the choice the composer made", stored.Auth)
 	}
 }
 
@@ -459,7 +507,7 @@ func TestRenameReachesBothKinds(t *testing.T) {
 
 	tree, _ := uc.CreateCollection(ctx, "Коллекция", "")
 	collectionID := only(t, tree).ID
-	tree, _ = uc.CreateNode(ctx, NewNode{CollectionID: collectionID, Kind: domain.NodeRequest, Name: "Запрос"})
+	_, tree, _ = uc.CreateNode(ctx, NewNode{CollectionID: collectionID, Kind: domain.NodeRequest, Name: "Запрос"})
 	requestID := only(t, tree).Items[0].ID
 
 	tree, err := uc.Rename(ctx, collectionID, "Переименована")
@@ -485,9 +533,9 @@ func TestDuplicateCopiesTheSubtree(t *testing.T) {
 
 	tree, _ := uc.CreateCollection(ctx, "Коллекция", "")
 	collectionID := only(t, tree).ID
-	tree, _ = uc.CreateNode(ctx, NewNode{CollectionID: collectionID, Kind: domain.NodeFolder, Name: "Папка"})
+	_, tree, _ = uc.CreateNode(ctx, NewNode{CollectionID: collectionID, Kind: domain.NodeFolder, Name: "Папка"})
 	folderID := only(t, tree).Items[0].ID
-	tree, _ = uc.CreateNode(ctx, NewNode{
+	_, tree, _ = uc.CreateNode(ctx, NewNode{
 		CollectionID: collectionID, ParentID: folderID, Kind: domain.NodeRequest, Name: "Внутри",
 	})
 	requestID := only(t, tree).Items[0].Items[0].ID
@@ -534,14 +582,77 @@ func TestDuplicateCopiesTheSubtree(t *testing.T) {
 	}
 }
 
+// A copy of a request is the request, not its name: the tree row a duplicate starts from carries the
+// method and nothing else, and taking that for the content is how a copy comes out empty.
+func TestDuplicateCopiesTheRequestItself(t *testing.T) {
+	uc, store := newTestUseCase()
+	ctx := context.Background()
+
+	tree, _ := uc.CreateCollection(ctx, "Коллекция", "")
+	collectionID := only(t, tree).ID
+	_, tree, _ = uc.CreateNode(ctx, NewNode{CollectionID: collectionID, Kind: domain.NodeRequest, Name: "Запрос"})
+	requestID := only(t, tree).Items[0].ID
+
+	bearer := &domain.Auth{Type: domain.AuthBearer, Token: "{{token}}"}
+	if _, err := uc.SaveNode(ctx, domain.CollectionNode{
+		ID: requestID, Name: "Запрос", Method: "PATCH", URL: "https://api.example.com/users/1?page=2",
+		Description: "про пользователя",
+		Params:      []domain.Row{{ID: "p1", Name: "page", Value: "2", Enabled: true}},
+		Headers:     []domain.Row{{ID: "h1", Name: "Accept", Value: "application/vnd.api+json", Enabled: true}},
+		Body:        `{"data": {"type": "users"}}`,
+		Cookies:     []domain.CookieRow{{ID: "c1", Name: "session", Value: "abc", Path: "/", HTTPOnly: true}},
+		Auth:        bearer,
+	}); err != nil {
+		t.Fatalf("SaveNode: %v", err)
+	}
+
+	tree, err := uc.Duplicate(ctx, requestID)
+	if err != nil {
+		t.Fatalf("Duplicate: %v", err)
+	}
+	copiedID := only(t, tree).Items[1].ID
+	copied, err := store.Node(ctx, copiedID)
+	if err != nil {
+		t.Fatalf("Node: %v", err)
+	}
+
+	if copied.Name != "Запрос (копия)" || copied.Position != 1 {
+		t.Errorf("copy = %+v, want it named and placed beside the original", copied)
+	}
+	if copied.URL != "https://api.example.com/users/1?page=2" || copied.Method != "PATCH" ||
+		copied.Body != `{"data": {"type": "users"}}` {
+		t.Errorf("copy = %+v, want the request it was copied from", copied)
+	}
+	if len(copied.Params) != 1 || len(copied.Headers) != 1 || len(copied.Cookies) != 1 {
+		t.Errorf("copy = %+v, want its rows", copied)
+	}
+	if copied.Description != "про пользователя" {
+		t.Errorf("description = %q, want it carried over", copied.Description)
+	}
+	if copied.Auth == nil || copied.Auth.Token != "{{token}}" {
+		t.Errorf("auth = %+v, want it carried over", copied.Auth)
+	}
+	// The copy is a second thing: its own rows, so editing one does not edit the other.
+	if copied.Params[0].ID == "p1" || copied.Headers[0].ID == "h1" {
+		t.Errorf("copy = %+v, want rows of its own", copied)
+	}
+}
+
 func TestDuplicateCopiesACollection(t *testing.T) {
-	uc, _ := newTestUseCase()
+	uc, store := newTestUseCase()
 	ctx := context.Background()
 
 	tree, _ := uc.CreateCollection(ctx, "Коллекция", "описание")
 	collectionID := only(t, tree).ID
-	tree, _ = uc.CreateNode(ctx, NewNode{CollectionID: collectionID, Kind: domain.NodeRequest, Name: "Первый"})
-	tree, _ = uc.CreateNode(ctx, NewNode{CollectionID: collectionID, Kind: domain.NodeFolder, Name: "Папка"})
+	_, tree, _ = uc.CreateNode(ctx, NewNode{CollectionID: collectionID, Kind: domain.NodeRequest, Name: "Первый"})
+	_, tree, _ = uc.CreateNode(ctx, NewNode{CollectionID: collectionID, Kind: domain.NodeFolder, Name: "Папка"})
+	// The root of a collection is a tree row too, and a copy that took the row for the content would
+	// lose the request behind it — the same trap the node duplicate had.
+	if _, err := uc.SaveNode(ctx, domain.CollectionNode{
+		ID: only(t, tree).Items[0].ID, Name: "Первый", Method: "GET", URL: "https://api.example.com/first",
+	}); err != nil {
+		t.Fatalf("SaveNode: %v", err)
+	}
 
 	tree, err := uc.Duplicate(ctx, collectionID)
 	if err != nil {
@@ -565,6 +676,13 @@ func TestDuplicateCopiesACollection(t *testing.T) {
 	}
 	if copied.Items[0].ID == tree[0].Items[0].ID {
 		t.Error("the copy kept the original's node id")
+	}
+	copiedFirst, err := store.Node(ctx, copied.Items[0].ID)
+	if err != nil {
+		t.Fatalf("Node: %v", err)
+	}
+	if copiedFirst.Name != "Первый" || copiedFirst.URL != "https://api.example.com/first" {
+		t.Errorf("copied root = %+v, want the request it was copied from", copiedFirst)
 	}
 }
 
@@ -596,7 +714,7 @@ func TestDeleteTakesTheWholeSubtree(t *testing.T) {
 
 	tree, _ := uc.CreateCollection(ctx, "Коллекция", "")
 	collectionID := only(t, tree).ID
-	tree, _ = uc.CreateNode(ctx, NewNode{CollectionID: collectionID, Kind: domain.NodeFolder, Name: "Папка"})
+	_, tree, _ = uc.CreateNode(ctx, NewNode{CollectionID: collectionID, Kind: domain.NodeFolder, Name: "Папка"})
 	folderID := only(t, tree).Items[0].ID
 	uc.CreateNode(ctx, NewNode{CollectionID: collectionID, ParentID: folderID, Kind: domain.NodeRequest, Name: "Внутри"})
 
@@ -623,9 +741,9 @@ func TestSaveNodeKeepsWhatTheTreeOwns(t *testing.T) {
 
 	tree, _ := uc.CreateCollection(ctx, "Коллекция", "")
 	collectionID := only(t, tree).ID
-	tree, _ = uc.CreateNode(ctx, NewNode{CollectionID: collectionID, Kind: domain.NodeFolder, Name: "Папка"})
+	_, tree, _ = uc.CreateNode(ctx, NewNode{CollectionID: collectionID, Kind: domain.NodeFolder, Name: "Папка"})
 	folderID := only(t, tree).Items[0].ID
-	tree, _ = uc.CreateNode(ctx, NewNode{
+	_, tree, _ = uc.CreateNode(ctx, NewNode{
 		CollectionID: collectionID, ParentID: folderID, Kind: domain.NodeRequest, Name: "Запрос",
 	})
 	requestID := only(t, tree).Items[0].Items[0].ID
@@ -666,7 +784,7 @@ func TestSaveNodeRejectsAnEmptyName(t *testing.T) {
 
 	tree, _ := uc.CreateCollection(ctx, "Коллекция", "")
 	collectionID := only(t, tree).ID
-	tree, _ = uc.CreateNode(ctx, NewNode{CollectionID: collectionID, Kind: domain.NodeRequest, Name: "Запрос"})
+	_, tree, _ = uc.CreateNode(ctx, NewNode{CollectionID: collectionID, Kind: domain.NodeRequest, Name: "Запрос"})
 	requestID := only(t, tree).Items[0].ID
 
 	_, err := uc.SaveNode(ctx, domain.CollectionNode{ID: requestID, Name: "   "})

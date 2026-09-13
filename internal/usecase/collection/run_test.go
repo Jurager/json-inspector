@@ -34,7 +34,7 @@ func setupRunnable(t *testing.T) *runnable {
 	requests := map[string]string{}
 	add := func(parentID string, name, url string) string {
 		t.Helper()
-		tree, err := uc.CreateNode(ctx, NewNode{
+		_, tree, err := uc.CreateNode(ctx, NewNode{
 			CollectionID: collectionID, ParentID: parentID, Kind: domain.NodeRequest, Name: name, Method: "GET",
 		})
 		if err != nil {
@@ -56,7 +56,7 @@ func setupRunnable(t *testing.T) *runnable {
 	}
 
 	add("", "Первый", "https://api.example.com/first")
-	tree, err = uc.CreateNode(ctx, NewNode{
+	_, tree, err = uc.CreateNode(ctx, NewNode{
 		CollectionID: collectionID, Kind: domain.NodeFolder, Name: "Папка",
 	})
 	if err != nil {
@@ -314,7 +314,7 @@ func TestRunRefusesAnEmptySubtree(t *testing.T) {
 		t.Fatal("the second collection is not in the tree")
 	}
 	otherID := otherCollection.ID
-	tree, err = uc.CreateNode(ctx, NewNode{CollectionID: otherID, Kind: domain.NodeRequest, Name: "Чужой"})
+	_, tree, err = uc.CreateNode(ctx, NewNode{CollectionID: otherID, Kind: domain.NodeRequest, Name: "Чужой"})
 	if err != nil {
 		t.Fatalf("CreateNode: %v", err)
 	}

@@ -6,8 +6,11 @@
 import * as domain$0 from "../../domain/models.js";
 
 /**
- * NewNode is what the tree asks for when a row is created: where it goes, what it is, and the one
- * thing a new request already knows about itself — a method, because that is what the row draws.
+ * NewNode is what the tree asks for when a row is created: where it goes, what it is, and what is
+ * already known about the request. A request made by hand arrives with its method and nothing else —
+ * the rest is filled in by the card that opens next — while one saved from the command line is a
+ * whole request, and building it empty first would be a node with no address if the second step
+ * failed.
  */
 export interface NewNode {
     "collectionId": string;
@@ -15,6 +18,12 @@ export interface NewNode {
     "kind": domain$0.NodeKind;
     "name": string;
     "method"?: string;
+    "url"?: string;
+    "params"?: domain$0.Row[] | null;
+    "headers"?: domain$0.Row[] | null;
+    "body"?: string;
+    "cookies"?: domain$0.CookieRow[] | null;
+    "auth"?: domain$0.Auth | null;
 }
 
 /**

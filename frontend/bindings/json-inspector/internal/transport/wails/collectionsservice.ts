@@ -29,7 +29,7 @@ export function CreateCollection(name: string, description: string): $Cancellabl
     return $Call.ByID(2119561358, name, description);
 }
 
-export function CreateNode($in: collection$0.NewNode): $CancellablePromise<domain$0.Collection[] | null> {
+export function CreateNode($in: collection$0.NewNode): $CancellablePromise<$models.CreatedNode> {
     return $Call.ByID(2020879810, $in);
 }
 
@@ -75,6 +75,18 @@ export function Rename(id: string, name: string): $CancellablePromise<domain$0.C
  */
 export function Run(collectionID: string, nodeID: string): $CancellablePromise<string> {
     return $Call.ByID(3708031267, collectionID, nodeID);
+}
+
+/**
+ * SaveDraft copies what the command line is composing into a collection as a new request. The draft
+ * is not touched: saving a copy is not a move, and what is being composed stays where it is.
+ * 
+ * The request arrives whole — method, address, rows, body, and the auth the chip chose — because the
+ * node is written once: an empty request filled in by a second call would be a saved request with no
+ * address if that call failed.
+ */
+export function SaveDraft(collectionID: string, parentID: string, name: string): $CancellablePromise<$models.CreatedNode> {
+    return $Call.ByID(1665422330, collectionID, parentID, name);
 }
 
 /**

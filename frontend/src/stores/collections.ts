@@ -181,12 +181,19 @@ export const useCollectionsStore = defineStore('collections', {
     },
 
     async createNode(collectionId: string, parentId: string, kind: NodeKind, name: string, method = 'GET') {
-      const tree = (await CollectionsService.CreateNode({ collectionId, parentId, kind, name, method })) ?? []
-      this.applyTree(tree)
-      if (parentId) this.expanded[parentId] = true
+      const created = await CollectionsService.CreateNode({ collectionId, parentId, kind, name, method })
+      this.applyTree(created.tree ?? [])
+      this.expanded[parentId || collectionId] = true
       // A new request opens straight away: it was made to be filled in.
-      const created = createdIn(tree, collectionId, parentId, name)
-      if (created) await this.select(created)
+      await this.select(created.node.id)
+    },
+
+    // Saving from the command line copies what is composed into a collection. The draft is not
+    // touched: saving a copy is not a move, and what is being composed stays where it is.
+    async saveDraft(collectionId: string, parentId: string, name: string) {
+      const created = await CollectionsService.SaveDraft(collectionId, parentId, name)
+      this.applyTree(created.tree ?? [])
+      this.expanded[parentId || collectionId] = true
     },
 
     async rename(id: string, name: string) {
@@ -501,18 +508,3 @@ export const useCollectionsStore = defineStore('collections', {
   },
 })
 
-// The row a create call added: the tree is the only thing that knows the id Go minted, so the row
-// is found by where it went and what it is called. Only the collection it was added to is walked —
-// two collections may hold rows of the same name, and only one of them is new.
-function createdIn(tree: Collection[], collectionId: string, parentId: string, name: string): string | null {
-  const collection = tree.find((c) => c.id === collectionId)
-  const walk = (nodes: CollectionNode[]): string | null => {
-    for (const node of nodes) {
-      if ((node.parentId ?? '') === parentId && node.name === name) return node.id
-      const found = walk(node.items ?? [])
-      if (found) return found
-    }
-    return null
-  }
-  return walk(collection?.items ?? [])
-}

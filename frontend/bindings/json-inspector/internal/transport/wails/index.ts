@@ -19,6 +19,7 @@ export {
 };
 
 export type {
+    CreatedNode,
     Failure,
     NodeEditor,
     StartupStatus

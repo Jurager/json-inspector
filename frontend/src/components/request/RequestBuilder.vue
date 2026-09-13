@@ -2,6 +2,7 @@
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import Icon from '../ui/Icon.vue'
 import RequestChipPopover from './RequestChipPopover.vue'
+import SaveToCollectionSheet from '../collections/SaveToCollectionSheet.vue'
 import { Button } from '../ui/button'
 import { Popover, PopoverAnchor } from '../ui/popover'
 import VarToken from '../ui/VarToken.vue'
@@ -134,6 +135,28 @@ onMounted(() => onBeforeUnmount(registerUrlField(() => urlInputRef.value?.focus(
 const urlDisplayRef = ref<HTMLElement | null>(null)
 
 const urlSegments = computed(() => tokenSegments(store.url))
+
+// Saving into a collection is a gesture of the command line: a card is already in one, and what it
+// edits is saved by its own «Сохранить» in the status bar.
+const canSave = computed(() => props.source === 'request')
+
+const saveOpen = ref(false)
+const saveAnchor = ref<HTMLElement | null>(null)
+
+// The default name is the address the way a person would say it: the last segment, query and all
+// the rest left out — a name, not a URL.
+const saveDefaultName = computed(() => {
+  const raw = store.url.trim()
+  if (!raw) return 'Новый запрос'
+  try {
+    const url = new URL(raw)
+    const last = url.pathname.split('/').filter(Boolean).pop()
+    return decodeURIComponent(last ?? url.host)
+  } catch {
+    const withoutQuery = raw.split('?')[0].split('#')[0]
+    return withoutQuery.split('/').filter(Boolean).pop() ?? withoutQuery
+  }
+})
 const showUrlDisplay = computed(() => urlSegments.value.length > 0)
 
 function syncUrlScroll() {
@@ -247,9 +270,23 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onWindowKeydown))
         </Popover>
       </div>
 
-      <button class="bookmark-btn" disabled title="Сохранение в коллекцию — скоро">
-        <Icon name="bookmark" :size="14" />
-      </button>
+      <span ref="saveAnchor" class="save-anchor">
+        <button
+          class="bookmark-btn"
+          :disabled="!canSave || !store.url.trim()"
+          :title="canSave ? 'Сохранить в коллекцию' : 'Запрос уже в коллекции'"
+          @click="saveOpen = !saveOpen"
+        >
+          <Icon name="bookmark" :size="14" />
+        </button>
+        <SaveToCollectionSheet
+          v-if="canSave && saveAnchor"
+          :open="saveOpen"
+          :url="store.url"
+          :default-name="saveDefaultName"
+          @update:open="saveOpen = $event"
+        />
+      </span>
 
       <Button
         variant="primary"
@@ -418,6 +455,10 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onWindowKeydown))
 
 .chip-body:disabled {
   @apply opacity-50 cursor-default;
+}
+
+.save-anchor {
+  @apply relative flex-none;
 }
 
 .bookmark-btn {
