@@ -504,6 +504,11 @@ button {
   @apply w-7 h-7 border-[3px];
 }
 
+/* The same ring, sized for a line of text: a button that is working says so without growing. */
+.spinner-sm {
+  @apply w-3 h-3 border-[1.5px];
+}
+
 @keyframes spin {
   to {
     transform: rotate(360deg);

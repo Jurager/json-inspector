@@ -33,6 +33,13 @@ export interface NewNode {
  */
 export interface RunProgress {
     "runId": string;
+
+    /**
+     * What the run was started from, so a window that has since looked at another level can tell
+     * which run a row belongs to: it is the same pair the finished run carries.
+     */
+    "collectionId": string;
+    "nodeId": string;
     "done": number;
     "total": number;
     "result": domain$0.CollectionRunResult;

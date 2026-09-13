@@ -483,6 +483,12 @@ func TestRunPublishesEveryRequestAsItGoes(t *testing.T) {
 		if event.Done != i+1 || event.Total != 2 {
 			t.Errorf("progress %d = %d of %d, want %d of 2", i, event.Done, event.Total, i+1)
 		}
+		// The row itself travels with the count: the pane draws each finished request as it comes, and
+		// the level the run was started from is what tells a window looking elsewhere that it is not
+		// this run's.
+		if event.Result.NodeID == "" || event.CollectionID != r.collectionID || event.NodeID != r.folderID {
+			t.Errorf("progress %d = %+v, want the row and the level it came from", i, event)
+		}
 	}
 	if last := r.notifier.topics()[len(r.notifier.topics())-1]; last != TopicRunFinished {
 		t.Errorf("the last event is %s, want the finished run", last)

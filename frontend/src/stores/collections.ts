@@ -18,6 +18,7 @@ import {
   type Scripts,
 } from '../../bindings/json-inspector/internal/domain'
 import { TextField, type Preview, type RowPatch, type Seed, type TextResult } from '../../bindings/json-inspector/internal/usecase/draft'
+import type { RunProgress } from '../../bindings/json-inspector/internal/usecase/collection'
 import type { Level } from '../../bindings/json-inspector/internal/usecase/scripting'
 import type { NodeEditor } from '../../bindings/json-inspector/internal/transport/wails/models'
 import {
@@ -573,9 +574,35 @@ export const useCollectionsStore = defineStore('collections', {
       await CollectionsService.Stop()
     },
 
-    applyRunProgress(done: number, total: number) {
+    // One request of a run has come back. The counters feed the status bar, and the row itself is what
+    // fills the pane as the run goes: a collection of fifty requests is a minute of watching, and a
+    // list that appears only at the end is a list that says nothing while it matters.
+    applyRunProgress(progress: RunProgress) {
       if (!this.running) return
-      this.running = { ...this.running, done, total }
+      this.running = { ...this.running, done: progress.done, total: progress.total }
+
+      // A row is drawn by the level it was run from: a window that has since opened another collection
+      // is not this run's, and neither was it before.
+      if (progress.collectionId !== this.collectionId || progress.nodeId !== this.runNodeId) return
+
+      const run = this.lastRun
+      if (!run || run.id !== progress.runId) {
+        // The run that is going has no rows of its own yet — and the ones on screen belong to the
+        // previous run, which is a different thing to be looking at.
+        this.lastRun = {
+          id: progress.runId,
+          collectionId: progress.collectionId,
+          nodeId: progress.nodeId,
+          startedAt: Date.now(),
+          finishedAt: 0,
+          durationUs: 0,
+          passed: 0,
+          failed: 0,
+          results: [progress.result],
+        }
+        return
+      }
+      this.lastRun = { ...run, results: [...(run.results ?? []), progress.result] }
     },
 
     // A row of the last run opens the request it names, with the answer that run got: the same gesture

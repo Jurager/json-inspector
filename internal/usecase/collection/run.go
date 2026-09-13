@@ -20,10 +20,14 @@ const (
 // window that opened the collections view while a run was going would otherwise count from the
 // middle, and the request that just finished is a row it can draw at once.
 type RunProgress struct {
-	RunID  string                     `json:"runId"`
-	Done   int                        `json:"done"`
-	Total  int                        `json:"total"`
-	Result domain.CollectionRunResult `json:"result"`
+	RunID string `json:"runId"`
+	// What the run was started from, so a window that has since looked at another level can tell
+	// which run a row belongs to: it is the same pair the finished run carries.
+	CollectionID string                     `json:"collectionId"`
+	NodeID       string                     `json:"nodeId"`
+	Done         int                        `json:"done"`
+	Total        int                        `json:"total"`
+	Result       domain.CollectionRunResult `json:"result"`
 }
 
 // Run executes everything under a node, one request after another, and answers with the id of the
@@ -131,10 +135,12 @@ func (u *UseCase) execute(run domain.CollectionRun, requests []runnable) {
 			run.Failed++
 		}
 		u.notifier.Publish(TopicRunProgress, RunProgress{
-			RunID:  run.ID,
-			Done:   len(run.Results),
-			Total:  len(requests),
-			Result: result,
+			RunID:        run.ID,
+			CollectionID: run.CollectionID,
+			NodeID:       run.NodeID,
+			Done:         len(run.Results),
+			Total:        len(requests),
+			Result:       result,
 		})
 	}
 

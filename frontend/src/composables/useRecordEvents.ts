@@ -53,7 +53,7 @@ export function useRecordEvents(
       // A run of a collection: one event per request it reaches, and the finished run with its
       // counters — which is what the overview draws, and what the status bar counts.
       Events.On('collection:run-progress', (ev) => {
-        collections.applyRunProgress(ev.data.done, ev.data.total)
+        collections.applyRunProgress(ev.data)
       }),
       Events.On('collection:run-finished', (ev) => {
         collections.applyRunFinished(ev.data)

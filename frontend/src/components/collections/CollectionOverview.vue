@@ -99,6 +99,9 @@ interface RunRow {
   position: number
   status: number | null
   ok: boolean
+  // A request a script kept from going out is neither a pass nor a failure, which is why the sum
+  // below leaves it out of both.
+  skipped: boolean
   durationUs: number
   error: string
   name: string
@@ -125,6 +128,7 @@ const rows = computed<RunRow[]>(() => {
       position: result.position,
       status: result.status ?? null,
       ok: result.ok,
+      skipped: result.skipped ?? false,
       durationUs: result.durationUs,
       error: result.error ?? '',
       name: byId.get(result.nodeId)?.name ?? 'удалённый запрос',
@@ -133,6 +137,12 @@ const rows = computed<RunRow[]>(() => {
 })
 
 const runName = computed(() => title.value)
+
+// The two counts are read from the rows rather than from the finished run, because the rows are what
+// arrives first: a run that is going has no counters yet, and a summary that stays at zero while its
+// list fills in reads as a run that is failing.
+const passed = computed(() => rows.value.filter((row) => row.ok).length)
+const failed = computed(() => rows.value.filter((row) => !row.ok && !row.skipped).length)
 
 // When the last run ended, which is what the header writes next to the buttons. A run always closes
 // with a time; a row written by an older build that has none falls back to when it started.
@@ -189,7 +199,7 @@ function pluralRequests(n: number): string {
           <Icon name="play" :size="11" /> Запустить коллекцию
         </Button>
         <Button v-else size="lg" @click="store.stop">
-          <Icon name="stop" :size="11" /> Остановить
+          <span class="spinner spinner-sm"></span> Остановить
         </Button>
 
         <Button size="lg" :disabled="store.running !== null" @click="importCollection">
@@ -203,7 +213,9 @@ function pluralRequests(n: number): string {
           <Icon name="upload" :size="12" /> Экспорт
         </Button>
 
-        <span v-if="store.lastRun" class="last-run">Прогон {{ formatAgo(lastRunAt) }}</span>
+        <span v-if="store.lastRun && !store.running" class="last-run">
+          Прогон {{ formatAgo(lastRunAt) }}
+        </span>
       </div>
     </div>
 
@@ -222,17 +234,17 @@ function pluralRequests(n: number): string {
               <span class="cell-label">{{ plural(rows.length, ['запрос', 'запроса', 'запросов']) }}</span>
             </div>
             <div class="cell">
-              <span class="cell-value ok">{{ store.lastRun.passed }}</span>
+              <span class="cell-value ok">{{ passed }}</span>
               <span class="cell-label">успешно</span>
             </div>
             <div class="cell">
-              <span class="cell-value bad">{{ store.lastRun.failed }}</span>
-              <span class="cell-label">
-                {{ plural(store.lastRun.failed, ['ошибка', 'ошибки', 'ошибок']) }}
-              </span>
+              <span class="cell-value bad">{{ failed }}</span>
+              <span class="cell-label">{{ plural(failed, ['ошибка', 'ошибки', 'ошибок']) }}</span>
             </div>
             <div class="cell">
-              <span class="cell-value">{{ formatMicros(store.lastRun.durationUs) }}</span>
+              <span class="cell-value">
+                {{ store.running ? '—' : formatMicros(store.lastRun.durationUs) }}
+              </span>
               <span class="cell-label">общее время</span>
             </div>
           </div>
