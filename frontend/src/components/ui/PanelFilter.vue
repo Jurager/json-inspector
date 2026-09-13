@@ -61,7 +61,7 @@ defineProps<{ placeholder: string }>()
 /* A pill rather than a field: the design's filter has no border, because it sits on the panel it
    filters and a second rectangle in a list of rows reads as one more row. */
 .pill {
-  @apply flex items-center gap-1.5 h-7 px-[9px] rounded-[7px] text-text-tertiary;
+  @apply flex items-center gap-1.5 h-8 px-[9px] rounded-[7px] text-text-tertiary;
   background: color-mix(in srgb, var(--text) 4.5%, transparent);
   backdrop-filter: blur(12px);
 }
