@@ -473,7 +473,7 @@ function cancelTop(): boolean {
 }
 
 .row {
-  @apply flex items-center gap-[7px] py-1.5 mx-1.5 pr-1.5 rounded-[7px] text-text text-[12px] cursor-pointer;
+  @apply relative flex items-center gap-[7px] py-1.5 mx-1.5 pr-1.5 rounded-[7px] text-text text-[12px] cursor-pointer;
 }
 
 .row:hover {
@@ -488,9 +488,14 @@ function cancelTop(): boolean {
   @apply py-[7px] mt-1 font-semibold;
 }
 
-/* A collection after the first is a new tree: the line says so, and the gap above it does the rest. */
-.row-divider {
-  border-top: 1px solid var(--border);
+/* A collection after the first is a new tree, and the line above it says so. The line is drawn rather
+   than bordered: a border on a rounded row bends around the corners, and that curve shows as a smudge
+   above the fill of a row that is hovered or selected. */
+.row-divider::before {
+  content: '';
+  @apply absolute left-0 right-0 h-px;
+  top: 0;
+  background: var(--border);
 }
 
 .row-icon {
