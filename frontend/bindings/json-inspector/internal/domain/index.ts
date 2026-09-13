@@ -3,8 +3,10 @@
 
 export {
     AuthType,
+    BodyKind,
     BodySide,
     DraftID,
+    Language,
     NodeKind,
     RecordSource,
     Retention,
@@ -26,6 +28,7 @@ export type {
     EnvScope,
     EnvState,
     Environment,
+    FormRow,
     HeaderPair,
     Record,
     Row,

@@ -1,15 +1,16 @@
 <script setup lang="ts">
-import { ref, watch } from 'vue'
+import { computed, ref, watch } from 'vue'
 import Icon from '../ui/Icon.vue'
 import { ScriptingService } from '../../../bindings/json-inspector/internal/transport/wails'
 import { useCollectionsStore } from '../../stores/collections'
 import { findCollection, findNode } from '../../lib/collectionTree'
-import { formatMicros } from '../../lib/format'
+import { formatMicros, useMessages } from '../../i18n'
 import type { ScriptRun } from '../../../bindings/json-inspector/internal/domain'
 
 const props = defineProps<{ recordId: string }>()
 
 const store = useCollectionsStore()
+const { t } = useMessages()
 const runs = ref<ScriptRun[]>([])
 const loading = ref(true)
 
@@ -32,7 +33,10 @@ function levelName(run: ScriptRun): string {
   return findNode(store.tree, id)?.name ?? findCollection(store.tree, id)?.name ?? ''
 }
 
-const SCOPE_LABELS: Record<string, string> = { pre: 'Перед запросом', post: 'После ответа' }
+const SCOPE_LABELS = computed<Record<string, string>>(() => ({
+  pre: t('response.scripts.pre'),
+  post: t('response.scripts.post'),
+}))
 
 // A check that failed is what the tab is for: an ordinary run of a script with no checks says nothing
 // here, and the line above each script is what says it ran at all.
@@ -43,11 +47,11 @@ function hasChecks(run: ScriptRun): boolean {
 
 <template>
   <div class="script-runs">
-    <div v-if="loading" class="empty"><span>Читаем отчёты…</span></div>
+    <div v-if="loading" class="empty"><span>{{ t('response.scripts.loading') }}</span></div>
 
     <div v-else-if="runs.length === 0" class="empty">
-      <span class="empty-title">Скриптов нет</span>
-      <span>Вокруг этого запроса ничего не выполняется. Свои скрипты задаются в чипе «Скрипты».</span>
+      <span class="empty-title">{{ t('response.scripts.none') }}</span>
+      <span>{{ t('response.scripts.noneHint') }}</span>
     </div>
 
     <ul v-else class="run-list">
@@ -89,7 +93,7 @@ function hasChecks(run: ScriptRun): boolean {
           </li>
         </ul>
 
-        <div v-if="!hasChecks(run)" class="run-quiet">Скрипт выполнился и ничего не сказал</div>
+        <div v-if="!hasChecks(run)" class="run-quiet">{{ t('response.scripts.quiet') }}</div>
       </li>
     </ul>
   </div>

@@ -23,14 +23,16 @@ type UseCase struct {
 	mu     sync.Mutex
 	store  Store
 	vars   VariableSource
+	files  FileSource
 	ids    platform.IDGen
 	drafts map[domain.DraftID]domain.Draft
 }
 
-func NewUseCase(store Store, vars VariableSource, ids platform.IDGen) *UseCase {
+func NewUseCase(store Store, vars VariableSource, files FileSource, ids platform.IDGen) *UseCase {
 	return &UseCase{
 		store:  store,
 		vars:   vars,
+		files:  files,
 		ids:    ids,
 		drafts: map[domain.DraftID]domain.Draft{},
 	}
@@ -81,6 +83,9 @@ type RowPatch struct {
 	Expires  *string `json:"expires,omitempty"`
 	Secure   *bool   `json:"secure,omitempty"`
 	HTTPOnly *bool   `json:"httpOnly,omitempty"`
+	// Src and File belong to a form row: the path a file field carries, and whether it is one.
+	Src  *string `json:"src,omitempty"`
+	File *bool   `json:"file,omitempty"`
 }
 
 // Seed is a whole request handed to the draft: what "открыть в запросе" and a pasted command both
@@ -89,6 +94,11 @@ type Seed struct {
 	Method string `json:"method"`
 	URL    string `json:"url"`
 	Body   string `json:"body"`
+	// A seed carries the format too: a followed link or a pasted command is a whole request, and the
+	// Content-Type that follows from the kind is part of what it goes out with.
+	BodyKind domain.BodyKind  `json:"bodyKind,omitempty"`
+	Form     []domain.FormRow `json:"form,omitempty"`
+	BodyFile string           `json:"bodyFile,omitempty"`
 	// A seed may carry neither list: a followed link has headers and no jar, a pasted command may
 	// have neither. `omitempty` is what says so on the wire.
 	Headers []domain.HeaderPair `json:"headers,omitempty"`
@@ -123,7 +133,7 @@ func (u *UseCase) Load(ctx context.Context) error {
 // nobody will free.
 func (u *UseCase) Open(ctx context.Context, d domain.Draft) (State, error) {
 	if d.ID == "" {
-		return State{}, fmt.Errorf("черновик без id: %w", domain.ErrNotAllowed)
+		return State{}, fmt.Errorf("a draft with no id: %w", domain.ErrNotAllowed)
 	}
 	d = u.withRowIDs(d)
 	// The rows follow the address, exactly as they do when it is typed: a request that came from a
@@ -154,7 +164,7 @@ func (u *UseCase) Current(ctx context.Context, id domain.DraftID) (domain.Draft,
 
 	draft, ok := u.drafts[id]
 	if !ok {
-		return domain.Draft{}, fmt.Errorf("черновик %s: %w", id, domain.ErrNotFound)
+		return domain.Draft{}, fmt.Errorf("draft %s: %w", id, domain.ErrNotFound)
 	}
 	return draft, nil
 }
@@ -183,6 +193,27 @@ func (u *UseCase) SetAuth(ctx context.Context, id domain.DraftID, auth domain.Au
 	})
 }
 
+// SetBodyKind changes the format the body is composed in. It is the same text seen three ways for
+// JSON, XML and Raw, so nothing is cleared here: switching between them must not destroy what the
+// window was holding, and neither must switching away to Form and back, which is why a form body and
+// a file live in fields of their own.
+func (u *UseCase) SetBodyKind(ctx context.Context, id domain.DraftID, kind domain.BodyKind) (State, error) {
+	return u.result(ctx, id, func(d *domain.Draft) error {
+		d.BodyKind = domain.KindOf(kind)
+		return nil
+	})
+}
+
+// SetBodyFile is the path the Binary body is read from at the moment of sending. It is a path and
+// not the bytes: a draft holding a file would be holding a copy of something that may have changed
+// since it was picked.
+func (u *UseCase) SetBodyFile(ctx context.Context, id domain.DraftID, path string) (State, error) {
+	return u.result(ctx, id, func(d *domain.Draft) error {
+		d.BodyFile = strings.TrimSpace(path)
+		return nil
+	})
+}
+
 // SetText takes a buffer the window was typing into. The window keeps ownership of the text while
 // it works — an answer never overwrites what is under the caret — so this is the only way a text
 // the user typed reaches this side at all.
@@ -198,7 +229,7 @@ func (u *UseCase) SetText(ctx context.Context, id domain.DraftID, in TextInput) 
 		case FieldBody:
 			d.Body = in.Text
 		default:
-			return fmt.Errorf("поле %q: %w", in.Field, domain.ErrNotAllowed)
+			return fmt.Errorf("field %q: %w", in.Field, domain.ErrNotAllowed)
 		}
 		return nil
 	})
@@ -219,6 +250,8 @@ func (u *UseCase) AddRow(ctx context.Context, id domain.DraftID, kind domain.Row
 			d.Headers = append(d.Headers, domain.Row{ID: u.ids(), Enabled: true})
 		case domain.RowCookies:
 			d.Cookies = append(d.Cookies, domain.CookieRow{ID: u.ids(), Path: "/"})
+		case domain.RowForm:
+			d.Form = append(d.Form, domain.FormRow{ID: u.ids(), Enabled: true})
 		default:
 			return unknownKind(kind)
 		}
@@ -238,6 +271,8 @@ func (u *UseCase) RemoveRow(ctx context.Context, draftID domain.DraftID, kind do
 			d.Headers = without(d.Headers, id)
 		case domain.RowCookies:
 			d.Cookies = withoutCookie(d.Cookies, id)
+		case domain.RowForm:
+			d.Form = withoutForm(d.Form, id)
 		default:
 			return unknownKind(kind)
 		}
@@ -269,6 +304,12 @@ func (u *UseCase) PatchRow(ctx context.Context, draftID domain.DraftID, kind dom
 				return notFound(kind, id)
 			}
 			applyCookiePatch(&d.Cookies[at], patch)
+		case domain.RowForm:
+			at := findFormRow(d.Form, id)
+			if at < 0 {
+				return notFound(kind, id)
+			}
+			applyFormPatch(&d.Form[at], patch)
 		default:
 			return unknownKind(kind)
 		}
@@ -284,6 +325,9 @@ func (u *UseCase) Replace(ctx context.Context, id domain.DraftID, seed Seed) (St
 		d.Method = seed.Method
 		d.URL = seed.URL
 		d.Body = seed.Body
+		d.BodyKind = domain.KindOf(seed.BodyKind)
+		d.Form = u.formWithIDs(seed.Form)
+		d.BodyFile = seed.BodyFile
 		d.Auth = authOf(seed)
 		d.Params = u.rowsFromURL(seed.URL, nil)
 		d.Headers = u.rowsFromHeaders(seed.Headers)
@@ -292,14 +336,32 @@ func (u *UseCase) Replace(ctx context.Context, id domain.DraftID, seed Seed) (St
 	})
 }
 
+// formWithIDs is withRowIDs for a form body: a row the window cannot address is a row it cannot edit.
+func (u *UseCase) formWithIDs(rows []domain.FormRow) []domain.FormRow {
+	out := make([]domain.FormRow, 0, len(rows))
+	for _, row := range rows {
+		if row.ID == "" {
+			row.ID = u.ids()
+		}
+		out = append(out, row)
+	}
+	return out
+}
+
 // Prepared is the draft ready to go out: its variables filled in, and beside it the copy that
 // outlives the moment of sending — a preview, an export, the record. Only this side ever sees the
 // first one.
 type Prepared struct {
-	Method        string
-	URL           string
-	Headers       []domain.HeaderPair
-	Body          string
+	Method  string
+	URL     string
+	Headers []domain.HeaderPair
+	Body    string
+	// The format and what the body was rendered from travel beside the text: a masked copy of a form
+	// or of a file cannot be made from the text, so whoever masks this request again needs these.
+	BodyKind domain.BodyKind
+	Form     []domain.FormRow
+	BodyFile string
+
 	MaskedURL     string
 	MaskedHeaders []domain.HeaderPair
 	MaskedBody    string
@@ -332,12 +394,15 @@ func (u *UseCase) Prepared(ctx context.Context, id domain.DraftID, inherits *dom
 // is one answer to what a request looks like when it leaves.
 func (u *UseCase) Prepare(ctx context.Context, seed Seed) (Prepared, error) {
 	draft := domain.Draft{
-		Method:  seed.Method,
-		URL:     seed.URL,
-		Body:    seed.Body,
-		Headers: u.rowsFromHeaders(seed.Headers),
-		Cookies: seed.Cookies,
-		Auth:    authOf(seed),
+		Method:   seed.Method,
+		URL:      seed.URL,
+		Body:     seed.Body,
+		BodyKind: domain.KindOf(seed.BodyKind),
+		Form:     u.formWithIDs(seed.Form),
+		BodyFile: seed.BodyFile,
+		Headers:  u.rowsFromHeaders(seed.Headers),
+		Cookies:  seed.Cookies,
+		Auth:     authOf(seed),
 	}
 	// A request with no jar of its own — a followed link, a pasted command — carries its cookies in
 	// the header, and that is where they are read from.
@@ -359,7 +424,7 @@ func (u *UseCase) change(ctx context.Context, id domain.DraftID, edit func(*doma
 
 	current, ok := u.drafts[id]
 	if !ok {
-		return domain.Draft{}, fmt.Errorf("черновик %s: %w", id, domain.ErrNotFound)
+		return domain.Draft{}, fmt.Errorf("draft %s: %w", id, domain.ErrNotFound)
 	}
 
 	edited := current
@@ -406,6 +471,11 @@ func (u *UseCase) withRowIDs(d domain.Draft) domain.Draft {
 		}
 		if d.Cookies[i].Path == "" {
 			d.Cookies[i].Path = "/"
+		}
+	}
+	for i := range d.Form {
+		if d.Form[i].ID == "" {
+			d.Form[i].ID = u.ids()
 		}
 	}
 	return d
@@ -542,6 +612,46 @@ func withoutCookie(rows []domain.CookieRow, id string) []domain.CookieRow {
 	return out
 }
 
+func withoutForm(rows []domain.FormRow, id string) []domain.FormRow {
+	out := make([]domain.FormRow, 0, len(rows))
+	for _, row := range rows {
+		if row.ID != id {
+			out = append(out, row)
+		}
+	}
+	return out
+}
+
+func findFormRow(rows []domain.FormRow, id string) int {
+	for i, row := range rows {
+		if row.ID == id {
+			return i
+		}
+	}
+	return -1
+}
+
+// applyFormPatch changes what the patch names and leaves the rest. Src and File are separate from
+// Value on purpose: the paperclip switches a row between a text and a file, and switching back must
+// find the text where it was left.
+func applyFormPatch(row *domain.FormRow, patch RowPatch) {
+	if patch.Name != nil {
+		row.Name = *patch.Name
+	}
+	if patch.Value != nil {
+		row.Value = *patch.Value
+	}
+	if patch.Enabled != nil {
+		row.Enabled = *patch.Enabled
+	}
+	if patch.Src != nil {
+		row.Src = *patch.Src
+	}
+	if patch.File != nil {
+		row.File = *patch.File
+	}
+}
+
 func findRow(rows []domain.Row, id string) int {
 	for i, row := range rows {
 		if row.ID == id {
@@ -561,9 +671,9 @@ func findCookie(rows []domain.CookieRow, id string) int {
 }
 
 func unknownKind(kind domain.RowKind) error {
-	return fmt.Errorf("список %q: %w", kind, domain.ErrNotAllowed)
+	return fmt.Errorf("list %q: %w", kind, domain.ErrNotAllowed)
 }
 
 func notFound(kind domain.RowKind, id string) error {
-	return fmt.Errorf("строка %s списка %q: %w", id, kind, domain.ErrNotFound)
+	return fmt.Errorf("row %s of list %q: %w", id, kind, domain.ErrNotFound)
 }

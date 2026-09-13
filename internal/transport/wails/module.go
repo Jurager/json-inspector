@@ -9,6 +9,7 @@ import (
 	"go.uber.org/fx"
 
 	"json-inspector/internal/domain"
+	"json-inspector/internal/infra/files"
 	"json-inspector/internal/infra/httpx"
 	"json-inspector/internal/infra/scriptengine"
 	"json-inspector/internal/infra/sqlite"
@@ -62,6 +63,7 @@ var Module = fx.Module("wails",
 		func(host *Host) record.Notifier { return newBus(host) },
 		func(uc *settings.UseCase) record.RetentionSource { return settingsRetention(uc) },
 		func(uc *environment.UseCase) draft.VariableSource { return environmentVariables{uc} },
+		func(r *files.Reader) draft.FileSource { return r },
 		func(engine *scriptengine.Engine) scripting.Engine { return engine },
 		func(store *sqlite.Store) scripting.Tree { return store },
 		func(store *sqlite.Store) scripting.Store { return store },
@@ -107,6 +109,8 @@ func newApplication(host *Host, info platform.BuildInfo, assets Assets) *applica
 			OnSecondInstanceLaunch: host.OnSecondInstance,
 		},
 	})
+	// The name a window is titled with until its page draws.
+	host.SetAppName(info.Name)
 	host.Attach(app)
 	return app
 }
@@ -129,6 +133,12 @@ func setup(
 		theme = domain.ThemeSystem
 	}
 	host.SetTheme(theme)
+	// The language travels the same road and for the same reason: the first frame is already written.
+	language, err := settingsUC.Language(context.Background())
+	if err != nil {
+		language = domain.LanguageSystem
+	}
+	host.SetLanguage(language)
 	system := application.NewService(in.System)
 	settingsService := application.NewService(in.Settings)
 	recordsService := application.NewService(in.Records)
@@ -192,9 +202,16 @@ func setup(
 		host.SystemThemeChanged()
 	})
 
+	// The menu's own words are not known yet — "system" is a question only the webview can answer, and
+	// it answers once the page is up. So the menu is built here with the fallback language and built
+	// again by ApplyLanguage, which the window calls as it mounts.
 	if UseCustomTitlebar() {
 		app.Menu.Set(app.NewMenu())
 	} else {
-		app.Menu.Set(BuildMenu(host, info.Name))
+		app.Menu.Set(BuildMenu(host, info.Name, MenuLabels{
+			About:        "About",
+			Help:         "Help",
+			CheckUpdates: "Check for updates…",
+		}))
 	}
 }

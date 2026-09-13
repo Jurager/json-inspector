@@ -1,4 +1,4 @@
-import type { Auth, CookieRow, Row, RowKind, Scripts } from '../../bindings/json-inspector/internal/domain'
+import type { Auth, BodyKind, CookieRow, FormRow, Row, RowKind, Scripts } from '../../bindings/json-inspector/internal/domain'
 import type { RowPatch, Seed } from '../../bindings/json-inspector/internal/usecase/draft'
 
 // What the request builder and the response viewer need from whichever store is showing them.
@@ -12,6 +12,12 @@ export interface RequestSource {
   method: string
   url: string
   body: string
+  // The format the body is composed in, and what it is composed of when it is not text. All three
+  // travel together: the format decides which of them the request goes out as, and switching between
+  // them must not lose the others.
+  bodyKind: BodyKind
+  form: FormRow[]
+  bodyFile: string
   params: Row[]
   headers: Row[]
   cookies: CookieRow[]
@@ -25,7 +31,9 @@ export interface RequestSource {
   missingVars: string[]
   enabledParamsCount: number
   enabledHeadersCount: number
-  bodyDisabled: boolean
+  // Whether the body chip has anything behind it. Both stores answer it the same way, so the dashed
+  // chip cannot go solid in one place and not the other.
+  hasBody: boolean
   loading: boolean
   openChip: ChipName | null
   // The code this request runs around itself: what it has of its own, and — through the chain — what
@@ -44,6 +52,11 @@ export interface RequestSource {
   flush(): Promise<void>
   setMethod(method: string): Promise<void>
   setAuth(auth: Auth): Promise<void>
+  setBodyKind(kind: BodyKind): Promise<void>
+  setBodyFile(path: string): Promise<void>
+  // Asks Go for a file and answers with its path, or with nothing when the dialog was closed. Go
+  // reads the file at send time; the path is all the window ever holds.
+  pickBodyFile(): Promise<string>
   addRow(kind: RowKind): Promise<string>
   removeRow(kind: RowKind, id: string): Promise<void>
   patchRow(kind: RowKind, id: string, patch: RowPatch): Promise<void>

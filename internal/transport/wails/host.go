@@ -19,8 +19,9 @@ const (
 	// scheme with the OS (macOS Info.plist, Windows installer registry).
 	deepLinkScheme = "json-inspector"
 
-	windowMain  = "main"
-	windowAbout = "about"
+	windowMain     = "main"
+	windowAbout    = "about"
+	windowSettings = "settings"
 
 	// The About panel is sized to its content (design section 07): 336 wide, fixed. Both
 	// heights are measured from About.vue — the design's stack plus the chrome above it, which
@@ -29,6 +30,13 @@ const (
 	aboutHeightBarred   = 449 // our own 52px bar above the body
 	aboutHeightInset    = 425 // macOS: the body's own top padding stands in for the title bar
 	aboutTitleBarHeight = 50
+
+	// The settings window is the size the handoff draws (section 09): 1160 x 700. Its own minimum is
+	// the point below which the 208px category column and a setting's row stop fitting side by side.
+	settingsWidth     = 1160
+	settingsHeight    = 700
+	settingsMinWidth  = 820
+	settingsMinHeight = 560
 )
 
 // singleInstanceKey encrypts the handoff between instances and never leaves the
@@ -45,9 +53,14 @@ type Host struct {
 	mainWin *application.WebviewWindow
 
 	ready atomic.Bool
+	// The app's own name, which is what a window is titled until its page says otherwise: the words a
+	// window is titled with are in the catalogue, and only the page has the catalogue.
+	appName string
 	// The theme, as the window needs it before it exists: a query string on the window's URL, so the
 	// first paint is already in the right palette. Kept in step by whoever changes it.
 	theme atomic.Value
+	// The language, for the same reason and by the same route: the first frame is already written.
+	language atomic.Value
 	// What the window has already been tinted with: which way it is dark, and whether it has been told
 	// at all. Both are read and written from the request that saved the choice, and from startup.
 	tinted      atomic.Bool
@@ -65,7 +78,40 @@ type Host struct {
 func NewHost() *Host {
 	host := &Host{}
 	host.theme.Store("")
+	host.language.Store("")
 	return host
+}
+
+// SetLanguage is the one writer of the language. Unlike the theme it has nothing to re-tint: the
+// window that is already open redraws on the broadcast, and this is only what the next window's URL
+// will carry. The choice is stored unresolved — "system" is a question for the webview.
+func (h *Host) SetLanguage(language domain.Language) {
+	h.language.Store(string(language))
+}
+
+// SetAppName is what a window is titled with before its page has drawn: Wails wants a title at
+// creation, and the page replaces it with the catalogue's word as it mounts.
+func (h *Host) SetAppName(name string) {
+	h.mu.Lock()
+	h.appName = name
+	h.mu.Unlock()
+}
+
+func (h *Host) windowTitle() string {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	return h.appName
+}
+
+// ApplyMenu rebuilds the native menu in the language the window settled on, with the words the window
+// sent. Go cannot resolve "system" and has nowhere to keep a second catalogue, so the menu is built
+// twice: once with the fallback when the app starts, and once here.
+func (h *Host) ApplyMenu(labels MenuLabels) {
+	app := h.App()
+	if app == nil || UseCustomTitlebar() {
+		return
+	}
+	app.Menu.Set(BuildMenu(h, h.windowTitle(), labels))
 }
 
 // SetTheme is the one writer of the theme: the windows this process has yet to create read the
@@ -106,13 +152,16 @@ func (h *Host) tint(dark bool) {
 }
 
 // windowQuery is what goes on a window's URL: the pre-paint script reads it before the first frame,
-// which is a thing no IPC call can do — the palette, and whether the window has a material behind it
-// that its ground must not cover. Both windows load the same stylesheet, so the second one is how a
-// single page can be the ground of one window and the glass of another.
+// which is a thing no IPC call can do — the palette, the language, and whether the window has a
+// material behind it that its ground must not cover. Both windows load the same stylesheet, so the
+// second one is how a single page can be the ground of one window and the glass of another.
 func (h *Host) windowQuery(translucent bool) string {
 	query := url.Values{}
 	if theme, _ := h.theme.Load().(string); theme != "" {
 		query.Set("theme", theme)
+	}
+	if language, _ := h.language.Load().(string); language != "" {
+		query.Set("lang", language)
 	}
 	if translucent {
 		query.Set("translucent", "1")
@@ -258,7 +307,7 @@ func (h *Host) ToggleMaximize() {
 func (h *Host) OpenFile(title string, filters ...application.FileFilter) (string, error) {
 	app := h.App()
 	if app == nil {
-		return "", errors.New("окно ещё не создано")
+		return "", errors.New("the window does not exist yet")
 	}
 	dialog := app.Dialog.OpenFile().SetTitle(title)
 	for _, filter := range filters {
@@ -284,7 +333,7 @@ func withoutCancellation(err error) error {
 func (h *Host) SaveFile(title string, suggestedName string, filters ...application.FileFilter) (string, error) {
 	app := h.App()
 	if app == nil {
-		return "", errors.New("окно ещё не создано")
+		return "", errors.New("the window does not exist yet")
 	}
 	path, err := app.Dialog.SaveFileWithOptions(&application.SaveFileDialogOptions{
 		Title:   title,
@@ -329,7 +378,9 @@ func (h *Host) ShowAbout() {
 
 	app.Window.NewWithOptions(application.WebviewWindowOptions{
 		Name:      windowAbout,
-		Title:     "О программе",
+		// The app's own name until the page titles it: the word on the title bar is the page's, and
+		// "About" is not a name Go could write in a language it does not know.
+		Title:     h.windowTitle(),
 		Width:     aboutWidth,
 		Height:    aboutHeight(),
 		MinWidth:  aboutWidth,
@@ -349,11 +400,47 @@ func (h *Host) ShowAbout() {
 // aboutWindow is the open About window, if there is one — looked up by name every time, since
 // the user can close it and a stored handle would then point at a destroyed window.
 func (h *Host) aboutWindow() (application.Window, bool) {
+	return h.windowByName(windowAbout)
+}
+
+func (h *Host) windowByName(name string) (application.Window, bool) {
 	app := h.App()
 	if app == nil {
 		return nil, false
 	}
-	return app.Window.GetByName(windowAbout)
+	return app.Window.GetByName(name)
+}
+
+// ShowSettings opens the preferences window, or brings the open one forward. Bound to the frontend
+// and to the rail's gear.
+func (h *Host) ShowSettings() {
+	app := h.App()
+	if app == nil {
+		return
+	}
+	// A closed window leaves the manager, so this is a lookup by name and never a cached handle.
+	if w, ok := h.windowByName(windowSettings); ok {
+		bringToFront(w)
+		return
+	}
+
+	app.Window.NewWithOptions(application.WebviewWindowOptions{
+		Name: windowSettings,
+		// The page replaces this with the title in the chosen language as it mounts: the words live in
+		// the catalogue, and a window's own name is the one thing Go cannot know in that language.
+		Title:            h.windowTitle(),
+		Width:            settingsWidth,
+		Height:           settingsHeight,
+		MinWidth:         settingsMinWidth,
+		MinHeight:        settingsMinHeight,
+		Frameless:        UseCustomTitlebar(),
+		BackgroundColour: application.NewRGB(255, 255, 255),
+		URL:              "/settings.html" + h.windowQuery(false),
+		Mac: application.MacWindow{
+			TitleBar:                application.MacTitleBarHiddenInset,
+			InvisibleTitleBarHeight: aboutTitleBarHeight,
+		},
+	})
 }
 
 // Close stops the app the way the window's close button would.

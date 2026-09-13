@@ -6,7 +6,7 @@ export interface ParsedJson {
 
 export function tryParseJson(text: string): ParsedJson {
   if (text == null || text.trim() === '') {
-    return { ok: false, value: null, error: 'Пустое тело ответа' }
+    return { ok: false, value: null, error: 'empty body' }
   }
   try {
     return { ok: true, value: JSON.parse(text) }

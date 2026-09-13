@@ -4,7 +4,10 @@ import { usePlatform } from '../../composables/usePlatform'
 import { useSheetNotice } from '../../composables/useSheetNotice'
 import EnvironmentList from './EnvironmentList.vue'
 import { Button } from '../ui/button'
+import { useMessages } from '../../i18n'
 import VariablesTable from './VariablesTable.vue'
+
+const { t } = useMessages()
 
 const emit = defineEmits<{ (e: 'close'): void }>()
 const { shortcut } = usePlatform()
@@ -35,9 +38,9 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
   <div class="sheet-overlay">
     <div class="sheet">
       <div class="sheet-head">
-        <span class="sheet-title">Переменные окружения</span>
+        <span class="sheet-title">{{ t('environments.sheetTitle') }}</span>
         <span class="sheet-hint mono">{{ editHint }}</span>
-        <Button @click="emit('close')">Готово</Button>
+        <Button @click="emit('close')">{{ t('environments.done') }}</Button>
       </div>
 
       <div class="sheet-body">

@@ -10,7 +10,8 @@ import {
   type JsonApiDocument,
 } from '../../lib/jsonapi'
 import { tryParseJson } from '../../lib/json'
-import { formatBytes, formatMicros, formatVersion } from '../../lib/format'
+import { formatBytes, formatMicros, formatNumber, useMessages } from '../../i18n'
+import { formatVersion } from '../../lib/format'
 import { useEnvironmentsStore } from '../../stores/environments'
 import { useCollectionsStore } from '../../stores/collections'
 import type { Info as UpdateInfo } from '../../../bindings/json-inspector/internal/infra/updater'
@@ -18,11 +19,13 @@ import type { Info as UpdateInfo } from '../../../bindings/json-inspector/intern
 const props = defineProps<{ updateInfo: UpdateInfo | null }>()
 const emit = defineEmits<{ (e: 'open-update'): void }>()
 
+const { t } = useMessages()
+
 const store = useRequestsStore()
 const collections = useCollectionsStore()
 const envStore = useEnvironmentsStore()
 
-const environmentName = computed(() => envStore.activeEnvironment?.name ?? 'Без окружения')
+const environmentName = computed(() => envStore.activeEnvironment?.name ?? t('titlebar.noEnvironment'))
 
 const missingCount = computed(() => {
   if (store.activeView === 'request') return store.missingVars.length
@@ -30,17 +33,7 @@ const missingCount = computed(() => {
   return 0
 })
 
-function plural(n: number, forms: [string, string, string]): string {
-  const m10 = n % 10
-  const m100 = n % 100
-  if (m10 === 1 && m100 !== 11) return forms[0]
-  if (m10 >= 2 && m10 <= 4 && (m100 < 12 || m100 > 14)) return forms[1]
-  return forms[2]
-}
-
-const missingLabel = computed(
-  () => `${missingCount.value} ${plural(missingCount.value, ['переменная', 'переменные', 'переменных'])} не найдено`
-)
+const missingLabel = computed(() => t('counts.variablesMissing', missingCount.value))
 
 const selectedRecord = computed(() => {
   if (store.activeView === 'request') return store.manualSelected
@@ -88,8 +81,8 @@ const summary = computed(() => {
     const missing = countMissing(d)
     const parts: string[] = []
     if (version) parts.push(`JSON:API ${version}`)
-    parts.push(`${total} ресурсов`)
-    if (missing > 0) parts.push(`${missing} связи не загружены`)
+    parts.push(t('counts.resources', total))
+    if (missing > 0) parts.push(t('counts.linksMissing', missing))
     return parts.join(' · ')
   }
   const ct = r.contentType || ''
@@ -100,27 +93,30 @@ const summary = computed(() => {
 const runLabel = computed(() => {
   const run = collections.running
   if (!run) return ''
-  return `Прогон: ${run.done} / ${run.total || collections.selectedRequestCount} · ${run.name}`
+  const total = run.total || collections.selectedRequestCount
+  return t('status.runRunning', { done: formatNumber(run.done), total: formatNumber(total), name: run.name })
 })
 
+// The whole line is one message: it is a sentence, and a sentence is not assembled out of pieces if a
+// translation is allowed to put them in its own order.
 const runOutcome = computed(() => {
   if (store.activeView !== 'collections' || collections.cardOpen) return ''
   const run = collections.lastRun
   if (!run || collections.running) return ''
-  return (
-    `Прогон завершён · ${run.passed} успешно · ` +
-    `${run.failed} ${plural(run.failed, ['ошибка', 'ошибки', 'ошибок'])} · ` +
-    formatMicros(run.durationUs)
-  )
+  return t('status.runFinished', {
+    passed: formatNumber(run.passed),
+    failed: t('counts.errors', run.failed),
+    duration: formatMicros(run.durationUs),
+  })
 })
 
 const capture = computed(() => store.capture)
 
 const captureLabel = computed(() => {
   const c = capture.value
-  if (c.recording) return `Запись · ${c.tabs} вкладок под перехватом`
-  if (c.connected) return 'Расширение подключено'
-  return 'Перехват не запущен · ожидание расширения'
+  if (c.recording) return t('status.captureRecording', { tabs: t('counts.tabs', c.tabs) })
+  if (c.connected) return t('status.captureConnected')
+  return t('status.captureIdle')
 })
 
 const captureDotClass = computed(() => {
@@ -170,13 +166,13 @@ const captureDotClass = computed(() => {
 
     <template v-if="store.activeView === 'collections' && collections.dirty">
       <span class="dot dot-orange"></span>
-      <span class="unsaved">Не сохранено</span>
-      <button class="save-link" @click="collections.saveNode()">Сохранить</button>
+      <span class="unsaved">{{ t('status.unsaved') }}</span>
+      <button class="save-link" @click="collections.saveNode()">{{ t('common.save') }}</button>
       <span class="divider"></span>
     </template>
 
     <button v-if="updateInfo" class="update-link" @click="emit('open-update')">
-      Доступна версия {{ formatVersion(updateInfo.latest) }}
+      {{ t('status.updateAvailable', { version: formatVersion(updateInfo.latest) }) }}
     </button>
 
     <span v-if="runOutcome" class="summary">{{ runOutcome }}</span>

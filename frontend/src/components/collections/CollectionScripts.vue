@@ -1,6 +1,9 @@
 <script setup lang="ts">
 import ScriptsFields from '../request/ScriptsFields.vue'
+import { useMessages } from '../../i18n'
 import { useCollectionsStore } from '../../stores/collections'
+
+const { t } = useMessages()
 
 const store = useCollectionsStore()
 </script>
@@ -9,7 +12,7 @@ const store = useCollectionsStore()
   <div class="scripts">
     <ScriptsFields
       :source="store"
-      note="Выполняются перед каждым запросом коллекции и после каждого ответа — до собственных скриптов запроса, если они заданы."
+      :note="t('collections.scriptsNote')"
     />
   </div>
 </template>

@@ -4,11 +4,14 @@ import { useEnvironmentsStore } from '../../stores/environments'
 import { usePlatform } from '../../composables/usePlatform'
 import { useHoverArrival } from '../../composables/useHoverArrival'
 import { Tooltip } from './tooltip'
+import { useMessages } from '../../i18n'
 
 const props = defineProps<{ name: string; offset?: number }>()
 
 const store = useEnvironmentsStore()
 const { isMac } = usePlatform()
+
+const { t } = useMessages()
 
 const resolvedVar = computed(() => store.resolveVariable(props.name))
 const isKnown = computed(() => resolvedVar.value !== null)
@@ -19,10 +22,10 @@ const label = computed(() => `{{${props.name}}}`)
 const scopeLabel = computed(() => {
   const r = resolvedVar.value
   if (!r) return ''
-  return r.source === 'env' ? (store.activeEnvironment?.name ?? 'Окружение') : 'Глобальные'
+  return r.source === 'env' ? (store.activeEnvironment?.name ?? t('varToken.environment')) : t('varToken.globals')
 })
 
-const modifier = computed(() => (isMac.value ? '⌥клик' : 'Alt+клик'))
+const modifier = computed(() => t('varToken.clickModifier', { modifier: isMac.value ? '⌥' : 'Alt' }))
 
 const root = ref<HTMLElement | null>(null)
 
@@ -78,9 +81,9 @@ function nearestInput(from: HTMLElement | null): HTMLInputElement | null {
     </template>
 
     <div class="var-tip-value">
-      {{ isSecret ? 'значение скрыто · секрет' : resolvedVar?.value || '(пусто)' }}
+      {{ isSecret ? t('varToken.secretHidden') : resolvedVar?.value || t('varToken.empty') }}
     </div>
-    <div class="var-tip-meta">{{ scopeLabel }} → {{ name }} · {{ modifier }}, чтобы открыть в редакторе</div>
+    <div class="var-tip-meta">{{ t('varToken.hint', { scope: scopeLabel, name, modifier }) }}</div>
   </Tooltip>
 </template>
 

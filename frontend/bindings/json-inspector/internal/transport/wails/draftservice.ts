@@ -32,6 +32,17 @@ export function PatchRow(draftID: domain$0.DraftID, kind: domain$0.RowKind, id: 
 }
 
 /**
+ * PickBodyFile asks the user for the file a body carries and answers with its path, or with nothing
+ * when the dialog was closed — closing a dialog is not a failure.
+ * 
+ * Nothing is written into the draft here: the window patches the row the answer belongs to, the way
+ * it patches a key or a value, so a pick travels as an edit and this answers only what was picked.
+ */
+export function PickBodyFile(title: string, kindName: string): $CancellablePromise<string> {
+    return $Call.ByID(1983199931, title, kindName);
+}
+
+/**
  * RemoveRow and PatchRow address a row by id and not by position: a click that lands after the list
  * changed under it must not delete the row that took its place.
  */
@@ -49,6 +60,22 @@ export function Replace(id: domain$0.DraftID, seed: draft$0.Seed): $CancellableP
 
 export function SetAuth(id: domain$0.DraftID, auth: domain$0.Auth): $CancellablePromise<draft$0.State> {
     return $Call.ByID(3062809258, id, auth);
+}
+
+/**
+ * SetBodyFile is the path a Binary body will be read from. The dialog that produced it is
+ * PickBodyFile below, and it is the window that decides which row the answer belongs to.
+ */
+export function SetBodyFile(id: domain$0.DraftID, path: string): $CancellablePromise<draft$0.State> {
+    return $Call.ByID(3485419726, id, path);
+}
+
+/**
+ * SetBodyKind picks the format the Body popover composes in. It is a call of its own rather than a
+ * row patch because it is a property of the request and not of any one row.
+ */
+export function SetBodyKind(id: domain$0.DraftID, kind: domain$0.BodyKind): $CancellablePromise<draft$0.State> {
+    return $Call.ByID(1227862282, id, kind);
 }
 
 export function SetMethod(id: domain$0.DraftID, method: string): $CancellablePromise<draft$0.State> {

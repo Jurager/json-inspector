@@ -1,16 +1,19 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import Icon from '../ui/Icon.vue'
+import { useMessages } from '../../i18n'
 import { useTheme } from '../../composables/useTheme'
 import { Theme } from '../../../bindings/json-inspector/internal/domain'
 
+const { t } = useMessages()
 const { theme, setTheme } = useTheme()
 
-// The handoff's order: light, dark, system.
-const OPTIONS: { value: Theme; icon: string; title: string }[] = [
-  { value: Theme.ThemeLight, icon: 'sun', title: 'Светлая' },
-  { value: Theme.ThemeDark, icon: 'moon', title: 'Тёмная' },
-  { value: Theme.ThemeSystem, icon: 'monitor', title: 'Системная' },
+// The handoff's order: light, dark, system. A segment holds a message key, not its words — the words
+// are looked up as the switch is drawn, so they follow the language without a reload.
+const OPTIONS: { value: Theme; icon: string; label: string }[] = [
+  { value: Theme.ThemeLight, icon: 'sun', label: 'theme.light' },
+  { value: Theme.ThemeDark, icon: 'moon', label: 'theme.dark' },
+  { value: Theme.ThemeSystem, icon: 'monitor', label: 'theme.system' },
 ]
 
 const rootEl = ref<HTMLElement | null>(null)
@@ -47,14 +50,14 @@ onBeforeUnmount(() => document.removeEventListener('pointerdown', onHijackedPoin
 </script>
 
 <template>
-  <div ref="rootEl" class="theme-switch" title="Тема оформления">
+  <div ref="rootEl" class="theme-switch" :title="t('theme.title')">
     <span class="theme-indicator" :style="indicatorStyle"></span>
     <button
       v-for="(o, i) in OPTIONS"
       :key="o.value"
       class="theme-option"
       :class="{ active: i === activeIndex }"
-      :title="o.title"
+      :title="t(o.label)"
       @click="pick(o.value)"
     >
       <Icon :name="o.icon" :size="13" :stroke-width="1.8" />

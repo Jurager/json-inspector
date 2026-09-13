@@ -14,7 +14,8 @@ import {
 } from '../ui/dropdown-menu'
 import type { RecordView } from '../../lib/requestRecord'
 import { tryParseJson, prettyJson, highlightJson } from '../../lib/json'
-import { formatBytes, formatMicros, statusBadgeClass } from '../../lib/format'
+import { formatBytes, formatMicros } from '../../i18n'
+import { statusBadgeClass } from '../../lib/format'
 import { dataResources, linkHref, isJsonApi, resourceMatchesQuery, type JsonApiDocument } from '../../lib/jsonapi'
 import JsonApiTree from '../json/JsonApiTree.vue'
 import TextViewerTab from './TextViewerTab.vue'
@@ -31,6 +32,7 @@ import type { InspectorHost } from '../../lib/requestSource'
 import { copyToClipboard } from '../../lib/clipboard'
 import { exportRequest, type ExportFormat } from '../../lib/export'
 import { usePlatform } from '../../composables/usePlatform'
+import { useMessages } from '../../i18n'
 import { focusUrlField } from '../../composables/urlFocus'
 
 // Where this pane is drawn: beside the command line, beside a captured request, or inside a
@@ -47,22 +49,25 @@ const store: InspectorHost = props.source === 'collection' ? collections : reque
 
 // A card shows one response: there is no history behind it to walk and no command line to hand it to.
 const hasHistory = computed(() => props.source !== 'collection')
+const { t } = useMessages()
 const { shortcut } = usePlatform()
 const envStore = useEnvironmentsStore()
 
 type Tab = 'body' | 'map' | 'raw' | 'headers' | 'cookies' | 'timings' | 'scripts' | 'request'
 const activeTab = ref<Tab>('body')
 
-const TAB_LABELS: Record<Tab, string> = {
-  body: 'Тело',
-  map: 'Карта',
-  raw: 'Raw',
-  headers: 'Заголовки',
-  cookies: 'Cookies',
-  timings: 'Тайминги',
-  scripts: 'Скрипты',
-  request: 'Запрос',
-}
+// A map, but one rebuilt when the language moves: a plain object would keep the words it was
+// created with for as long as the window is open.
+const TAB_LABELS = computed<Record<Tab, string>>(() => ({
+  body: t('response.tabs.body'),
+  map: t('response.tabs.map'),
+  raw: t('response.tabs.raw'),
+  headers: t('response.tabs.headers'),
+  cookies: t('response.tabs.cookies'),
+  timings: t('response.tabs.timings'),
+  scripts: t('response.tabs.scripts'),
+  request: t('response.tabs.request'),
+}))
 
 const parsed = computed(() => tryParseJson(props.record.responseBody))
 const isJson = computed(() => parsed.value.ok)
@@ -315,7 +320,7 @@ async function copyAs(format: ExportFormat, { keepTokens = false } = {}) {
 <template>
   <div class="resp">
     <div class="resp-bar">
-      <IconButton v-if="hasPrev" variant="outline" hint="Назад" @click="goBack"><Icon name="chevron-left" :size="14" /></IconButton>
+      <IconButton v-if="hasPrev" variant="outline" :hint="t('response.back')" @click="goBack"><Icon name="chevron-left" :size="14" /></IconButton>
       <span class="badge badge-method">{{ record.method }}</span>
       <span class="badge" :class="statusBadgeClass(record.status)">{{ record.status }}</span>
 
@@ -334,21 +339,21 @@ async function copyAs(format: ExportFormat, { keepTokens = false } = {}) {
 
       <!-- Params kept off the URL's own row so a long link keeps the full width up to here. -->
       <template v-if="record.source === 'browser'">
-        <IconButton hint="Копировать ссылку" size="sm" @click="copyUrl">
+        <IconButton :hint="t('response.copyUrl')" size="sm" @click="copyUrl">
           <Icon :name="urlCopied ? 'check' : 'link'" :size="14" />
         </IconButton>
         <Popover v-if="urlQueryParams.length">
           <PopoverTrigger as-child>
-            <Button size="sm">Параметры {{ urlQueryParams.length }}</Button>
+            <Button size="sm">{{ t('response.params', { n: urlQueryParams.length }) }}</Button>
           </PopoverTrigger>
           <PopoverContent class="params-menu" align="end">
             <div class="params-head">
-              <span class="params-title">Параметры запроса</span>
+              <span class="params-title">{{ t('response.paramsTitle') }}</span>
               <span class="params-count mono">{{ urlQueryParams.length }}</span>
               <span class="params-spacer"></span>
-              <span class="params-readonly">только чтение</span>
+              <span class="params-readonly">{{ t('common.readOnly') }}</span>
               <PopoverClose as-child>
-                <IconButton hint="Закрыть" size="sm"><Icon name="xmark" :size="13" /></IconButton>
+                <IconButton :hint="t('common.close')" size="sm"><Icon name="xmark" :size="13" /></IconButton>
               </PopoverClose>
             </div>
 
@@ -371,12 +376,12 @@ async function copyAs(format: ExportFormat, { keepTokens = false } = {}) {
         <span class="resp-meta">{{ formatMicros(record.durationUs) }} · {{ formatBytes(bodySize) }}</span>
       </template>
 
-      <Button size="sm" disabled title="Сравнение ответов — скоро">Сравнить</Button>
+      <Button size="sm" disabled :title="t('response.compareSoon')">{{ t('response.compare') }}</Button>
       <DropdownMenu>
         <DropdownMenuTrigger as-child>
           <Button size="sm">
             <Icon v-if="copied" name="check" :size="12" />
-            <span>{{ copied ? 'Скопировано' : 'Копировать' }}</span>
+            <span>{{ copied ? t('common.copied') : t('common.copy') }}</span>
             <svg viewBox="0 0 10 6" width="10" height="6" fill="none" aria-hidden="true"><path d="M1.5 1.5L5 5L8.5 1.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
           </Button>
         </DropdownMenuTrigger>
@@ -385,12 +390,13 @@ async function copyAs(format: ExportFormat, { keepTokens = false } = {}) {
             {{ f.label }}
           </DropdownMenuItem>
           <DropdownMenuSeparator />
-          <DropdownMenuItem @select="copyAs('curl', { keepTokens: true })">cURL с токенами</DropdownMenuItem>
+          <DropdownMenuItem @select="copyAs('curl', { keepTokens: true })">{{ t('response.copyAsCurlTokens') }}</DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
     </div>
 
-    <div v-if="record.error" class="resp-error">Ошибка: {{ record.error }}</div>
+    <div v-if="record.cancelled" class="resp-error">{{ t('response.cancelled') }}</div>
+    <div v-else-if="record.error" class="resp-error">{{ t('response.error', { error: record.error }) }}</div>
 
     <Tabs v-model="activeTab" class="resp-tabs">
       <TabsList>
@@ -408,30 +414,30 @@ async function copyAs(format: ExportFormat, { keepTokens = false } = {}) {
               v-model="bodyQuery"
               mono
               class="flex-1 min-w-0"
-              placeholder="Поиск по ресурсам, полям, значениям…"
+              :placeholder="t('response.searchPlaceholder')"
               spellcheck="false"
               @keydown.esc="closeBodySearch"
             />
-            <span v-if="bodyQuery.trim()" class="search-count">{{ bodyMatchCount }} найдено</span>
-            <IconButton variant="outline" hint="Закрыть (Esc)" @click="closeBodySearch"><Icon name="xmark" :size="14" /></IconButton>
+            <span v-if="bodyQuery.trim()" class="search-count">{{ t('response.searchFound', { n: bodyMatchCount }) }}</span>
+            <IconButton variant="outline" :hint="t('common.close')" @click="closeBodySearch"><Icon name="xmark" :size="14" /></IconButton>
           </template>
           <template v-else>
             <template v-if="hasPagination">
-              <IconButton variant="outline" :disabled="!pagination.first || !pagination.prev" hint="Первая" @click="follow(pagination.first)"><Icon name="chevrons-left" :size="14" /></IconButton>
-              <IconButton variant="outline" :disabled="!pagination.prev" hint="Предыдущая" @click="follow(pagination.prev)"><Icon name="chevron-left" :size="14" /></IconButton>
-              <IconButton variant="outline" :disabled="!pagination.next" hint="Следующая" @click="follow(pagination.next)"><Icon name="chevron-right" :size="14" /></IconButton>
-              <IconButton variant="outline" :disabled="!pagination.last || !pagination.next" hint="Последняя" @click="follow(pagination.last)"><Icon name="chevrons-right" :size="14" /></IconButton>
+              <IconButton variant="outline" :disabled="!pagination.first || !pagination.prev" :hint="t('response.first')" @click="follow(pagination.first)"><Icon name="chevrons-left" :size="14" /></IconButton>
+              <IconButton variant="outline" :disabled="!pagination.prev" :hint="t('response.previous')" @click="follow(pagination.prev)"><Icon name="chevron-left" :size="14" /></IconButton>
+              <IconButton variant="outline" :disabled="!pagination.next" :hint="t('response.next')" @click="follow(pagination.next)"><Icon name="chevron-right" :size="14" /></IconButton>
+              <IconButton variant="outline" :disabled="!pagination.last || !pagination.next" :hint="t('response.last')" @click="follow(pagination.last)"><Icon name="chevrons-right" :size="14" /></IconButton>
             </template>
             <span class="head-spacer"></span>
-            <Button v-if="hasHistory && record.source === 'browser'" size="sm" class="open-in-request" @click="openInRequest">Открыть в «Запросе»</Button>
-            <Button size="sm" @click="copyBody"><Icon v-if="bodyCopied" name="check" :size="12" /><span>{{ bodyCopied ? 'Скопировано' : 'Копировать' }}</span></Button>
-            <Button size="sm" title="Инспектор узла (⌥I)" @click="toggleInspector">Инспектор <kbd class="keycap">⌥I</kbd></Button>
-            <Button size="sm" @click="openBodySearch"><span>Поиск</span><kbd class="keycap">{{ searchShortcut }}</kbd></Button>
+            <Button v-if="hasHistory && record.source === 'browser'" size="sm" class="open-in-request" @click="openInRequest">{{ t('response.openInRequest') }}</Button>
+            <Button size="sm" @click="copyBody"><Icon v-if="bodyCopied" name="check" :size="12" /><span>{{ bodyCopied ? t('common.copied') : t('common.copy') }}</span></Button>
+            <Button size="sm" :title="t('response.inspector', { shortcut: '⌥I' })" @click="toggleInspector">{{ t('response.inspectorShort') }} <kbd class="keycap">⌥I</kbd></Button>
+            <Button size="sm" @click="openBodySearch"><span>{{ t('common.search') }}</span><kbd class="keycap">{{ searchShortcut }}</kbd></Button>
           </template>
         </div>
         <div v-else-if="record.source === 'browser'" class="toolbar">
           <span class="head-spacer"></span>
-          <Button v-if="hasHistory" size="sm" class="open-in-request" @click="openInRequest">Открыть в «Запросе»</Button>
+          <Button v-if="hasHistory" size="sm" class="open-in-request" @click="openInRequest">{{ t('response.openInRequest') }}</Button>
         </div>
         <div v-if="doc" class="resp-content">
           <JsonApiTree :doc="doc" :query="bodyQuery" :highlight-key="highlightKey" @select="highlightResource" @inspect="inspectNode" @fetch="follow" />
@@ -456,7 +462,7 @@ async function copyAs(format: ExportFormat, { keepTokens = false } = {}) {
 
       <TabsContent class="resp-tab" value="headers">
         <div class="toolbar">
-          <Button size="sm" @click="copyHeaders"><Icon v-if="headersCopied" name="check" :size="12" /><span>{{ headersCopied ? 'Скопировано' : 'Копировать' }}</span></Button>
+          <Button size="sm" @click="copyHeaders"><Icon v-if="headersCopied" name="check" :size="12" /><span>{{ headersCopied ? t('common.copied') : t('common.copy') }}</span></Button>
         </div>
         <div class="resp-content resp-pad resp-white">
           <table class="kv-table">
@@ -466,7 +472,7 @@ async function copyAs(format: ExportFormat, { keepTokens = false } = {}) {
                 <td class="kv-val mono">{{ h.value }}</td>
               </tr>
               <tr v-if="responseHeaderEntries.length === 0">
-                <td class="kv-key" colspan="2">Нет заголовков ответа</td>
+                <td class="kv-key" colspan="2">{{ t('response.noResponseHeaders') }}</td>
               </tr>
             </tbody>
           </table>
@@ -493,12 +499,12 @@ async function copyAs(format: ExportFormat, { keepTokens = false } = {}) {
 
       <TabsContent class="resp-tab" value="request">
         <div class="toolbar">
-          <span class="request-caption">Данные показаны после подстановки переменных окружения</span>
+          <span class="request-caption">{{ t('response.substitutedCaption') }}</span>
         </div>
         <div class="resp-content resp-pad resp-white">
-          <div class="kv-row"><span class="kv-label">Метод</span><span class="mono">{{ record.method }}</span></div>
+          <div class="kv-row"><span class="kv-label">{{ t('response.method') }}</span><span class="mono">{{ record.method }}</span></div>
           <div class="kv-row"><span class="kv-label">URL</span><span class="mono break">{{ record.url }}</span></div>
-          <div class="ja-section-title" style="padding-left: 0">Заголовки запроса</div>
+          <div class="ja-section-title" style="padding-left: 0">{{ t('response.requestHeaders') }}</div>
           <table class="kv-table">
             <tbody>
               <tr v-for="(h, i) in requestHeaderEntries" :key="i">
@@ -508,7 +514,7 @@ async function copyAs(format: ExportFormat, { keepTokens = false } = {}) {
               <tr v-if="requestHeaderEntries.length === 0"><td class="kv-key" colspan="2">—</td></tr>
             </tbody>
           </table>
-          <div v-if="record.requestBody" class="ja-section-title" style="padding-left: 0">Тело запроса</div>
+          <div v-if="record.requestBody" class="ja-section-title" style="padding-left: 0">{{ t('response.requestBody') }}</div>
           <pre v-if="record.requestBody" class="code" v-html="highlightJson(record.requestBody)"></pre>
         </div>
       </TabsContent>

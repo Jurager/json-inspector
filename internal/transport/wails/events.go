@@ -31,8 +31,10 @@ func init() {
 	application.RegisterEvent[int](eventOpenTab)
 	application.RegisterEvent[*updater.Info](eventUpdateAvailable)
 	application.RegisterEvent[application.Void](eventUpdateCheck)
-	// A preference change reaches every window: the About window draws in the same palette.
+	// A preference change reaches every window: the About window draws in the same palette, and every
+	// window is written in the same language.
 	application.RegisterEvent[settings.ThemeChanged](settings.TopicThemeChanged)
+	application.RegisterEvent[settings.LanguageChanged](settings.TopicLanguageChanged)
 
 	// History and the attempts that fill it. A record is the same type the list draws — and the same
 	// event, whether it came from a request this app sent or from the browser.

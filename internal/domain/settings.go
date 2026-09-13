@@ -3,6 +3,7 @@ package domain
 // Setting keys, declared here so the store and the screen cannot disagree about their spelling.
 const (
 	SettingTheme            = "theme"
+	SettingLanguage         = "language"
 	SettingInspectorOpen    = "ui.inspectorOpen"
 	SettingInspectorWidth   = "ui.inspectorWidth"
 	SettingSideWidth        = "ui.sideWidth"
@@ -24,6 +25,21 @@ func (t Theme) Valid() bool {
 	return t == ThemeLight || t == ThemeDark || t == ThemeSystem
 }
 
+// Language is the user's choice of interface language, in the same shape as Theme. Which language
+// "system" means is decided in the window, because the webview is the only side that can ask for it.
+type Language string
+
+const (
+	LanguageSystem Language = "system"
+	LanguageRU     Language = "ru"
+	LanguageEN     Language = "en"
+)
+
+// Valid reports whether a stored or supplied language is one the app has catalogues for.
+func (l Language) Valid() bool {
+	return l == LanguageSystem || l == LanguageRU || l == LanguageEN
+}
+
 // Retention is how long history is kept. The count cap that has always applied stays: this is what
 // removes records by age on top of it.
 type Retention string
@@ -42,17 +58,20 @@ func (r Retention) Valid() bool {
 // it. Defaults live in one place — the use case's — so a fresh database and a missing row agree.
 type Settings struct {
 	Theme            Theme     `json:"theme"`
+	Language         Language  `json:"language"`
 	InspectorOpen    bool      `json:"inspectorOpen"`
 	InspectorWidth   int       `json:"inspectorWidth"`
 	SideWidth        int       `json:"sideWidth"`
 	HistoryRetention Retention `json:"historyRetention"`
 }
 
-// DefaultSettings is what the app runs with before anyone has changed anything: the theme follows
-// the system, the inspector is closed at its design width, and history is kept as it always was.
+// DefaultSettings is what the app runs with before anyone has changed anything: the theme and the
+// language follow the system, the inspector is closed at its design width, and history is kept as it
+// always was.
 func DefaultSettings() Settings {
 	return Settings{
 		Theme:            ThemeSystem,
+		Language:         LanguageSystem,
 		InspectorOpen:    false,
 		InspectorWidth:   DefaultInspectorWidth,
 		SideWidth:        DefaultSideWidth,

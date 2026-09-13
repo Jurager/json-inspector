@@ -51,6 +51,17 @@ func (s *SystemService) ShowAbout() {
 	s.host.ShowAbout()
 }
 
+// ApplyLanguage is the window handing over the words the native menu needs. The menu is drawn by the
+// system rather than by the page, and Go cannot resolve "system" — that is a question only the webview
+// can ask — so this is the one piece of the interface that is sent instead of read from the catalogue.
+func (s *SystemService) ApplyLanguage(labels MenuLabels) {
+	s.host.ApplyMenu(labels)
+}
+
+func (s *SystemService) ShowSettings() {
+	s.host.ShowSettings()
+}
+
 // RequestUpdateCheck reuses or opens the About window and asks it to run a check.
 func (s *SystemService) RequestUpdateCheck() {
 	s.host.RequestUpdateCheck()
@@ -111,7 +122,7 @@ func (s *SystemService) RetryInit() (StartupStatus, error) {
 func (s *SystemService) OpenDataFolder() error {
 	app := s.host.App()
 	if app == nil {
-		return errors.New("приложение ещё не готово")
+		return errors.New("the application is not ready yet")
 	}
 	return app.Env.OpenFileManager(string(s.dataDir), false)
 }

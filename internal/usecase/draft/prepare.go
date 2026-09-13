@@ -2,6 +2,7 @@ package draft
 
 import (
 	"context"
+	"mime"
 	"strings"
 
 	"json-inspector/internal/domain"
@@ -30,14 +31,31 @@ func (u *UseCase) prepare(ctx context.Context, draft domain.Draft, inherits *dom
 	}
 
 	sent, stored := raw.putBack(live), raw.putBack(hidden)
+	kind := domain.KindOf(draft.BodyKind)
+
+	// The body is rendered twice from one encoding. The boundary is minted by the first rendering and
+	// handed to the second, because a boundary that differed between the two would make the copy that
+	// is written down a description of a request that was never sent.
+	body, boundary, err := u.renderBody(kind, sent.body, draft.BodyFile, sent.form, "", false)
+	if err != nil {
+		return Prepared{}, err
+	}
+	masked, _, err := u.renderBody(kind, stored.body, draft.BodyFile, stored.form, boundary, true)
+	if err != nil {
+		return Prepared{}, err
+	}
+
 	return Prepared{
 		Method:        draft.Method,
 		URL:           sent.url,
-		Headers:       withAuth(withCookie(sent.headers, sent.cookie), auth.Type, sent.auth),
-		Body:          sent.body,
+		Headers:       withContentType(withAuth(withCookie(sent.headers, sent.cookie), auth.Type, sent.auth), kind, draft.BodyFile, boundary),
+		Body:          body,
+		BodyKind:      kind,
+		Form:          sent.form,
+		BodyFile:      draft.BodyFile,
 		MaskedURL:     stored.url,
-		MaskedHeaders: withAuth(withCookie(stored.headers, stored.cookie), auth.Type, stored.auth),
-		MaskedBody:    stored.body,
+		MaskedHeaders: withContentType(withAuth(withCookie(stored.headers, stored.cookie), auth.Type, stored.auth), kind, draft.BodyFile, boundary),
+		MaskedBody:    masked,
 		Cookies:       draft.Cookies,
 	}, nil
 }
@@ -78,4 +96,45 @@ func withCookie(headers []domain.HeaderPair, cookie string) []domain.HeaderPair 
 		return headers
 	}
 	return append(headers, domain.HeaderPair{Name: "Cookie", Value: cookie})
+}
+
+// withContentType is where the format chosen in the Body popover becomes the header that declares
+// it. A row of the same name the user wrote themselves wins, for the reason it wins over the Auth
+// chip and one more: a written Content-Type is the only way to send a type the kind cannot name, and
+// this app's own Accept is a vendor one, so that is the expected case rather than the exotic one.
+func withContentType(headers []domain.HeaderPair, kind domain.BodyKind, file string, boundary string) []domain.HeaderPair {
+	value, ok := contentTypeFor(kind, file, boundary)
+	if !ok {
+		return headers
+	}
+	for _, header := range headers {
+		if strings.EqualFold(header.Name, "Content-Type") {
+			return headers
+		}
+	}
+	return append(headers, domain.HeaderPair{Name: "Content-Type", Value: value})
+}
+
+// contentTypeFor is the header a body of this kind declares, and whether it declares one at all.
+//
+// Raw answers with nothing on purpose. Every draft written before there were kinds is raw, and the
+// app has always sent those without a Content-Type; naming one here would change what is already
+// stored puts on the wire. Raw is also the kind that promises nothing — its whole point is to be the
+// escape hatch — and a user who wants text/plain writes it once and it sticks, because a written
+// header wins.
+func contentTypeFor(kind domain.BodyKind, file string, boundary string) (string, bool) {
+	switch kind {
+	case domain.BodyJSON:
+		return "application/json", true
+	case domain.BodyXML:
+		return "application/xml", true
+	case domain.BodyForm:
+		// The boundary is the one the body was actually written with, which is why it is handed in
+		// rather than minted here: two boundaries would be a header describing nothing.
+		return mime.FormatMediaType("multipart/form-data", map[string]string{"boundary": boundary}), true
+	case domain.BodyBinary:
+		return typeOfFile(file), true
+	default:
+		return "", false
+	}
 }

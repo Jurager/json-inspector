@@ -35,6 +35,7 @@ declare module "@wailsio/runtime" {
             "record:added": domain$0.Record;
             "request:failed": record$0.RequestFailed;
             "request:finished": record$0.RequestFinished;
+            "settings:language": settings$0.LanguageChanged;
             "settings:theme": settings$0.ThemeChanged;
             "update-available": updater$0.Info | null;
             "update-check": void;

@@ -1,7 +1,10 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 import { useCollectionsStore } from '../../stores/collections'
+import { useMessages } from '../../i18n'
 import { AuthType, type Auth } from '../../../bindings/json-inspector/internal/domain'
+
+const { t } = useMessages()
 
 // What a collection or a folder authorizes its requests with, set once for everything inside it. The
 // three kinds are the design's: a level either sends a Bearer token, a Basic credential, or nothing —
@@ -9,7 +12,8 @@ import { AuthType, type Auth } from '../../../bindings/json-inspector/internal/d
 const store = useCollectionsStore()
 
 const KINDS: Auth['type'][] = [AuthType.AuthBearer, AuthType.AuthBasic, AuthType.AuthNone]
-const LABELS: Record<string, string> = { bearer: 'Bearer Token', basic: 'Basic', none: 'Нет' }
+// The two wire schemes are named by their own names; only the app's own word is translated.
+const LABELS: Record<string, string> = { bearer: 'Bearer Token', basic: 'Basic', none: t('request.auth.none') }
 
 const NONE: Auth = { type: 'none' as Auth['type'], token: '' }
 
@@ -26,7 +30,9 @@ const inheritedLabel = computed(() => {
   const level = inherited.value
   if (!level) return ''
   const kind = LABELS[level.type] ?? level.type
-  return level.token ? `Выше: ${kind} · ${level.token}` : `Выше: ${kind}`
+  return level.token
+    ? t('request.inheritedWithToken', { kind, token: level.token })
+    : t('request.inherited', { kind })
 })
 const index = computed(() => Math.max(0, KINDS.indexOf(auth.value.type)))
 
@@ -85,7 +91,7 @@ function onTokenKeydown(e: KeyboardEvent) {
 <template>
   <div class="auth">
     <div class="block">
-      <span class="heading">Тип авторизации</span>
+      <span class="heading">{{ t('collections.authType') }}</span>
       <div class="segmented">
         <span class="seg-indicator" :style="{ transform: `translateX(calc(${index} * (100% + 2px)))` }" />
         <button
@@ -103,11 +109,11 @@ function onTokenKeydown(e: KeyboardEvent) {
     <div v-if="inheritedLabel" class="inherited">{{ inheritedLabel }}</div>
 
     <label v-if="auth.type !== 'none'" class="block">
-      <span class="label">{{ auth.type === 'basic' ? 'Логин и пароль' : 'Токен' }}</span>
+      <span class="label">{{ auth.type === 'basic' ? t('collections.loginPassword') : t('request.token') }}</span>
       <input
         :value="token"
         class="token mono"
-        :placeholder="auth.type === 'basic' ? 'логин:пароль' : 'Токен'"
+        :placeholder="auth.type === 'basic' ? t('collections.loginPasswordPlaceholder') : t('request.token')"
         spellcheck="false"
         @input="onTokenInput(($event.target as HTMLInputElement).value)"
         @keydown="onTokenKeydown"
@@ -129,7 +135,7 @@ function onTokenKeydown(e: KeyboardEvent) {
         <path d="M12 8v5M12 16h.01" stroke-linecap="round" />
       </svg>
       <span class="note-text">
-        Наследуется всеми папками и запросами коллекции, в карточке запроса — выберите «Наследовать».
+        {{ t('collections.authNote') }}
       </span>
     </div>
   </div>

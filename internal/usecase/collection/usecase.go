@@ -12,9 +12,9 @@ import (
 	"json-inspector/internal/platform"
 )
 
-// copySuffix marks a duplicate for what it is. It is the word the window shows, so it lives here
+// The suffix that marks a duplicate for what it is arrives from the window: a name is read by the
+// user, and Go has no language to write it in.
 // rather than in a view that would have to invent its own.
-const copySuffix = " (копия)"
 
 // maxNameLength is the same ceiling the environments screen uses, so a name that is too long means
 // the same thing wherever it is typed.
@@ -85,13 +85,16 @@ type NewNode struct {
 	Kind         domain.NodeKind `json:"kind"`
 	Name         string          `json:"name"`
 
-	Method  string             `json:"method,omitempty"`
-	URL     string             `json:"url,omitempty"`
-	Params  []domain.Row       `json:"params,omitempty"`
-	Headers []domain.Row       `json:"headers,omitempty"`
-	Body    string             `json:"body,omitempty"`
-	Cookies []domain.CookieRow `json:"cookies,omitempty"`
-	Auth    *domain.Auth       `json:"auth,omitempty"`
+	Method   string             `json:"method,omitempty"`
+	URL      string             `json:"url,omitempty"`
+	Params   []domain.Row       `json:"params,omitempty"`
+	Headers  []domain.Row       `json:"headers,omitempty"`
+	Body     string             `json:"body,omitempty"`
+	BodyKind domain.BodyKind    `json:"bodyKind,omitempty"`
+	Form     []domain.FormRow   `json:"form,omitempty"`
+	BodyFile string             `json:"bodyFile,omitempty"`
+	Cookies  []domain.CookieRow `json:"cookies,omitempty"`
+	Auth     *domain.Auth       `json:"auth,omitempty"`
 }
 
 // CreateNode adds a folder or a request to the end of its group. An empty parent means the node
@@ -105,12 +108,12 @@ func (u *UseCase) CreateNode(ctx context.Context, in NewNode) (domain.Collection
 		return domain.CollectionNode{}, nil, err
 	}
 	if in.Kind != domain.NodeFolder && in.Kind != domain.NodeRequest {
-		return domain.CollectionNode{}, nil, fmt.Errorf("вид узла %q: %w", in.Kind, domain.ErrNotAllowed)
+		return domain.CollectionNode{}, nil, fmt.Errorf("node kind %q: %w", in.Kind, domain.ErrNotAllowed)
 	}
 	if _, ok, err := u.collection(ctx, in.CollectionID); err != nil {
 		return domain.CollectionNode{}, nil, err
 	} else if !ok {
-		return domain.CollectionNode{}, nil, fmt.Errorf("коллекция %s: %w", in.CollectionID, domain.ErrNotFound)
+		return domain.CollectionNode{}, nil, fmt.Errorf("collection %s: %w", in.CollectionID, domain.ErrNotFound)
 	}
 	// A request can hold nothing, so only a folder is a place: without this a request dropped into
 	// another one would be a node the tree can never draw.
@@ -120,7 +123,7 @@ func (u *UseCase) CreateNode(ctx context.Context, in NewNode) (domain.Collection
 			return domain.CollectionNode{}, nil, err
 		}
 		if parent.Kind != domain.NodeFolder || parent.CollectionID != in.CollectionID {
-			return domain.CollectionNode{}, nil, fmt.Errorf("родитель %s: %w", in.ParentID, domain.ErrNotAllowed)
+			return domain.CollectionNode{}, nil, fmt.Errorf("parent %s: %w", in.ParentID, domain.ErrNotAllowed)
 		}
 	}
 
@@ -143,6 +146,9 @@ func (u *UseCase) CreateNode(ctx context.Context, in NewNode) (domain.Collection
 		node.Params = orEmptyRows(in.Params)
 		node.Headers = orEmptyRows(in.Headers)
 		node.Body = in.Body
+		node.BodyKind = domain.KindOf(in.BodyKind)
+		node.Form = withFormIDs(u.ids, in.Form)
+		node.BodyFile = in.BodyFile
 		node.Cookies = orEmptyCookies(in.Cookies)
 		node.Auth = in.Auth
 	}
@@ -301,11 +307,11 @@ func actionable(auth *domain.Auth) domain.Auth {
 
 // Duplicate copies a collection or a node into the same place, under a name that says what it is.
 // Ids are minted anew: the copy is a second thing, not the same thing twice.
-func (u *UseCase) Duplicate(ctx context.Context, id string) ([]domain.Collection, error) {
+func (u *UseCase) Duplicate(ctx context.Context, id string, suffix string) ([]domain.Collection, error) {
 	if collection, ok, err := u.collection(ctx, id); err != nil {
 		return nil, err
 	} else if ok {
-		return u.duplicateCollection(ctx, collection)
+		return u.duplicateCollection(ctx, collection, suffix)
 	}
 
 	// The copy starts from the tree row, which is the only place a node's children are: copyNode
@@ -316,14 +322,14 @@ func (u *UseCase) Duplicate(ctx context.Context, id string) ([]domain.Collection
 	}
 	node, ok := findNode(tree, id)
 	if !ok {
-		return nil, fmt.Errorf("узел %s: %w", id, domain.ErrNotFound)
+		return nil, fmt.Errorf("node %s: %w", id, domain.ErrNotFound)
 	}
 	position, err := u.store.NextPosition(ctx, node.CollectionID, node.ParentID)
 	if err != nil {
 		return nil, err
 	}
 
-	copied, err := u.copyNode(ctx, node, node.CollectionID, node.ParentID, node.Name+copySuffix, position)
+	copied, err := u.copyNode(ctx, node, node.CollectionID, node.ParentID, node.Name+suffix, position)
 	if err != nil {
 		return nil, err
 	}
@@ -489,7 +495,7 @@ func (u *UseCase) SaveNode(ctx context.Context, edited domain.CollectionNode) ([
 // duplicateCollection copies a whole collection into a new one at the end of the list. The tree is
 // read with its request fields left out, so every node is read again on the way in — a copy of a
 // request that lost its headers would be worse than no copy at all.
-func (u *UseCase) duplicateCollection(ctx context.Context, collection domain.Collection) ([]domain.Collection, error) {
+func (u *UseCase) duplicateCollection(ctx context.Context, collection domain.Collection, suffix string) ([]domain.Collection, error) {
 	tree, err := u.store.Collections(ctx)
 	if err != nil {
 		return nil, err
@@ -497,7 +503,7 @@ func (u *UseCase) duplicateCollection(ctx context.Context, collection domain.Col
 
 	copied := domain.Collection{
 		ID:          u.ids(),
-		Name:        clip(collection.Name + copySuffix),
+		Name:        clip(collection.Name + suffix),
 		Description: collection.Description,
 		Position:    int64(len(tree)),
 		Items:       []domain.CollectionNode{},
@@ -556,6 +562,7 @@ func (u *UseCase) copyNode(ctx context.Context, row domain.CollectionNode, colle
 	copied.Params = copyRows(u.ids, node.Params)
 	copied.Headers = copyRows(u.ids, node.Headers)
 	copied.Cookies = copyCookies(u.ids, node.Cookies)
+	copied.Form = copyFormRows(u.ids, node.Form)
 
 	for i, child := range row.Items {
 		child, err := u.copyNode(ctx, child, collectionID, copied.ID, child.Name, int64(i))
@@ -575,6 +582,28 @@ func withIDs(ids platform.IDGen, rows []domain.Row) []domain.Row {
 		if row.ID == "" {
 			row.ID = ids()
 		}
+		out = append(out, row)
+	}
+	return out
+}
+
+// withFormIDs is withIDs for a form body.
+func withFormIDs(ids platform.IDGen, rows []domain.FormRow) []domain.FormRow {
+	out := make([]domain.FormRow, 0, len(rows))
+	for _, row := range rows {
+		if row.ID == "" {
+			row.ID = ids()
+		}
+		out = append(out, row)
+	}
+	return out
+}
+
+// copyFormRows is copyRows for a form body, for the same reason.
+func copyFormRows(ids platform.IDGen, rows []domain.FormRow) []domain.FormRow {
+	out := make([]domain.FormRow, 0, len(rows))
+	for _, row := range rows {
+		row.ID = ids()
 		out = append(out, row)
 	}
 	return out
@@ -652,10 +681,10 @@ func (u *UseCase) collection(ctx context.Context, id string) (domain.Collection,
 func validName(name string) (string, error) {
 	name = strings.TrimSpace(name)
 	if name == "" {
-		return "", fmt.Errorf("имя не может быть пустым: %w", domain.ErrNotAllowed)
+		return "", fmt.Errorf("the name is empty: %w", domain.ErrNotAllowed)
 	}
 	if len([]rune(name)) > maxNameLength {
-		return "", fmt.Errorf("имя длиннее %d символов: %w", maxNameLength, domain.ErrNotAllowed)
+		return "", fmt.Errorf("the name is over %d characters: %w", maxNameLength, domain.ErrNotAllowed)
 	}
 	return name, nil
 }
@@ -665,7 +694,7 @@ func validName(name string) (string, error) {
 func validDescription(description string) (string, error) {
 	description = strings.TrimSpace(description)
 	if len([]rune(description)) > maxDescriptionLength {
-		return "", fmt.Errorf("описание длиннее %d символов: %w", maxDescriptionLength, domain.ErrNotAllowed)
+		return "", fmt.Errorf("the description is over %d characters: %w", maxDescriptionLength, domain.ErrNotAllowed)
 	}
 	return description, nil
 }

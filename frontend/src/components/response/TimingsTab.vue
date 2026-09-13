@@ -1,9 +1,10 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import type { RecordView } from '../../lib/requestRecord'
-import { formatMicros } from '../../lib/format'
+import { formatMicros, useMessages } from '../../i18n'
 
 const props = defineProps<{ record: RecordView }>()
+const { t } = useMessages()
 
 interface Phase {
   label: string
@@ -20,8 +21,8 @@ const phases = computed<Phase[]>(() =>
       { label: 'DNS', us: props.record.dnsUs },
       { label: 'TCP', us: props.record.connectUs },
       { label: 'TLS', us: props.record.tlsUs },
-      { label: 'Ожидание', us: props.record.waitUs },
-      { label: 'Загрузка', us: props.record.downloadUs },
+      { label: t('response.timings.wait'), us: props.record.waitUs },
+      { label: t('response.timings.download'), us: props.record.downloadUs },
     ] as { label: string; us: number | null | undefined }[]
   )
     .filter((phase): phase is Phase => phase.us != null)
@@ -52,7 +53,7 @@ const reusedConnection = computed(
 <template>
   <div class="timings">
     <div class="timing-row timing-total">
-      <span class="timing-label">Всего</span>
+      <span class="timing-label">{{ t('response.timings.total') }}</span>
       <div class="timing-track">
         <div class="timing-fill" style="width: 100%"></div>
       </div>
@@ -66,10 +67,10 @@ const reusedConnection = computed(
       <span class="timing-value mono">{{ formatMicros(p.us) }}</span>
     </div>
     <div v-if="phases.length === 0" class="timing-note">
-      Запрос не удалось засечь по фазам — ответа не было.
+      {{ t('response.timings.unmeasured') }}
     </div>
     <div v-else-if="reusedConnection" class="timing-note">
-      Соединение переиспользовано: DNS, TCP и TLS не тратились.
+      {{ t('response.timings.reused') }}
     </div>
   </div>
 </template>

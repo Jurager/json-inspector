@@ -19,11 +19,13 @@ func TestTheWiringBuilds(t *testing.T) {
 	}
 }
 
-// The window's URL carries the theme (`/?theme=dark`) so the first frame is already painted in the
-// right palette — asking Go over IPC is too late for that. That trick rests on the asset server
-// resolving on the path alone: if a Wails upgrade starts treating the query as part of the filename,
-// both windows come up blank, and this is where that shows up instead.
-func TestAssetServerIgnoresTheThemeQuery(t *testing.T) {
+// The window's URL carries the theme and the language (`/?theme=dark&lang=ru`) so the first frame is
+// already painted in the right palette and written in the right words — asking Go over IPC is too
+// late for either. That trick rests on the asset server resolving on the path alone: if a Wails
+// upgrade starts treating the query as part of the filename, every window comes up blank, and this is
+// where that shows up instead. It is also what catches a window whose document was never added to the
+// frontend build, which is a blank window with nothing in the log.
+func TestAssetServerIgnoresTheWindowQuery(t *testing.T) {
 	handler := application.AssetFileServerFS(assets)
 
 	cases := []struct {
@@ -32,8 +34,11 @@ func TestAssetServerIgnoresTheThemeQuery(t *testing.T) {
 	}{
 		{name: "main window", url: "/?theme=dark"},
 		{name: "main window, no theme", url: "/"},
+		{name: "main window, language and no material", url: "/?theme=system&lang=ru&translucent=1"},
 		{name: "about window", url: "/about.html?theme=light"},
 		{name: "about window, no theme", url: "/about.html"},
+		{name: "settings window", url: "/settings.html?theme=light&lang=en"},
+		{name: "settings window, no theme", url: "/settings.html"},
 	}
 
 	for _, tc := range cases {

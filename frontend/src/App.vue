@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useEnvironmentsStore } from './stores/environments'
 import { useRequestsStore } from './stores/requests'
 import { useCollectionsStore } from './stores/collections'
@@ -11,6 +11,7 @@ import { useUpdates } from './composables/useUpdates'
 import { focusUrlField } from './composables/urlFocus'
 import { SystemService } from '../bindings/json-inspector/internal/transport/wails'
 import type { StartupStatus } from '../bindings/json-inspector/internal/transport/wails'
+import { useMessages } from './i18n'
 import TitleBar from './components/layout/TitleBar.vue'
 import Rail from './components/layout/Rail.vue'
 import Workspace from './components/layout/Workspace.vue'
@@ -22,6 +23,8 @@ import { Button } from './components/ui/button'
 
 // The shell: layout plus the composables that own app-wide behaviour. State reaches
 // components through the store or a composable, never through props from here.
+const { t, te } = useMessages()
+
 const store = useRequestsStore()
 const collections = useCollectionsStore()
 const envStore = useEnvironmentsStore()
@@ -44,6 +47,15 @@ async function retryInit() {
     retrying.value = false
   }
 }
+
+// Go says which refusal it was and nothing more; the sentence for each kind is here, where the
+// language is. A kind this build has no sentence for — one from a newer version — falls back to the
+// general one rather than being printed as its own key.
+const startupTitle = computed(() => {
+  const kind = startup.value?.failure?.kind
+  const key = `startup.failed.${kind}`
+  return kind && te(key) ? t(key) : t('startup.title')
+})
 
 onMounted(loadStartup)
 
@@ -70,16 +82,16 @@ function closeSheet() {
     <TitleBar />
 
     <div v-if="startup && !startup.ready" class="startup-failure">
-      <div class="startup-title">{{ startup.failure?.message ?? 'Не удалось запустить приложение' }}</div>
-      <p class="startup-hint">
-        Данные не потеряны: файл базы на месте, приложение просто не смогло его открыть.
-      </p>
+      <div class="startup-title">{{ startupTitle }}</div>
+      <p class="startup-hint">{{ t('startup.hint') }}</p>
       <pre v-if="startup.failure?.detail" class="startup-detail">{{ startup.failure.detail }}</pre>
       <div class="startup-actions">
         <Button variant="primary" :disabled="retrying" @click="retryInit">
-          {{ retrying ? 'Пробуем снова…' : 'Повторить' }}
+          {{ retrying ? t('startup.retrying') : t('startup.retry') }}
         </Button>
-        <Button variant="outline" @click="SystemService.OpenDataFolder()">Открыть папку данных</Button>
+        <Button variant="outline" @click="SystemService.OpenDataFolder()">
+          {{ t('startup.openDataFolder') }}
+        </Button>
       </div>
       <div class="startup-path">{{ startup.dbPath }}</div>
     </div>

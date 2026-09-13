@@ -59,8 +59,12 @@ type Screener interface {
 // Masker is a request as everything that outlives the send sees it: the same request with a secret's
 // value left as its mask. The caller prepares one already, and this is asked again only for a request
 // a script changed — the mask cannot be made where the values are not.
+//
+// The prepared attempt travels beside the script's answer because a body made of form rows or of a
+// path to a file cannot be rendered from the text the script was shown: it has to be rendered again
+// out of what the request is made of.
 type Masker interface {
-	Mask(ctx context.Context, req domain.ScriptRequest) (Masked, error)
+	Mask(ctx context.Context, in SendInput, sent domain.ScriptRequest) (Masked, error)
 }
 
 // Masked is a request written down: its address, its headers and its body with their secrets left as

@@ -59,6 +59,7 @@ func TestSnapshotFallsBackToDefaults(t *testing.T) {
 func TestSnapshotIgnoresUnreadableValues(t *testing.T) {
 	uc, store, _ := newUseCase()
 	store[domain.SettingTheme] = "solarized"
+	store[domain.SettingLanguage] = "de"
 	store[domain.SettingInspectorWidth] = "wide"
 	store[domain.SettingSideWidth] = "-40"
 	store[domain.SettingHistoryRetention] = "forever-ish"
@@ -71,6 +72,9 @@ func TestSnapshotIgnoresUnreadableValues(t *testing.T) {
 	want := domain.DefaultSettings()
 	if got.Theme != want.Theme {
 		t.Errorf("theme = %q, want the default", got.Theme)
+	}
+	if got.Language != want.Language {
+		t.Errorf("language = %q, want the default", got.Language)
 	}
 	if got.InspectorWidth != want.InspectorWidth {
 		t.Errorf("inspectorWidth = %d, want the default", got.InspectorWidth)
@@ -118,6 +122,43 @@ func TestSetThemeStoresAndPublishes(t *testing.T) {
 	}
 	if len(notifier.seen) != 1 {
 		t.Error("a refused theme was published anyway")
+	}
+}
+
+func TestSetLanguageStoresAndPublishes(t *testing.T) {
+	uc, store, notifier := newUseCase()
+
+	got, err := uc.SetLanguage(context.Background(), domain.LanguageRU)
+	if err != nil {
+		t.Fatalf("SetLanguage: %v", err)
+	}
+	if got.Language != domain.LanguageRU {
+		t.Errorf("language = %q, want ru back", got.Language)
+	}
+	if store[domain.SettingLanguage] != "ru" {
+		t.Errorf("stored language = %q, want ru", store[domain.SettingLanguage])
+	}
+
+	// The event carries the choice: "system" is a question only the webview can answer.
+	if len(notifier.seen) != 1 {
+		t.Fatalf("published %d events, want one", len(notifier.seen))
+	}
+	event := notifier.seen[0]
+	if event.topic != TopicLanguageChanged {
+		t.Errorf("topic = %q, want %q", event.topic, TopicLanguageChanged)
+	}
+	changed, ok := event.payload.(LanguageChanged)
+	if !ok || changed.Language != domain.LanguageRU {
+		t.Errorf("payload = %#v, want a LanguageChanged carrying ru", event.payload)
+	}
+
+	// A language there is no catalogue for must not be stored: the window would fall back to English
+	// and quietly disagree with what the settings screen shows.
+	if _, err := uc.SetLanguage(context.Background(), "de"); !errors.Is(err, domain.ErrNotAllowed) {
+		t.Errorf("unknown language = %v, want ErrNotAllowed", err)
+	}
+	if len(notifier.seen) != 1 {
+		t.Error("a refused language was published anyway")
 	}
 }
 
@@ -174,6 +215,20 @@ func TestThemeAnswersOnAFreshDatabase(t *testing.T) {
 	}
 	if got != domain.ThemeSystem {
 		t.Errorf("Theme = %q, want the default", got)
+	}
+}
+
+// Language answers on the same terms, and its default is the one the settings screen offers: follow
+// the system, not a language picked for the user.
+func TestLanguageAnswersOnAFreshDatabase(t *testing.T) {
+	uc, _, _ := newUseCase()
+
+	got, err := uc.Language(context.Background())
+	if err != nil {
+		t.Fatalf("Language: %v", err)
+	}
+	if got != domain.LanguageSystem {
+		t.Errorf("Language = %q, want the default", got)
 	}
 }
 

@@ -105,7 +105,7 @@ var (
 func preludeProgram() (*goja.Program, error) {
 	preludeOnce.Do(func() { prelude, preludeErr = goja.Compile("prelude.js", preludeSource, false) })
 	if preludeErr != nil {
-		return nil, fmt.Errorf("песочница не собирается: %w", preludeErr)
+		return nil, fmt.Errorf("the sandbox does not compile: %w", preludeErr)
 	}
 	return prelude, nil
 }

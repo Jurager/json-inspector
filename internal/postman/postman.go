@@ -6,6 +6,10 @@
 // name, folders, and requests with a method, an address, headers, a body and an auth choice. Saved
 // examples, scripts and variables are written by Postman and left alone here — a reader that kept
 // them would be promising to give them back.
+//
+// The body is read and written in the modes the app composes — raw text, a form of rows, and a file
+// named by its path. A GraphQL body is still left out: it is the one mode the app has no shape for,
+// and a body half-read is worse than one it says it did not take.
 package postman
 
 import (
@@ -77,10 +81,18 @@ func (u *url) UnmarshalJSON(data []byte) error {
 }
 
 type body struct {
-	Mode       string  `json:"mode"`
-	Raw        string  `json:"raw,omitempty"`
-	URLEncoded []field `json:"urlencoded,omitempty"`
-	FormData   []field `json:"formdata,omitempty"`
+	Mode       string     `json:"mode"`
+	Raw        string     `json:"raw,omitempty"`
+	URLEncoded []field    `json:"urlencoded,omitempty"`
+	FormData   []field    `json:"formdata,omitempty"`
+	File       *fileField `json:"file,omitempty"`
+}
+
+// fileField is a binary body: where the file is and nothing else. A path and not the bytes, which is
+// what Postman keeps and what this app keeps — a collection file stays a description of the requests
+// in it rather than a copy of everything they send.
+type fileField struct {
+	Src string `json:"src,omitempty"`
 }
 
 type auth struct {
@@ -98,11 +110,11 @@ type auth struct {
 func Import(data []byte) (domain.Collection, error) {
 	var doc document
 	if err := json.Unmarshal(data, &doc); err != nil {
-		return domain.Collection{}, fmt.Errorf("файл не читается как JSON: %w", domain.ErrNotAllowed)
+		return domain.Collection{}, fmt.Errorf("the file does not read as JSON: %w", domain.ErrNotAllowed)
 	}
 	if doc.Info.Name == "" && len(doc.Item) == 0 {
 		return domain.Collection{}, fmt.Errorf(
-			"это не коллекция Postman: в файле нет ни info, ни item: %w", domain.ErrNotAllowed)
+			"not a Postman collection: the file has neither info nor item: %w", domain.ErrNotAllowed)
 	}
 
 	return domain.Collection{
@@ -157,7 +169,7 @@ func requestNode(node domain.CollectionNode, from request) domain.CollectionNode
 			Name: query.Key, Value: query.Value, Enabled: !query.Disabled,
 		})
 	}
-	node.Body = bodyText(from.Body)
+	applyBody(&node, from.Body)
 	if from.Auth != nil {
 		if auth := authOf(*from.Auth); auth != nil {
 			node.Auth = auth
@@ -166,17 +178,22 @@ func requestNode(node domain.CollectionNode, from request) domain.CollectionNode
 	return node
 }
 
-// bodyText is the request's body as one text, which is the only shape this app composes: a form
-// written as rows becomes the form it means. A body of another kind — a file upload, a GraphQL
-// query — is not something the app can send, and it is left out rather than half-read.
-func bodyText(from *body) string {
+// applyBody reads the request's body into the node, format and all.
+//
+// `raw` is not guessed into json or xml: the file does not say which it is, and guessing would change
+// what a request that was saved elsewhere sends here. A GraphQL body is still left out rather than
+// half-read — it is not a body this app can compose.
+func applyBody(node *domain.CollectionNode, from *body) {
 	if from == nil {
-		return ""
+		return
 	}
-	if from.Mode == "raw" {
-		return from.Raw
-	}
-	if from.Mode == "urlencoded" {
+	switch from.Mode {
+	case "raw":
+		node.BodyKind = domain.BodyRaw
+		node.Body = from.Raw
+	case "urlencoded":
+		// The app composes no urlencoded kind, so this arrives as the text it means.
+		node.BodyKind = domain.BodyRaw
 		parts := make([]string, 0, len(from.URLEncoded))
 		for _, row := range from.URLEncoded {
 			if row.Disabled {
@@ -184,9 +201,24 @@ func bodyText(from *body) string {
 			}
 			parts = append(parts, row.Key+"="+row.Value)
 		}
-		return strings.Join(parts, "&")
+		node.Body = strings.Join(parts, "&")
+	case "formdata":
+		node.BodyKind = domain.BodyForm
+		for _, row := range from.FormData {
+			node.Form = append(node.Form, domain.FormRow{
+				Name:    row.Key,
+				Value:   row.Value,
+				Src:     row.Src,
+				File:    row.Src != "",
+				Enabled: !row.Disabled,
+			})
+		}
+	case "file":
+		node.BodyKind = domain.BodyBinary
+		if from.File != nil {
+			node.BodyFile = from.File.Src
+		}
 	}
-	return ""
 }
 
 // authOf is the app's auth, which is a type and a token. Basic is the one that does not fit: it
@@ -225,7 +257,7 @@ func Export(name string, items []domain.CollectionNode) ([]byte, error) {
 	}
 	data, err := json.MarshalIndent(doc, "", "  ")
 	if err != nil {
-		return nil, fmt.Errorf("коллекция %q не записывается: %w", name, err)
+		return nil, fmt.Errorf("collection %q could not be written: %w", name, err)
 	}
 	return append(data, '\n'), nil
 }
@@ -265,13 +297,42 @@ func exportedRequest(node domain.CollectionNode) *request {
 		}
 		out.URL.Query = append(out.URL.Query, field{Key: param.Name, Value: param.Value, Disabled: !param.Enabled})
 	}
-	if node.Body != "" {
-		out.Body = &body{Mode: "raw", Raw: node.Body}
-	}
+	out.Body = exportedBody(node)
 	if node.Auth != nil {
 		out.Auth = exportedAuth(*node.Auth)
 	}
 	return out
+}
+
+// exportedBody is the body as the file keeps it, in the mode that describes it.
+//
+// json, xml and raw all leave as `raw`: Postman has nowhere to record which of the three a body was,
+// and writing an `options.raw.language` this reader does not honour would be a promise the next
+// import would break. A form and a file do survive the trip, because Postman has a shape for each.
+func exportedBody(node domain.CollectionNode) *body {
+	switch domain.KindOf(node.BodyKind) {
+	case domain.BodyForm:
+		out := &body{Mode: "formdata"}
+		for _, row := range node.Form {
+			if strings.TrimSpace(row.Name) == "" {
+				continue
+			}
+			out.FormData = append(out.FormData, field{
+				Key: row.Name, Value: row.Value, Src: row.Src, Disabled: !row.Enabled,
+			})
+		}
+		return out
+	case domain.BodyBinary:
+		if node.BodyFile == "" {
+			return nil
+		}
+		return &body{Mode: "file", File: &fileField{Src: node.BodyFile}}
+	default:
+		if node.Body == "" {
+			return nil
+		}
+		return &body{Mode: "raw", Raw: node.Body}
+	}
 }
 
 func exportedAuth(from domain.Auth) *auth {

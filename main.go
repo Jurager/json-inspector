@@ -10,6 +10,7 @@ import (
 	"github.com/wailsapp/wails/v3/pkg/application"
 	"go.uber.org/fx"
 
+	"json-inspector/internal/infra/files"
 	"json-inspector/internal/infra/httpx"
 	"json-inspector/internal/infra/scriptengine"
 	"json-inspector/internal/infra/sqlite"
@@ -32,8 +33,11 @@ var version = "dev"
 var build = ""
 
 const (
-	appName        = "JSON Inspector"
-	appDescription = "Просмотр JSON:API: подстановка переменных окружения, карта схемы, перехват запросов из браузера."
+	appName = "JSON Inspector"
+	// The bundle's own description. It is a single field of the platform's manifest, set once at build
+	// time, so it cannot follow the language the window is in — the app's name cannot either. Of the
+	// two languages it could be written in, English is the one the manifest is read in.
+	appDescription = "A JSON:API viewer: environment variables, a schema map, and captured browser requests."
 )
 
 func main() {
@@ -50,6 +54,7 @@ func appOptions() []fx.Option {
 		platform.Module,
 		sqlite.Module,
 		httpx.Module,
+		files.Module,
 		scriptengine.Module,
 		bridge.Module,
 		usecase.Module,

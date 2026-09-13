@@ -33,7 +33,7 @@ func (u *UseCase) Variable(ctx context.Context, scope domain.VarScope, name stri
 	case domain.ScopeGlobals:
 		return byName(state.Globals, name)
 	default:
-		return "", false, fmt.Errorf("область %q: %w", scope, domain.ErrNotAllowed)
+		return "", false, fmt.Errorf("scope %q: %w", scope, domain.ErrNotAllowed)
 	}
 }
 
@@ -45,7 +45,7 @@ func (u *UseCase) SetVariable(ctx context.Context, scope domain.VarScope, name s
 	// A name no `{{token}}` can carry is a row nobody can use: the script would be writing into a
 	// place the request it is running around cannot read.
 	if name == "" || !vars.ValidName(name) {
-		return fmt.Errorf("имя переменной %q: %w", name, domain.ErrNotAllowed)
+		return fmt.Errorf("variable name %q: %w", name, domain.ErrNotAllowed)
 	}
 
 	state, err := u.store.EnvState(ctx)
@@ -57,12 +57,12 @@ func (u *UseCase) SetVariable(ctx context.Context, scope domain.VarScope, name s
 	switch scope {
 	case domain.ScopeEnvironment:
 		if _, ok := findEnvironment(state, state.ActiveID); !ok {
-			return fmt.Errorf("окружение не выбрано, писать некуда")
+			return fmt.Errorf("no environment is selected, so there is nowhere to write")
 		}
 		where.Environment = state.ActiveID
 	case domain.ScopeGlobals:
 	default:
-		return fmt.Errorf("область %q: %w", scope, domain.ErrNotAllowed)
+		return fmt.Errorf("scope %q: %w", scope, domain.ErrNotAllowed)
 	}
 
 	if existing, ok := existing(scopeVariables(state, where), name); ok {

@@ -331,7 +331,7 @@ func TestAScriptThatNeverFinishesIsStopped(t *testing.T) {
 		Variables: newFakeVars(),
 	})
 
-	if report.OK || !strings.Contains(report.Error, "дольше") {
+	if report.OK || !strings.Contains(report.Error, "longer than") {
 		t.Errorf("report = %+v, want it stopped and told why", report)
 	}
 	if report.DurationUs > int64(2*time.Second) {
@@ -371,7 +371,7 @@ func TestACheckThatWaitsForAPromiseIsNotPassed(t *testing.T) {
 	if !report.OK || len(report.Tests) != 1 {
 		t.Fatalf("report = %+v, want one reported check", report)
 	}
-	if report.Tests[0].Passed || !strings.Contains(report.Tests[0].Error, "обещания") {
+	if report.Tests[0].Passed || !strings.Contains(report.Tests[0].Error, "promise") {
 		t.Errorf("check = %+v, want it reported as one that cannot be waited for", report.Tests[0])
 	}
 }
@@ -544,7 +544,7 @@ func TestTheLogIsCapped(t *testing.T) {
 		t.Fatalf("logs = %d, want the cap and one line saying so", len(report.Logs))
 	}
 	last := report.Logs[len(report.Logs)-1]
-	if last.Level != "warn" || !strings.Contains(last.Message, "обрезан") {
+	if last.Level != "warn" || !strings.Contains(last.Message, "truncated") {
 		t.Errorf("last line = %+v, want it to say what the cap hid", last)
 	}
 }
@@ -563,5 +563,40 @@ func TestAnEmptyScriptRunsAndSaysNothing(t *testing.T) {
 
 	if !report.OK || report.Error != "" || len(report.Logs) != 0 || len(report.Tests) != 0 {
 		t.Errorf("report = %+v, want an empty report out of an empty script", report)
+	}
+}
+
+// A script is shown the text kinds and nothing of the byte kinds. A multipart body is a wire
+// encoding, and a file's bytes in a JavaScript string come back corrupted — so the sandbox hands
+// over nothing at all rather than something it would have to repair on the way back.
+//
+// The request itself is untouched: what goes out is the encoded body the preparation produced, and
+// the script only ever saw less of it.
+func TestAByteBodyIsNotShownToAScript(t *testing.T) {
+	for _, want := range []struct {
+		kind domain.BodyKind
+		seen string
+	}{
+		{domain.BodyJSON, `{"data": {"type": "users"}}`},
+		{domain.BodyRaw, `{"data": {"type": "users"}}`},
+		{domain.BodyForm, ""},
+		{domain.BodyBinary, ""},
+	} {
+		vars := newFakeVars()
+		asked := request()
+		asked.BodyKind = want.kind
+
+		report := NewEngine().Run(domain.ScriptInput{
+			Scope:     domain.ScriptPre,
+			Source:    `__seen = pm.request.body;`,
+			Request:   asked,
+			Variables: vars,
+		})
+		if !report.OK {
+			t.Fatalf("%s: report = %+v, want the script to run", want.kind, report)
+		}
+		if asked.Body != request().Body {
+			t.Errorf("%s: the request body was changed to %q, want it untouched", want.kind, asked.Body)
+		}
 	}
 }

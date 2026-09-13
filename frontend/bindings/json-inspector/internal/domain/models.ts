@@ -34,6 +34,28 @@ export enum AuthType {
 };
 
 /**
+ * BodyKind is the format a request body is composed in. It belongs to the request and not to the
+ * window: the command line and a saved card both carry one, and the kind is what decides the
+ * Content-Type the request goes out with.
+ */
+export enum BodyKind {
+    /**
+     * The Go zero value for the underlying type of the enum.
+     */
+    $zero = "",
+
+    /**
+     * BodyRaw is text this app does not interpret. It is the zero answer: a draft, a node or a file
+     * written before there were kinds holds text, and text is what raw means.
+     */
+    BodyRaw = "raw",
+    BodyJSON = "json",
+    BodyXML = "xml",
+    BodyForm = "form",
+    BodyBinary = "binary",
+};
+
+/**
  * BodyRef points at one side of a record: the text itself when it is small, otherwise its size and
  * a promise that the viewer can fetch it with a call of its own.
  */
@@ -103,6 +125,9 @@ export interface CollectionNode {
     "params"?: Row[] | null;
     "headers"?: Row[] | null;
     "body"?: string;
+    "bodyKind"?: BodyKind;
+    "form"?: FormRow[] | null;
+    "bodyFile"?: string;
     "cookies"?: CookieRow[] | null;
     "auth"?: Auth | null;
 
@@ -210,6 +235,9 @@ export interface Draft {
     "headers": Row[] | null;
     "auth": Auth;
     "body": string;
+    "bodyKind": BodyKind;
+    "form": FormRow[] | null;
+    "bodyFile"?: string;
     "cookies": CookieRow[] | null;
 }
 
@@ -267,10 +295,39 @@ export interface Environment {
     "vars": Variable[] | null;
 }
 
+/**
+ * FormRow is one line of a form body. It is not a Row: a form line is text until the paperclip is
+ * clicked, and a line that became a file keeps its path in Src rather than in Value, so that
+ * switching it back to text does not lose the text that was under it.
+ */
+export interface FormRow {
+    "id": string;
+    "name": string;
+    "value": string;
+    "src"?: string;
+    "file"?: boolean;
+    "enabled": boolean;
+}
+
 export interface HeaderPair {
     "name": string;
     "value": string;
 }
+
+/**
+ * Language is the user's choice of interface language, in the same shape as Theme. Which language
+ * "system" means is decided in the window, because the webview is the only side that can ask for it.
+ */
+export enum Language {
+    /**
+     * The Go zero value for the underlying type of the enum.
+     */
+    $zero = "",
+
+    LanguageSystem = "system",
+    LanguageRU = "ru",
+    LanguageEN = "en",
+};
 
 /**
  * NodeKind is what a node is: a folder holds other nodes, a request is the thing that gets sent.
@@ -395,6 +452,7 @@ export enum RowKind {
     RowParams = "params",
     RowHeaders = "headers",
     RowCookies = "cookies",
+    RowForm = "form",
 };
 
 /**
@@ -460,6 +518,7 @@ export interface Scripts {
  */
 export interface Settings {
     "theme": Theme;
+    "language": Language;
     "inspectorOpen": boolean;
     "inspectorWidth": number;
     "sideWidth": number;

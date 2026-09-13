@@ -38,7 +38,7 @@ func (s *Store) Scripts(ctx context.Context, id string) (*domain.Scripts, error)
 		 UNION ALL SELECT scripts_json FROM collection_nodes WHERE id = ?
 		 UNION ALL SELECT scripts_json FROM drafts WHERE id = ?`, id, id, id).Scan(&raw)
 	if errors.Is(err, sql.ErrNoRows) {
-		return nil, fmt.Errorf("уровень %s: %w", id, domain.ErrNotFound)
+		return nil, fmt.Errorf("level %s: %w", id, domain.ErrNotFound)
 	}
 	if err != nil {
 		return nil, fmt.Errorf("reading the scripts of %s: %w", id, err)
@@ -76,7 +76,7 @@ func (s *Store) SaveScripts(ctx context.Context, id string, scripts *domain.Scri
 			return nil
 		}
 	}
-	return fmt.Errorf("уровень %s: %w", id, domain.ErrNotFound)
+	return fmt.Errorf("level %s: %w", id, domain.ErrNotFound)
 }
 
 // SaveScriptRun writes one execution of one script with everything it printed and asserted. It is one

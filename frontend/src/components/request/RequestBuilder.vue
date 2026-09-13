@@ -22,10 +22,13 @@ import { tokenSegments } from '../../lib/vars'
 import { parseRequestCommand, type ParseErrorReason } from '../../lib/parseRequest'
 import type { ExportFormat } from '../../lib/export'
 import { useToast } from '../../composables/useToast'
+import { useMessages } from '../../i18n'
 
 // Which request this builder is composing: the command line's, or the card of a saved one. The two
 // stores answer the same shape, so nothing below this line has to know which it is.
 const props = withDefaults(defineProps<{ source?: 'request' | 'collection' }>(), { source: 'request' })
+
+const { t } = useMessages()
 
 const requests = useRequestsStore()
 const collections = useCollectionsStore()
@@ -35,22 +38,13 @@ const { shortcut } = usePlatform()
 const envStore = useEnvironmentsStore()
 const toast = useToast()
 
+// Wire formats, not words: a cURL command is called cURL in every language.
 const FORMAT_LABELS: Record<ExportFormat, string> = {
   curl: 'cURL',
   fetch: 'fetch',
   wget: 'wget',
   httpie: 'HTTPie',
   powershell: 'PowerShell',
-}
-
-const PARSE_ERROR_MESSAGES: Record<ParseErrorReason, string> = {
-  'no-url': 'в команде не нашлось ссылки',
-  'bad-quotes': 'не закрыта кавычка',
-  leftover: 'часть аргументов не разобралась — проверьте флаги команды',
-  'bad-fetch-init': 'не разобрался объект настроек fetch',
-  'unsupported-variable': 'значение задано переменной PowerShell — взять его негде',
-  'unsupported-field': 'поля HTTPie вроде `:=` и `@file` не поддерживаются',
-  'unsupported-multipart': 'загрузка файла (multipart) не поддерживается',
 }
 
 const sendShortcut = computed(() => shortcut('↵'))
@@ -80,11 +74,12 @@ function selectMethod(m: string) {
 
 const enabledParamsCount = computed(() => store.enabledParamsCount)
 const enabledHeadersCount = computed(() => store.enabledHeadersCount)
-const hasBody = computed(() => store.body.trim().length > 0)
+// A body is text, a form with a row in it, or a file — the store knows which, and both stores know
+// it the same way.
+const hasBody = computed(() => store.hasBody)
 // The chip is dashed until the request has code of its own, the way the body chip is: a dashed chip is
 // a thing that is not there yet, and it is what the design draws in both places.
 const hasScripts = computed(() => Boolean(store.scripts?.pre?.trim() || store.scripts?.post?.trim()))
-const isBodyDisabled = computed(() => store.bodyDisabled)
 
 function toggleChip(chip: ChipName) {
   store.setOpenChip(store.openChip === chip ? null : chip)
@@ -104,7 +99,7 @@ const sendBlocked = computed(() => missingVarNames.value.length > 0)
 
 const sendBlockedReason = computed(() =>
   missingVarNames.value.length
-    ? `Неизвестные переменные: ${missingVarNames.value.join(', ')}`
+    ? t('request.missingBlocked', { names: missingVarNames.value.join(', ') })
     : undefined
 )
 
@@ -123,7 +118,7 @@ async function send() {
     await store.send()
   } catch (error) {
     store.failSend()
-    toast.show(`Запрос не отправлен: ${String(error)}`, 'error')
+    toast.show(t('request.sendFailed', { error: String(error) }), 'error')
   }
 }
 
@@ -150,7 +145,7 @@ const saveAnchor = ref<HTMLElement | null>(null)
 // the rest left out — a name, not a URL.
 const saveDefaultName = computed(() => {
   const raw = store.url.trim()
-  if (!raw) return 'Новый запрос'
+  if (!raw) return t('request.newRequestName')
   try {
     const url = new URL(raw)
     const last = url.pathname.split('/').filter(Boolean).pop()
@@ -182,7 +177,7 @@ function onUrlPaste(e: ClipboardEvent) {
 
   e.preventDefault()
   if (result.kind === 'error') {
-    toast.show(`Не удалось разобрать команду: ${PARSE_ERROR_MESSAGES[result.reason]}`, 'error')
+    toast.show(t('request.pasteFailed', { reason: t(`request.parseError.${result.reason}`) }), 'error')
     return
   }
 
@@ -197,7 +192,7 @@ function onUrlPaste(e: ClipboardEvent) {
   })
   store.setOpenChip(null)
   void nextTick(syncUrlScroll)
-  toast.show(`Распознан ${FORMAT_LABELS[result.format]}`)
+  toast.show(t('request.pasteRecognised', { format: FORMAT_LABELS[result.format] }))
 }
 
 onMounted(() => window.addEventListener('keydown', onWindowKeydown))
@@ -254,19 +249,18 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onWindowKeydown))
         <Popover :open="store.openChip !== null" @update:open="(v) => !v && store.setOpenChip(null)">
           <PopoverAnchor class="chips">
             <button class="chip" :class="{ active: store.openChip === 'params' }" @click="toggleChip('params')">
-              Параметры <span v-if="enabledParamsCount" class="chip-count">{{ enabledParamsCount }}</span>
+              {{ t('request.chips.params') }} <span v-if="enabledParamsCount" class="chip-count">{{ enabledParamsCount }}</span>
             </button>
             <button class="chip" :class="{ active: store.openChip === 'headers' }" @click="toggleChip('headers')">
-              Заголовки <span v-if="enabledHeadersCount" class="chip-count">{{ enabledHeadersCount }}</span>
+              {{ t('request.chips.headers') }} <span v-if="enabledHeadersCount" class="chip-count">{{ enabledHeadersCount }}</span>
             </button>
-            <button class="chip" :class="{ active: store.openChip === 'auth' }" @click="toggleChip('auth')">Auth</button>
+            <button class="chip" :class="{ active: store.openChip === 'auth' }" @click="toggleChip('auth')">{{ t('request.chips.auth') }}</button>
             <button
               class="chip chip-body"
               :class="{ 'has-body': hasBody, active: store.openChip === 'body' }"
-              :title="isBodyDisabled ? `${store.method} не отправляет тело` : undefined"
               @click="toggleChip('body')"
             >
-              Тело
+              {{ t('request.chips.body') }}
             </button>
             <button
               class="chip chip-body chip-scripts"
@@ -274,7 +268,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onWindowKeydown))
               @click="toggleChip('scripts')"
             >
               <Icon name="code-xml" :size="10" />
-              Скрипты
+              {{ t('request.chips.scripts') }}
             </button>
           </PopoverAnchor>
           <RequestChipPopover v-if="displayedChip" :chip="displayedChip" :source="store" />
@@ -285,7 +279,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onWindowKeydown))
         <button
           class="bookmark-btn"
           :disabled="!store.url.trim()"
-          title="Сохранить в коллекцию"
+          :title="t('request.saveToCollection')"
           @click="saveOpen = !saveOpen"
         >
           <Icon name="bookmark" :size="14" />
@@ -307,10 +301,10 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onWindowKeydown))
       >
         <template v-if="store.loading">
           <Icon name="xmark" :size="14" />
-          <span>Отмена</span>
+          <span>{{ t('common.cancel') }}</span>
         </template>
         <template v-else>
-          <span>Отправить</span>
+          <span>{{ t('request.send') }}</span>
           <kbd class="send-hint">{{ sendShortcut }}</kbd>
         </template>
       </Button>
@@ -320,24 +314,24 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onWindowKeydown))
     <div v-if="sendBlocked" class="missing-row">
       <span class="missing-text">
         <template v-if="envStore.activeId === null">
-          Окружение не выбрано — переменные
+          {{ t('request.missingNoEnvHead') }}
           <span class="missing-name mono" v-for="n in missingVarNames" :key="n">{{ n }}</span>
-          не подставляются. Отправка заблокирована.
+          {{ t('request.missingNoEnvTail') }}
         </template>
         <template v-else>
-          В окружении <b>{{ envStore.activeEnvironment?.name }}</b> нет
-          {{ missingVarNames.length === 1 ? 'переменной' : 'переменных' }}:
+          {{ t('request.missingInEnvHead', { name: envStore.activeEnvironment?.name }) }}
+          {{ t('request.missingInEnvCount', missingVarNames.length) }}:
           <span class="missing-name mono" v-for="n in missingVarNames" :key="n">{{ n }}</span>
-          Отправка заблокирована.
+          {{ t('request.missingInEnvTail') }}
         </template>
       </span>
       <Button
         variant="primary"
         :disabled="envStore.activeId === null"
-        :title="envStore.activeId === null ? 'Сначала выберите окружение в шапке' : undefined"
+        :title="envStore.activeId === null ? t('request.chooseEnvFirst') : undefined"
         @click="createMissing"
       >
-        {{ missingVarNames.length === 1 ? 'Создать' : 'Создать все' }}
+        {{ missingVarNames.length === 1 ? t('request.createVar') : t('request.createVarAll') }}
       </Button>
     </div>
   </div>

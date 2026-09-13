@@ -45,8 +45,12 @@ export function Describe(id: string, description: string): $CancellablePromise<d
     return $Call.ByID(4022716643, id, description);
 }
 
-export function Duplicate(id: string): $CancellablePromise<domain$0.Collection[] | null> {
-    return $Call.ByID(1426855475, id);
+/**
+ * Duplicate copies a node under a name the window composes: the suffix that says what the copy is is
+ * a word, and words belong to the side that knows the language.
+ */
+export function Duplicate(id: string, suffix: string): $CancellablePromise<domain$0.Collection[] | null> {
+    return $Call.ByID(1426855475, id, suffix);
 }
 
 /**
@@ -54,8 +58,8 @@ export function Duplicate(id: string): $CancellablePromise<domain$0.Collection[]
  * picks. It answers whether anything was written: a cancelled save dialog is not an error, and the
  * window says nothing about it.
  */
-export function ExportFile(id: string): $CancellablePromise<boolean> {
-    return $Call.ByID(4114312118, id);
+export function ExportFile(title: string, id: string): $CancellablePromise<boolean> {
+    return $Call.ByID(4114312118, title, id);
 }
 
 /**
@@ -67,8 +71,8 @@ export function ExportFile(id: string): $CancellablePromise<boolean> {
  * they are handing over — a file read as something it is not is worse than a wrong choice that says
  * so out loud.
  */
-export function ImportFile(): $CancellablePromise<domain$0.Collection[] | null> {
-    return $Call.ByID(548291153);
+export function ImportFile(title: string): $CancellablePromise<domain$0.Collection[] | null> {
+    return $Call.ByID(548291153, title);
 }
 
 /**

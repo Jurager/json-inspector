@@ -4,6 +4,7 @@ import { RecordSource } from '../../bindings/json-inspector/internal/domain'
 import { useRequestsStore } from '../stores/requests'
 import { useCollectionsStore } from '../stores/collections'
 import { useToast } from './useToast'
+import { t as tr } from '../i18n'
 
 // What Go publishes about history and about the attempts that fill it. The payload types come from
 // the generated bindings, so a field renamed on that side is a compile error here.
@@ -43,11 +44,11 @@ export function useRecordEvents(
       Events.On('request:failed', (ev) => {
         if (collections.mine.includes(ev.data.id)) {
           collections.failSend()
-          toast.show(`Запрос не выполнен: ${ev.data.error}`, 'error')
+          toast.show(tr('errors.requestFailed', { error: ev.data.error }), 'error')
           return
         }
         store.failSend()
-        toast.show(`Запрос не выполнен: ${ev.data.error}`, 'error')
+        toast.show(tr('errors.requestFailed', { error: ev.data.error }), 'error')
       }),
 
       // A run of a collection: one event per request it reaches, and the finished run with its

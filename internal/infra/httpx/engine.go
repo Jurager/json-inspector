@@ -116,8 +116,9 @@ func (e *Engine) Do(ctx context.Context, spec Spec) *domain.Response {
 	resp, err := e.client.Do(req)
 	if err != nil {
 		if errors.Is(err, context.Canceled) {
+			// No text: a cancelled attempt says so with the flag, and the window words it. Writing a
+			// sentence here would freeze one language into every record that was ever stopped.
 			res.Cancelled = true
-			res.Error = "запрос отменён"
 		} else {
 			res.Error = err.Error()
 		}

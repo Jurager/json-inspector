@@ -14,7 +14,7 @@ let layoutTimer: ReturnType<typeof setTimeout> | null = null
 const LAYOUT_DEBOUNCE_MS = 400
 
 export function useSettings() {
-  return { settings, loadSettings, setTheme, setLayout, setRetention }
+  return { settings, loadSettings, setTheme, setLanguage, setLayout, setRetention }
 }
 
 async function loadSettings(): Promise<void> {
@@ -36,6 +36,16 @@ async function setTheme(theme: Settings['theme']): Promise<void> {
     settings.value = await SettingsService.SetTheme(theme)
   } catch {
     // Nothing to do: the palette already changed on screen.
+  }
+}
+
+// The language is applied in the window by the caller, the same way the theme is, and remembered
+// here. A write that fails costs the choice at the next launch, not the change on screen.
+async function setLanguage(language: Settings['language']): Promise<void> {
+  try {
+    settings.value = await SettingsService.SetLanguage(language)
+  } catch {
+    // Nothing to do: the window is already written in the chosen language.
   }
 }
 

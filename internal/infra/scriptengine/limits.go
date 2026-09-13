@@ -34,5 +34,5 @@ func limitScript(vm *goja.Runtime, within time.Duration) func() {
 // tooLong is what a script that ran out of time is told, and what its report says. One wording for
 // both, because the script cannot see one and the reader the other.
 func tooLong(within time.Duration) string {
-	return fmt.Sprintf("скрипт выполнялся дольше %g с", within.Seconds())
+	return fmt.Sprintf("the script ran for longer than %g s", within.Seconds())
 }

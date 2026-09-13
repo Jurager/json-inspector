@@ -268,8 +268,10 @@ func TestRunCountsASkippedRequestAsNeither(t *testing.T) {
 	if !skipped.Skipped || skipped.Status != nil || skipped.OK {
 		t.Errorf("skipped result = %+v, want a row that says it was not sent", skipped)
 	}
-	if skipped.Error != "пропущен скриптом" {
-		t.Errorf("error = %q, want the reason the row gives", skipped.Error)
+	// The flag is the reason; the row is worded where the language is known, so that a run written
+	// today reads in whatever language the window is in tomorrow.
+	if skipped.Error != "" {
+		t.Errorf("error = %q, want no text on a row the flag already explains", skipped.Error)
 	}
 	// The run asks about every request it walks — whether one of them goes out is decided where the
 	// scripts are, not here, and a run that skipped a request still reached it.

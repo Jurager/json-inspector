@@ -6,42 +6,31 @@ import { PopoverContent } from '../ui/popover'
 import { Button, IconButton } from '../ui/button'
 import { Checkbox } from '../ui/checkbox'
 import ScriptsFields from './ScriptsFields.vue'
+import BodyFields from './BodyFields.vue'
 import { useRequestsStore } from '../../stores/requests'
 import { useCollectionsStore } from '../../stores/collections'
 import type { ChipName, RequestSource } from '../../lib/requestSource'
 import { parseTokens, tokenSegments } from '../../lib/vars'
+import { useMessages } from '../../i18n'
 import { AuthType, DraftID, RowKind, type Auth } from '../../../bindings/json-inspector/internal/domain'
 
 const props = defineProps<{ chip: ChipName; source?: RequestSource }>()
+
+const { t } = useMessages()
 
 const requests = useRequestsStore()
 const collections = useCollectionsStore()
 const store: RequestSource = props.source ?? requests
 
-const title = computed(() => {
-  switch (props.chip) {
-    case 'params':
-      return 'Параметры запроса'
-    case 'headers':
-      return 'Заголовки'
-    case 'auth':
-      return 'Авторизация'
-    case 'body':
-      return 'Тело запроса'
-    case 'scripts':
-      return 'Скрипты запроса'
-  }
-})
+const title = computed(() => t(`request.chips.${props.chip}`))
 
 // Where the code sits in the order, in one line. On the command line there is no collection above the
 // request, so the sentence the design gives the card would be saying something untrue there.
 const scriptsNote = computed(() =>
   store.scriptsLevel === DraftID.DraftCommandLine
-    ? 'Выполняются перед отправкой и после ответа — код этого запроса, тот же редактор, что в «Коллекция → Скрипты».'
-    : 'Наследует скрипты коллекции и выполняется после них — тот же редактор, что в «Коллекция → Скрипты».'
+    ? t('request.scriptsNoteCommandLine')
+    : t('request.scriptsNoteCollection')
 )
-
-const isBodyDisabled = computed(() => store.bodyDisabled)
 
 // The choices and their names come from Go, so the chip and the draft cannot disagree about what a
 // mode is called. A card inside a collection gets «Наследовать» in place of «Нет»: the request is one
@@ -51,21 +40,25 @@ const AUTH_TYPES = computed<Auth['type'][]>(() =>
     ? [AuthType.AuthInherit, AuthType.AuthBearer, AuthType.AuthBasic, AuthType.AuthOAuth2]
     : [AuthType.AuthNone, AuthType.AuthBearer, AuthType.AuthBasic, AuthType.AuthOAuth2]
 )
-const AUTH_LABELS: Record<string, string> = {
-  none: 'Нет',
-  inherit: 'Наследовать',
-  bearer: 'Bearer',
-  basic: 'Basic',
-  oauth2: 'OAuth 2',
-}
+// Rebuilt when the language moves, which is what a static map cannot do — the words are in the
+// catalogue and a language is chosen while the window is open.
+const AUTH_LABELS = computed<Record<string, string>>(() => ({
+  none: t('request.auth.none'),
+  inherit: t('request.auth.inherit'),
+  bearer: t('request.auth.bearer'),
+  basic: t('request.auth.basic'),
+  oauth2: t('request.auth.oauth2'),
+}))
 
 // What the level above answers, said in one line where the token would be: a choice whose meaning is
 // invisible is a choice nobody makes.
 const inheritedLabel = computed(() => {
   const auth = store.inheritedAuth
-  if (!auth) return 'Выше авторизации нет — запрос пойдёт без неё'
-  const kind = AUTH_LABELS[auth.type] ?? auth.type
-  return auth.token ? `Выше: ${kind} · ${auth.token}` : `Выше: ${kind}`
+  if (!auth) return t('request.inheritedNothing')
+  const kind = AUTH_LABELS.value[auth.type] ?? auth.type
+  return auth.token
+    ? t('request.inheritedWithToken', { kind, token: auth.token })
+    : t('request.inherited', { kind })
 })
 
 // The pill moves one segment (+ the 2px gap) per step, animated by a CSS transition on transform.
@@ -135,6 +128,7 @@ function valueClass(v: string): string {
     :class="{
       auth: props.chip === 'auth',
       spaced: props.chip === 'auth' || props.chip === 'body' || props.chip === 'scripts',
+      wide: props.chip === 'body',
     }"
     align="end"
     :side-offset="6"
@@ -142,7 +136,7 @@ function valueClass(v: string): string {
   >
     <div class="popover-head">
       <span class="popover-title">{{ title }}</span>
-      <IconButton hint="Закрыть (Esc)" size="sm" @click="dismiss"><Icon name="xmark" :size="13" /></IconButton>
+      <IconButton :hint="t('common.close')" size="sm" @click="dismiss"><Icon name="xmark" :size="13" /></IconButton>
     </div>
 
     <template v-if="props.chip === 'params' || props.chip === 'headers'">
@@ -150,13 +144,13 @@ function valueClass(v: string): string {
         <TransitionGroup tag="div" name="row" class="rows">
           <div v-for="p in store.params" :key="p.id" class="row" :class="{ off: !p.enabled }">
             <Checkbox :model-value="p.enabled" @update:model-value="toggle(RowKind.RowParams, p.id, $event)" @click.stop />
-            <input :value="p.name" class="row-input mono" placeholder="имя" spellcheck="false" @input="patch(RowKind.RowParams, p.id, { name: ($event.target as HTMLInputElement).value })" />
+            <input :value="p.name" class="row-input mono" :placeholder="t('request.placeholderName')" spellcheck="false" @input="patch(RowKind.RowParams, p.id, { name: ($event.target as HTMLInputElement).value })" />
             <div class="row-cell">
               <input
                 :value="p.value"
                 class="row-input mono"
                 :class="[valueClass(p.value), { 'row-input-veiled': hasTokens(p.value) }]"
-                placeholder="значение"
+                :placeholder="t('request.placeholderValue')"
                 spellcheck="false"
                 @input="patch(RowKind.RowParams, p.id, { value: ($event.target as HTMLInputElement).value }); syncCellScroll($event)"
                 @scroll="syncCellScroll"
@@ -173,12 +167,15 @@ function valueClass(v: string): string {
                 </template>
               </span>
             </div>
-            <IconButton variant="danger" size="sm" hint="Удалить" @click.stop="remove(RowKind.RowParams, p.id)"><Icon name="xmark" :size="12" /></IconButton>
+            <IconButton variant="danger" size="sm" :hint="t('common.delete')" @click.stop="remove(RowKind.RowParams, p.id)"><Icon name="trash" :size="13" /></IconButton>
           </div>
         </TransitionGroup>
         <div class="popover-foot">
-          <Button variant="ghost" size="sm" @click="store.addRow(RowKind.RowParams)">+ Параметр</Button>
-          <span class="foot-hint">Выключенные не уходят в запрос</span>
+          <Button variant="ghost" size="sm" @click="store.addRow(RowKind.RowParams)">
+            <Icon name="plus" :size="16" />
+            <span>{{ t('request.addParameter') }}</span>
+          </Button>
+          <span class="foot-hint">{{ t('request.paramsFoot') }}</span>
         </div>
       </template>
 
@@ -209,12 +206,15 @@ function valueClass(v: string): string {
                 </template>
               </span>
             </div>
-            <IconButton variant="danger" size="sm" hint="Удалить" @click.stop="remove(RowKind.RowHeaders, h.id)"><Icon name="xmark" :size="12" /></IconButton>
+            <IconButton variant="danger" size="sm" :hint="t('common.delete')" @click.stop="remove(RowKind.RowHeaders, h.id)"><Icon name="trash" :size="13" /></IconButton>
           </div>
         </TransitionGroup>
         <div class="popover-foot">
-          <Button variant="ghost" size="sm" @click="store.addRow(RowKind.RowHeaders)">+ Заголовок</Button>
-          <span class="foot-hint">Accept подставлен по умолчанию</span>
+          <Button variant="ghost" size="sm" @click="store.addRow(RowKind.RowHeaders)">
+            <Icon name="plus" :size="16" />
+            <span>{{ t('request.addHeader') }}</span>
+          </Button>
+          <span class="foot-hint">{{ t('request.headersFoot') }}</span>
         </div>
       </template>
     </template>
@@ -236,12 +236,12 @@ function valueClass(v: string): string {
         v-if="store.auth.type !== 'none' && store.auth.type !== 'inherit'"
         :value="store.auth.token"
         class="row-input mono"
-        placeholder="Токен"
+        :placeholder="t('request.token')"
         spellcheck="false"
         @input="setToken(($event.target as HTMLInputElement).value)"
       />
       <div v-else-if="store.auth.type === 'inherit'" class="hint">{{ inheritedLabel }}</div>
-      <div class="hint">Значение можно взять из окружения — переменные подставляются в URL, заголовки и тело.</div>
+      <div class="hint">{{ t('request.tokenFromEnvironment') }}</div>
     </template>
 
     <template v-else-if="props.chip === 'scripts'">
@@ -249,16 +249,7 @@ function valueClass(v: string): string {
     </template>
 
     <template v-else>
-      <textarea
-        v-if="!isBodyDisabled"
-        :value="store.body"
-        class="body-area mono"
-        placeholder="{ ... JSON body ... }"
-        spellcheck="false"
-        @input="store.setBody(($event.target as HTMLTextAreaElement).value)"
-        @blur="store.flush()"
-      ></textarea>
-      <div v-else class="body-area body-disabled">{{ store.method }} не отправляет тело</div>
+      <BodyFields :source="store" />
     </template>
   </PopoverContent>
 </template>
@@ -342,14 +333,6 @@ function valueClass(v: string): string {
   color: var(--tok-num);
 }
 
-.popover-foot {
-  @apply flex items-center justify-between pt-2 pb-0.5 mt-1 border-t border-border px-1;
-}
-
-.foot-hint {
-  @apply text-[11px] text-text-tertiary;
-}
-
 .hint {
   color: var(--text-tertiary);
   font-size: 11.5px;
@@ -380,25 +363,4 @@ function valueClass(v: string): string {
   @apply font-medium text-text;
 }
 
-.body-area {
-  @apply w-full text-xs outline-none select-text;
-  font-family: var(--mono);
-  height: 132px;
-  border-radius: 8px;
-  padding: 8px 10px;
-  background: var(--bg-inset);
-  border: 1px solid var(--border);
-  color: var(--text);
-  resize: vertical;
-}
-
-.body-area:focus {
-  border-color: var(--accent);
-  box-shadow: 0 0 0 3px var(--accent-soft);
-}
-
-.body-disabled {
-  color: var(--text-tertiary);
-  resize: none;
-}
 </style>

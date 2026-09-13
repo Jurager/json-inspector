@@ -6,6 +6,13 @@
 import * as domain$0 from "../../domain/models.js";
 
 /**
+ * LanguageChanged is what a window receives when the interface language moves.
+ */
+export interface LanguageChanged {
+    "language": domain$0.Language;
+}
+
+/**
  * LayoutPatch is a partial update of the panel geometry: a nil field is left as it is.
  */
 export interface LayoutPatch {

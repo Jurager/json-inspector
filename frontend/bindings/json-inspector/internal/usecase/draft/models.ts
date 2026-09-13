@@ -27,6 +27,12 @@ export interface RowPatch {
     "expires"?: string | null;
     "secure"?: boolean | null;
     "httpOnly"?: boolean | null;
+
+    /**
+     * Src and File belong to a form row: the path a file field carries, and whether it is one.
+     */
+    "src"?: string | null;
+    "file"?: boolean | null;
 }
 
 /**
@@ -37,6 +43,14 @@ export interface Seed {
     "method": string;
     "url": string;
     "body": string;
+
+    /**
+     * A seed carries the format too: a followed link or a pasted command is a whole request, and the
+     * Content-Type that follows from the kind is part of what it goes out with.
+     */
+    "bodyKind"?: domain$0.BodyKind;
+    "form"?: domain$0.FormRow[] | null;
+    "bodyFile"?: string;
 
     /**
      * A seed may carry neither list: a followed link has headers and no jar, a pasted command may

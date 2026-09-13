@@ -4,6 +4,7 @@ import { Application, Window } from '@wailsio/runtime'
 import { SystemService } from '../../../bindings/json-inspector/internal/transport/wails'
 import { useEnvironmentsStore } from '../../stores/environments'
 import { useRequestsStore } from '../../stores/requests'
+import { useMessages } from '../../i18n'
 import { usePlatform } from '../../composables/usePlatform'
 import EnvironmentMenu from '../environments/EnvironmentMenu.vue'
 import ThemeSwitch from './ThemeSwitch.vue'
@@ -11,6 +12,8 @@ import Icon from '../ui/Icon.vue'
 import { Button } from '../ui/button'
 import logoUrl from '../../assets/logo.svg'
 import { DropdownMenu, DropdownMenuTrigger } from '../ui/dropdown-menu'
+
+const { t } = useMessages()
 
 const store = useRequestsStore()
 const envStore = useEnvironmentsStore()
@@ -21,7 +24,7 @@ const isMaximised = ref(false)
 
 const searchHint = computed(() => shortcut('K'))
 
-const activeEnvName = computed(() => envStore.activeEnvironment?.name ?? 'Без окружения')
+const activeEnvName = computed(() => envStore.activeEnvironment?.name ?? t('titlebar.noEnvironment'))
 
 const ENV_DOT_COLORS: Record<string, string> = {
   green: 'var(--green)',
@@ -86,7 +89,7 @@ onBeforeUnmount(() => {
       <div class="env-wrap">
         <DropdownMenu>
           <DropdownMenuTrigger as-child>
-            <Button :title="`Окружение: ${activeEnvName}`">
+            <Button :title="t('titlebar.environment', { name: activeEnvName })">
               <span class="env-dot" :style="envDotStyle"></span>
               <span>{{ activeEnvName }}</span>
               <Icon name="chevron-down" :size="11" />
@@ -96,24 +99,28 @@ onBeforeUnmount(() => {
         </DropdownMenu>
       </div>
       <ThemeSwitch />
-      <Button class="titlebar-search" :title="`Глобальный поиск (${searchHint})`" @click="store.focusSearch()">
-        <span>Поиск</span>
+      <Button
+        class="titlebar-search"
+        :title="t('titlebar.searchHint', { shortcut: searchHint })"
+        @click="store.focusSearch()"
+      >
+        <span>{{ t('common.search') }}</span>
         <kbd class="titlebar-key">{{ searchHint }}</kbd>
       </Button>
     </div>
 
     <div v-if="customTitlebar" class="titlebar-controls">
-      <button class="cap-btn" title="Свернуть" @click="Window.Minimise()">
+      <button class="cap-btn" :title="t('titlebar.minimise')" @click="Window.Minimise()">
         <span class="cap-icon cap-icon-minus"></span>
       </button>
-      <button class="cap-btn" title="Развернуть" @click="Window.ToggleMaximise()">
+      <button class="cap-btn" :title="t('titlebar.maximise')" @click="Window.ToggleMaximise()">
         <span v-if="!isMaximised" class="cap-icon cap-icon-square"></span>
         <span v-else class="cap-icon cap-icon-restore">
-          <span class="cap-icon-restore-back"></span>
-          <span class="cap-icon-restore-front"></span>
+          <span class="cap-icon cap-icon-restore-back"></span>
+          <span class="cap-icon cap-icon-restore-front"></span>
         </span>
       </button>
-      <button class="cap-btn cap-close" title="Закрыть" @click="Application.Quit()">
+      <button class="cap-btn cap-close" :title="t('common.close')" @click="Application.Quit()">
         <span class="cap-icon cap-icon-close">
           <span class="cap-icon-close-bar cap-icon-close-bar-1"></span>
           <span class="cap-icon-close-bar cap-icon-close-bar-2"></span>

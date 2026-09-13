@@ -12,6 +12,9 @@ import {
 import type { JsonApiDocument, Resource } from '../../lib/jsonapi'
 import { dataResources, resourceKey, resourceLabel } from '../../lib/jsonapi'
 import { buildTypeInfos, capitalizeType } from '../../lib/schema'
+import { useMessages } from '../../i18n'
+
+const { t } = useMessages()
 import { copyToClipboard } from '../../lib/clipboard'
 import { usePlatform } from '../../composables/usePlatform'
 
@@ -223,25 +226,25 @@ async function copyExport(format: ExportId) {
           v-model="query"
           mono
           class="flex-1 min-w-0"
-          placeholder="Поиск по типам, полям, связям…"
+          :placeholder="t('json.mapSearch')"
           spellcheck="false"
           @keydown.esc="closeSearch"
         />
-        <span v-if="query.trim()" class="search-count">{{ filteredTypes.length }} найдено</span>
-        <IconButton hint="Закрыть (Esc)" @click="closeSearch"><Icon name="xmark" :size="14" /></IconButton>
+        <span v-if="query.trim()" class="search-count">{{ t('response.searchFound', { n: filteredTypes.length }) }}</span>
+        <IconButton :hint="t('common.close')" @click="closeSearch"><Icon name="xmark" :size="14" /></IconButton>
       </template>
       <template v-else>
-        <span v-if="types.length" class="summary">{{ types.length }} типов · {{ all.length }} ресурсов</span>
+        <span v-if="types.length" class="summary">{{ t('json.types', types.length) }} · {{ t('counts.resources', all.length) }}</span>
 
         <span class="head-spacer"></span>
 
-        <Button size="sm" @click="openSearch"><span>Поиск</span><kbd class="keycap">{{ searchShortcut }}</kbd></Button>
+        <Button size="sm" @click="openSearch"><span>{{ t('common.search') }}</span><kbd class="keycap">{{ searchShortcut }}</kbd></Button>
 
         <DropdownMenu>
           <DropdownMenuTrigger as-child>
             <Button size="sm" :disabled="!types.length">
               <Icon v-if="copied" name="check" :size="12" />
-              <span>{{ copied ? 'Скопировано' : 'Экспорт' }}</span>
+              <span>{{ copied ? t('common.copied') : t('collections.export') }}</span>
               <svg viewBox="0 0 10 6" width="10" height="6" fill="none" aria-hidden="true"><path d="M1.5 1.5L5 5L8.5 1.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
             </Button>
           </DropdownMenuTrigger>
@@ -256,32 +259,32 @@ async function copyExport(format: ExportId) {
 
     <div class="schema-body">
       <div v-if="filteredTypes.length === 0" class="empty">
-        {{ types.length === 0 ? 'Нет данных для карты' : 'Ничего не найдено' }}
+        {{ types.length === 0 ? t('json.noMapData') : t('common.nothingFound') }}
       </div>
 
       <div v-else class="cards">
         <section
-          v-for="t in filteredTypes"
-          :key="t.type"
-          :data-type="t.type"
+          v-for="info in filteredTypes"
+          :key="info.type"
+          :data-type="info.type"
           class="type-card"
-          :class="{ highlight: highlightType === t.type }"
+          :class="{ highlight: highlightType === info.type }"
         >
-          <button class="type-head" @click="toggleType(t.type)">
-            <span class="caret" :class="{ open: expandedTypes.has(t.type) }">
+          <button class="type-head" @click="toggleType(info.type)">
+            <span class="caret" :class="{ open: expandedTypes.has(info.type) }">
               <Icon name="chevron-right" :size="10" />
             </span>
-            <span class="type-name">{{ t.label }}</span>
-            <span class="type-count">{{ t.count }}</span>
+            <span class="type-name">{{ info.label }}</span>
+            <span class="type-count">{{ info.count }}</span>
           </button>
 
           <div class="type-body">
-            <div v-if="t.attributes.length" class="type-attrs">
-              <span v-for="a in t.attributes" :key="a" class="attr-chip mono">{{ a }}</span>
+            <div v-if="info.attributes.length" class="type-attrs">
+              <span v-for="a in info.attributes" :key="a" class="attr-chip mono">{{ a }}</span>
             </div>
 
-            <div v-if="t.rels.length" class="type-rels">
-              <div v-for="r in t.rels" :key="r.name + r.targetType" class="type-rel">
+            <div v-if="info.rels.length" class="type-rels">
+              <div v-for="r in info.rels" :key="r.name + r.targetType" class="type-rel">
                 <span class="rel-name">{{ r.name }}</span>
                 <span class="rel-card">{{ r.many ? '1:N' : '1:1' }}</span>
                 <span class="rel-arrow"><Icon name="arrow-right" :size="12" /></span>
@@ -296,11 +299,11 @@ async function copyExport(format: ExportId) {
               </div>
             </div>
 
-            <div v-if="t.incoming.length" class="type-incoming">
-              <div class="incoming-title">Связан из</div>
+            <div v-if="info.incoming.length" class="type-incoming">
+              <div class="incoming-title">{{ t('json.linkedFrom') }}</div>
               <div class="incoming-list">
                 <button
-                  v-for="inc in t.incoming"
+                  v-for="inc in info.incoming"
                   :key="inc.fromType + inc.rel"
                   class="incoming-chip"
                   @click="goToType(inc.fromType)"
@@ -312,10 +315,10 @@ async function copyExport(format: ExportId) {
               </div>
             </div>
 
-            <div v-if="expandedTypes.has(t.type)" class="type-instances">
-              <div class="instances-title">Экземпляры</div>
+            <div v-if="expandedTypes.has(info.type)" class="type-instances">
+              <div class="instances-title">{{ t('json.instances') }}</div>
               <button
-                v-for="res in instancesOf(t.type)"
+                v-for="res in instancesOf(info.type)"
                 :key="resourceKey(res.type, res.id)"
                 :id="'inst-' + resourceKey(res.type, res.id)"
                 class="instance"

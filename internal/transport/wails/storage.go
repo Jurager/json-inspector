@@ -23,12 +23,12 @@ type InitFunc func(ctx context.Context) error
 func openStorage(store *sqlite.Store, status *Status) InitFunc {
 	init := func(ctx context.Context) error {
 		if err := store.Open(ctx); err != nil {
-			status.Fail(FailureDatabase, "Не удалось открыть базу данных", err.Error())
+			status.Fail(FailureDatabase, err.Error())
 			return err
 		}
 		res, err := store.Migrate(ctx, migrations.FS)
 		if err != nil {
-			status.Fail(FailureMigration, "Не удалось обновить схему базы данных", err.Error())
+			status.Fail(FailureMigration, err.Error())
 			return err
 		}
 		if len(res.Applied) > 0 {

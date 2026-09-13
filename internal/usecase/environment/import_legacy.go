@@ -72,10 +72,10 @@ func (u *UseCase) ImportLegacy(ctx context.Context, raw string, secrets SecretSo
 		if finish != nil {
 			log.Printf("[import] recording the failure: %v", finish)
 		}
-		return report, fmt.Errorf("разбор ji-env-v1: %w", err)
+		return report, fmt.Errorf("reading ji-env-v1: %w", err)
 	}
 	if state == nil {
-		if err := u.store.FinishImport(ctx, LegacySource, "done", "нечего импортировать"); err != nil {
+		if err := u.store.FinishImport(ctx, LegacySource, "done", "nothing to import"); err != nil {
 			return report, err
 		}
 		return report, nil
@@ -120,7 +120,7 @@ func (u *UseCase) writeLegacy(ctx context.Context, state legacyState, secrets Se
 	for i, legacyEnv := range state.Environments {
 		env := domain.Environment{
 			ID:       firstNonEmpty(legacyEnv.ID, u.ids()),
-			Name:     firstNonEmpty(legacyEnv.Name, "Окружение"),
+			Name:     firstNonEmpty(legacyEnv.Name, "Imported"),
 			Color:    legacyEnv.Color,
 			Readonly: legacyEnv.Readonly,
 			Position: i + 1,
@@ -198,10 +198,10 @@ func (u *UseCase) legacyVariable(
 	switch {
 	case err != nil:
 		report.Warnings = append(report.Warnings,
-			fmt.Sprintf("секрет %q не прочитан из связки ключей: %v", legacy.Name, err))
+			fmt.Sprintf("secret %q was not read from the keychain: %v", legacy.Name, err))
 	case value == "":
 		report.Warnings = append(report.Warnings,
-			fmt.Sprintf("секрет %q: значение в связке ключей не найдено, введите его заново", legacy.Name))
+			fmt.Sprintf("secret %q: no value in the keychain, enter it again", legacy.Name))
 	default:
 		v.Value = value
 	}

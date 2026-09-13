@@ -169,6 +169,52 @@ func TestNodeRoundTrip(t *testing.T) {
 	}
 }
 
+// A saved request carries its format and what its body is made of, so a card gets the same five
+// formats the command line has. This is the column that used to be written as 'raw' whatever the
+// node held.
+func TestNodeRoundTripKeepsTheBodyFormat(t *testing.T) {
+	store := newMigratedStore(t)
+	ctx := context.Background()
+	seedTree(t, store)
+
+	node := request("r-5", "col-1", "", 3, "Загрузка", "POST", "https://api.example.com/upload")
+	node.Body = ""
+	node.BodyKind = domain.BodyForm
+	node.Form = []domain.FormRow{
+		{ID: "f-1", Name: "title", Value: "Кофемолка", Enabled: true},
+		{ID: "f-2", Name: "photo", Src: "/tmp/logo.png", File: true, Enabled: true},
+	}
+	if err := store.SaveNode(ctx, node); err != nil {
+		t.Fatalf("SaveNode: %v", err)
+	}
+
+	read, err := store.Node(ctx, "r-5")
+	if err != nil {
+		t.Fatalf("Node: %v", err)
+	}
+	if read.BodyKind != domain.BodyForm {
+		t.Errorf("bodyKind = %q, want the saved one", read.BodyKind)
+	}
+	if len(read.Form) != 2 || read.Form[1].Src != "/tmp/logo.png" || !read.Form[1].File {
+		t.Errorf("form = %+v, want both rows and the file's path", read.Form)
+	}
+
+	// A second save without the format keeps what the first one wrote: the column is in the update
+	// set, which is the half of it that was missing before.
+	node.BodyFile = "/tmp/other.bin"
+	node.BodyKind = domain.BodyBinary
+	if err := store.SaveNode(ctx, node); err != nil {
+		t.Fatalf("SaveNode: %v", err)
+	}
+	again, err := store.Node(ctx, "r-5")
+	if err != nil {
+		t.Fatalf("Node: %v", err)
+	}
+	if again.BodyKind != domain.BodyBinary || again.BodyFile != "/tmp/other.bin" {
+		t.Errorf("node = %+v, want the second save's format and path", again)
+	}
+}
+
 func TestNodeAuthRemembersExplicitNothing(t *testing.T) {
 	store := newMigratedStore(t)
 	ctx := context.Background()

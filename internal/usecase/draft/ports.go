@@ -13,6 +13,16 @@ type Store interface {
 	SaveDraft(ctx context.Context, draft domain.Draft) error
 }
 
+// FileSource reads the bytes a request carries. A file body keeps a path and not the bytes — the way
+// Postman keeps it — and the read happens at the moment of sending: a draft holding megabytes would
+// be a megabyte in every snapshot, and a copy of a file that has changed since it was picked.
+//
+// The size limit belongs to the port and not to the caller: a caller that forgets to check is
+// exactly the failure this exists to prevent.
+type FileSource interface {
+	Read(path string) ([]byte, error)
+}
+
 // VariableSource is what the draft asks about `{{tokens}}`: which of them mean nothing, and what a
 // list of texts looks like with them filled in. Both answers stay with the feature that owns the
 // values — the draft itself only ever holds the text the user typed.

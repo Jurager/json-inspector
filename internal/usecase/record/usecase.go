@@ -78,6 +78,12 @@ type SendInput struct {
 	URL     string              `json:"url"`
 	Headers []domain.HeaderPair `json:"headers"`
 	Body    string              `json:"body"`
+	// BodyKind and the two below it are what the body was rendered FROM. They travel beside the text
+	// because a masked copy of a form or a file cannot be made from the text: it has to be rendered
+	// again out of what the request is made of.
+	BodyKind domain.BodyKind  `json:"bodyKind,omitempty"`
+	Form     []domain.FormRow `json:"form,omitempty"`
+	BodyFile string           `json:"bodyFile,omitempty"`
 
 	MaskedURL     string              `json:"maskedUrl"`
 	MaskedHeaders []domain.HeaderPair `json:"maskedHeaders"`
@@ -147,10 +153,11 @@ func (u *UseCase) attempt(ctx context.Context, id string, started int64, in Send
 		RecordID: id,
 		NodeID:   in.Node,
 		Request: &domain.ScriptRequest{
-			Method:  in.Method,
-			URL:     in.URL,
-			Headers: in.Headers,
-			Body:    in.Body,
+			Method:   in.Method,
+			URL:      in.URL,
+			Headers:  in.Headers,
+			Body:     in.Body,
+			BodyKind: in.BodyKind,
 		},
 	}
 
@@ -214,7 +221,7 @@ func (u *UseCase) masked(ctx context.Context, in SendInput, sent *domain.ScriptR
 	if u.mask == nil || !changed(in, sent) {
 		return prepared
 	}
-	again, err := u.mask.Mask(ctx, *sent)
+	again, err := u.mask.Mask(ctx, in, *sent)
 	if err != nil {
 		return prepared
 	}

@@ -2,8 +2,11 @@
 import { DialogTitle } from 'reka-ui'
 import Dialog from '../ui/dialog/Dialog.vue'
 import { Checkbox } from '../ui/checkbox'
+import { useMessages } from '../../i18n'
 import { Button } from '../ui/button'
 import type { ImportChoice } from '../../stores/environments'
+
+const { t } = useMessages()
 
 const props = defineProps<{
   entries: ImportChoice[]
@@ -24,32 +27,32 @@ const emit = defineEmits<{ (e: 'cancel'): void; (e: 'apply'): void }>()
     @update:open="emit('cancel')"
   >
     <DialogTitle class="import-title">
-      Импорт .env → {{ props.targetName }}
+      {{ t('environments.importTitle', { name: props.targetName }) }}
     </DialogTitle>
     <div class="import-body">
       <div v-for="e in props.entries" :key="e.name" class="import-row">
         <Checkbox
           :model-value="e.secret"
           tone="secret"
-          :title="e.secret ? 'Импортировать как секрет' : 'Импортировать как обычную переменную'"
+          :title="e.secret ? t('environments.importAsSecret') : t('environments.importAsVariable')"
           @update:model-value="(v: any) => (e.secret = Boolean(v))"
         />
         <span class="import-name mono">{{ e.name }}</span>
         <span class="import-value mono" :class="{ masked: e.secret }">{{ e.secret ? '••••' : e.value }}</span>
         <span v-if="props.existingNames.has(e.name)" class="import-conflict">
-          <button class="conflict-btn" :class="{ on: e.mode === 'skip' }" @click="e.mode = 'skip'">пропустить</button>
-          <button class="conflict-btn" :class="{ on: e.mode === 'replace' }" @click="e.mode = 'replace'">заменить</button>
+          <button class="conflict-btn" :class="{ on: e.mode === 'skip' }" @click="e.mode = 'skip'">{{ t('environments.skip') }}</button>
+          <button class="conflict-btn" :class="{ on: e.mode === 'replace' }" @click="e.mode = 'replace'">{{ t('environments.replace') }}</button>
         </span>
-        <span v-else class="import-new">новая</span>
+        <span v-else class="import-new">{{ t('environments.newVar') }}</span>
       </div>
       <div v-if="props.entries.length === 0" class="import-empty">
-        В файле не нашлось строк вида KEY=value
+        {{ t('environments.noKeyValue') }}
       </div>
     </div>
     <div class="import-actions">
-      <span class="import-summary">Будет записано: {{ props.count }}</span>
-      <Button @click="emit('cancel')">Отмена</Button>
-      <Button variant="primary" :disabled="props.count === 0" @click="emit('apply')">Импортировать</Button>
+      <span class="import-summary">{{ t('environments.willWrite', { n: props.count }) }}</span>
+      <Button @click="emit('cancel')">{{ t('common.cancel') }}</Button>
+      <Button variant="primary" :disabled="props.count === 0" @click="emit('apply')">{{ t('environments.import') }}</Button>
     </div>
   </Dialog>
 </template>

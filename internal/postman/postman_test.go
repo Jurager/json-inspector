@@ -193,3 +193,115 @@ func TestExportWritesASingleRequest(t *testing.T) {
 		t.Errorf("method = %q", doc.Item[0].Request.Method)
 	}
 }
+
+// A form body survives the trip: Postman has a shape for rows, and the app has one too.
+func TestAFormBodyTravelsBothWays(t *testing.T) {
+	file := []byte(`{"info":{"name":"Загрузка","schema":"` + Schema + `"},"item":[
+		{"name":"Создать товар","request":{"method":"POST","url":{"raw":"https://api.example.com/products"},
+		 "body":{"mode":"formdata","formdata":[
+			{"key":"title","value":"Кофемолка Orion"},
+			{"key":"off","value":"нет","disabled":true},
+			{"key":"photo","src":"/Users/me/logo.png","type":"file"}]}}}]}`)
+
+	collection, err := Import(file)
+	if err != nil {
+		t.Fatalf("Import: %v", err)
+	}
+	node := asRequest(t, collection.Items[0])
+
+	if node.BodyKind != domain.BodyForm {
+		t.Errorf("bodyKind = %q, want a form", node.BodyKind)
+	}
+	if node.Body != "" {
+		t.Errorf("body = %q, want the text left empty for a form", node.Body)
+	}
+	if len(node.Form) != 3 {
+		t.Fatalf("form = %+v, want all three rows", node.Form)
+	}
+	if node.Form[0].Name != "title" || node.Form[0].Value != "Кофемолка Orion" || !node.Form[0].Enabled {
+		t.Errorf("form[0] = %+v", node.Form[0])
+	}
+	if node.Form[1].Enabled {
+		t.Error("a row the file marks disabled came back switched on")
+	}
+	// The paperclip is read from the presence of a path, which is exactly how Postman says "file".
+	if !node.Form[2].File || node.Form[2].Src != "/Users/me/logo.png" {
+		t.Errorf("form[2] = %+v, want the file row and its path", node.Form[2])
+	}
+
+	// And back out again, with the rows, the switch and the path where they were.
+	data, err := Export(collection.Name, collection.Items)
+	if err != nil {
+		t.Fatalf("Export: %v", err)
+	}
+	var doc document
+	if err := json.Unmarshal(data, &doc); err != nil {
+		t.Fatalf("the export does not read back: %v", err)
+	}
+	out := doc.Item[0].Request.Body
+	if out == nil || out.Mode != "formdata" {
+		t.Fatalf("body = %+v, want a formdata one", out)
+	}
+	if len(out.FormData) != 3 {
+		t.Fatalf("formdata = %+v, want all three rows", out.FormData)
+	}
+	if out.FormData[1].Disabled != true {
+		t.Errorf("formdata[1] = %+v, want the switch kept", out.FormData[1])
+	}
+	if out.FormData[2].Src != "/Users/me/logo.png" {
+		t.Errorf("formdata[2] = %+v, want the path kept", out.FormData[2])
+	}
+}
+
+// A binary body is a path, and it is the only one the app can name: the bytes never enter the file.
+func TestABinaryBodyTravelsBothWays(t *testing.T) {
+	file := []byte(`{"info":{"name":"Файлы","schema":"` + Schema + `"},"item":[
+		{"name":"Загрузить","request":{"method":"POST","url":{"raw":"https://api.example.com/files"},
+		 "body":{"mode":"file","file":{"src":"/tmp/report.pdf"}}}}]}`)
+
+	collection, err := Import(file)
+	if err != nil {
+		t.Fatalf("Import: %v", err)
+	}
+	node := asRequest(t, collection.Items[0])
+	if node.BodyKind != domain.BodyBinary || node.BodyFile != "/tmp/report.pdf" {
+		t.Errorf("node = %+v, want a binary body and its path", node)
+	}
+
+	data, err := Export(collection.Name, collection.Items)
+	if err != nil {
+		t.Fatalf("Export: %v", err)
+	}
+	var doc document
+	if err := json.Unmarshal(data, &doc); err != nil {
+		t.Fatalf("the export does not read back: %v", err)
+	}
+	out := doc.Item[0].Request.Body
+	if out == nil || out.Mode != "file" || out.File == nil || out.File.Src != "/tmp/report.pdf" {
+		t.Errorf("body = %+v, want the path written back", out)
+	}
+}
+
+// The three text kinds leave as raw, because Postman has nowhere to record which of them a body was.
+// Writing a language this reader does not honour would be a promise the next import breaks.
+func TestAJsonBodyLeavesAsRaw(t *testing.T) {
+	node := domain.CollectionNode{
+		Kind: domain.NodeRequest, Name: "Создать", Method: "POST",
+		URL: "https://api.example.com/products", Body: `{"a": 1}`, BodyKind: domain.BodyJSON,
+	}
+	body := exportedBody(node)
+	if body == nil || body.Mode != "raw" || body.Raw != `{"a": 1}` {
+		t.Errorf("body = %+v, want raw text", body)
+	}
+
+	// A request with nothing in it has no body at all, not an empty one.
+	empty := domain.CollectionNode{Kind: domain.NodeRequest, BodyKind: domain.BodyJSON}
+	if body := exportedBody(empty); body != nil {
+		t.Errorf("body = %+v, want none for a request with nothing in it", body)
+	}
+	// A file body with no file picked is the same kind of nothing.
+	unpicked := domain.CollectionNode{Kind: domain.NodeRequest, BodyKind: domain.BodyBinary}
+	if body := exportedBody(unpicked); body != nil {
+		t.Errorf("body = %+v, want none for a binary body with no file", body)
+	}
+}

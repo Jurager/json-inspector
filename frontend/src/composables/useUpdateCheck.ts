@@ -1,6 +1,7 @@
 import { onMounted, onBeforeUnmount, ref } from 'vue'
 import { Events } from '@wailsio/runtime'
 import { SystemService } from '../../bindings/json-inspector/internal/transport/wails'
+import { t as tr } from '../i18n'
 
 // Where the update check can be. The design draws the first three; the rest are the same line
 // carrying what it doesn't cover — an update to install, the install itself, and failures.
@@ -46,7 +47,7 @@ export function useUpdateCheck() {
         phase.value = 'uptodate'
       }
     } catch {
-      error.value = 'Не удалось проверить обновления'
+      error.value = tr('errors.updateCheckFailed')
       phase.value = 'error'
     }
   }
@@ -59,7 +60,7 @@ export function useUpdateCheck() {
       // The app replaces its own binary and relaunches, so this call does not return.
       await SystemService.UpdateNow(latest.value)
     } catch (e) {
-      error.value = `Не удалось обновиться: ${e}`
+      error.value = tr('errors.updateFailed', { error: String(e) })
       phase.value = 'error'
     }
   }

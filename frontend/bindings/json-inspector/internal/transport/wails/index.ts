@@ -23,6 +23,7 @@ export {
 export type {
     CreatedNode,
     Failure,
+    MenuLabels,
     NodeEditor,
     StartupStatus
 } from "./models.js";

@@ -14,6 +14,10 @@ import (
 // why it is a broadcast and not an answer to whoever asked.
 const TopicThemeChanged = "settings:theme"
 
+// TopicLanguageChanged is the same news for the interface language: every open window redraws, and
+// the one that made the choice has already done so.
+const TopicLanguageChanged = "settings:language"
+
 type UseCase struct {
 	store    Store
 	notifier Notifier
@@ -34,6 +38,9 @@ func (u *UseCase) Snapshot(ctx context.Context) (domain.Settings, error) {
 	out := domain.DefaultSettings()
 	if theme := domain.Theme(stored[domain.SettingTheme]); theme.Valid() {
 		out.Theme = theme
+	}
+	if language := domain.Language(stored[domain.SettingLanguage]); language.Valid() {
+		out.Language = language
 	}
 	if open, ok := parseBool(stored[domain.SettingInspectorOpen]); ok {
 		out.InspectorOpen = open
@@ -60,7 +67,7 @@ func (u *UseCase) Theme(ctx context.Context) (domain.Theme, error) {
 // palette: "system" means "ask the platform", and only a window can.
 func (u *UseCase) SetTheme(ctx context.Context, theme domain.Theme) (domain.Settings, error) {
 	if !theme.Valid() {
-		return domain.Settings{}, fmt.Errorf("тема %q: %w", theme, domain.ErrNotAllowed)
+		return domain.Settings{}, fmt.Errorf("theme %q: %w", theme, domain.ErrNotAllowed)
 	}
 	if err := u.save(ctx, domain.SettingTheme, string(theme)); err != nil {
 		return domain.Settings{}, err
@@ -72,6 +79,34 @@ func (u *UseCase) SetTheme(ctx context.Context, theme domain.Theme) (domain.Sett
 // ThemeChanged is what a window receives when the theme moves.
 type ThemeChanged struct {
 	Theme domain.Theme `json:"theme"`
+}
+
+// Language is the other preference the window needs before it exists, for the same reason the theme
+// is: the first frame is already drawn in a language, and asking Go over IPC is too late for that.
+func (u *UseCase) Language(ctx context.Context) (domain.Language, error) {
+	current, err := u.Snapshot(ctx)
+	if err != nil {
+		return "", err
+	}
+	return current.Language, nil
+}
+
+// SetLanguage stores the choice and tells every window. Like the theme's, the event carries the
+// choice and not a resolved language: "system" means "ask the webview", and only a window can.
+func (u *UseCase) SetLanguage(ctx context.Context, language domain.Language) (domain.Settings, error) {
+	if !language.Valid() {
+		return domain.Settings{}, fmt.Errorf("language %q: %w", language, domain.ErrNotAllowed)
+	}
+	if err := u.save(ctx, domain.SettingLanguage, string(language)); err != nil {
+		return domain.Settings{}, err
+	}
+	u.notifier.Publish(TopicLanguageChanged, LanguageChanged{Language: language})
+	return u.Snapshot(ctx)
+}
+
+// LanguageChanged is what a window receives when the interface language moves.
+type LanguageChanged struct {
+	Language domain.Language `json:"language"`
 }
 
 // LayoutPatch is a partial update of the panel geometry: a nil field is left as it is.
@@ -104,7 +139,7 @@ func (u *UseCase) SetLayout(ctx context.Context, patch LayoutPatch) (domain.Sett
 
 func (u *UseCase) SetRetention(ctx context.Context, retention domain.Retention) (domain.Settings, error) {
 	if !retention.Valid() {
-		return domain.Settings{}, fmt.Errorf("хранение истории %q: %w", retention, domain.ErrNotAllowed)
+		return domain.Settings{}, fmt.Errorf("history retention %q: %w", retention, domain.ErrNotAllowed)
 	}
 	if err := u.save(ctx, domain.SettingHistoryRetention, string(retention)); err != nil {
 		return domain.Settings{}, err

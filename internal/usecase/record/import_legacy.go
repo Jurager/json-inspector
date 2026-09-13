@@ -106,12 +106,12 @@ func (u *UseCase) ImportLegacy(ctx context.Context, raw string) (ImportReport, e
 		if finish != nil {
 			log.Printf("[import] recording the failure: %v", finish)
 		}
-		return report, fmt.Errorf("разбор ji-history-v1: %w", err)
+		return report, fmt.Errorf("reading ji-history-v1: %w", err)
 	}
 	report.Skipped = skipped
 
 	if len(records) == 0 {
-		if err := u.store.FinishImport(ctx, LegacySource, "done", "нечего импортировать"); err != nil {
+		if err := u.store.FinishImport(ctx, LegacySource, "done", "nothing to import"); err != nil {
 			return report, err
 		}
 		return report, nil
@@ -122,7 +122,7 @@ func (u *UseCase) ImportLegacy(ctx context.Context, raw string) (ImportReport, e
 			// One bad row must not cost the rest of the history: it is a warning, and the import
 			// carries on to the end.
 			report.Skipped++
-			report.Warnings = append(report.Warnings, fmt.Sprintf("запись %s не импортирована: %v", rec.ID, err))
+			report.Warnings = append(report.Warnings, fmt.Sprintf("record %s was not imported: %v", rec.ID, err))
 			continue
 		}
 		report.Records++

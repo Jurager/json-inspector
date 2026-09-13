@@ -47,15 +47,15 @@ func (s *runState) bridge() error {
 	}
 	for name, value := range fields {
 		if err := object.Set(name, value); err != nil {
-			return fmt.Errorf("песочница не собирается: %w", err)
+			return fmt.Errorf("the sandbox does not compile: %w", err)
 		}
 	}
 	if err := s.vm.Set("__bridge", object); err != nil {
-		return fmt.Errorf("песочница не собирается: %w", err)
+		return fmt.Errorf("the sandbox does not compile: %w", err)
 	}
 
 	if _, err := s.vm.RunProgram(program); err != nil {
-		return fmt.Errorf("песочница не запускается: %w", err)
+		return fmt.Errorf("the sandbox does not start: %w", err)
 	}
 	return nil
 }
@@ -83,7 +83,7 @@ func (s *runState) get(call goja.FunctionCall) goja.Value {
 // run, an environment outlives it, and the sandbox does not know the difference.
 func (s *runState) set(call goja.FunctionCall) goja.Value {
 	if s.in.Variables == nil {
-		panic(s.vm.NewTypeError("в этом скрипте переменных нет"))
+		panic(s.vm.NewTypeError("this script has no variables"))
 	}
 	if err := s.in.Variables.Set(domain.VarScope(text(call.Argument(0))), text(call.Argument(1)), text(call.Argument(2))); err != nil {
 		// A variable that cannot be written — a read-only environment, a name that is not a name — is
@@ -113,7 +113,7 @@ func (s *runState) log(call goja.FunctionCall) goja.Value {
 func (s *runState) test(call goja.FunctionCall) goja.Value {
 	check, ok := goja.AssertFunction(call.Argument(1))
 	if !ok {
-		panic(s.vm.NewTypeError("pm.test: вторым аргументом должна быть функция"))
+		panic(s.vm.NewTypeError("pm.test: the second argument must be a function"))
 	}
 	if len(s.run.Tests) >= maxTests {
 		s.testsCapped = true
@@ -133,7 +133,7 @@ func (s *runState) test(call goja.FunctionCall) goja.Value {
 		// assertion inside an async function throws into a promise nobody is waiting for, and there is
 		// nothing in the sandbox to wait with.
 		result.Passed = false
-		result.Error = "проверка ждёт обещания, а ждать в песочнице нечего: таймеров и сети здесь нет"
+		result.Error = "the test waits for a promise, and there is nothing to wait for in the sandbox: no timers, no network"
 	}
 	result.DurationUs = time.Since(started).Microseconds()
 	s.run.Tests = append(s.run.Tests, result)
@@ -163,8 +163,13 @@ func (s *runState) readBack(request *domain.ScriptRequest) {
 	if value := object.Get("url"); isText(value) {
 		request.URL = value.String()
 	}
-	if value := object.Get("body"); isText(value) {
-		request.Body = value.String()
+	// The byte kinds are shown nothing, so reading the body back would write that nothing over the
+	// encoding the request actually carries — a script that never mentioned the body would silently
+	// empty an upload.
+	if !isByteKind(request.BodyKind) {
+		if value := object.Get("body"); isText(value) {
+			request.Body = value.String()
+		}
 	}
 	if value := object.Get("headers"); isText(value) {
 		request.Headers = headerPairs(value)
@@ -204,12 +209,12 @@ func (s *runState) failure(err error) string {
 func (s *runState) closeReport() {
 	if s.logsCapped {
 		s.run.Logs = append(s.run.Logs, domain.ScriptLog{
-			Level: "warn", Message: fmt.Sprintf("лог обрезан: записаны первые %d строк", maxLogLines),
+			Level: "warn", Message: fmt.Sprintf("log truncated: the first %d lines were kept", maxLogLines),
 		})
 	}
 	if s.testsCapped {
 		s.run.Logs = append(s.run.Logs, domain.ScriptLog{
-			Level: "warn", Message: fmt.Sprintf("проверки обрезаны: записаны первые %d", maxTests),
+			Level: "warn", Message: fmt.Sprintf("tests truncated: the first %d were kept", maxTests),
 		})
 	}
 }
@@ -232,6 +237,31 @@ func (s *runState) member(names ...string) *goja.Object {
 	return nil
 }
 
+// scriptBody is the body a script is shown.
+//
+// The text kinds are their text, which a script may rewrite. The byte kinds are nothing: a multipart
+// body is a wire encoding and not a text a script can meaningfully edit, and a file's own bytes in a
+// JavaScript string come back corrupted. The encoding itself is untouched either way — a script sees
+// less than the request carries, and what goes out is what was prepared.
+func scriptBody(request *domain.ScriptRequest) string {
+	if isByteKind(request.BodyKind) {
+		return ""
+	}
+	return request.Body
+}
+
+// isByteKind says whether a body is an encoding rather than a text. The two questions — what a
+// script is shown, and whether what it leaves can be read back — are the same question, which is why
+// they are asked in one place.
+func isByteKind(kind domain.BodyKind) bool {
+	switch domain.KindOf(kind) {
+	case domain.BodyForm, domain.BodyBinary:
+		return true
+	default:
+		return false
+	}
+}
+
 // requestValue is the request as a script sees it: plain fields it may assign to. `key` is the name a
 // header carries here because that is what Postman calls it, and a script written there is the script
 // being ported here.
@@ -240,7 +270,7 @@ func requestValue(request *domain.ScriptRequest) map[string]any {
 	if request == nil {
 		return value
 	}
-	value["method"], value["url"], value["body"] = request.Method, request.URL, request.Body
+	value["method"], value["url"], value["body"] = request.Method, request.URL, scriptBody(request)
 	headers := make([]any, 0, len(request.Headers))
 	for _, header := range request.Headers {
 		headers = append(headers, map[string]any{"key": header.Name, "value": header.Value})

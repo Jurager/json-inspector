@@ -74,6 +74,9 @@ func (s *CollectionsService) SaveDraft(ctx context.Context, collectionID string,
 		Params:       draft.Params,
 		Headers:      draft.Headers,
 		Body:         draft.Body,
+		BodyKind:     draft.BodyKind,
+		Form:         draft.Form,
+		BodyFile:     draft.BodyFile,
 		Cookies:      draft.Cookies,
 		Auth:         &draft.Auth,
 	})
@@ -100,8 +103,10 @@ func (s *CollectionsService) Rename(ctx context.Context, id string, name string)
 	return s.collections.Rename(ctx, id, name)
 }
 
-func (s *CollectionsService) Duplicate(ctx context.Context, id string) ([]domain.Collection, error) {
-	return s.collections.Duplicate(ctx, id)
+// Duplicate copies a node under a name the window composes: the suffix that says what the copy is is
+// a word, and words belong to the side that knows the language.
+func (s *CollectionsService) Duplicate(ctx context.Context, id string, suffix string) ([]domain.Collection, error) {
+	return s.collections.Duplicate(ctx, id, suffix)
 }
 
 func (s *CollectionsService) Delete(ctx context.Context, id string) ([]domain.Collection, error) {

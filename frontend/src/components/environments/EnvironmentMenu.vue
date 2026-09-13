@@ -2,10 +2,13 @@
 import { DropdownMenuItem } from 'reka-ui'
 import Icon from '../ui/Icon.vue'
 import { useEnvironmentsStore } from '../../stores/environments'
+import { useMessages } from '../../i18n'
 import { usePlatform } from '../../composables/usePlatform'
 import { DropdownMenuContent } from '../ui/dropdown-menu'
 
 const store = useEnvironmentsStore()
+
+const { t } = useMessages()
 const { shortcut } = usePlatform()
 
 const editHint = shortcut('E')
@@ -21,7 +24,7 @@ function edit() {
 
 <template>
   <DropdownMenuContent class="env-menu" align="end">
-    <div class="env-menu-head">Окружение</div>
+    <div class="env-menu-head">{{ t('environments.menuTitle') }}</div>
 
     <DropdownMenuItem
       v-for="env in store.environments"
@@ -34,9 +37,9 @@ function edit() {
         <Icon v-if="env.id === store.activeId" name="check" :size="12" />
       </span>
       <span class="env-row-name">{{ env.name }}</span>
-      <span v-if="env.readonly" class="env-badge">только чтение</span>
+      <span v-if="env.readonly" class="env-badge">{{ t('common.readOnly') }}</span>
       <span v-else class="env-count">
-        {{ env.vars.length }}<template v-if="env.id === store.activeId"> перем.</template>
+        {{ env.vars.length }}<template v-if="env.id === store.activeId"> {{ t('environments.variablesShort') }}</template>
       </span>
     </DropdownMenuItem>
 
@@ -44,14 +47,14 @@ function edit() {
       <span class="env-row-mark">
         <Icon v-if="store.activeId === null" name="check" :size="12" />
       </span>
-      <span class="env-row-name none">Без окружения</span>
+      <span class="env-row-name none">{{ t('titlebar.noEnvironment') }}</span>
     </DropdownMenuItem>
 
     <div class="env-divider"></div>
 
     <DropdownMenuItem class="env-row" @select="edit">
       <span class="env-row-mark"><Icon name="list" :size="13" /></span>
-      <span class="env-row-name">Редактировать переменные…</span>
+      <span class="env-row-name">{{ t('environments.editVariables') }}</span>
       <span class="env-hint mono">{{ editHint }}</span>
     </DropdownMenuItem>
   </DropdownMenuContent>

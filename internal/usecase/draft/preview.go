@@ -20,13 +20,14 @@ type Preview struct {
 type parts struct {
 	url     string
 	body    string
+	form    []domain.FormRow
 	headers []domain.HeaderPair
 	cookie  string
 	auth    string
 }
 
 func collect(d domain.Draft) parts {
-	out := parts{url: d.URL, body: d.Body, auth: d.Auth.Token}
+	out := parts{url: d.URL, body: d.Body, form: d.Form, auth: d.Auth.Token}
 	// The jar owns the Cookie header: it is what the "Cookies" tab edits, and a header row with the
 	// same name would be the same cookies a second time.
 	out.cookie = headerFromCookies(d.Cookies)
@@ -50,8 +51,13 @@ func collect(d domain.Draft) parts {
 // first place. The Auth token is here last, and it is put back: it is what becomes the
 // Authorization header, and a `{{token}}` in it has to be filled in like any other text.
 func (p parts) texts() []string {
-	out := make([]string, 0, 4+2*len(p.headers))
+	out := make([]string, 0, 4+3*len(p.form)+2*len(p.headers))
 	out = append(out, p.url, p.body)
+	// A form row contributes its name, its value and the path it may carry: a `{{token}}` reaches a
+	// form body the same way it reaches a header, and a row it could not reach would go out literal.
+	for _, row := range p.form {
+		out = append(out, row.Name, row.Value, row.Src)
+	}
 	for _, header := range p.headers {
 		out = append(out, header.Name, header.Value)
 	}
@@ -66,6 +72,14 @@ func (p parts) putBack(resolved []string) parts {
 	at++
 	p.body = resolved[at]
 	at++
+
+	form := make([]domain.FormRow, len(p.form))
+	for i := range p.form {
+		form[i] = p.form[i]
+		form[i].Name, form[i].Value, form[i].Src = resolved[at], resolved[at+1], resolved[at+2]
+		at += 3
+	}
+	p.form = form
 
 	headers := make([]domain.HeaderPair, len(p.headers))
 	for i := range p.headers {

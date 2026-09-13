@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { onBeforeUnmount, ref, watch } from 'vue'
 import { FLUSH_MS } from '../../stores/collections'
+import { useMessages } from '../../i18n'
 import type { RequestSource } from '../../lib/requestSource'
 
 // The two boxes of code a request can run around itself, wherever it is asked for: in the header of a
@@ -10,6 +11,8 @@ const props = withDefaults(
   defineProps<{ source: RequestSource; note: string; compact?: boolean }>(),
   { compact: false }
 )
+
+const { t } = useMessages()
 
 const pre = ref('')
 const post = ref('')
@@ -78,7 +81,7 @@ onBeforeUnmount(() => void save())
         v-model="pre"
         class="code"
         spellcheck="false"
-        :placeholder="inherited('pre') || (props.compact ? '// выполняется до отправки' : '')"
+        :placeholder="inherited('pre') || (props.compact ? t('request.body.prePlaceholder') : '')"
         @input="onInput"
         @blur="save"
       />
@@ -90,7 +93,7 @@ onBeforeUnmount(() => void save())
         v-model="post"
         class="code"
         spellcheck="false"
-        :placeholder="inherited('post') || (props.compact ? '// проверки ответа' : '')"
+        :placeholder="inherited('post') || (props.compact ? t('request.body.postPlaceholder') : '')"
         @input="onInput"
         @blur="save"
       />

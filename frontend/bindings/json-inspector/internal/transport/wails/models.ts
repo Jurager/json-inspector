@@ -24,8 +24,22 @@ export interface CreatedNode {
  */
 export interface Failure {
     "kind": string;
-    "message": string;
+
+    /**
+     * Detail is the error itself, for the screen to show under the sentence it writes for the kind.
+     */
     "detail"?: string;
+}
+
+/**
+ * MenuLabels are the few words the native menu needs. They arrive from the window, because the menu is
+ * drawn by the system and only the page knows the language — the alternative would be a second
+ * catalogue here, in one language, drifting away from the one the rest of the app reads.
+ */
+export interface MenuLabels {
+    "about": string;
+    "help": string;
+    "checkUpdates": string;
 }
 
 /**

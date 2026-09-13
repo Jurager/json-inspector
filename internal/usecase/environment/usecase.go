@@ -48,10 +48,10 @@ type Patch struct {
 func (u *UseCase) Create(ctx context.Context, name string) (domain.EnvState, error) {
 	name = strings.TrimSpace(name)
 	if name == "" {
-		return domain.EnvState{}, fmt.Errorf("имя окружения не может быть пустым: %w", domain.ErrNotAllowed)
+		return domain.EnvState{}, fmt.Errorf("the environment name is empty: %w", domain.ErrNotAllowed)
 	}
 	if len([]rune(name)) > maxNameLength {
-		return domain.EnvState{}, fmt.Errorf("имя длиннее %d символов: %w", maxNameLength, domain.ErrNotAllowed)
+		return domain.EnvState{}, fmt.Errorf("the name is over %d characters: %w", maxNameLength, domain.ErrNotAllowed)
 	}
 
 	current, err := u.store.EnvState(ctx)
@@ -84,13 +84,13 @@ func (u *UseCase) Update(ctx context.Context, id string, patch Patch) (domain.En
 	}
 	env, ok := findEnvironment(state, id)
 	if !ok {
-		return domain.EnvState{}, fmt.Errorf("окружение %s: %w", id, domain.ErrNotFound)
+		return domain.EnvState{}, fmt.Errorf("environment %s: %w", id, domain.ErrNotFound)
 	}
 
 	if patch.Name != nil {
 		name := strings.TrimSpace(*patch.Name)
 		if name == "" || len([]rune(name)) > maxNameLength {
-			return domain.EnvState{}, fmt.Errorf("имя окружения: %w", domain.ErrNotAllowed)
+			return domain.EnvState{}, fmt.Errorf("environment name: %w", domain.ErrNotAllowed)
 		}
 		env.Name = name
 	}
@@ -118,7 +118,7 @@ func (u *UseCase) Delete(ctx context.Context, id string) (domain.EnvState, error
 		return domain.EnvState{}, err
 	}
 	if _, ok := findEnvironment(state, id); !ok {
-		return domain.EnvState{}, fmt.Errorf("окружение %s: %w", id, domain.ErrNotFound)
+		return domain.EnvState{}, fmt.Errorf("environment %s: %w", id, domain.ErrNotFound)
 	}
 	if err := u.store.DeleteEnvironment(ctx, id); err != nil {
 		return domain.EnvState{}, err
@@ -139,7 +139,7 @@ func (u *UseCase) Activate(ctx context.Context, id string) (domain.EnvState, err
 			return domain.EnvState{}, err
 		}
 		if _, ok := findEnvironment(state, id); !ok {
-			return domain.EnvState{}, fmt.Errorf("окружение %s: %w", id, domain.ErrNotFound)
+			return domain.EnvState{}, fmt.Errorf("environment %s: %w", id, domain.ErrNotFound)
 		}
 	}
 	if err := u.store.SetActiveEnvironment(ctx, id); err != nil {
@@ -169,7 +169,7 @@ func (u *UseCase) AddVariable(ctx context.Context, scope domain.EnvScope, draft 
 
 	name := strings.TrimSpace(draft.Name)
 	if name != "" && !vars.ValidName(name) {
-		return domain.EnvState{}, fmt.Errorf("имя переменной: %w", domain.ErrNotAllowed)
+		return domain.EnvState{}, fmt.Errorf("variable name: %w", domain.ErrNotAllowed)
 	}
 	if draft.Kind != domain.VariableSecret {
 		draft.Kind = domain.VariableText
@@ -241,12 +241,12 @@ func (u *UseCase) UpdateVariable(ctx context.Context, scope domain.EnvScope, pat
 	}
 	existing, ok := findVariable(state, scope, patch.ID)
 	if !ok {
-		return domain.EnvState{}, fmt.Errorf("переменная %s: %w", patch.ID, domain.ErrNotFound)
+		return domain.EnvState{}, fmt.Errorf("variable %s: %w", patch.ID, domain.ErrNotFound)
 	}
 
 	name := strings.TrimSpace(patch.Name)
 	if name != "" && !vars.ValidName(name) {
-		return domain.EnvState{}, fmt.Errorf("имя переменной: %w", domain.ErrNotAllowed)
+		return domain.EnvState{}, fmt.Errorf("variable name: %w", domain.ErrNotAllowed)
 	}
 
 	value := existing.Value
@@ -278,7 +278,7 @@ func (u *UseCase) RemoveVariable(ctx context.Context, scope domain.EnvScope, id 
 		return domain.EnvState{}, err
 	}
 	if _, ok := findVariable(state, scope, id); !ok {
-		return domain.EnvState{}, fmt.Errorf("переменная %s: %w", id, domain.ErrNotFound)
+		return domain.EnvState{}, fmt.Errorf("variable %s: %w", id, domain.ErrNotFound)
 	}
 	if err := u.store.DeleteVariable(ctx, id); err != nil {
 		return domain.EnvState{}, err
@@ -363,7 +363,7 @@ func scopeVariables(state domain.EnvState, scope domain.EnvScope) []domain.Varia
 func nextVariablePosition(state domain.EnvState, scope domain.EnvScope) (int, error) {
 	if scope.Environment != "" {
 		if _, ok := findEnvironment(state, scope.Environment); !ok {
-			return 0, fmt.Errorf("окружение %s: %w", scope.Environment, domain.ErrNotFound)
+			return 0, fmt.Errorf("environment %s: %w", scope.Environment, domain.ErrNotFound)
 		}
 	}
 	position := 0

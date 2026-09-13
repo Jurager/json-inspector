@@ -3,10 +3,13 @@ import Dialog from '../ui/dialog/Dialog.vue'
 import { Button } from '../ui/button'
 import Icon from '../ui/Icon.vue'
 import { useCollectionsStore } from '../../stores/collections'
+import { useMessages } from '../../i18n'
 
 // The alert that stands between a click and a card with unsaved edits. It is drawn once, at the top
 // of the window, because what asks is not always the tree: the rail and the window's close ask too.
 const store = useCollectionsStore()
+
+const { t } = useMessages()
 </script>
 
 <template>
@@ -18,17 +21,16 @@ const store = useCollectionsStore()
   >
     <div class="head">
       <span class="icon"><Icon name="bookmark" :size="16" /></span>
-      <span class="title">Сохранить изменения в «{{ store.pendingLeave?.name }}»?</span>
+      <span class="title">{{ t('collections.unsavedTitle', { name: store.pendingLeave?.name }) }}</span>
     </div>
     <p class="hint">
-      Правка не сохранена в коллекции: «Отправить» её не записывает. Если не сохранить, изменения
-      потеряются.
+      {{ t('collections.unsavedHint') }}
     </p>
     <div class="actions">
-      <Button class="discard" @click="store.answerUnsaved('discard')">Не сохранять</Button>
+      <Button class="discard" @click="store.answerUnsaved('discard')">{{ t('common.discard') }}</Button>
       <span class="spacer"></span>
-      <Button @click="store.answerUnsaved('cancel')">Отмена</Button>
-      <Button variant="primary" @click="store.answerUnsaved('save')">Сохранить</Button>
+      <Button @click="store.answerUnsaved('cancel')">{{ t('common.cancel') }}</Button>
+      <Button variant="primary" @click="store.answerUnsaved('save')">{{ t('common.save') }}</Button>
     </div>
   </Dialog>
 </template>

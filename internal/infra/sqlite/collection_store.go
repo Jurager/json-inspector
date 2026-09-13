@@ -91,14 +91,16 @@ func (s *Store) Node(ctx context.Context, id string) (domain.CollectionNode, err
 		auth, scripts               sql.NullString
 		description                 sql.NullString
 		url, body, method, bodyKind sql.NullString
+		form, bodyFile              sql.NullString
 	)
 	err := s.db.QueryRowContext(ctx,
 		`SELECT id, collection_id, parent_id, kind, name, position, description, auth_json, scripts_json,
-		        method, url, params_json, headers_json, body, body_kind, cookies_json, created_at, updated_at
+		        method, url, params_json, headers_json, body, body_kind, form_json, body_file,
+		        cookies_json, created_at, updated_at
 		   FROM collection_nodes WHERE id = ?`, id).
 		Scan(&node.ID, &node.CollectionID, &parentID, &node.Kind, &node.Name, &node.Position, &description,
-			&auth, &scripts, &method, &url, &params, &headers, &body, &bodyKind, &cookies,
-			&node.CreatedAt, &node.UpdatedAt)
+			&auth, &scripts, &method, &url, &params, &headers, &body, &bodyKind, &form, &bodyFile,
+			&cookies, &node.CreatedAt, &node.UpdatedAt)
 	if errors.Is(err, sql.ErrNoRows) {
 		return domain.CollectionNode{}, fmt.Errorf("collection node %s: %w", id, domain.ErrNotFound)
 	}
@@ -111,14 +113,22 @@ func (s *Store) Node(ctx context.Context, id string) (domain.CollectionNode, err
 	node.Method = method.String
 	node.URL = url.String
 	node.Body = body.String
+	// A node saved before there were kinds holds text, and an unsaved one holds nothing: both are raw.
+	node.BodyKind = domain.KindOf(domain.BodyKind(bodyKind.String))
+	node.BodyFile = bodyFile.String
+	if form.Valid {
+		if err := json.Unmarshal([]byte(form.String), &node.Form); err != nil {
+			return domain.CollectionNode{}, fmt.Errorf("reading the form of node %s: %w", id, err)
+		}
+	}
 	for _, part := range []struct {
 		raw  string
 		into any
 		what string
 	}{
-		{params, &node.Params, "параметры"},
-		{headers, &node.Headers, "заголовки"},
-		{cookies, &node.Cookies, "куки"},
+		{params, &node.Params, "params"},
+		{headers, &node.Headers, "headers"},
+		{cookies, &node.Cookies, "cookies"},
 	} {
 		if err := json.Unmarshal([]byte(part.raw), part.into); err != nil {
 			return domain.CollectionNode{}, fmt.Errorf("reading the %s of node %s: %w", part.what, id, err)
@@ -247,22 +257,30 @@ func (s *Store) SaveNode(ctx context.Context, node domain.CollectionNode) error 
 	if err != nil {
 		return fmt.Errorf("saving node %s: %w", node.ID, err)
 	}
+	form, err := json.Marshal(orEmptyFormRows(node.Form))
+	if err != nil {
+		return fmt.Errorf("saving node %s: %w", node.ID, err)
+	}
 
 	now := time.Now().UnixMilli()
 	_, err = s.db.ExecContext(ctx,
 		`INSERT INTO collection_nodes (id, collection_id, parent_id, kind, name, position, description,
 		                               auth_json, scripts_json, method, url, params_json, headers_json,
-		                               body, body_kind, cookies_json, created_at, updated_at)
-		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'raw', ?, ?, ?)
+		                               body, body_kind, form_json, body_file, cookies_json, created_at,
+		                               updated_at)
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 		 ON CONFLICT(id) DO UPDATE SET
 		   name = excluded.name, position = excluded.position, description = excluded.description,
 		   auth_json = excluded.auth_json, scripts_json = excluded.scripts_json,
 		   method = excluded.method, url = excluded.url,
 		   params_json = excluded.params_json, headers_json = excluded.headers_json,
-		   body = excluded.body, cookies_json = excluded.cookies_json, updated_at = excluded.updated_at`,
+		   body = excluded.body, body_kind = excluded.body_kind, form_json = excluded.form_json,
+		   body_file = excluded.body_file,
+		   cookies_json = excluded.cookies_json, updated_at = excluded.updated_at`,
 		node.ID, node.CollectionID, nullIfEmpty(node.ParentID), string(node.Kind), node.Name, node.Position,
 		nullIfEmpty(node.Description), auth, scripts, nullIfEmpty(node.Method), nullIfEmpty(node.URL),
-		string(params), string(headers), node.Body, string(cookies), now, now)
+		string(params), string(headers), node.Body, string(domain.KindOf(node.BodyKind)), string(form),
+		node.BodyFile, string(cookies), now, now)
 	if err != nil {
 		return fmt.Errorf("saving node %s: %w", node.ID, err)
 	}

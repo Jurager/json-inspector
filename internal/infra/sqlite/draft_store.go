@@ -15,30 +15,35 @@ import (
 // draft feature knows to start on a fresh one rather than on an empty request.
 func (s *Store) Draft(ctx context.Context, id domain.DraftID) (domain.Draft, error) {
 	var (
-		draft                          domain.Draft
-		params, headers, auth, cookies string
+		draft                                domain.Draft
+		params, headers, auth, cookies, form string
+		bodyKind                             string
 	)
 	err := s.db.QueryRowContext(ctx,
-		`SELECT id, revision, method, url, params_json, headers_json, auth_json, body, cookies_json
+		`SELECT id, revision, method, url, params_json, headers_json, auth_json, body, body_kind,
+		        form_json, body_file, cookies_json
 		   FROM drafts WHERE id = ?`, id).
 		Scan(&draft.ID, &draft.Revision, &draft.Method, &draft.URL, &params, &headers, &auth,
-			&draft.Body, &cookies)
+			&draft.Body, &bodyKind, &form, &draft.BodyFile, &cookies)
 	if errors.Is(err, sql.ErrNoRows) {
 		return domain.Draft{}, fmt.Errorf("draft %s: %w", id, domain.ErrNotFound)
 	}
 	if err != nil {
 		return domain.Draft{}, fmt.Errorf("reading draft %s: %w", id, err)
 	}
+	// A row written before there were kinds holds text, and text is what raw means.
+	draft.BodyKind = domain.KindOf(domain.BodyKind(bodyKind))
 
 	for _, part := range []struct {
 		raw  string
 		into any
 		what string
 	}{
-		{params, &draft.Params, "параметры"},
-		{headers, &draft.Headers, "заголовки"},
-		{auth, &draft.Auth, "авторизация"},
-		{cookies, &draft.Cookies, "куки"},
+		{params, &draft.Params, "params"},
+		{headers, &draft.Headers, "headers"},
+		{auth, &draft.Auth, "auth"},
+		{cookies, &draft.Cookies, "cookies"},
+		{form, &draft.Form, "form fields"},
 	} {
 		if err := json.Unmarshal([]byte(part.raw), part.into); err != nil {
 			return domain.Draft{}, fmt.Errorf("reading the %s of draft %s: %w", part.what, id, err)
@@ -66,18 +71,25 @@ func (s *Store) SaveDraft(ctx context.Context, draft domain.Draft) error {
 	if err != nil {
 		return fmt.Errorf("saving draft %s: %w", draft.ID, err)
 	}
+	form, err := json.Marshal(orEmptyFormRows(draft.Form))
+	if err != nil {
+		return fmt.Errorf("saving draft %s: %w", draft.ID, err)
+	}
 
 	_, err = s.db.ExecContext(ctx,
 		`INSERT INTO drafts (id, revision, method, url, params_json, headers_json, auth_json, body,
-		                     cookies_json, updated_at)
-		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		                     body_kind, form_json, body_file, cookies_json, updated_at)
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 		 ON CONFLICT(id) DO UPDATE SET
 		   revision = excluded.revision, method = excluded.method, url = excluded.url,
 		   params_json = excluded.params_json, headers_json = excluded.headers_json,
 		   auth_json = excluded.auth_json, body = excluded.body,
+		   body_kind = excluded.body_kind, form_json = excluded.form_json,
+		   body_file = excluded.body_file,
 		   cookies_json = excluded.cookies_json, updated_at = excluded.updated_at`,
 		draft.ID, draft.Revision, draft.Method, draft.URL, string(params), string(headers),
-		string(auth), draft.Body, string(cookies), time.Now().UnixMilli())
+		string(auth), draft.Body, string(domain.KindOf(draft.BodyKind)), string(form),
+		draft.BodyFile, string(cookies), time.Now().UnixMilli())
 	if err != nil {
 		return fmt.Errorf("saving draft %s: %w", draft.ID, err)
 	}
@@ -87,6 +99,13 @@ func (s *Store) SaveDraft(ctx context.Context, draft domain.Draft) error {
 func orEmptyRows(rows []domain.Row) []domain.Row {
 	if rows == nil {
 		return []domain.Row{}
+	}
+	return rows
+}
+
+func orEmptyFormRows(rows []domain.FormRow) []domain.FormRow {
+	if rows == nil {
+		return []domain.FormRow{}
 	}
 	return rows
 }

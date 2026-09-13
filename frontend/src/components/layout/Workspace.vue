@@ -5,6 +5,7 @@ import { useRequestsStore } from '../../stores/requests'
 import { useCollectionsStore } from '../../stores/collections'
 import { useResizableWidth } from '../../composables/useResizableWidth'
 import { useSettings } from '../../composables/useSettings'
+import { useMessages } from '../../i18n'
 import HistoryPanel from '../history/HistoryPanel.vue'
 import RequestBuilder from '../request/RequestBuilder.vue'
 import ResponseViewer from '../response/ResponseViewer.vue'
@@ -15,6 +16,8 @@ import CollectionOverview from '../collections/CollectionOverview.vue'
 import CollectionsEmptyState from '../collections/CollectionsEmptyState.vue'
 
 const store = useRequestsStore()
+
+const { t } = useMessages()
 const collections = useCollectionsStore()
 const { settings, loadSettings, setLayout } = useSettings()
 
@@ -70,8 +73,8 @@ const sidePanelShown = computed(() => {
             <span class="spinner spinner-lg"></span>
           </div>
           <div v-else class="empty">
-            <span class="empty-title">Отправьте запрос</span>
-            <span>Или загрузите образец JSON:API из меню.</span>
+            <span class="empty-title">{{ t('workspace.sendRequest') }}</span>
+            <span>{{ t('workspace.orLoadSample') }}</span>
           </div>
         </template>
         <template v-else-if="store.activeView === 'browser'">
@@ -88,14 +91,14 @@ const sidePanelShown = computed(() => {
               <span class="spinner spinner-lg"></span>
             </div>
             <div v-else class="empty">
-              <span class="empty-title">Отправьте запрос</span>
-              <span>Отправка не сохраняет правку — для этого «Сохранить» в статус-баре.</span>
+              <span class="empty-title">{{ t('workspace.sendRequest') }}</span>
+              <span>{{ t('workspace.sendDoesNotSave') }}</span>
             </div>
           </template>
           <CollectionOverview v-else-if="collections.selectedId" />
           <div v-else class="empty">
-            <span class="empty-title">Выберите запрос</span>
-            <span>Или папку — тогда можно запустить всё, что в ней.</span>
+            <span class="empty-title">{{ t('workspace.chooseRequest') }}</span>
+            <span>{{ t('workspace.orFolder') }}</span>
           </div>
         </template>
       </div>

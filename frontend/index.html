@@ -17,6 +17,17 @@
             stored === 'dark' || (followsSystem && matchMedia('(prefers-color-scheme: dark)').matches)
           document.documentElement.classList.add(dark ? 'dark' : 'light')
 
+          // The language travels the same road and for the same reason: the first frame is already
+          // written in one, and both catalogues are in the bundle. "system" is resolved here, because
+          // the webview is the only side that can ask — same as the theme's prefers-color-scheme.
+          var askedLang = new URLSearchParams(location.search).get('lang') || localStorage.getItem('ji-lang-v1')
+          document.documentElement.lang =
+            askedLang === 'ru' || askedLang === 'en'
+              ? askedLang
+              : navigator.language.toLowerCase().indexOf('ru') === 0
+                ? 'ru'
+                : 'en'
+
           // The same query says whether this window has a material behind it. A window that has one
           // must not paint its own ground, or the desktop would stop at the edge of the chrome; the
           // About window loads this same stylesheet and has no material, so it keeps the ground.

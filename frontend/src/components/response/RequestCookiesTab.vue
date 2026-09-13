@@ -5,8 +5,10 @@ import VarToken from '../ui/VarToken.vue'
 import { useRequestsStore } from '../../stores/requests'
 import { parseTokens, tokenSegments } from '../../lib/vars'
 import { RowKind, type CookieRow } from '../../../bindings/json-inspector/internal/domain'
+import { useMessages } from '../../i18n'
 
 const store = useRequestsStore()
+const { t } = useMessages()
 
 // Only the value gets the token overlay (same trick as Params/Headers) — a cookie's name is
 // realistically always a literal, and the domain/expires columns are informational, not sent.
@@ -34,13 +36,13 @@ function syncCellScroll(e: Event) {
 <template>
   <div class="req-cookies">
     <div class="req-cookies-head">
-      <div>Имя</div><div>Значение</div><div>Домен</div><div>Истекает</div><div>Флаги</div><div></div>
+      <div>{{ t('response.cookies.name') }}</div><div>{{ t('response.cookies.value') }}</div><div>{{ t('response.cookies.domain') }}</div><div>{{ t('response.cookies.expires') }}</div><div>{{ t('response.cookies.flags') }}</div><div></div>
     </div>
     <div v-for="c in store.cookies" :key="c.id" class="req-cookies-row">
       <input
         :value="c.name"
         class="cell-input mono"
-        placeholder="имя"
+        :placeholder="t('request.placeholderName')"
         spellcheck="false"
         @input="patch(c, { name: ($event.target as HTMLInputElement).value })"
       />
@@ -49,7 +51,7 @@ function syncCellScroll(e: Event) {
           :value="c.value"
           class="cell-input mono"
           :class="{ 'cell-input-veiled': hasTokens(c.value) }"
-          placeholder="значение"
+          :placeholder="t('request.placeholderValue')"
           spellcheck="false"
           @input="patch(c, { value: ($event.target as HTMLInputElement).value }); syncCellScroll($event)"
           @scroll="syncCellScroll"
@@ -64,7 +66,7 @@ function syncCellScroll(e: Event) {
       <input
         :value="c.domain"
         class="cell-input"
-        placeholder="домен"
+        :placeholder="t('response.cookies.domain')"
         spellcheck="false"
         @input="patch(c, { domain: ($event.target as HTMLInputElement).value })"
       />
@@ -91,13 +93,13 @@ function syncCellScroll(e: Event) {
           HttpOnly
         </button>
       </div>
-      <IconButton variant="danger" size="sm" hint="Удалить" @click="store.removeRow(RowKind.RowCookies, c.id ?? '')">
-        <Icon name="xmark" :size="12" />
+      <IconButton variant="danger" size="sm" :hint="t('common.delete')" @click="store.removeRow(RowKind.RowCookies, c.id ?? '')">
+        <Icon name="trash" :size="13" />
       </IconButton>
     </div>
     <button class="req-cookies-add" @click="store.addRow(RowKind.RowCookies)">
-      <Icon name="plus" :size="13" />
-      <span>Добавить cookie</span>
+      <Icon name="plus" :size="16" />
+      <span>{{ t('response.cookies.add') }}</span>
     </button>
   </div>
 </template>

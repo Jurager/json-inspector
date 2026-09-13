@@ -56,6 +56,11 @@ type ScriptRequest struct {
 	URL     string       `json:"url"`
 	Headers []HeaderPair `json:"headers"`
 	Body    string       `json:"body"`
+	// BodyKind is here so that re-masking a request a script changed can render the body it actually
+	// has: a form body and a file path cannot be rebuilt from the text a script was shown. The
+	// prelude neither reads nor writes it, so a script can rewrite a JSON body and cannot turn one
+	// kind into another.
+	BodyKind BodyKind `json:"bodyKind,omitempty"`
 }
 
 // ScriptPass is one attempt as the scripts around it see it: which run it belongs to — the scope the

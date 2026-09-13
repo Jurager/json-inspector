@@ -2,7 +2,9 @@ import { defineStore } from 'pinia'
 import { bodyMissing, recordView, type RecordBodies, type RecordView } from '../lib/requestRecord'
 import { findNode, requestCount, trailOf, type Trail } from '../lib/collectionTree'
 import type { ChipName } from '../lib/requestSource'
+import { t as tr } from '../i18n'
 import {
+  BodyKind,
   BodySide,
   DraftID,
   RowKind,
@@ -12,6 +14,7 @@ import {
   type CollectionRun,
   type CollectionRunResult,
   type CookieRow,
+  type FormRow,
   type NodeKind,
   type Record,
   type Row,
@@ -188,8 +191,28 @@ export const useCollectionsStore = defineStore('collections', {
     enabledHeadersCount(state): number {
       return (state.editor?.state.draft.headers ?? []).filter((h) => h.enabled && h.name.trim()).length
     },
-    bodyDisabled(): boolean {
-      return this.method === 'GET' || this.method === 'HEAD'
+    bodyKind(state): BodyKind {
+      return state.editor?.state.draft.bodyKind ?? BodyKind.BodyRaw
+    },
+    form(state): FormRow[] {
+      return state.editor?.state.draft.form ?? []
+    },
+    bodyFile(state): string {
+      return state.editor?.state.draft.bodyFile ?? ''
+    },
+    // The same rule the command line answers with: a card's chip must go solid on exactly what makes
+    // the command line's go solid.
+    hasBody(state): boolean {
+      const draft = state.editor?.state.draft
+      if (!draft) return false
+      switch (draft.bodyKind) {
+        case BodyKind.BodyForm:
+          return (draft.form ?? []).some((row) => row.enabled && row.name.trim())
+        case BodyKind.BodyBinary:
+          return (draft.bodyFile ?? '') !== ''
+        default:
+          return state.bodyText.trim().length > 0
+      }
     },
     response(state): RecordView | null {
       return state.record ? recordView(state.record, state.bodies) : null
@@ -242,7 +265,7 @@ export const useCollectionsStore = defineStore('collections', {
     // A collection travels as a file: the window asks Go for an import, and Go reads the file. A
     // cancelled dialog answers with nothing — neither a change nor a failure.
     async importFile(): Promise<string | null> {
-      const tree = await CollectionsService.ImportFile()
+      const tree = await CollectionsService.ImportFile(tr('files.importCollection'))
       if (!tree) return null
       this.applyTree(tree)
       // What was imported is the last collection: Go appends, and the file's name is its id-less
@@ -255,7 +278,7 @@ export const useCollectionsStore = defineStore('collections', {
     // Export answers whether anything was written; a cancelled save dialog is not an error and the
     // window says nothing about it.
     async exportFile(id: string): Promise<boolean> {
-      return CollectionsService.ExportFile(id)
+      return CollectionsService.ExportFile(tr('files.exportCollection'), id)
     },
 
     async rename(id: string, name: string) {
@@ -275,7 +298,7 @@ export const useCollectionsStore = defineStore('collections', {
     },
 
     async duplicate(id: string) {
-      this.applyTree((await CollectionsService.Duplicate(id)) ?? [])
+      this.applyTree((await CollectionsService.Duplicate(id, tr('collections.copySuffix'))) ?? [])
     },
 
     async remove(id: string) {
@@ -439,6 +462,20 @@ export const useCollectionsStore = defineStore('collections', {
       if (id) this.apply(await DraftService.SetAuth(id, auth))
     },
 
+    async setBodyKind(kind: BodyKind) {
+      const id = this.draftId()
+      if (id) this.apply(await DraftService.SetBodyKind(id, kind))
+    },
+
+    async setBodyFile(path: string) {
+      const id = this.draftId()
+      if (id) this.apply(await DraftService.SetBodyFile(id, path))
+    },
+
+    async pickBodyFile(): Promise<string> {
+      return await DraftService.PickBodyFile(tr('files.bodyFile'), tr('files.allFiles'))
+    },
+
     async addRow(kind: RowKind): Promise<string> {
       const id = this.draftId()
       if (!id) return ''
@@ -544,7 +581,7 @@ export const useCollectionsStore = defineStore('collections', {
     // when there is nothing to lose, and otherwise waits for the alert to be answered.
     askUnsaved(): Promise<boolean> {
       if (!this.dirty) return Promise.resolve(true)
-      const name = this.editor?.node.name ?? this.selected?.name ?? 'запрос'
+      const name = this.editor?.node.name ?? this.selected?.name ?? tr('collections.unnamedRequest')
       return new Promise((resolve) => {
         this.pendingLeave = { name, resolve }
       })

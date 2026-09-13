@@ -32,8 +32,8 @@ func TestEmbeddedSchemaApplies(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Up(migrations.FS): %v", err)
 	}
-	if len(result.Applied) != 10 {
-		t.Errorf("applied %d migrations, want 10", len(result.Applied))
+	if len(result.Applied) != 11 {
+		t.Errorf("applied %d migrations, want 11", len(result.Applied))
 	}
 	if result.Skipped != 0 {
 		t.Errorf("skipped %d migrations on a fresh database, want 0", result.Skipped)

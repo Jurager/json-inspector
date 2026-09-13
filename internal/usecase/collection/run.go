@@ -40,7 +40,7 @@ func (u *UseCase) Run(ctx context.Context, collectionID string, nodeID string) (
 	// One run at a time: two of them would interleave their rows into the same overview, and the
 	// button that started the second one says "Остановить" rather than "Запустить".
 	if !u.running.CompareAndSwap(false, true) {
-		return "", fmt.Errorf("прогон уже идёт: %w", domain.ErrNotAllowed)
+		return "", fmt.Errorf("a run is already going: %w", domain.ErrNotAllowed)
 	}
 
 	tree, err := u.store.Collections(ctx)
@@ -52,7 +52,7 @@ func (u *UseCase) Run(ctx context.Context, collectionID string, nodeID string) (
 	collection, ok := findCollection(tree, collectionID)
 	if !ok {
 		u.running.Store(false)
-		return "", fmt.Errorf("коллекция %s: %w", collectionID, domain.ErrNotFound)
+		return "", fmt.Errorf("collection %s: %w", collectionID, domain.ErrNotFound)
 	}
 
 	requests, err := requestsUnder(collection, nodeID)
@@ -64,7 +64,7 @@ func (u *UseCase) Run(ctx context.Context, collectionID string, nodeID string) (
 		// Nothing to send is a thing the window asks by mistake — an empty folder, a collection not
 		// filled yet — and a run that reports "0 из 0" reads as a failure of the app.
 		u.running.Store(false)
-		return "", fmt.Errorf("в этом узле нет запросов: %w", domain.ErrNotAllowed)
+		return "", fmt.Errorf("this node has no requests: %w", domain.ErrNotAllowed)
 	}
 
 	run := domain.CollectionRun{
@@ -181,7 +181,6 @@ func (u *UseCase) attempt(
 		// A pre-request script said this request must not go out. There is no answer and no error:
 		// the row says which of the two happened, and the run counts it as neither.
 		result.Skipped = true
-		result.Error = "пропущен скриптом"
 		return result
 	}
 
@@ -244,7 +243,7 @@ func requestsUnder(collection domain.Collection, nodeID string) ([]runnable, err
 	}
 	node, ok := findNode([]domain.Collection{collection}, nodeID)
 	if !ok {
-		return nil, fmt.Errorf("узел %s: %w", nodeID, domain.ErrNotFound)
+		return nil, fmt.Errorf("node %s: %w", nodeID, domain.ErrNotFound)
 	}
 	return requestsIn([]domain.CollectionNode{node}, collection.Auth), nil
 }

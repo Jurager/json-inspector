@@ -15,16 +15,18 @@ import { useListKeys } from '../../composables/useListKeys'
 import { useCollectionsStore } from '../../stores/collections'
 import { filterTree, requestCount, trailOf } from '../../lib/collectionTree'
 import { useToast } from '../../composables/useToast'
+import { useMessages } from '../../i18n'
 import { NodeKind, type Collection, type CollectionNode } from '../../../bindings/json-inspector/internal/domain'
 
 const store = useCollectionsStore()
+const { t } = useMessages()
 const toast = useToast()
 
 // One request, one file: the menu exports what it was opened on, and a folder or a collection is
 // exported from its own overview.
 async function exportNode(row: Row) {
   const written = await store.exportFile(row.id)
-  if (written) toast.show(`«${row.name}» сохранён в файл`)
+  if (written) toast.show(t('collections.savedToFileNamed', { name: row.name }))
 }
 
 // The indent the design gives the three levels, measured from the panel's edge: the row's own box
@@ -272,7 +274,7 @@ function focusNextFrame(el: HTMLInputElement | null) {
 
 function startCreating(parentId: string, collectionId: string, kind: NodeKind, method = 'GET') {
   creating.value = { parentId, collectionId, kind, method }
-  creatingName.value = kind === NodeKind.NodeFolder ? 'Новая папка' : 'Новый запрос'
+  creatingName.value = kind === NodeKind.NodeFolder ? t('collections.newFolder') : t('collections.newRequest')
   creatingInvalid.value = false
   if (parentId) store.expanded[parentId] = true
   nextTick(() => {
@@ -345,12 +347,14 @@ watch(
 )
 
 // «Новая коллекция», «Новая коллекция 2» … — a default the user is expected to type over, and one
-// that does not silently become a second collection of the same name.
+// that does not silently become a second collection of the same name. The name is written in the
+// language it was made in and stays that way: from here on it is the user's own text, not a label.
 function nextCollectionName(): string {
   const taken = new Set(store.tree.map((c) => c.name))
-  if (!taken.has('Новая коллекция')) return 'Новая коллекция'
+  const base = t('collections.newCollection')
+  if (!taken.has(base)) return base
   for (let n = 2; ; n += 1) {
-    const name = `Новая коллекция ${n}`
+    const name = t('collections.newCollectionN', { n })
     if (!taken.has(name)) return name
   }
 }
@@ -405,9 +409,9 @@ function cancelTop(): boolean {
 <template>
   <div class="tree-panel">
     <div class="panel-head">
-      <span class="panel-title">Коллекции</span>
-      <IconButton variant="bare" size="sm" hint="Новая коллекция" @click="addCollection">
-        <Icon name="plus" :size="14" />
+      <span class="panel-title">{{ t('collections.title') }}</span>
+      <IconButton variant="bare" size="sm" :hint="t('collections.newCollection')" @click="addCollection">
+        <Icon name="plus" :size="16" />
       </IconButton>
     </div>
 
@@ -465,20 +469,20 @@ function cancelTop(): boolean {
         <ContextMenuContent>
           <template v-if="row.kind !== 'request'">
             <ContextMenuItem @select="startCreating(parentFor(row), row.collectionId, NodeKind.NodeFolder)">
-              Новая папка
+              {{ t('collections.newFolder') }}
             </ContextMenuItem>
             <ContextMenuItem @select="startCreating(parentFor(row), row.collectionId, NodeKind.NodeRequest)">
-              Новый запрос
+              {{ t('collections.newRequest') }}
             </ContextMenuItem>
             <ContextMenuSeparator />
           </template>
-          <ContextMenuItem @select="startRename(row)">Переименовать</ContextMenuItem>
-          <ContextMenuItem @select="store.duplicate(row.id)">Дублировать</ContextMenuItem>
+          <ContextMenuItem @select="startRename(row)">{{ t('collections.rename') }}</ContextMenuItem>
+          <ContextMenuItem @select="store.duplicate(row.id)">{{ t('collections.duplicate') }}</ContextMenuItem>
           <ContextMenuItem @select="exportNode(row)">
-            {{ row.kind === 'request' ? 'Экспорт запроса' : 'Экспорт' }}
+            {{ row.kind === 'request' ? t('collections.exportRequest') : t('collections.export') }}
           </ContextMenuItem>
           <ContextMenuSeparator />
-          <ContextMenuItem class="danger" @select="askRemove(row)">Удалить</ContextMenuItem>
+          <ContextMenuItem class="danger" @select="askRemove(row)">{{ t('common.delete') }}</ContextMenuItem>
         </ContextMenuContent>
       </ContextMenu>
 
@@ -487,7 +491,7 @@ function cancelTop(): boolean {
         <button
           v-if="creating.kind === 'request'"
           class="row-method mono method-chip"
-          title="Сменить метод"
+          :title="t('collections.changeMethod')"
           @click="nextMethod"
         >
           {{ creating.method }}
@@ -503,10 +507,10 @@ function cancelTop(): boolean {
         />
       </div>
 
-      <div v-if="visible.length === 0 && store.tree.length > 0" class="no-results">Ничего не найдено</div>
+      <div v-if="visible.length === 0 && store.tree.length > 0" class="no-results">{{ t('common.nothingFound') }}</div>
     </div>
 
-    <PanelFilter v-model="query" placeholder="Поиск по коллекции…" />
+    <PanelFilter v-model="query" :placeholder="t('collections.treeSearch')" />
 
     <DeleteNodeDialog
       v-if="confirming"
@@ -534,8 +538,11 @@ function cancelTop(): boolean {
   @apply text-[12px] font-semibold text-text-secondary;
 }
 
+/* No padding at the top: the first row already carries 4px of its own, which is what keeps its
+   hover fill off the header's line — a second 4px here would leave the first row 25px under that
+   line where every row below a divider has 18. */
 .tree-scroll {
-  @apply flex-1 min-h-0 overflow-y-auto pt-1 pb-23;
+  @apply flex-1 min-h-0 overflow-y-auto pb-23;
 }
 
 .row {
@@ -556,11 +563,15 @@ function cancelTop(): boolean {
 
 /* A collection after the first is a new tree, and the line above it says so. The line is drawn rather
    than bordered: a border on a rounded row bends around the corners, and that curve shows as a smudge
-   above the fill of a row that is hovered or selected. */
+   above the fill of a row that is hovered or selected.
+
+   It is drawn half the row's own 4px of margin above the row's edge rather than on it. On the edge the
+   line had the 7px of the row's padding under it but that padding plus the whole margin — 11px —
+   above, so it read as belonging to the collection below. Split evenly it is 9px either way. */
 .row-divider::before {
   content: '';
   @apply absolute left-0 right-0 h-px;
-  top: 0;
+  top: -2px;
   background: var(--border);
 }
 

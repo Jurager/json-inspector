@@ -17,6 +17,14 @@ import * as domain$0 from "../../domain/models.js";
 // @ts-ignore: Unused imports
 import * as settings$0 from "../../usecase/settings/models.js";
 
+/**
+ * SetLanguage stores the choice and broadcasts it, the same way the theme is broadcast — and for the
+ * same reason: no window is the one that tells the others.
+ */
+export function SetLanguage(language: domain$0.Language): $CancellablePromise<domain$0.Settings> {
+    return $Call.ByID(2933980808, language);
+}
+
 export function SetLayout(patch: settings$0.LayoutPatch): $CancellablePromise<domain$0.Settings> {
     return $Call.ByID(3666996644, patch);
 }

@@ -59,6 +59,74 @@ func TestDraftRoundTrip(t *testing.T) {
 	}
 }
 
+// The format travels with the draft, and so does what a body that is not text is made of.
+func TestDraftRoundTripKeepsTheBodyFormat(t *testing.T) {
+	store := newMigratedStore(t)
+	ctx := context.Background()
+
+	saved := sampleDraft()
+	saved.BodyKind = domain.BodyForm
+	saved.Body = ""
+	saved.Form = []domain.FormRow{
+		{ID: "f1", Name: "title", Value: "Кофемолка", Enabled: true},
+		{ID: "f2", Name: "photo", Src: `C:\pics\logo.png`, File: true, Enabled: false},
+	}
+	if err := store.SaveDraft(ctx, saved); err != nil {
+		t.Fatalf("SaveDraft: %v", err)
+	}
+
+	got, err := store.Draft(ctx, domain.DraftCommandLine)
+	if err != nil {
+		t.Fatalf("Draft: %v", err)
+	}
+	if got.BodyKind != domain.BodyForm {
+		t.Errorf("bodyKind = %q, want the saved one", got.BodyKind)
+	}
+	if len(got.Form) != 2 {
+		t.Fatalf("form = %+v, want both rows", got.Form)
+	}
+	if got.Form[0].Value != "Кофемолка" {
+		t.Errorf("form[0] = %+v, want the text that was typed", got.Form[0])
+	}
+	// The path is kept apart from the text so that switching a row back to a text field finds what
+	// was under it — and it survives a round trip on a Windows path.
+	if !got.Form[1].File || got.Form[1].Src != `C:\pics\logo.png` {
+		t.Errorf("form[1] = %+v, want the file row and its path", got.Form[1])
+	}
+	if got.Form[1].Enabled {
+		t.Error("a switched-off row came back switched on")
+	}
+}
+
+// A row written before there were kinds holds text, and text is what raw means. This is the promise
+// the migration makes: nothing already stored changes meaning.
+func TestABodyKindThatWasNeverWrittenReadsAsRaw(t *testing.T) {
+	store := newMigratedStore(t)
+	ctx := context.Background()
+
+	if err := store.SaveDraft(ctx, sampleDraft()); err != nil {
+		t.Fatalf("SaveDraft: %v", err)
+	}
+	// Writing the column the way an older version of this app left it: empty, or the word it
+	// defaulted to.
+	for _, written := range []string{"", "raw"} {
+		if _, err := store.db.ExecContext(ctx,
+			`UPDATE drafts SET body_kind = ?, form_json = '[]' WHERE id = ?`, written, domain.DraftCommandLine); err != nil {
+			t.Fatalf("updating the fixture: %v", err)
+		}
+		got, err := store.Draft(ctx, domain.DraftCommandLine)
+		if err != nil {
+			t.Fatalf("Draft: %v", err)
+		}
+		if got.BodyKind != domain.BodyRaw {
+			t.Errorf("body_kind %q read as %q, want raw", written, got.BodyKind)
+		}
+		if got.Body != `{"a": 1}` {
+			t.Errorf("body = %q, want the text untouched", got.Body)
+		}
+	}
+}
+
 // The draft is one row: saving twice replaces what the window was composing before.
 func TestSaveDraftReplacesTheOneBefore(t *testing.T) {
 	store := newMigratedStore(t)

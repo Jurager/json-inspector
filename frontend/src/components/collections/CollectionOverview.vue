@@ -8,8 +8,10 @@ import CollectionScripts from './CollectionScripts.vue'
 import { useCollectionsStore } from '../../stores/collections'
 import { useToast } from '../../composables/useToast'
 import { requestCount } from '../../lib/collectionTree'
-import { formatAgo, formatMicros, plural } from '../../lib/format'
+import { formatAgo, formatMicros, useMessages } from '../../i18n'
 import type { CollectionNode } from '../../../bindings/json-inspector/internal/domain'
+
+const { t } = useMessages()
 
 const store = useCollectionsStore()
 const toast = useToast()
@@ -18,15 +20,15 @@ const tab = ref<'requests' | 'auth' | 'scripts'>('requests')
 
 async function exportSelected() {
   const written = await store.exportFile(store.selectedId ?? '')
-  if (written) toast.show('Коллекция сохранена в файл')
+  if (written) toast.show(t('collections.savedToFile'))
 }
 
 async function importCollection() {
   try {
     const name = await store.importFile()
-    if (name) toast.show(`Импортировано: «${name}»`)
+    if (name) toast.show(t('collections.imported', { name }))
   } catch (error) {
-    toast.show(`Не удалось импортировать: ${String(error)}`, 'error')
+    toast.show(t('collections.importFailed', { error: String(error) }), 'error')
   }
 }
 
@@ -110,7 +112,7 @@ const rows = computed<RunRow[]>(() => {
       skipped: result.skipped ?? false,
       durationUs: result.durationUs,
       error: result.error ?? '',
-      name: byId.get(result.nodeId)?.name ?? 'удалённый запрос',
+      name: byId.get(result.nodeId)?.name ?? t('collections.deletedRequest'),
       method: byId.get(result.nodeId)?.method ?? '',
     }))
 })
@@ -124,9 +126,6 @@ async function run() {
   await store.run(store.runNodeId, runName.value)
 }
 
-function pluralRequests(n: number): string {
-  return `${n} ${plural(n, ['запрос', 'запроса', 'запросов'])}`
-}
 </script>
 
 <template>
@@ -134,7 +133,7 @@ function pluralRequests(n: number): string {
     <div class="head">
       <div class="head-line">
         <span class="title">{{ title }}</span>
-        <span class="count">{{ pluralRequests(requestTotal) }}</span>
+        <span class="count">{{ t('counts.requests', requestTotal) }}</span>
       </div>
 
       <input
@@ -142,7 +141,7 @@ function pluralRequests(n: number): string {
         ref="descriptionInput"
         v-model="descriptionDraft"
         class="description-input"
-        placeholder="Добавить описание"
+        :placeholder="t('collections.addDescription')"
         spellcheck="false"
         @keydown="onDescriptionKeydown"
         @blur="commitDescription"
@@ -153,11 +152,11 @@ function pluralRequests(n: number): string {
         :class="{ placeholder: !description }"
         role="button"
         tabindex="0"
-        :title="description || 'Добавить описание'"
+        :title="description || t('collections.addDescription')"
         @click="editDescription"
         @keydown.enter="editDescription"
       >
-        {{ description || 'Добавить описание' }}
+        {{ description || t('collections.addDescription') }}
       </span>
 
       <div class="actions">
@@ -168,34 +167,34 @@ function pluralRequests(n: number): string {
           :disabled="requestTotal === 0"
           @click="run"
         >
-          <Icon name="play" :size="11" /> Запустить коллекцию
+          <Icon name="play" :size="11" /> {{ t('collections.runCollection') }}
         </Button>
         <Button v-else size="lg" @click="store.stop">
-          <span class="spinner spinner-sm"></span> Остановить
+          <span class="spinner spinner-sm"></span> {{ t('collections.stop') }}
         </Button>
 
         <Button size="lg" :disabled="store.running !== null" @click="importCollection">
-          <Icon name="download" :size="12" /> Импорт
+          <Icon name="download" :size="12" /> {{ t('collections.import') }}
         </Button>
         <Button
           size="lg"
           :disabled="store.running !== null || requestTotal === 0"
           @click="exportSelected"
         >
-          <Icon name="upload" :size="12" /> Экспорт
+          <Icon name="upload" :size="12" /> {{ t('collections.export') }}
         </Button>
 
         <span v-if="store.lastRun && !store.running" class="last-run">
-          Прогон {{ formatAgo(lastRunAt) }}
+          {{ t('collections.lastRun', { ago: formatAgo(lastRunAt) }) }}
         </span>
       </div>
     </div>
 
     <Tabs v-model="tab" class="tabs-host">
       <TabsList class="tabs coll-tabs">
-        <TabsTrigger class="tab coll-tab" value="requests">Запросы</TabsTrigger>
-        <TabsTrigger class="tab coll-tab" value="auth">Авторизация</TabsTrigger>
-        <TabsTrigger class="tab coll-tab" value="scripts">Скрипты</TabsTrigger>
+        <TabsTrigger class="tab coll-tab" value="requests">{{ t('collections.requestsTab') }}</TabsTrigger>
+        <TabsTrigger class="tab coll-tab" value="auth">{{ t('collections.authTab') }}</TabsTrigger>
+        <TabsTrigger class="tab coll-tab" value="scripts">{{ t('collections.scriptsTab') }}</TabsTrigger>
       </TabsList>
 
       <div class="pane">
@@ -203,21 +202,21 @@ function pluralRequests(n: number): string {
           <div v-if="store.lastRun" class="summary">
             <div class="cell">
               <span class="cell-value">{{ rows.length }}</span>
-              <span class="cell-label">{{ plural(rows.length, ['запрос', 'запроса', 'запросов']) }}</span>
+              <span class="cell-label">{{ t('counts.requests', rows.length) }}</span>
             </div>
             <div class="cell">
               <span class="cell-value ok">{{ passed }}</span>
-              <span class="cell-label">успешно</span>
+              <span class="cell-label">{{ t('collections.succeeded') }}</span>
             </div>
             <div class="cell">
               <span class="cell-value bad">{{ failed }}</span>
-              <span class="cell-label">{{ plural(failed, ['ошибка', 'ошибки', 'ошибок']) }}</span>
+              <span class="cell-label">{{ t('counts.errors', failed) }}</span>
             </div>
             <div class="cell">
               <span class="cell-value">
                 {{ store.running ? '—' : formatMicros(store.lastRun.durationUs) }}
               </span>
-              <span class="cell-label">общее время</span>
+              <span class="cell-label">{{ t('collections.totalTime') }}</span>
             </div>
           </div>
 
@@ -238,14 +237,14 @@ function pluralRequests(n: number): string {
                 <span v-if="row.status !== null" class="result-status" :class="row.ok ? 'ok' : 'bad'">
                   {{ row.status }}
                 </span>
-                <span v-else class="result-error">{{ row.error }}</span>
+                <span v-else class="result-error">{{ row.skipped ? t('collections.skipped') : row.error }}</span>
                 <span class="result-time">{{ formatMicros(row.durationUs) }}</span>
               </div>
             </div>
 
             <div v-else-if="!store.running" class="idle">
-              <span class="idle-title">Ещё не запускали</span>
-              <span>Прогон отправит все запросы по очереди и покажет, что ответил каждый.</span>
+              <span class="idle-title">{{ t('collections.notRunYet') }}</span>
+              <span>{{ t('collections.runHint') }}</span>
             </div>
           </div>
         </TabsContent>

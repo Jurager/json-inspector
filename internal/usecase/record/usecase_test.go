@@ -205,10 +205,13 @@ type fakeMask struct {
 	asked  int
 	masked Masked
 	fail   error
+	// seen is the attempt the mask was asked about, so a test can say what it was given to render.
+	seen SendInput
 }
 
-func (f *fakeMask) Mask(_ context.Context, _ domain.ScriptRequest) (Masked, error) {
+func (f *fakeMask) Mask(_ context.Context, in SendInput, _ domain.ScriptRequest) (Masked, error) {
 	f.asked++
+	f.seen = in
 	if f.fail != nil {
 		return Masked{}, f.fail
 	}
@@ -665,4 +668,72 @@ func mustList(t *testing.T, uc *UseCase, source domain.RecordSource) []domain.Re
 		t.Fatalf("List: %v", err)
 	}
 	return rows
+}
+
+// What a script may rewrite is the text kinds; the byte kinds travel to the prelude blanked, which
+// is the scriptengine's business and is tested there. What this side owes is the other half: the
+// encoded body the preparation produced is what goes on the wire, whatever a script was shown.
+func TestThePreparedBodyIsWhatGoesOut(t *testing.T) {
+	for _, want := range []struct {
+		kind domain.BodyKind
+		body string
+	}{
+		{domain.BodyJSON, `{"a": 1}`},
+		{domain.BodyRaw, "plain"},
+		{domain.BodyForm, "multipart-form-bytes"},
+		{domain.BodyBinary, "PNGDATA"},
+	} {
+		screen := &fakeScreen{}
+		uc, _, executor, notifier := newScriptedUseCase(screen, &fakeMask{})
+		in := input()
+		in.Body, in.BodyKind = want.body, want.kind
+
+		if _, err := uc.Send(context.Background(), in); err != nil {
+			t.Fatalf("Send: %v", err)
+		}
+		notifier.waitFor(t, TopicRequestFinished)
+
+		if len(screen.passes) == 0 {
+			t.Fatalf("%s: the scripts were never asked", want.kind)
+		}
+		if len(executor.got) != 1 {
+			t.Fatalf("%s: the engine was asked %d times, want once", want.kind, len(executor.got))
+		}
+		if got := executor.got[0].Body; got != want.body {
+			t.Errorf("%s: sent %q, want the prepared body %q", want.kind, got, want.body)
+		}
+	}
+}
+
+// A form whose scripts touched nothing is not masked a second time: the prepared copy already
+// describes the request, and asking again would be a round trip for an answer nobody changed.
+func TestAFormBodyIsNotMaskedAgainWhenNothingChanged(t *testing.T) {
+	screen := &fakeScreen{}
+	mask := &fakeMask{}
+	uc, _, executor, notifier := newScriptedUseCase(screen, mask)
+	in := input()
+	in.BodyKind = domain.BodyForm
+	in.Body = `--BOUNDARY
+Content-Disposition: form-data; name="token"
+
+s3cret
+--BOUNDARY--`
+	in.MaskedBody = `--BOUNDARY
+Content-Disposition: form-data; name="token"
+
+••••
+--BOUNDARY--`
+
+	uc.Send(context.Background(), in)
+	notifier.waitFor(t, TopicRequestFinished)
+
+	if len(executor.got) != 1 {
+		t.Fatalf("the engine was asked %d times, want once", len(executor.got))
+	}
+	if executor.got[0].Body != in.Body {
+		t.Errorf("sent body = %q, want the prepared one", executor.got[0].Body)
+	}
+	if mask.asked != 0 {
+		t.Errorf("the mask was asked %d times, want none — nothing changed", mask.asked)
+	}
 }

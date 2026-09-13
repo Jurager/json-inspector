@@ -5,8 +5,11 @@ import { Button } from '../ui/button'
 import { Input } from '../ui/input'
 import { Popover, PopoverAnchor, PopoverContent, PopoverClose } from '../ui/popover'
 import { useCollectionsStore } from '../../stores/collections'
+import { useMessages } from '../../i18n'
 import { useToast } from '../../composables/useToast'
 import type { CollectionNode } from '../../../bindings/json-inspector/internal/domain'
+
+const { t } = useMessages()
 
 // Where a request composed in the command line goes when it is saved. It is not a tree: only the
 // places a request can live — collections and folders — in the order the tree draws them.
@@ -71,10 +74,10 @@ async function save() {
   saving.value = true
   try {
     await store.saveDraft(place.collectionId, place.parentId, name.value.trim())
-    toast.show(`Сохранено в «${place.name}»`)
+    toast.show(t('collections.savedTo', { name: place.name }))
     emit('update:open', false)
   } catch (error) {
-    toast.show(`Не удалось сохранить: ${String(error)}`, 'error')
+    toast.show(t('collections.saveFailed', { error: String(error) }), 'error')
   } finally {
     saving.value = false
   }
@@ -89,13 +92,13 @@ async function save() {
 
     <PopoverContent class="save-sheet" align="end" @open-auto-focus.prevent>
       <div class="sheet-body">
-        <div class="head">Сохранить запрос</div>
+        <div class="head">{{ t('collections.saveRequest') }}</div>
 
         <Input
           ref="nameInput"
           v-model="name"
           size="sm"
-          placeholder="Имя запроса"
+          :placeholder="t('collections.requestName')"
           spellcheck="false"
           @keydown.enter.prevent="save"
           @keydown.escape.prevent="emit('update:open', false)"
@@ -113,14 +116,14 @@ async function save() {
             <Icon name="folder" :size="place.depth === 0 ? 12 : 11" class="place-icon" />
             <span class="place-name">{{ place.name }}</span>
           </button>
-          <div v-if="empty" class="no-places">Сначала создайте коллекцию</div>
+          <div v-if="empty" class="no-places">{{ t('collections.createCollectionFirst') }}</div>
         </div>
 
         <div class="actions">
           <PopoverClose as-child>
-            <Button @click="emit('update:open', false)">Отмена</Button>
+            <Button @click="emit('update:open', false)">{{ t('common.cancel') }}</Button>
           </PopoverClose>
-          <Button variant="primary" :disabled="!canSave || saving" @click="save">Сохранить</Button>
+          <Button variant="primary" :disabled="!canSave || saving" @click="save">{{ t('common.save') }}</Button>
         </div>
       </div>
     </PopoverContent>

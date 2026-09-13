@@ -7,17 +7,20 @@ import { useListKeys } from '../../composables/useListKeys'
 import { useRequestsStore } from '../../stores/requests'
 import { RecordSource, type Record } from '../../../bindings/json-inspector/internal/domain'
 import { statusBadgeClass } from '../../lib/format'
+import { formatDate, useMessages } from '../../i18n'
 
 const props = defineProps<{ sourceKind: RecordSource }>()
 
 const store = useRequestsStore()
 
+const { t } = useMessages()
+
 const browser = computed(() => props.sourceKind === RecordSource.SourceBrowser)
 
 const emptyHint = computed(() =>
   browser.value
-    ? 'Установите и активируйте расширение. Перехваченные запросы появятся здесь.'
-    : 'Здесь появятся запросы, отправленные вручную.'
+    ? t('history.emptyCaptured')
+    : t('history.emptySent')
 )
 
 const records = computed(() => store.records.filter((r) => r.source === props.sourceKind))
@@ -36,7 +39,7 @@ function clearAll() {
 
 function timeLabel(startedAt: number): string {
   const d = new Date(startedAt)
-  return d.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit', second: '2-digit' })
+  return formatDate(d, { hour: '2-digit', minute: '2-digit', second: '2-digit' })
 }
 
 // What a row shows of an address: the host and everything after it. The scheme is dropped — it is the
@@ -74,9 +77,9 @@ function dateLabel(startedAt: number): string {
   const yesterday = new Date(today)
   yesterday.setDate(yesterday.getDate() - 1)
   const dayMs = start.getTime()
-  if (dayMs === today.getTime()) return 'Сегодня'
-  if (dayMs === yesterday.getTime()) return 'Вчера'
-  return d.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' })
+  if (dayMs === today.getTime()) return t('history.today')
+  if (dayMs === yesterday.getTime()) return t('history.yesterday')
+  return formatDate(d, { day: 'numeric', month: 'long' })
 }
 
 const manualGroups = computed(() => {
@@ -178,7 +181,7 @@ function hostnameOf(url: string): string {
 }
 
 function groupLabel(g: TabGroup): string {
-  return g.title || hostnameOf(g.url) || 'Вкладка'
+  return g.title || hostnameOf(g.url) || t('history.tab')
 }
 
 function groupHue(key: string): number {
@@ -211,16 +214,16 @@ watch(() => [store.focusTabId, store.records.length, props.sourceKind] as const,
 <template>
   <div class="history-panel">
     <div class="panel-head">
-      <span class="panel-title">{{ browser ? 'Перехвачено' : 'История' }}</span>
-      <Button variant="quiet" :disabled="records.length === 0" @click="clearAll">Очистить</Button>
+      <span class="panel-title">{{ browser ? t('history.captured') : t('history.history') }}</span>
+      <Button variant="quiet" :disabled="records.length === 0" @click="clearAll">{{ t('history.clear') }}</Button>
     </div>
 
     <div v-if="records.length === 0 && !browser" class="empty">
-      <span class="empty-title">Пока пусто</span>
+      <span class="empty-title">{{ t('history.nothingYet') }}</span>
       <span class="empty-hint">{{ emptyHint }}</span>
     </div>
 
-    <div v-else-if="records.length > 0 && isEmptyFiltered" class="no-results">Ничего не найдено</div>
+    <div v-else-if="records.length > 0 && isEmptyFiltered" class="no-results">{{ t('common.nothingFound') }}</div>
 
     <ul v-else-if="!browser" class="list">
       <template v-for="g in manualGroups" :key="g.label">
@@ -272,7 +275,7 @@ watch(() => [store.focusTabId, store.records.length, props.sourceKind] as const,
             <span class="recording-dot"></span>
           </span>
           <span class="group-count">{{ g.items.length }}</span>
-          <IconButton variant="danger" size="sm" hint="Очистить эту вкладку" @click.stop="clearGroup(g)"><Icon name="xmark" :size="12" /></IconButton>
+          <IconButton variant="danger" size="sm" :hint="t('history.clearTab')" @click.stop="clearGroup(g)"><Icon name="trash" :size="13" /></IconButton>
         </div>
 
         <ul v-show="!collapsed.has(g.key)" class="group-items">
@@ -299,7 +302,7 @@ watch(() => [store.focusTabId, store.records.length, props.sourceKind] as const,
     <PanelFilter
       v-if="records.length > 0"
       v-model="query"
-      placeholder="Фильтр по ссылке, методу, статусу…"
+      :placeholder="t('history.filter')"
     />
   </div>
 </template>

@@ -2,39 +2,42 @@
 import Icon from '../ui/Icon.vue'
 import { Button } from '../ui/button'
 import { useCollectionsStore } from '../../stores/collections'
+import { useMessages } from '../../i18n'
 import { useToast } from '../../composables/useToast'
 
 // Until the first collection exists there is nothing to list, so the window says what a collection
 // is and offers the one gesture that starts one — the panel with a lone «+» would say less.
 const store = useCollectionsStore()
+
+const { t } = useMessages()
 const toast = useToast()
 
 function create() {
-  void store.createCollection('Новая коллекция')
+  void store.createCollection(t('collections.newCollection'))
 }
 
 async function importCollection() {
   try {
     const name = await store.importFile()
-    if (name) toast.show(`Импортировано: «${name}»`)
+    if (name) toast.show(t('collections.imported', { name }))
   } catch (error) {
-    toast.show(`Не удалось импортировать: ${String(error)}`, 'error')
+    toast.show(t('collections.importFailed', { error: String(error) }), 'error')
   }
 }
 </script>
 
 <template>
   <div class="onboarding">
-    <span class="title">Коллекции</span>
+    <span class="title">{{ t('collections.title') }}</span>
     <span class="hint">
-      Сохраняйте запросы в коллекции и папки — и запускайте их все одной кнопкой, по очереди.
+      {{ t('collections.emptyHint') }}
     </span>
     <div class="actions">
       <Button variant="primary" @click="create">
-        <Icon name="plus" :size="14" /> Новая коллекция
+        <Icon name="plus" :size="16" /> {{ t('collections.newCollection') }}
       </Button>
       <Button @click="importCollection">
-        <Icon name="download" :size="14" /> Импортировать коллекцию
+        <Icon name="download" :size="14" /> {{ t('collections.importCollection') }}
       </Button>
     </div>
   </div>

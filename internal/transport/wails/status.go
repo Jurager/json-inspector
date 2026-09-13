@@ -14,9 +14,9 @@ const (
 // Failure is a startup problem the frontend has to explain. It cannot be a dialog: a dialog needs
 // a running app, and the failures recorded here happen before one exists.
 type Failure struct {
-	Kind    string `json:"kind"`
-	Message string `json:"message"`
-	Detail  string `json:"detail,omitempty"`
+	Kind string `json:"kind"`
+	// Detail is the error itself, for the screen to show under the sentence it writes for the kind.
+	Detail string `json:"detail,omitempty"`
 }
 
 // Status is the outcome of everything that must work before the app has any data at all.
@@ -30,11 +30,11 @@ func NewStatus() *Status {
 	return &Status{}
 }
 
-func (s *Status) Fail(kind string, message string, detail string) {
+func (s *Status) Fail(kind string, detail string) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.ready = false
-	s.failure = &Failure{Kind: kind, Message: message, Detail: detail}
+	s.failure = &Failure{Kind: kind, Detail: detail}
 }
 
 func (s *Status) Succeed() {

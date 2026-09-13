@@ -639,6 +639,9 @@ func TestDescribeReachesBothKinds(t *testing.T) {
 	}
 }
 
+// copySuffix is what the window sends: a word, in whatever language it is in.
+const copySuffix = " (копия)"
+
 func TestDuplicateCopiesTheSubtree(t *testing.T) {
 	uc, store := newTestUseCase()
 	ctx := context.Background()
@@ -661,7 +664,7 @@ func TestDuplicateCopiesTheSubtree(t *testing.T) {
 		t.Fatalf("SaveNode: %v", err)
 	}
 
-	tree, err := uc.Duplicate(ctx, folderID)
+	tree, err := uc.Duplicate(ctx, folderID, copySuffix)
 	if err != nil {
 		t.Fatalf("Duplicate: %v", err)
 	}
@@ -669,7 +672,7 @@ func TestDuplicateCopiesTheSubtree(t *testing.T) {
 	if len(items) != 2 {
 		t.Fatalf("root = %d nodes, want the copy beside the original", len(items))
 	}
-	if items[1].Name != "Папка (копия)" || items[1].Position != 1 {
+	if items[1].Name != "Папка"+copySuffix || items[1].Position != 1 {
 		t.Errorf("copy = %+v, want it named and placed next to the original", items[1])
 	}
 	if len(items[1].Items) != 1 {
@@ -723,7 +726,7 @@ func TestDuplicateCopiesTheRequestItself(t *testing.T) {
 		t.Fatalf("SaveScripts: %v", err)
 	}
 
-	tree, err := uc.Duplicate(ctx, requestID)
+	tree, err := uc.Duplicate(ctx, requestID, copySuffix)
 	if err != nil {
 		t.Fatalf("Duplicate: %v", err)
 	}
@@ -733,7 +736,7 @@ func TestDuplicateCopiesTheRequestItself(t *testing.T) {
 		t.Fatalf("Node: %v", err)
 	}
 
-	if copied.Name != "Запрос (копия)" || copied.Position != 1 {
+	if copied.Name != "Запрос"+copySuffix || copied.Position != 1 {
 		t.Errorf("copy = %+v, want it named and placed beside the original", copied)
 	}
 	if copied.URL != "https://api.example.com/users/1?page=2" || copied.Method != "PATCH" ||
@@ -800,7 +803,7 @@ func TestDuplicateCopiesTheCollectionScripts(t *testing.T) {
 		t.Fatalf("SaveScripts: %v", err)
 	}
 
-	tree, err := uc.Duplicate(ctx, collectionID)
+	tree, err := uc.Duplicate(ctx, collectionID, copySuffix)
 	if err != nil {
 		t.Fatalf("Duplicate: %v", err)
 	}
@@ -832,7 +835,7 @@ func TestDuplicateCopiesACollection(t *testing.T) {
 		t.Fatalf("SaveNode: %v", err)
 	}
 
-	tree, err := uc.Duplicate(ctx, collectionID)
+	tree, err := uc.Duplicate(ctx, collectionID, copySuffix)
 	if err != nil {
 		t.Fatalf("Duplicate: %v", err)
 	}
@@ -840,7 +843,7 @@ func TestDuplicateCopiesACollection(t *testing.T) {
 		t.Fatalf("tree = %d collections, want 2", len(tree))
 	}
 	copied := tree[1]
-	if copied.Name != "Коллекция (копия)" || copied.Description != "описание" || copied.Position != 1 {
+	if copied.Name != "Коллекция"+copySuffix || copied.Description != "описание" || copied.Position != 1 {
 		t.Errorf("copy = %+v, want it named and placed after the original", copied)
 	}
 	if len(copied.Items) != 2 || copied.Items[1].Kind != domain.NodeFolder {
@@ -877,7 +880,7 @@ func TestDuplicateClipsTheNameAtTheCeiling(t *testing.T) {
 		t.Fatalf("CreateCollection: %v", err)
 	}
 
-	tree, err = uc.Duplicate(ctx, only(t, tree).ID)
+	tree, err = uc.Duplicate(ctx, only(t, tree).ID, copySuffix)
 	if err != nil {
 		t.Fatalf("Duplicate: %v", err)
 	}

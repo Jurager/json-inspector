@@ -1,6 +1,8 @@
 import { defineStore } from 'pinia'
+import { t as tr } from '../i18n'
 import { bodyMissing, recordView, type RecordBodies, type RecordView } from '../lib/requestRecord'
 import {
+  BodyKind,
   BodySide,
   DraftID,
   RecordSource,
@@ -8,6 +10,7 @@ import {
   type Auth,
   type CookieRow,
   type Draft,
+  type FormRow,
   type Record,
   type Row,
   type Scripts,
@@ -138,9 +141,30 @@ export const useRequestsStore = defineStore('requests', {
     enabledHeadersCount(state): number {
       return (state.draft?.headers ?? []).filter((h) => h.enabled && h.name.trim()).length
     },
-    bodyDisabled(state): boolean {
-      const method = state.draft?.method ?? 'GET'
-      return method === 'GET' || method === 'HEAD'
+    // The three the body is made of. Only the text is the window's while it is being typed; the
+    // format, the form rows and the file path come from Go like every other row of the request.
+    bodyKind(state): BodyKind {
+      return state.draft?.bodyKind ?? BodyKind.BodyRaw
+    },
+    form(state): FormRow[] {
+      return state.draft?.form ?? []
+    },
+    bodyFile(state): string {
+      return state.draft?.bodyFile ?? ''
+    },
+    // What the dashed chip goes solid on. The same rule in both stores, so the chip cannot disagree
+    // with itself depending on which one is drawing it.
+    hasBody(state): boolean {
+      const draft = state.draft
+      if (!draft) return false
+      switch (draft.bodyKind) {
+        case BodyKind.BodyForm:
+          return (draft.form ?? []).some((row) => row.enabled && row.name.trim())
+        case BodyKind.BodyBinary:
+          return (draft.bodyFile ?? '') !== ''
+        default:
+          return state.bodyText.trim().length > 0
+      }
     },
 
     manualSelected(state): RecordView | null {
@@ -247,6 +271,20 @@ export const useRequestsStore = defineStore('requests', {
 
     async setAuth(auth: Auth) {
       this.apply(await DraftService.SetAuth(DRAFT, auth))
+    },
+
+    async setBodyKind(kind: BodyKind) {
+      this.apply(await DraftService.SetBodyKind(DRAFT, kind))
+    },
+
+    async setBodyFile(path: string) {
+      this.apply(await DraftService.SetBodyFile(DRAFT, path))
+    },
+
+    // The file is Go's to open and Go's to read: the dialog is native, and the window never holds
+    // the bytes. A closed dialog answers with nothing, which is not a failure.
+    async pickBodyFile(): Promise<string> {
+      return await DraftService.PickBodyFile(tr('files.bodyFile'), tr('files.allFiles'))
     },
 
     async addRow(kind: RowKind): Promise<string> {

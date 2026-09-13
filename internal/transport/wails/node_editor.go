@@ -77,14 +77,17 @@ func draftOfNode(node domain.CollectionNode) domain.Draft {
 		auth = *node.Auth
 	}
 	return domain.Draft{
-		ID:      domain.DraftID(node.ID),
-		Method:  node.Method,
-		URL:     node.URL,
-		Params:  rowsOf(node.Params),
-		Headers: rowsOf(node.Headers),
-		Body:    node.Body,
-		Cookies: cookiesOf(node.Cookies),
-		Auth:    auth,
+		ID:       domain.DraftID(node.ID),
+		Method:   node.Method,
+		URL:      node.URL,
+		Params:   rowsOf(node.Params),
+		Headers:  rowsOf(node.Headers),
+		Body:     node.Body,
+		BodyKind: domain.KindOf(node.BodyKind),
+		Form:     formRowsOf(node.Form),
+		BodyFile: node.BodyFile,
+		Cookies:  cookiesOf(node.Cookies),
+		Auth:     auth,
 	}
 }
 
@@ -98,6 +101,9 @@ func nodeFromDraft(node domain.CollectionNode, d domain.Draft) domain.Collection
 	node.Params = d.Params
 	node.Headers = d.Headers
 	node.Body = d.Body
+	node.BodyKind = domain.KindOf(d.BodyKind)
+	node.Form = d.Form
+	node.BodyFile = d.BodyFile
 	node.Cookies = d.Cookies
 	if d.Auth.Type == domain.AuthInherit || d.Auth.Type == domain.AuthNone {
 		node.Auth = nil
@@ -122,4 +128,11 @@ func cookiesOf(cookies []domain.CookieRow) []domain.CookieRow {
 		return []domain.CookieRow{}
 	}
 	return cookies
+}
+
+func formRowsOf(rows []domain.FormRow) []domain.FormRow {
+	if rows == nil {
+		return []domain.FormRow{}
+	}
+	return rows
 }

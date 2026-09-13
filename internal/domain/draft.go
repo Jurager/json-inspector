@@ -27,6 +27,7 @@ const (
 	RowParams  RowKind = "params"
 	RowHeaders RowKind = "headers"
 	RowCookies RowKind = "cookies"
+	RowForm    RowKind = "form"
 )
 
 // Draft is the request being composed. It holds tokens — `{{name}}` — and never the values behind
@@ -44,6 +45,9 @@ type Draft struct {
 	Headers  []Row       `json:"headers"`
 	Auth     Auth        `json:"auth"`
 	Body     string      `json:"body"`
+	BodyKind BodyKind    `json:"bodyKind"`
+	Form     []FormRow   `json:"form"`
+	BodyFile string      `json:"bodyFile,omitempty"`
 	Cookies  []CookieRow `json:"cookies"`
 }
 
@@ -56,5 +60,6 @@ func NewDraft() Draft {
 		Headers: []Row{},
 		Auth:    Auth{Type: AuthNone},
 		Cookies: []CookieRow{},
+		Form:    []FormRow{},
 	}
 }

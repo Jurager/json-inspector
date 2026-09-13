@@ -36,8 +36,8 @@ var jsonFilter = []application.FileFilter{{DisplayName: fileKindName, Pattern: f
 // is not. When a second shape arrives, the window offers them by name and the user says which one
 // they are handing over — a file read as something it is not is worse than a wrong choice that says
 // so out loud.
-func (s *CollectionsService) ImportFile(ctx context.Context) ([]domain.Collection, error) {
-	path, err := s.host.OpenFile("Импорт коллекции", jsonFilter...)
+func (s *CollectionsService) ImportFile(ctx context.Context, title string) ([]domain.Collection, error) {
+	path, err := s.host.OpenFile(title, jsonFilter...)
 	if err != nil {
 		return nil, err
 	}
@@ -55,13 +55,13 @@ func (s *CollectionsService) ImportFile(ctx context.Context) ([]domain.Collectio
 // ExportFile writes a collection — or one request, when the id names one — into a file the user
 // picks. It answers whether anything was written: a cancelled save dialog is not an error, and the
 // window says nothing about it.
-func (s *CollectionsService) ExportFile(ctx context.Context, id string) (bool, error) {
+func (s *CollectionsService) ExportFile(ctx context.Context, title string, id string) (bool, error) {
 	contents, err := s.collections.Full(ctx, id)
 	if err != nil {
 		return false, err
 	}
 
-	path, err := s.host.SaveFile("Экспорт коллекции", fileNameFor(contents.Name), jsonFilter...)
+	path, err := s.host.SaveFile(title, fileNameFor(contents.Name), jsonFilter...)
 	if err != nil {
 		return false, err
 	}
@@ -80,7 +80,7 @@ func (s *CollectionsService) ExportFile(ctx context.Context, id string) (bool, e
 func readCollection(path string) (domain.Collection, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
-		return domain.Collection{}, fmt.Errorf("файл %s: %w", path, err)
+		return domain.Collection{}, fmt.Errorf("file %s: %w", path, err)
 	}
 	return postman.Import(data)
 }
@@ -94,7 +94,7 @@ func writeCollection(path string, name string, items []domain.CollectionNode) er
 	// 0644 and not the database's 0600: the file is meant to be handed to someone else, and a
 	// collection holds no secret — only the `{{tokens}}` a value would be filled into.
 	if err := os.WriteFile(path, data, 0o644); err != nil {
-		return fmt.Errorf("файл %s: %w", path, err)
+		return fmt.Errorf("file %s: %w", path, err)
 	}
 	return nil
 }

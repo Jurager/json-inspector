@@ -458,8 +458,26 @@ html.window-translucent body {
   width: 380px;
 }
 
+/* The body popover is the one the handoff draws wider than the rest: it holds five formats and, for
+   a form, a grid with a key and a value in it. */
+.chip-popover.wide {
+  width: 500px;
+}
+
 .chip-popover.spaced {
   gap: 8px;
+}
+
+/* The foot of a chip popover: the accent button that adds a row, and the line of explanation beside
+   it. It lives here and not in a component because more than one component draws a popover's
+   contents — the body's lists come from BodyFields.vue — and a scoped rule would reach only the one
+   that happens to own the popover wrapper. */
+.popover-foot {
+  @apply flex items-center justify-between pt-2 pb-0.5 mt-1 border-t border-border px-1;
+}
+
+.foot-hint {
+  @apply text-[11px] text-text-tertiary;
 }
 
 .env-menu {

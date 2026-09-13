@@ -3,6 +3,7 @@ package httpx
 import (
 	"context"
 	"fmt"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"net/http/httputil"
@@ -349,8 +350,10 @@ func TestCancelStopsOneRequest(t *testing.T) {
 
 	select {
 	case res := <-done:
-		if !res.Cancelled || res.Error == "" {
-			t.Errorf("res = %+v, want it marked cancelled with a reason", res)
+		// The flag is the reason: Go writes no sentence here, because a record's text is read later,
+		// in whatever language the window is in by then.
+		if !res.Cancelled || res.Error != "" {
+			t.Errorf("res = %+v, want the cancellation flag and no text", res)
 		}
 	case <-time.After(3 * time.Second):
 		t.Fatal("the cancelled request never returned")
@@ -527,5 +530,46 @@ func TestBadURLIsReportedNotPanicked(t *testing.T) {
 	}
 	if res.Cancelled || res.Status != 0 {
 		t.Errorf("res = %+v, want a plain failure", res)
+	}
+}
+
+// The engine sends the body it is handed and decides nothing else about it. Every Content-Type in
+// this app is chosen a layer up, where the body's format and the user's own header are both visible;
+// an engine that helped would be a second opinion nobody asked for, and one that could not see
+// either of them.
+func TestTheEngineSendsTheBodyItIsGiven(t *testing.T) {
+	var (
+		got  string
+		kind string
+	)
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		body, _ := io.ReadAll(r.Body)
+		got, kind = string(body), r.Header.Get("Content-Type")
+		_, _ = w.Write([]byte("ok"))
+	}))
+	defer srv.Close()
+
+	engine := newTestEngine(t, Config{})
+	// A body a form would produce, sent with no Content-Type at all: it must arrive byte for byte.
+	multipart := "--BOUNDARY\r\nContent-Disposition: form-data; name=\"a\"\r\n\r\n1\r\n--BOUNDARY--\r\n"
+	res := send(engine, http.MethodPost, srv.URL, nil, multipart)
+	if res.Error != "" {
+		t.Fatalf("send failed: %s", res.Error)
+	}
+	if got != multipart {
+		t.Errorf("body = %q, want the one the engine was given", got)
+	}
+	if kind != "" {
+		t.Errorf("Content-Type = %q, want the engine to have invented none", kind)
+	}
+
+	// And a header it was given goes out as given, without a second one beside it.
+	res = send(engine, http.MethodPost, srv.URL,
+		map[string]string{"Content-Type": "application/vnd.api+json"}, "{}")
+	if res.Error != "" {
+		t.Fatalf("send failed: %s", res.Error)
+	}
+	if kind != "application/vnd.api+json" {
+		t.Errorf("Content-Type = %q, want the header the caller wrote", kind)
 	}
 }

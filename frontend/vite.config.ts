@@ -11,13 +11,22 @@ export default defineConfig({
     strictPort: true
   },
   plugins: [vue(), tailwindcss(), wails('./bindings')],
-  // Two entry points: the main window and the About window. They are separate
-  // documents rather than routes — see src/windows/about.ts for why.
+  // The bundler build of vue-i18n asks its host for these flags and warns in the console about each
+  // one it is not given. The app uses the composition API only (never the `$t`-on-`this` one), and
+  // devtools support is for a browser extension a desktop window has no use for.
+  define: {
+    __VUE_I18N_FULL_INSTALL__: true,
+    __VUE_I18N_LEGACY_API__: false,
+    __INTLIFY_PROD_DEVTOOLS__: false
+  },
+  // Three entry points: the main window, the About window and Settings. They are
+  // separate documents rather than routes — see src/windows/about.ts for why.
   build: {
     rollupOptions: {
       input: {
         main: 'index.html',
-        about: 'about.html'
+        about: 'about.html',
+        settings: 'settings.html'
       }
     }
   }

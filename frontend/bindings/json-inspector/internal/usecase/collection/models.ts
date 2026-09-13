@@ -22,6 +22,9 @@ export interface NewNode {
     "params"?: domain$0.Row[] | null;
     "headers"?: domain$0.Row[] | null;
     "body"?: string;
+    "bodyKind"?: domain$0.BodyKind;
+    "form"?: domain$0.FormRow[] | null;
+    "bodyFile"?: string;
     "cookies"?: domain$0.CookieRow[] | null;
     "auth"?: domain$0.Auth | null;
 }

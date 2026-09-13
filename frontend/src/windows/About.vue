@@ -6,9 +6,11 @@ import { usePlatform } from '../composables/usePlatform'
 import { useUpdateCheck } from '../composables/useUpdateCheck'
 import { Button } from '../components/ui/button'
 import Icon from '../components/ui/Icon.vue'
-import { formatCheckedAt, formatVersion } from '../lib/format'
+import { formatCheckedAt, useMessages } from '../i18n'
+import { formatVersion } from '../lib/format'
 import logoUrl from '../assets/logo.svg'
 
+const { t } = useMessages()
 const { customTitlebar } = usePlatform()
 const { phase, latest, checkedAt, error, check, install } = useUpdateCheck()
 
@@ -25,16 +27,16 @@ const versionLabel = computed(() => {
 const buttonLabel = computed(() => {
   switch (phase.value) {
     case 'checking':
-      return 'Проверяем…'
+      return t('about.checking')
     case 'installing':
-      return 'Обновление…'
+      return t('about.installing')
     case 'available':
-      return 'Обновить'
+      return t('about.update')
     case 'uptodate':
     case 'error':
-      return 'Проверить снова'
+      return t('about.checkAgain')
     default:
-      return 'Проверить обновления'
+      return t('about.check')
   }
 })
 
@@ -43,6 +45,9 @@ const busy = computed(() => phase.value === 'checking' || phase.value === 'insta
 const act = computed(() => (phase.value === 'available' ? install : check))
 
 onMounted(async () => {
+  // The title bar this window draws is ours, but the taskbar reads the platform's name for it — and
+  // that one is a word, so it comes from the catalogue rather than from Go.
+  void Window.SetTitle(t('about.title'))
   // Cosmetic fields: a failed call just leaves them blank.
   try {
     version.value = (await SystemService.Version()) ?? ''
@@ -57,8 +62,8 @@ onMounted(async () => {
 <template>
   <div class="about-window" :class="{ 'about-window-mac': !customTitlebar }">
     <header v-if="customTitlebar" class="about-bar">
-      <span class="about-bar-title">О программе</span>
-      <button class="cap-btn cap-close" title="Закрыть" @click="Window.Close()">
+      <span class="about-bar-title">{{ t('about.title') }}</span>
+      <button class="cap-btn cap-close" :title="t('common.close')" @click="Window.Close()">
         <span class="cap-icon cap-icon-close">
           <span class="cap-icon-close-bar cap-icon-close-bar-1"></span>
           <span class="cap-icon-close-bar cap-icon-close-bar-2"></span>
@@ -69,7 +74,7 @@ onMounted(async () => {
     <div class="about-body">
       <img class="about-icon" :src="logoUrl" :alt="appName" draggable="false" />
       <div class="about-name">{{ appName }}</div>
-      <div class="about-version">Версия {{ versionLabel || '…' }}</div>
+      <div class="about-version">{{ t('about.version', { version: versionLabel || '…' }) }}</div>
 
       <Button class="about-check" variant="primary" size="lg" :disabled="busy" @click="act">
         <span v-if="busy" class="about-spinner"></span>
@@ -80,20 +85,25 @@ onMounted(async () => {
         <template v-if="phase === 'uptodate'">
           <span class="about-ok">
             <Icon name="check" :size="13" :stroke-width="2.4" />
-            <span>Установлена последняя версия</span>
+            <span>{{ t('about.upToDate') }}</span>
           </span>
         </template>
-        <template v-else-if="phase === 'checking'">Проверяем обновления…</template>
-        <template v-else-if="phase === 'installing'">Скачиваем и проверяем…</template>
-        <template v-else-if="phase === 'available'">Доступна версия {{ formatVersion(latest) }}</template>
+        <template v-else-if="phase === 'checking'">{{ t('about.checkingLong') }}</template>
+        <template v-else-if="phase === 'installing'">{{ t('about.downloading') }}</template>
+        <template v-else-if="phase === 'available'">
+          {{ t('about.available', { version: formatVersion(latest) }) }}
+        </template>
         <template v-else-if="phase === 'error'">
           <span class="about-error">{{ error }}</span>
         </template>
-        <template v-else>Последняя проверка: {{ formatCheckedAt(checkedAt) }}</template>
+        <template v-else>{{ t('about.lastChecked', { at: formatCheckedAt(checkedAt) }) }}</template>
       </div>
 
       <div class="about-divider"></div>
-      <div class="about-copy">© {{ year }} {{ appName || 'JSON Inspector' }}.<br />Все права защищены.</div>
+      <div class="about-copy">
+        {{ t('about.copyright', { year, name: appName || 'JSON Inspector' }) }}<br />
+        {{ t('about.rights') }}
+      </div>
     </div>
   </div>
 </template>

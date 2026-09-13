@@ -2,6 +2,7 @@ import { defineStore } from 'pinia'
 import type { VarResolution } from '../lib/vars'
 import { EnvironmentsService } from '../../bindings/json-inspector/internal/transport/wails'
 import { VariableKind } from '../../bindings/json-inspector/internal/domain'
+import { t as tr } from '../i18n'
 import type { EnvScope, EnvState, Environment, Variable } from '../../bindings/json-inspector/internal/domain'
 import type { ImportReport } from '../../bindings/json-inspector/internal/usecase/environment'
 
@@ -94,7 +95,7 @@ export const useEnvironmentsStore = defineStore('environments', {
       this.envState = await EnvironmentsService.ActivateEnvironment(id ?? '')
     },
 
-    async addEnv(name = 'Новое окружение'): Promise<string> {
+    async addEnv(name = tr('environments.new')): Promise<string> {
       this.envState = await EnvironmentsService.CreateEnvironment(name)
       return this.activeId ?? ''
     },

@@ -10,10 +10,13 @@ import { parseTokens } from '../../lib/vars'
 import { EnvironmentsService } from '../../../bindings/json-inspector/internal/transport/wails'
 import type { Variable } from '../../../bindings/json-inspector/internal/domain'
 import { useSheetNotice } from '../../composables/useSheetNotice'
+import { useMessages } from '../../i18n'
 
 const envStore = useEnvironmentsStore()
 const reqStore = useRequestsStore()
 const { setNotice, clearNotice } = useSheetNotice()
+
+const { t } = useMessages()
 
 const envId = computed(() => envStore.editedEnvId)
 const env = computed(() => envStore.environments.find((e) => e.id === envId.value) ?? null)
@@ -54,7 +57,7 @@ function commitRename(): boolean {
   const others = envStore.environments.filter((e) => e.id !== id)
   if (!name || others.some((e) => e.name === name)) {
     renameInvalid.value = true
-    setNotice(!name ? 'Имя окружения не может быть пустым' : 'Окружение с таким именем уже есть')
+    setNotice(!name ? t('environments.nameEmpty') : t('environments.nameTaken'))
     renameInput.value?.focus()
     return false
   }
@@ -217,7 +220,7 @@ defineExpose({ cancelTop })
 
 <template>
   <div class="sheet-side">
-    <div class="side-label">Окружения</div>
+    <div class="side-label">{{ t('environments.title') }}</div>
     <div
       v-for="e in envStore.environments"
       :key="e.id"
@@ -225,7 +228,7 @@ defineExpose({ cancelTop })
       :class="{ active: e.id === envStore.editedEnvId }"
       role="button"
       tabindex="0"
-      title="Двойной клик или Enter — переименовать"
+      :title="t('environments.renameHint')"
       @click="envStore.editEnv(e.id)"
       @keydown.enter="onEnvRowEnter(e.id)"
       @dblclick="startRename(e.id, { selectAll: true })"
@@ -256,23 +259,23 @@ defineExpose({ cancelTop })
       @click="envStore.editEnv(null)"
     >
       <span class="side-dot"></span>
-      <span class="side-name">Глобальные</span>
+      <span class="side-name">{{ t('environments.globals') }}</span>
       <span class="side-count mono">{{ envStore.globals.length }}</span>
     </button>
 
     <div class="side-spacer"></div>
 
     <div class="side-foot">
-      <IconButton variant="bare" hint="Новое окружение" @click="addEnv">
-        <Icon name="plus" :size="14" />
+      <IconButton variant="bare" :hint="t('environments.new')" @click="addEnv">
+        <Icon name="plus" :size="16" />
       </IconButton>
       <IconButton
         variant="bare"
-        hint="Удалить окружение"
+        :hint="t('environments.delete')"
         :disabled="isGlobals"
         @click="isGlobals || askRemove(envStore.editedEnvId as string)"
       >
-        <Icon name="minus" :size="14" />
+        <Icon name="trash" :size="13" />
       </IconButton>
       <span class="side-foot-spacer"></span>
       <input
@@ -285,7 +288,7 @@ defineExpose({ cancelTop })
       <Button
         variant="quiet"
         :disabled="isGlobals"
-        :title="isGlobals ? 'Импорт идёт в выбранное окружение, не в глобальные' : undefined"
+        :title="isGlobals ? t('environments.importIntoSelected') : undefined"
         @click="pickFile"
       >
         Импорт .env
@@ -297,7 +300,7 @@ defineExpose({ cancelTop })
       :open="importEntries !== null"
       :entries="displayedImportEntries"
       :existing-names="existingNames"
-      :target-name="env?.name ?? 'Глобальные'"
+      :target-name="env?.name ?? t('environments.globals')"
       :count="importCount"
       @cancel="importEntries = null"
       @apply="importEntriesIntoEnv"

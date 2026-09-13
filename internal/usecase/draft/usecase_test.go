@@ -3,6 +3,7 @@ package draft
 import (
 	"context"
 	"errors"
+	"fmt"
 	"testing"
 
 	"json-inspector/internal/domain"
@@ -84,13 +85,42 @@ func missingIn(texts []string, resolve vars.Resolver) (map[string]bool, []string
 	return seen, out
 }
 
+// fakeFiles is the file system as the draft sees it. read is the count of reads, so a test can say
+// that rendering the masked copy did not open anything.
+type fakeFiles struct {
+	files map[string]string
+	fail  error
+	read  int
+}
+
+func (f *fakeFiles) Read(path string) ([]byte, error) {
+	f.read++
+	if f.fail != nil {
+		return nil, f.fail
+	}
+	data, ok := f.files[path]
+	if !ok {
+		return nil, fmt.Errorf("файл %s: %w", path, domain.ErrNotFound)
+	}
+	return []byte(data), nil
+}
+
 func newUseCase() (*UseCase, *fakeStore) {
+	uc, store, _ := newUseCaseWithFiles()
+	return uc, store
+}
+
+func newUseCaseWithFiles() (*UseCase, *fakeStore, *fakeFiles) {
 	store := &fakeStore{}
 	variables := fakeVars{
 		values: map[string]string{"host": "api.example.com", "token": "abc123", "nothing": ""},
 		secret: map[string]bool{"token": true},
 	}
-	return NewUseCase(store, variables, platform.NewIDGen()), store
+	sources := &fakeFiles{files: map[string]string{
+		"/tmp/logo.png":  "PNGDATA",
+		"/tmp/notes.txt": "hello",
+	}}
+	return NewUseCase(store, variables, sources, platform.NewIDGen()), store, sources
 }
 
 func loaded(t *testing.T) (*UseCase, *fakeStore) {

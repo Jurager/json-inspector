@@ -34,6 +34,19 @@ func (s *SettingsService) SetTheme(ctx context.Context, theme domain.Theme) (dom
 	return saved, nil
 }
 
+// SetLanguage stores the choice and broadcasts it, the same way the theme is broadcast — and for the
+// same reason: no window is the one that tells the others.
+func (s *SettingsService) SetLanguage(ctx context.Context, language domain.Language) (domain.Settings, error) {
+	saved, err := s.settings.SetLanguage(ctx, language)
+	if err != nil {
+		return saved, err
+	}
+	// The page redraws on the broadcast; the window's URL is what the *next* window will read, so Go
+	// keeps the choice as well.
+	s.host.SetLanguage(language)
+	return saved, nil
+}
+
 func (s *SettingsService) SetLayout(ctx context.Context, patch settings.LayoutPatch) (domain.Settings, error) {
 	return s.settings.SetLayout(ctx, patch)
 }

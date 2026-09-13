@@ -4,8 +4,9 @@ import { EditorState, RangeSetBuilder, StateEffect, StateField, type Text } from
 import { Decoration, EditorView, lineNumbers, type DecorationSet } from '@codemirror/view'
 import { HighlightStyle, codeFolding, foldGutter, foldKeymap, syntaxHighlighting } from '@codemirror/language'
 import { json } from '@codemirror/lang-json'
+import { useMessages } from '../../i18n'
 import { keymap } from '@codemirror/view'
-import { tags as t } from '@lezer/highlight'
+import { tags } from '@lezer/highlight'
 
 // CodeMirror renders the text itself, so the toolbar's search has to be decorations
 // here rather than markup on HTML.
@@ -18,16 +19,20 @@ const emit = defineEmits<{
   (e: 'stats', s: { count: number; index: number }): void
 }>()
 
+// The catalogue's `t`, not lezer's tags: the tags were renamed to their own name above so that these
+// two can sit in one file without either being shortened.
+const { t } = useMessages()
+
 const host = ref<HTMLElement | null>(null)
 const view = shallowRef<EditorView | null>(null)
 
 // The app's own token colours, so Raw reads like the tree instead of introducing
 // a second palette.
 const appHighlight = HighlightStyle.define([
-  { tag: t.propertyName, color: 'var(--accent)' },
-  { tag: t.string, color: 'var(--tok-str)' },
-  { tag: [t.number, t.bool, t.null], color: 'var(--tok-num)' },
-  { tag: [t.punctuation, t.separator], color: 'var(--text-tertiary)' },
+  { tag: tags.propertyName, color: 'var(--accent)' },
+  { tag: tags.string, color: 'var(--tok-str)' },
+  { tag: [tags.number, tags.bool, tags.null], color: 'var(--tok-num)' },
+  { tag: [tags.punctuation, tags.separator], color: 'var(--text-tertiary)' },
 ])
 
 const appTheme = EditorView.theme({
@@ -59,28 +64,13 @@ const appTheme = EditorView.theme({
   '.cm-selectionBackground, ::selection': { backgroundColor: 'var(--accent-soft)' },
 })
 
-function plural(n: number, forms: [string, string, string]): string {
-  const m10 = n % 10
-  const m100 = n % 100
-  const word =
-    m10 === 1 && m100 !== 11
-      ? forms[0]
-      : m10 >= 2 && m10 <= 4 && (m100 < 12 || m100 > 14)
-        ? forms[1]
-        : forms[2]
-  return `${n} ${word}`
-}
-
 const folding = codeFolding({
   preparePlaceholder: (state, range) =>
-    plural(
-      state.doc.lineAt(range.to).number - state.doc.lineAt(range.from).number,
-      ['строка', 'строки', 'строк']
-    ),
+    t('response.raw.foldedLines', state.doc.lineAt(range.to).number - state.doc.lineAt(range.from).number),
   placeholderDOM: (_view, onclick, prepared: string) => {
     const el = document.createElement('span')
     el.textContent = `⋯ ${prepared}`
-    el.title = 'Развернуть'
+    el.title = t('response.raw.expand')
     el.addEventListener('click', onclick)
     return el
   },

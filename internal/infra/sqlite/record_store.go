@@ -163,7 +163,7 @@ func (s *Store) Record(ctx context.Context, id string) (domain.Record, error) {
 			&requestHeaders, &responseHeaders, &cookies, &rec.StartedAt, &rec.TabID, &rec.TabTitle,
 			&rec.TabURL, &rec.FavIconURL)
 	if errors.Is(err, sql.ErrNoRows) {
-		return domain.Record{}, fmt.Errorf("запись %s: %w", id, domain.ErrNotFound)
+		return domain.Record{}, fmt.Errorf("record %s: %w", id, domain.ErrNotFound)
 	}
 	if err != nil {
 		return domain.Record{}, fmt.Errorf("reading record %s: %w", id, err)

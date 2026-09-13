@@ -42,13 +42,16 @@ type CollectionNode struct {
 	Position     int64    `json:"position"`
 
 	// A request's own fields. `omitempty` where a zero value and an absent one mean the same thing.
-	Method  string      `json:"method,omitempty"`
-	URL     string      `json:"url,omitempty"`
-	Params  []Row       `json:"params,omitempty"`
-	Headers []Row       `json:"headers,omitempty"`
-	Body    string      `json:"body,omitempty"`
-	Cookies []CookieRow `json:"cookies,omitempty"`
-	Auth    *Auth       `json:"auth,omitempty"`
+	Method   string      `json:"method,omitempty"`
+	URL      string      `json:"url,omitempty"`
+	Params   []Row       `json:"params,omitempty"`
+	Headers  []Row       `json:"headers,omitempty"`
+	Body     string      `json:"body,omitempty"`
+	BodyKind BodyKind    `json:"bodyKind,omitempty"`
+	Form     []FormRow   `json:"form,omitempty"`
+	BodyFile string      `json:"bodyFile,omitempty"`
+	Cookies  []CookieRow `json:"cookies,omitempty"`
+	Auth     *Auth       `json:"auth,omitempty"`
 	// Scripts are the code this request runs around itself. Nil means "not set here" and the levels
 	// above are what runs; empty means this level has nothing to add.
 	Scripts *Scripts `json:"scripts,omitempty"`

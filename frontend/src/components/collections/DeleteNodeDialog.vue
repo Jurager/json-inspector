@@ -1,7 +1,9 @@
 <script setup lang="ts">
 import Dialog from '../ui/dialog/Dialog.vue'
 import { Button } from '../ui/button'
-import { plural } from '../../lib/format'
+import { useMessages } from '../../i18n'
+
+const { t } = useMessages()
 
 defineProps<{ name: string; count: number; open: boolean }>()
 
@@ -11,17 +13,17 @@ const emit = defineEmits<{ (e: 'cancel'): void; (e: 'confirm'): void }>()
 <template>
   <Dialog
     :open="open"
-    title="Удалить вместе с содержимым?"
+    :title="t('collections.deleteWithContents')"
     class="w-110 p-4.5"
     @escape-key-down.prevent
     @update:open="emit('cancel')"
   >
     <div class="body">
-      В коллекции {{ count }} {{ plural(count, ['запрос', 'запроса', 'запросов']) }} — они удалятся вместе с ней.
+      {{ t('collections.deleteNodeBody', { count: t('counts.requests', count) }) }}
     </div>
     <div class="actions">
-      <Button @click="emit('cancel')">Отмена</Button>
-      <Button variant="primary" @click="emit('confirm')">Удалить</Button>
+      <Button @click="emit('cancel')">{{ t('common.cancel') }}</Button>
+      <Button variant="primary" @click="emit('confirm')">{{ t('common.delete') }}</Button>
     </div>
   </Dialog>
 </template>
