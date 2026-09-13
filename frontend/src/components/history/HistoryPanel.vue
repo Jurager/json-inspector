@@ -39,13 +39,13 @@ function timeLabel(startedAt: number): string {
   return d.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit', second: '2-digit' })
 }
 
-function pathOf(url: string): string {
-  try {
-    const u = new URL(url)
-    return u.pathname + u.search
-  } catch {
-    return url
-  }
+// What a row shows of an address: the host and everything after it. The scheme is dropped — it is the
+// longest part of a URL and the one that says the least — and the text is cut rather than parsed: a
+// URL here can be `{{host}}/articles`, or carry a variable that resolved to nothing, and the standard
+// parser rewrites the braces of a `{{token}}` into `%7B%7B`, which is not what the user typed. The
+// whole address is in the row's title.
+function addressOf(url: string): string {
+  return url.replace(/^[a-zA-Z][\w+.-]*:\/\//, '')
 }
 
 const query = ref('')
@@ -238,7 +238,7 @@ watch(() => [store.focusTabId, store.records.length, props.sourceKind] as const,
         >
           <span class="badge badge-method item-method">{{ r.method }}</span>
           <span class="item-status" :class="statusBadgeClass(r.status)">{{ r.status }}</span>
-          <span class="item-path mono" :title="r.url">{{ pathOf(r.url) }}</span>
+          <span class="item-path mono" :title="r.url">{{ addressOf(r.url) }}</span>
           <span class="item-time">{{ timeLabel(r.startedAt) }}</span>
         </li>
       </template>
@@ -289,7 +289,7 @@ watch(() => [store.focusTabId, store.records.length, props.sourceKind] as const,
           >
             <span class="badge badge-method item-method">{{ r.method }}</span>
             <span class="item-status" :class="statusBadgeClass(r.status)">{{ r.status }}</span>
-            <span class="item-path mono" :title="r.url">{{ pathOf(r.url) }}</span>
+            <span class="item-path mono" :title="r.url">{{ addressOf(r.url) }}</span>
             <span class="item-time">{{ timeLabel(r.startedAt) }}</span>
           </li>
         </ul>
