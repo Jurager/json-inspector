@@ -72,8 +72,11 @@
   /* The glass material of design-system.md («Материал „стекло“»): the chrome of the window and every
      overlay are a translucent fill over a backdrop blur. The chrome sits on the app's own ground and
      over the desktop behind a translucent window, so it is the lighter of the two; an overlay sits
-     over real content, where a light fill would let the text underneath collide with its own. */
-  --glass-chrome: rgba(255, 255, 255, 0.64);
+     over real content, where a light fill would let the text underneath collide with its own.
+     The chrome's density is set by measurement, not by the handoff's 0.64: at that weight the desktop
+     decides the tone, so the chrome drifts with the wallpaper and lands up to 45 levels away from the
+     content it meets. Here the wallpaper is only a tint and the seam stays a surface boundary. */
+  --glass-chrome: rgba(255, 255, 255, 0.88);
   --glass-chrome-border: rgba(0, 0, 0, 0.05);
   --glass-overlay: rgba(255, 255, 255, 0.8);
   --glass-overlay-border: rgba(0, 0, 0, 0.07);
@@ -100,12 +103,15 @@
 }
 
 :root.dark {
-  /* The ground design-system.md names for the dark theme: the chrome and the content have to differ in
-     tone, or the material over the chrome has nothing to lift itself off. */
+  /* The dark content is one tone — #1c1c1e — as block 12 of the handoff draws it, with everything above
+     it raised by a white veil. Those veils are pre-composited here (0.04 and 0.07 over #1c1c1e) rather
+     than left translucent: --bg-panel is also the knob of a segmented control, a checkbox and a button,
+     and a translucent knob would take on whatever it slides over. Same pixels, nothing that must hide
+     what is under it. */
   --bg: #1c1c1e;
-  --bg-sidebar: #232326;
-  --bg-panel: #2a2a2e;
-  --bg-inset: #28282c;
+  --bg-sidebar: #1c1c1e;
+  --bg-panel: #252527;
+  --bg-inset: #2c2c2e;
   --bg-hover: rgba(255, 255, 255, 0.06);
   --bg-active: rgba(255, 255, 255, 0.1);
   --border: rgba(255, 255, 255, 0.1);
@@ -138,7 +144,7 @@
      sets, never one rgba(255,255,255,x) doing both. A white veil over dark content lightens the chrome
      to grey: the window stops looking dark at all, which is the defect design-system.md records. The
      hairline comes back the other way: on a dark surface the light theme's edge value glows. */
-  --glass-chrome: rgba(28, 28, 30, 0.62);
+  --glass-chrome: rgba(28, 28, 30, 0.85);
   --glass-chrome-border: rgba(255, 255, 255, 0.08);
   --glass-overlay: rgba(40, 40, 44, 0.82);
   --glass-overlay-border: rgba(255, 255, 255, 0.1);

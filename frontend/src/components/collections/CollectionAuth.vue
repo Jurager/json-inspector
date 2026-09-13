@@ -129,8 +129,7 @@ function onTokenKeydown(e: KeyboardEvent) {
         <path d="M12 8v5M12 16h.01" stroke-linecap="round" />
       </svg>
       <span class="note-text">
-        Наследуется всеми папками и запросами коллекции. В карточке запроса — выбор «Наследовать»
-        вместо «Bearer»/«Basic»/«Нет».
+        Наследуется всеми папками и запросами коллекции, в карточке запроса — выберите «Наследовать».
       </span>
     </div>
   </div>
