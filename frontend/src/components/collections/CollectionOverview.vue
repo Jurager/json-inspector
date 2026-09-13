@@ -3,6 +3,7 @@ import { computed, nextTick, ref, watch } from 'vue'
 import Icon from '../ui/Icon.vue'
 import { Button } from '../ui/button'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '../ui/tabs'
+import CollectionAuth from './CollectionAuth.vue'
 import CollectionScripts from './CollectionScripts.vue'
 import { useCollectionsStore } from '../../stores/collections'
 import { useToast } from '../../composables/useToast'
@@ -13,9 +14,10 @@ import type { CollectionNode } from '../../../bindings/json-inspector/internal/d
 const store = useCollectionsStore()
 const toast = useToast()
 
-// The header's two panes: what is inside the collection, and the code that runs around its requests.
-// Which one is open is the window's, not Go's — the code itself lives in the store, because it is Go's.
-const tab = ref<'requests' | 'scripts'>('requests')
+// The header's three panes: what is inside the collection, what it authorizes its requests with, and
+// the code that runs around them. Which one is open is the window's, not Go's — the level's own auth
+// and code live in the store, because they are Go's.
+const tab = ref<'requests' | 'auth' | 'scripts'>('requests')
 
 // What is being exported is what is selected: a folder exports its subtree, a collection everything
 // in it. Go reads the tree again — the rows the list carries have no bodies.
@@ -208,6 +210,7 @@ function pluralRequests(n: number): string {
     <Tabs v-model="tab" class="tabs-host">
       <TabsList class="tabs coll-tabs">
         <TabsTrigger class="tab coll-tab" value="requests">Запросы</TabsTrigger>
+        <TabsTrigger class="tab coll-tab" value="auth">Авторизация</TabsTrigger>
         <TabsTrigger class="tab coll-tab" value="scripts">Скрипты</TabsTrigger>
       </TabsList>
 
@@ -261,6 +264,10 @@ function pluralRequests(n: number): string {
               <span>Прогон отправит все запросы по очереди и покажет, что ответил каждый.</span>
             </div>
           </div>
+        </TabsContent>
+
+        <TabsContent value="auth" class="tab-pane scripts-pane">
+          <CollectionAuth />
         </TabsContent>
 
         <TabsContent value="scripts" class="tab-pane scripts-pane">

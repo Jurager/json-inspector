@@ -19,22 +19,6 @@ type Row struct {
 	Enabled bool   `json:"enabled"`
 }
 
-// AuthType is what the Auth chip offers. Only a token is sent anywhere yet; the rest is the shape
-// the design keeps room for, and a draft stores the choice so it survives a restart.
-type AuthType string
-
-const (
-	AuthNone   AuthType = "none"
-	AuthBearer AuthType = "bearer"
-	AuthBasic  AuthType = "basic"
-	AuthOAuth2 AuthType = "oauth2"
-)
-
-type Auth struct {
-	Type  AuthType `json:"type"`
-	Token string   `json:"token"`
-}
-
 // RowKind names which list of a draft a row belongs to. The window edits all three through the
 // same four calls, so it is an argument rather than three sets of methods.
 type RowKind string

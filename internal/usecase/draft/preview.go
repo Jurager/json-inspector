@@ -47,8 +47,8 @@ func collect(d domain.Draft) parts {
 // then its value — which is the same order putBack reads the answers back in.
 //
 // The parameters are not here: they are in the URL, which is where they became rows from in the
-// first place. The Auth token is here but is not put back: the chip has a slot in the design and
-// no effect on a request yet.
+// first place. The Auth token is here last, and it is put back: it is what becomes the
+// Authorization header, and a `{{token}}` in it has to be filled in like any other text.
 func (p parts) texts() []string {
 	out := make([]string, 0, 4+2*len(p.headers))
 	out = append(out, p.url, p.body)
@@ -74,6 +74,8 @@ func (p parts) putBack(resolved []string) parts {
 	}
 	p.headers = headers
 	p.cookie = resolved[at]
+	at++
+	p.auth = resolved[at]
 	return p
 }
 

@@ -29,6 +29,7 @@ func (s collectionSender) Send(ctx context.Context, req collection.RunRequest) (
 		Body:    req.Body,
 		Headers: req.Headers,
 		Cookies: req.Cookies,
+		Auth:    req.Auth,
 	})
 	if err != nil {
 		return domain.Record{}, err

@@ -120,6 +120,14 @@ export const useRequestsStore = defineStore('requests', {
     auth(state): Auth {
       return state.draft?.auth ?? { type: 'none' as AuthType, token: '' }
     },
+    // The command line composes one request and nothing stands above it, so its Auth chip offers the
+    // four kinds and no «Наследовать».
+    canInherit(): boolean {
+      return false
+    },
+    inheritedAuth(): Auth | null {
+      return null
+    },
     missingVars(state): string[] {
       // The wire marks a list as possibly null because Go can marshal a nil slice that way.
       return state.preview.missing ?? []

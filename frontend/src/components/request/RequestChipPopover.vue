@@ -44,12 +44,32 @@ const scriptsNote = computed(() =>
 const isBodyDisabled = computed(() => store.bodyDisabled)
 
 // The choices and their names come from Go, so the chip and the draft cannot disagree about what a
-// mode is called.
-const AUTH_TYPES: Auth['type'][] = [AuthType.AuthNone, AuthType.AuthBearer, AuthType.AuthBasic, AuthType.AuthOAuth2]
-const AUTH_LABELS: Record<string, string> = { none: 'Нет', bearer: 'Bearer', basic: 'Basic', oauth2: 'OAuth 2' }
+// mode is called. A card inside a collection gets «Наследовать» in place of «Нет»: the request is one
+// node of a tree, and the design puts the collection's own answer above it.
+const AUTH_TYPES = computed<Auth['type'][]>(() =>
+  store.canInherit
+    ? [AuthType.AuthInherit, AuthType.AuthBearer, AuthType.AuthBasic, AuthType.AuthOAuth2]
+    : [AuthType.AuthNone, AuthType.AuthBearer, AuthType.AuthBasic, AuthType.AuthOAuth2]
+)
+const AUTH_LABELS: Record<string, string> = {
+  none: 'Нет',
+  inherit: 'Наследовать',
+  bearer: 'Bearer',
+  basic: 'Basic',
+  oauth2: 'OAuth 2',
+}
+
+// What the level above answers, said in one line where the token would be: a choice whose meaning is
+// invisible is a choice nobody makes.
+const inheritedLabel = computed(() => {
+  const auth = store.inheritedAuth
+  if (!auth) return 'Выше авторизации нет — запрос пойдёт без неё'
+  const kind = AUTH_LABELS[auth.type] ?? auth.type
+  return auth.token ? `Выше: ${kind} · ${auth.token}` : `Выше: ${kind}`
+})
 
 // The pill moves one segment (+ the 2px gap) per step, animated by a CSS transition on transform.
-const activeAuthIndex = computed(() => AUTH_TYPES.indexOf(store.auth.type))
+const activeAuthIndex = computed(() => AUTH_TYPES.value.indexOf(store.auth.type))
 const authIndicatorStyle = computed(() => ({
   transform: `translateX(calc(${activeAuthIndex.value} * (100% + 2px)))`,
 }))
@@ -213,13 +233,14 @@ function valueClass(v: string): string {
         </button>
       </div>
       <input
-        v-if="store.auth.type !== 'none'"
+        v-if="store.auth.type !== 'none' && store.auth.type !== 'inherit'"
         :value="store.auth.token"
         class="row-input mono"
         placeholder="Токен"
         spellcheck="false"
         @input="setToken(($event.target as HTMLInputElement).value)"
       />
+      <div v-else-if="store.auth.type === 'inherit'" class="hint">{{ inheritedLabel }}</div>
       <div class="hint">Значение можно взять из окружения — переменные подставляются в URL, заголовки и тело.</div>
     </template>
 

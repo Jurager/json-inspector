@@ -8,9 +8,9 @@ import (
 	"json-inspector/internal/domain"
 )
 
-// runnable is a collection with a request, a folder holding two more, and a request after the
+// runFixture is a collection with a request, a folder holding two more, and a request after the
 // folder — the shape that says whether the walk goes depth first and in the tree's order.
-type runnable struct {
+type runFixture struct {
 	uc           *UseCase
 	store        *fakeStore
 	sender       *fakeSender
@@ -20,7 +20,7 @@ type runnable struct {
 	requests     map[string]string // name → url
 }
 
-func setupRunnable(t *testing.T) *runnable {
+func setupRunnable(t *testing.T) *runFixture {
 	t.Helper()
 	uc, store, sender, notifier := newTestRun()
 	ctx := context.Background()
@@ -67,7 +67,7 @@ func setupRunnable(t *testing.T) *runnable {
 	add(folderID, "Третий", "https://api.example.com/third")
 	add("", "Четвёртый", "https://api.example.com/fourth")
 
-	return &runnable{
+	return &runFixture{
 		uc: uc, store: store, sender: sender, notifier: notifier,
 		collectionID: collectionID, folderID: folderID, requests: requests,
 	}
@@ -187,6 +187,40 @@ func TestRunOfASingleRequest(t *testing.T) {
 
 	if len(run.Results) != 1 || run.Results[0].NodeID != node.ID {
 		t.Errorf("run = %+v, want the one request it names", run)
+	}
+}
+
+// What a run hands over is a request with the authorization of the level above it already resolved:
+// the walk up the tree is the run's own, and by the time a request leaves, where it sat is no longer
+// known to whoever sends it.
+func TestRunSendsTheInheritedAuth(t *testing.T) {
+	r := setupRunnable(t)
+	ctx := context.Background()
+
+	if _, err := r.uc.SaveAuth(ctx, r.collectionID, domain.Auth{Type: domain.AuthBearer, Token: "коллекция"}); err != nil {
+		t.Fatalf("SaveAuth collection: %v", err)
+	}
+	if _, err := r.uc.SaveAuth(ctx, r.folderID, domain.Auth{Type: domain.AuthBearer, Token: "папка"}); err != nil {
+		t.Fatalf("SaveAuth folder: %v", err)
+	}
+
+	if _, err := r.uc.Run(ctx, r.collectionID, ""); err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+	r.notifier.runFinished(t)
+
+	sent := r.sender.sent
+	if len(sent) != 4 {
+		t.Fatalf("sent %d requests, want the whole collection", len(sent))
+	}
+	// The first request is the collection's own; the two inside the folder are the folder's; the last
+	// one is the collection's again.
+	want := []string{"коллекция", "папка", "папка", "коллекция"}
+	for i, token := range want {
+		auth := sent[i].Auth
+		if auth == nil || auth.Token != token {
+			t.Errorf("request %d went out with %+v, want %q", i, auth, token)
+		}
 	}
 }
 
@@ -455,7 +489,7 @@ func TestRunPublishesEveryRequestAsItGoes(t *testing.T) {
 	}
 }
 
-func mustTree(t *testing.T, r *runnable) []domain.Collection {
+func mustTree(t *testing.T, r *runFixture) []domain.Collection {
 	t.Helper()
 	tree, err := r.uc.Tree(context.Background())
 	if err != nil {

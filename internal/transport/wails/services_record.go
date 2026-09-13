@@ -5,6 +5,7 @@ import (
 	"errors"
 
 	"json-inspector/internal/domain"
+	"json-inspector/internal/usecase/collection"
 	"json-inspector/internal/usecase/draft"
 	"json-inspector/internal/usecase/record"
 )
@@ -18,10 +19,18 @@ import (
 type RecordsService struct {
 	records *record.UseCase
 	drafts  *draft.UseCase
+	// The tree is here for one question: what a request inside a collection inherits. The draft
+	// cannot be asked it — a feature that owns a request must not know about the tree it sits in —
+	// and this layer is the one that knows both.
+	collections *collection.UseCase
 }
 
-func NewRecordsService(records *record.UseCase, drafts *draft.UseCase) *RecordsService {
-	return &RecordsService{records: records, drafts: drafts}
+func NewRecordsService(
+	records *record.UseCase,
+	drafts *draft.UseCase,
+	collections *collection.UseCase,
+) *RecordsService {
+	return &RecordsService{records: records, drafts: drafts, collections: collections}
 }
 
 // Send starts the request a draft holds and answers with its id at once. The draft is read here
@@ -35,7 +44,11 @@ func NewRecordsService(records *record.UseCase, drafts *draft.UseCase) *RecordsS
 // What comes of the attempt arrives as an event, which is what lets the spinner belong to an id the
 // window can cancel.
 func (s *RecordsService) Send(ctx context.Context, draftID domain.DraftID) (string, error) {
-	prepared, err := s.drafts.Prepared(ctx, draftID)
+	inherits, err := s.inherited(ctx, draftID)
+	if err != nil {
+		return "", err
+	}
+	prepared, err := s.drafts.Prepared(ctx, draftID, inherits)
 	if err != nil {
 		return "", err
 	}
@@ -46,6 +59,17 @@ func (s *RecordsService) Send(ctx context.Context, draftID domain.DraftID) (stri
 	// the scripts belong to, whichever of the two it is.
 	input.Node = string(draftID)
 	return s.records.Send(ctx, input)
+}
+
+// inherited is what a draft takes from the tree above it. The command line's draft is in no tree,
+// and a node that has been deleted is in none either: both are answered with nothing to inherit,
+// which is a real answer rather than a failure.
+func (s *RecordsService) inherited(ctx context.Context, id domain.DraftID) (*domain.Auth, error) {
+	auth, err := s.collections.AuthFor(ctx, id)
+	if errors.Is(err, domain.ErrNotFound) {
+		return nil, nil
+	}
+	return auth, err
 }
 
 // SendSpec starts a request that is not the one being composed — following a link out of a

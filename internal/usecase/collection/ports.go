@@ -45,6 +45,11 @@ type RunRequest struct {
 	Body    string
 	Headers []domain.HeaderPair
 	Cookies []domain.CookieRow
+
+	// Auth is what the request inherits: the answer of the nearest level above it that gave one, or
+	// nothing when none did. It travels resolved because the walk up the tree is the run's own —
+	// by the time a request is on its way out, where it sits is no longer known.
+	Auth *domain.Auth
 }
 
 // Sender sends one saved request and answers with what it produced. A run does not know how a

@@ -108,6 +108,15 @@ export function Run(collectionID: string, nodeID: string): $CancellablePromise<s
 }
 
 /**
+ * SaveAuth writes what a collection or a folder authorizes its requests with. «Нет» is the same
+ * call with an empty auth: a level that has none is a level the ones below it inherit past, and the
+ * overview then draws the tab the way a collection without one looks.
+ */
+export function SaveAuth(id: string, auth: domain$0.Auth): $CancellablePromise<domain$0.Collection[] | null> {
+    return $Call.ByID(3442193257, id, auth);
+}
+
+/**
  * SaveDraft copies what the command line is composing into a collection as a new request. The draft
  * is not touched: saving a copy is not a move, and what is being composed stays where it is.
  * 

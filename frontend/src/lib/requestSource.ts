@@ -16,6 +16,12 @@ export interface RequestSource {
   headers: Row[]
   cookies: CookieRow[]
   auth: Auth
+  // Whether this request can take its authorization from the levels above it. A card inside a
+  // collection can — the chip offers «Наследовать» — and the command line cannot, because nothing is
+  // above it.
+  canInherit: boolean
+  // What those levels answered, for the chip to say what inheriting would mean here.
+  inheritedAuth: Auth | null
   missingVars: string[]
   enabledParamsCount: number
   enabledHeadersCount: number

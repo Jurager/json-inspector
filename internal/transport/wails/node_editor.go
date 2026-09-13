@@ -70,10 +70,9 @@ func (s *CollectionsService) editor(ctx context.Context, node domain.CollectionN
 // draftOfNode is a saved request seen as something to edit. Rows keep their ids, so an editor that
 // is open on one of them stays on it.
 func draftOfNode(node domain.CollectionNode) domain.Draft {
-	// A node with no auth of its own inherits one, and the draft has no way to say that — it is a
-	// request, not a place in a tree. What the card shows is the choice it would make, and the
-	// distinction is kept where it matters: in nodeFromDraft, on the way back.
-	auth := domain.Auth{Type: domain.AuthNone}
+	// A node with no auth of its own inherits one, and «Наследовать» is how the draft says that: the
+	// card draws the choice, and the tree is asked for the answer when the request goes out.
+	auth := domain.Auth{Type: domain.AuthInherit}
 	if node.Auth != nil {
 		auth = *node.Auth
 	}
@@ -89,9 +88,10 @@ func draftOfNode(node domain.CollectionNode) domain.Draft {
 	}
 }
 
-// nodeFromDraft is the other direction. The Auth chip is not applied to a request yet, so a card
-// that never touched it must not turn "take the folder's" into "no auth here" — the two are
-// different answers, and only one of them was given.
+// nodeFromDraft is the other direction. «Наследовать» is stored as nothing at all: a level that
+// says nothing is a level the requests below it look past, and a card that never touched the chip
+// must not turn "take the folder's" into "no auth here" — the two are different answers, and only
+// one of them was given.
 func nodeFromDraft(node domain.CollectionNode, d domain.Draft) domain.CollectionNode {
 	node.Method = d.Method
 	node.URL = d.URL
@@ -99,7 +99,9 @@ func nodeFromDraft(node domain.CollectionNode, d domain.Draft) domain.Collection
 	node.Headers = d.Headers
 	node.Body = d.Body
 	node.Cookies = d.Cookies
-	if d.Auth.Type != domain.AuthNone || node.Auth != nil {
+	if d.Auth.Type == domain.AuthInherit || d.Auth.Type == domain.AuthNone {
+		node.Auth = nil
+	} else {
 		auth := d.Auth
 		node.Auth = &auth
 	}

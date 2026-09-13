@@ -218,6 +218,87 @@ func (u *UseCase) Describe(ctx context.Context, id string, description string) (
 	return u.Tree(ctx)
 }
 
+// SaveAuth writes what a level authorizes its requests with — the collection's own tab, or a
+// folder's, which everything inside it inherits. «Нет» is stored as nothing at all: a level that
+// has no authorization of its own is a level the one below it inherits past, and an empty auth
+// written down would stop that walk at the level that meant to say nothing.
+func (u *UseCase) SaveAuth(ctx context.Context, id string, auth domain.Auth) ([]domain.Collection, error) {
+	saved := authOrNil(auth)
+
+	if collection, ok, err := u.collection(ctx, id); err != nil {
+		return nil, err
+	} else if ok {
+		collection.Auth = saved
+		if err := u.store.SaveCollection(ctx, collection); err != nil {
+			return nil, err
+		}
+		return u.Tree(ctx)
+	}
+
+	node, err := u.store.Node(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	node.Auth = saved
+	if err := u.store.SaveNode(ctx, node); err != nil {
+		return nil, err
+	}
+	return u.Tree(ctx)
+}
+
+// AuthFor is what a request inherits: the answer of the nearest level above it that gave one, or
+// nothing when none did. The command line's draft is in no tree, and a node that has been deleted
+// is in none either — neither is a failure, because "there is nothing above this request" is what
+// the answer is, not that the question was wrong.
+func (u *UseCase) AuthFor(ctx context.Context, id domain.DraftID) (*domain.Auth, error) {
+	tree, err := u.store.Collections(ctx)
+	if err != nil {
+		return nil, err
+	}
+	for _, collection := range tree {
+		if inherited, ok := inheritUnder(collection.Items, string(id), collection.Auth); ok {
+			return authOrNil(actionable(inherited)), nil
+		}
+	}
+	return nil, nil
+}
+
+// inheritUnder walks a subtree looking for a node, carrying the answer of the levels above it: the
+// nearest level that set one wins, and a level that set none passes down what it was given.
+func inheritUnder(nodes []domain.CollectionNode, id string, inherited *domain.Auth) (*domain.Auth, bool) {
+	for _, node := range nodes {
+		at := inherited
+		if node.Auth != nil {
+			at = node.Auth
+		}
+		if node.ID == id {
+			return at, true
+		}
+		if found, ok := inheritUnder(node.Items, id, at); ok {
+			return found, true
+		}
+	}
+	return nil, false
+}
+
+// authOrNil is an auth as the tree stores it: the two answers that are not credentials — «нет» and
+// «наследовать» — are the absence of an answer.
+func authOrNil(auth domain.Auth) *domain.Auth {
+	if auth.Type == domain.AuthNone || auth.Type == domain.AuthInherit || auth.Type == "" {
+		return nil
+	}
+	return &auth
+}
+
+// actionable is a stored auth as something to apply: nothing to inherit is «нет», which is what a
+// request with nothing above it authorizes itself with.
+func actionable(auth *domain.Auth) domain.Auth {
+	if auth == nil {
+		return domain.Auth{Type: domain.AuthNone}
+	}
+	return *auth
+}
+
 // Duplicate copies a collection or a node into the same place, under a name that says what it is.
 // Ids are minted anew: the copy is a second thing, not the same thing twice.
 func (u *UseCase) Duplicate(ctx context.Context, id string) ([]domain.Collection, error) {

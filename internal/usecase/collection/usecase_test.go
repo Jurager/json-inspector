@@ -83,7 +83,7 @@ func (f *fakeStore) nest(collectionID string) []domain.CollectionNode {
 			row := node
 			row.Items = build(row.ID)
 			row.Params, row.Headers, row.Cookies, row.Body = nil, nil, nil, ""
-			row.Auth, row.URL, row.Scripts = nil, "", nil
+			row.URL, row.Scripts = "", nil
 			items = append(items, row)
 		}
 		return items

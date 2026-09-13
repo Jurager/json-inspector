@@ -124,12 +124,8 @@ func (s *Store) Node(ctx context.Context, id string) (domain.CollectionNode, err
 			return domain.CollectionNode{}, fmt.Errorf("reading the %s of node %s: %w", part.what, id, err)
 		}
 	}
-	if auth.Valid {
-		var value domain.Auth
-		if err := json.Unmarshal([]byte(auth.String), &value); err != nil {
-			return domain.CollectionNode{}, fmt.Errorf("reading the auth of node %s: %w", id, err)
-		}
-		node.Auth = &value
+	if err := readAuth(auth, &node.Auth, "node "+id); err != nil {
+		return domain.CollectionNode{}, err
 	}
 	if scripts.Valid {
 		var value domain.Scripts
@@ -141,10 +137,24 @@ func (s *Store) Node(ctx context.Context, id string) (domain.CollectionNode, err
 	return node, nil
 }
 
+// readAuth is the auth a row carries. An absent one is not a failure: it is how a level says it has
+// none of its own, and the request below it reads that as "take yours".
+func readAuth(raw sql.NullString, into **domain.Auth, what string) error {
+	if !raw.Valid {
+		return nil
+	}
+	var value domain.Auth
+	if err := json.Unmarshal([]byte(raw.String), &value); err != nil {
+		return fmt.Errorf("reading the auth of %s: %w", what, err)
+	}
+	*into = &value
+	return nil
+}
+
 // nodes reads every node of every collection, flat, in the order its tree draws them.
 func (s *Store) nodes(ctx context.Context) ([]domain.CollectionNode, error) {
 	rows, err := s.db.QueryContext(ctx,
-		`SELECT id, collection_id, parent_id, kind, name, position, method, description
+		`SELECT id, collection_id, parent_id, kind, name, position, method, description, auth_json
 		   FROM collection_nodes ORDER BY collection_id, position, created_at`)
 	if err != nil {
 		return nil, fmt.Errorf("listing collection nodes: %w", err)
@@ -158,9 +168,10 @@ func (s *Store) nodes(ctx context.Context) ([]domain.CollectionNode, error) {
 			parentID    sql.NullString
 			method      sql.NullString
 			description sql.NullString
+			auth        sql.NullString
 		)
 		if err := rows.Scan(&node.ID, &node.CollectionID, &parentID, &node.Kind, &node.Name, &node.Position,
-			&method, &description); err != nil {
+			&method, &description, &auth); err != nil {
 			return nil, fmt.Errorf("listing collection nodes: %w", err)
 		}
 		node.ParentID = parentID.String
@@ -168,6 +179,11 @@ func (s *Store) nodes(ctx context.Context) ([]domain.CollectionNode, error) {
 		// The description travels with the row: it is the line the overview draws under the title, and
 		// a folder has one of those too.
 		node.Description = description.String
+		// Auth travels with it as well, although no row draws it: inheritance is a property of the
+		// tree, and a request has to be able to ask what the levels above it answered.
+		if err := readAuth(auth, &node.Auth, "node "+node.ID); err != nil {
+			return nil, err
+		}
 		out = append(out, node)
 	}
 	return out, rows.Err()

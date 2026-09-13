@@ -103,6 +103,21 @@ export const useCollectionsStore = defineStore('collections', {
     collectionId(): string | null {
       return this.trail?.collection.id ?? null
     },
+    // Whether the open request takes its authorization from the levels above it. A card does: it is
+    // one node of a tree, and the design gives it «Наследовать» where the command line has «Нет».
+    canInherit(): boolean {
+      return this.cardOpen
+    },
+    // What those levels answer with — the nearest one that set something, or nothing at all. The chip
+    // says what inheriting would mean here instead of leaving the token a blank.
+    inheritedAuth(): Auth | null {
+      const trail = this.trail
+      if (!trail) return null
+      for (const level of [...trail.ancestors].reverse()) {
+        if (level.auth) return level.auth
+      }
+      return trail.collection.auth ?? null
+    },
     // What the open level is called: the status bar names it when the level is what is on screen,
     // and the path to it when a card inside is.
     levelName(): string {
@@ -250,6 +265,12 @@ export const useCollectionsStore = defineStore('collections', {
     // and the tree is where the header reads the line back from.
     async describe(id: string, description: string) {
       this.applyTree((await CollectionsService.Describe(id, description)) ?? [])
+    },
+
+    // What the «Авторизация» tab writes: the level's own auth, which everything inside inherits.
+    // «Нет» is the same call with an empty auth — Go stores that as no answer at all.
+    async saveAuth(id: string, auth: Auth) {
+      this.applyTree((await CollectionsService.SaveAuth(id, auth)) ?? [])
     },
 
     async duplicate(id: string) {

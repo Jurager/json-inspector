@@ -104,17 +104,17 @@ func (u *UseCase) LastRun(ctx context.Context, collectionID string, nodeID strin
 
 // execute walks the requests and sends them one at a time. It runs on a context of its own: the
 // caller's ends when the frontend call returns, and a run outlives the call that started it.
-func (u *UseCase) execute(run domain.CollectionRun, requests []domain.CollectionNode) {
+func (u *UseCase) execute(run domain.CollectionRun, requests []runnable) {
 	ctx := context.Background()
 	defer u.running.Store(false)
 
 	started := time.Now()
-	for position, node := range requests {
+	for position, item := range requests {
 		if u.stopped.Load() {
 			break
 		}
 
-		result := u.attempt(ctx, node, int64(position), run.ID)
+		result := u.attempt(ctx, item, int64(position), run.ID)
 		// The row goes in before it is counted: a run whose results cannot be written is over, and
 		// a summary that counts a row the database does not have is a summary that lies.
 		if err := u.store.AppendRunResult(ctx, run.ID, result); err != nil {
@@ -152,10 +152,11 @@ func (u *UseCase) execute(run domain.CollectionRun, requests []domain.Collection
 // behind it, which is the opposite of what a run is for.
 func (u *UseCase) attempt(
 	ctx context.Context,
-	node domain.CollectionNode,
+	item runnable,
 	position int64,
 	runID string,
 ) domain.CollectionRunResult {
+	node := item.node
 	result := domain.CollectionRunResult{NodeID: node.ID, Position: position}
 
 	// The row the tree carries has the method and nothing else; what is sent is the node whole.
@@ -165,7 +166,7 @@ func (u *UseCase) attempt(
 		return result
 	}
 
-	rec, err := u.sender.Send(ctx, requestFrom(full, runID))
+	rec, err := u.sender.Send(ctx, requestFrom(full, item.auth, runID))
 	if err != nil {
 		result.Error = err.Error()
 		return result
@@ -195,10 +196,11 @@ func (u *UseCase) attempt(
 	return result
 }
 
-// requestFrom turns a node into what goes out: the rows a person switched on, and the jar beside
-// them. The URL is the request's own — a query string is a URL's rows, not a second copy of them —
-// so the parameters travel for the record and do not rewrite the address.
-func requestFrom(node domain.CollectionNode, runID string) RunRequest {
+// requestFrom turns a node into what goes out: the rows a person switched on, the jar beside them,
+// and the authorization the levels above it answered with. The URL is the request's own — a query
+// string is a URL's rows, not a second copy of them — so the parameters travel for the record and
+// do not rewrite the address.
+func requestFrom(node domain.CollectionNode, auth *domain.Auth, runID string) RunRequest {
 	request := RunRequest{
 		Run:     runID,
 		NodeID:  node.ID,
@@ -207,6 +209,7 @@ func requestFrom(node domain.CollectionNode, runID string) RunRequest {
 		Body:    node.Body,
 		Headers: []domain.HeaderPair{},
 		Cookies: orEmptyCookies(node.Cookies),
+		Auth:    auth,
 	}
 	for _, row := range node.Headers {
 		if row.Enabled && strings.TrimSpace(row.Name) != "" {
@@ -216,31 +219,42 @@ func requestFrom(node domain.CollectionNode, runID string) RunRequest {
 	return request
 }
 
+// runnable is one request of a run together with the authorization the walk found above it: the
+// tree is what knows about inheritance, and the sender is told the answer rather than the tree.
+type runnable struct {
+	node domain.CollectionNode
+	auth *domain.Auth
+}
+
 // requestsUnder lists what a run walks, in the order the tree draws it: depth first, so a folder is
 // followed by what is inside it. A request is its own subtree, which is why running a single saved
 // request and running a folder are the same call.
 //
 // A node the collection does not have is not an empty run: it is a node the window knows and this
 // tree does not, which is a deletion it has not heard about yet.
-func requestsUnder(collection domain.Collection, nodeID string) ([]domain.CollectionNode, error) {
+func requestsUnder(collection domain.Collection, nodeID string) ([]runnable, error) {
 	if nodeID == "" || nodeID == collection.ID {
-		return requestsIn(collection.Items), nil
+		return requestsIn(collection.Items, collection.Auth), nil
 	}
 	node, ok := findNode([]domain.Collection{collection}, nodeID)
 	if !ok {
 		return nil, fmt.Errorf("узел %s: %w", nodeID, domain.ErrNotFound)
 	}
-	return requestsIn([]domain.CollectionNode{node}), nil
+	return requestsIn([]domain.CollectionNode{node}, collection.Auth), nil
 }
 
-func requestsIn(nodes []domain.CollectionNode) []domain.CollectionNode {
-	out := []domain.CollectionNode{}
+func requestsIn(nodes []domain.CollectionNode, inherited *domain.Auth) []runnable {
+	out := []runnable{}
 	for _, node := range nodes {
+		at := inherited
+		if node.Auth != nil {
+			at = node.Auth
+		}
 		if node.Kind == domain.NodeRequest {
-			out = append(out, node)
+			out = append(out, runnable{node: node, auth: at})
 			continue
 		}
-		out = append(out, requestsIn(node.Items)...)
+		out = append(out, requestsIn(node.Items, at)...)
 	}
 	return out
 }

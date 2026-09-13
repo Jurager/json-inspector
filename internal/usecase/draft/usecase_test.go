@@ -343,7 +343,7 @@ func TestPreparedFillsAndMasks(t *testing.T) {
 		t.Fatalf("Replace: %v", err)
 	}
 
-	prepared, err := uc.Prepared(ctx, domain.DraftCommandLine)
+	prepared, err := uc.Prepared(ctx, domain.DraftCommandLine, nil)
 	if err != nil {
 		t.Fatalf("Prepared: %v", err)
 	}

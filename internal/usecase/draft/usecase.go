@@ -93,6 +93,9 @@ type Seed struct {
 	// have neither. `omitempty` is what says so on the wire.
 	Headers []domain.HeaderPair `json:"headers,omitempty"`
 	Cookies []domain.CookieRow  `json:"cookies,omitempty"`
+	// Auth is what the request authorizes itself with. It travels resolved: whoever builds a seed
+	// knows where the request came from, and a seed is a request, not a place in a tree.
+	Auth *domain.Auth `json:"auth,omitempty"`
 }
 
 // Load reads the draft the last run left behind, and gives a window that has none the one this app
@@ -281,7 +284,7 @@ func (u *UseCase) Replace(ctx context.Context, id domain.DraftID, seed Seed) (St
 		d.Method = seed.Method
 		d.URL = seed.URL
 		d.Body = seed.Body
-		d.Auth = domain.Auth{Type: domain.AuthNone}
+		d.Auth = authOf(seed)
 		d.Params = u.rowsFromURL(seed.URL, nil)
 		d.Headers = u.rowsFromHeaders(seed.Headers)
 		d.Cookies = u.rowsFromCookies(seed)
@@ -303,12 +306,25 @@ type Prepared struct {
 	Cookies       []domain.CookieRow
 }
 
-func (u *UseCase) Prepared(ctx context.Context, id domain.DraftID) (Prepared, error) {
+// authOf is the seed's authorization as the pipeline holds it: a seed that says nothing about
+// authorization is not one that forgot, it is one with none.
+func authOf(seed Seed) domain.Auth {
+	if seed.Auth == nil {
+		return domain.Auth{Type: domain.AuthNone}
+	}
+	return *seed.Auth
+}
+
+// Prepared is the draft the window is editing, ready to go out. inherits is what its «Наследовать»
+// resolves to, and the caller is the one that knows: the draft holds what was typed, and where in a
+// tree the request sits is not part of that. It is nil for a draft with nothing above it, which is
+// the command line's.
+func (u *UseCase) Prepared(ctx context.Context, id domain.DraftID, inherits *domain.Auth) (Prepared, error) {
 	draft, err := u.Current(ctx, id)
 	if err != nil {
 		return Prepared{}, err
 	}
-	return u.prepare(ctx, draft)
+	return u.prepare(ctx, draft, inherits)
 }
 
 // Prepare fills in a request that is not the one being composed — a followed link, a collection run
@@ -321,13 +337,14 @@ func (u *UseCase) Prepare(ctx context.Context, seed Seed) (Prepared, error) {
 		Body:    seed.Body,
 		Headers: u.rowsFromHeaders(seed.Headers),
 		Cookies: seed.Cookies,
+		Auth:    authOf(seed),
 	}
 	// A request with no jar of its own — a followed link, a pasted command — carries its cookies in
 	// the header, and that is where they are read from.
 	if len(draft.Cookies) == 0 {
 		draft.Cookies = cookiesFromHeaders(seed.Headers)
 	}
-	return u.prepare(ctx, draft)
+	return u.prepare(ctx, draft, nil)
 }
 
 // change applies an edit and keeps it. Every mutation goes through here, so the revision, what is

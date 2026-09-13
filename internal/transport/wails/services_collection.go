@@ -89,6 +89,13 @@ func (s *CollectionsService) Describe(ctx context.Context, id string, descriptio
 	return s.collections.Describe(ctx, id, description)
 }
 
+// SaveAuth writes what a collection or a folder authorizes its requests with. «Нет» is the same
+// call with an empty auth: a level that has none is a level the ones below it inherit past, and the
+// overview then draws the tab the way a collection without one looks.
+func (s *CollectionsService) SaveAuth(ctx context.Context, id string, auth domain.Auth) ([]domain.Collection, error) {
+	return s.collections.SaveAuth(ctx, id, auth)
+}
+
 func (s *CollectionsService) Rename(ctx context.Context, id string, name string) ([]domain.Collection, error) {
 	return s.collections.Rename(ctx, id, name)
 }

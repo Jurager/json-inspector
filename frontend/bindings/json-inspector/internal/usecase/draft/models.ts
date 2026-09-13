@@ -44,6 +44,12 @@ export interface Seed {
      */
     "headers"?: domain$0.HeaderPair[] | null;
     "cookies"?: domain$0.CookieRow[] | null;
+
+    /**
+     * Auth is what the request authorizes itself with. It travels resolved: whoever builds a seed
+     * knows where the request came from, and a seed is a request, not a place in a tree.
+     */
+    "auth"?: domain$0.Auth | null;
 }
 
 /**
