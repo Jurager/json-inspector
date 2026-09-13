@@ -1,45 +1,69 @@
 package domain
 
-// Collection is a saved tree of requests with a name of its own. Folders and requests live inside it
-// in one order, which is the order the tree draws them and the order a run walks them.
+// Collection is a saved group of requests with a name of its own, and it may hold other collections.
+// What used to be a folder is one of these with a parent: the two were never more than that apart,
+// and keeping them separate is what stopped a collection from being put inside one.
 type Collection struct {
-	ID          string           `json:"id"`
-	Name        string           `json:"name"`
-	Description string           `json:"description,omitempty"`
-	Position    int64            `json:"position"`
-	CreatedAt   int64            `json:"createdAt"`
-	UpdatedAt   int64            `json:"updatedAt"`
-	Items       []CollectionNode `json:"items"`
+	ID          string `json:"id"`
+	Name        string `json:"name"`
+	Description string `json:"description,omitempty"`
+	Position    int64  `json:"position"`
+	CreatedAt   int64  `json:"createdAt"`
+	UpdatedAt   int64  `json:"updatedAt"`
+
+	// ParentID is the collection this one sits in. Empty means the top level.
+	ParentID string `json:"parentId,omitempty"`
+
+	// Items are the requests this collection holds, and Children the collections inside it. The two
+	// share one position space, which is what keeps a nested collection where it was put rather than
+	// at the end of the group.
+	Items    []CollectionNode `json:"items"`
+	Children []Collection     `json:"children"`
 
 	// Auth is what everything inside inherits unless it says otherwise. It is a pointer for the same
 	// reason a node's is: nil is "nothing here", and the walk stops at the first non-nil it meets.
 	Auth *Auth `json:"auth,omitempty"`
 }
 
-// NodeKind is what a node is: a folder holds other nodes, a request is the thing that gets sent.
-type NodeKind string
+// LevelEntry is one row of a collection's level: a request, or a collection inside it. Exactly one of
+// the two is set, and both are pointers into the tree that was read.
+type LevelEntry struct {
+	Node       *CollectionNode
+	Collection *Collection
+}
 
-const (
-	NodeFolder  NodeKind = "folder"
-	NodeRequest NodeKind = "request"
-)
+// Level is what a collection holds in the order the tree draws it. Its requests and the collections
+// inside it are one number line, so the two lists alternate by position — and each of them already
+// comes in position order, which is what makes one pass over the pair enough.
+func (c *Collection) Level() []LevelEntry {
+	out := make([]LevelEntry, 0, len(c.Items)+len(c.Children))
+	i, j := 0, 0
+	for i < len(c.Items) || j < len(c.Children) {
+		// A request and a collection never share a position: the number is written once, when the row
+		// is created or dropped, and the two are numbered in one sequence.
+		if j >= len(c.Children) || (i < len(c.Items) && c.Items[i].Position <= c.Children[j].Position) {
+			out = append(out, LevelEntry{Node: &c.Items[i]})
+			i++
+			continue
+		}
+		out = append(out, LevelEntry{Collection: &c.Children[j]})
+		j++
+	}
+	return out
+}
 
-// CollectionNode is one entry of a collection's tree. Folders and requests share the type because
-// they share the tree: moving one is a parent and a position, not a different table.
-//
-// The request's own fields are absent until the node is opened: a tree of two hundred nodes has no
-// business carrying two hundred bodies, and the method is all a tree row draws.
+// CollectionNode is one request of a collection. The fields beyond the name are absent until the node
+// is opened: a collection of two hundred requests has no business carrying two hundred bodies, and
+// the method is all a tree row draws.
 //
 // Auth and Scripts are pointers for the reason the schema's NULL columns exist: nil means "not set
 // here, take the parent's" and a value — even an empty one — means "this is the answer, stop
 // looking". Without the difference a collection could not say "no auth for anything in here".
 type CollectionNode struct {
-	ID           string   `json:"id"`
-	ParentID     string   `json:"parentId,omitempty"`
-	CollectionID string   `json:"collectionId"`
-	Kind         NodeKind `json:"kind"`
-	Name         string   `json:"name"`
-	Position     int64    `json:"position"`
+	ID           string `json:"id"`
+	CollectionID string `json:"collectionId"`
+	Name         string `json:"name"`
+	Position     int64  `json:"position"`
 
 	// A request's own fields. `omitempty` where a zero value and an absent one mean the same thing.
 	Method   string      `json:"method,omitempty"`
@@ -59,18 +83,15 @@ type CollectionNode struct {
 	Description string `json:"description,omitempty"`
 	CreatedAt   int64  `json:"createdAt"`
 	UpdatedAt   int64  `json:"updatedAt"`
-
-	// Items are a folder's children, in order. A request has none.
-	Items []CollectionNode `json:"items,omitempty"`
 }
 
-// CollectionRun is one execution of a collection or a folder: when it happened and how it went. The
-// requests it reached are beside it, one row each.
+// CollectionRun is one execution of a collection: when it happened and how it went. The requests it
+// reached are beside it, one row each.
 type CollectionRun struct {
 	ID           string `json:"id"`
 	CollectionID string `json:"collectionId"`
-	// NodeID is what the run was started from. Empty means the collection itself — a saved folder is
-	// a row of its own, not the absence of one.
+	// NodeID is the single request the run was started from. Empty means the collection as a whole,
+	// nested collections included.
 	NodeID string `json:"nodeId,omitempty"`
 
 	StartedAt  int64 `json:"startedAt"`

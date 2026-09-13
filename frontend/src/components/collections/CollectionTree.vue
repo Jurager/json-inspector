@@ -12,43 +12,48 @@ import {
 } from '../ui/context-menu'
 import DeleteNodeDialog from './DeleteNodeDialog.vue'
 import { useListKeys } from '../../composables/useListKeys'
+import { useTreeDrag, type DropTarget } from '../../composables/useTreeDrag'
 import { useCollectionsStore } from '../../stores/collections'
-import { filterTree, requestCount, trailOf } from '../../lib/collectionTree'
+import { childrenOf, filterTree, findCollection, requestCount, trailOf } from '../../lib/collectionTree'
 import { useToast } from '../../composables/useToast'
 import { useMessages } from '../../i18n'
-import { NodeKind, type Collection, type CollectionNode } from '../../../bindings/json-inspector/internal/domain'
+import type { Collection } from '../../../bindings/json-inspector/internal/domain'
 
 const store = useCollectionsStore()
 const { t } = useMessages()
 const toast = useToast()
 
-// One request, one file: the menu exports what it was opened on, and a folder or a collection is
-// exported from its own overview.
+// One request, one file: the menu exports what it was opened on, and a collection is exported from its
+// own overview.
 async function exportNode(row: Row) {
   const written = await store.exportFile(row.id)
   if (written) toast.show(t('collections.savedToFileNamed', { name: row.name }))
 }
 
 // The indent the design gives the three levels, measured from the panel's edge: the row's own box
-// starts 6px in, so a collection's text sits at 14px and each level below adds 16.
-// Deeper nesting is possible — a folder in a folder — and keeps the last step rather than running
-// off the panel.
+// starts 6px in, so a collection's text sits at 14px and each level below adds 16. A collection may
+// hold a collection, and one of those may hold another, so past the third step the ladder keeps
+// climbing rather than piling the deepest rows on one column.
 const INDENT = [8, 24, 40]
+const STEP = 16
 
 // A row of the tree, flattened: the drawing walks a list, and the nesting is what the indent says.
 // Expansion is applied here rather than by the tree, so the filter can open a path to a match
 // without moving anything the user opened.
 interface Row {
   id: string
-  kind: CollectionNode['kind'] | 'collection'
+  kind: 'collection' | 'request'
   name: string
   method: string
   count: number
   depth: number
   expandable: boolean
   expanded: boolean
+  // The collection this row sits in. A row is dropped into a level, and this is which one.
   collectionId: string
-  parentId: string
+  // Where the row stands among the children of that collection, requests and collections counted
+  // together — the index a drop names.
+  position: number
   // A collection that follows another one carries the line the design separates them with.
   divider: boolean
 }
@@ -71,79 +76,154 @@ const walkable = computed<Row[]>(() => flatten(filterTree(store.tree, store.filt
 function flatten(tree: Collection[], allOpen: boolean): Row[] {
   const rows: Row[] = []
   for (const collection of tree) {
-    const expanded = allOpen || searching.value || store.expanded[collection.id]
-    rows.push({
+    rows.push(...level(collection, collection.id, 0, allOpen, rows.length === 0 ? false : true))
+  }
+  return rows
+}
+
+// level draws one collection and everything inside it: its own request rows and the collections nested
+// in it, in the order Go keeps them in — one number line, requests and collections alternating by
+// position.
+function level(collection: Collection, collectionId: string, depth: number, allOpen: boolean, divider: boolean): Row[] {
+  const expanded = allOpen || searching.value || store.expanded[collection.id]
+  const children = childrenOf(collection)
+
+  const rows: Row[] = [
+    {
       id: collection.id,
       kind: 'collection',
       name: collection.name,
       method: '',
       count: requestCount(collection),
-      depth: 0,
-      expandable: (collection.items ?? []).length > 0,
+      depth,
+      expandable: children.length > 0,
       expanded: !!expanded,
       collectionId: collection.id,
-      parentId: '',
-      // The design draws a hairline above every collection but the first: the trees of two
+      position: collection.position,
+      // The design draws a hairline above every collection but the first of a level: the trees of two
       // collections are two things, and without the line a name under a subtree reads as its child.
-      divider: rows.length > 0,
-    })
-    if (expanded) rows.push(...children(collection.items ?? [], collection.id, 1, allOpen))
-  }
-  return rows
-}
+      divider,
+    },
+  ]
+  if (!expanded) return rows
 
-function children(nodes: CollectionNode[], collectionId: string, depth: number, allOpen: boolean): Row[] {
-  const rows: Row[] = []
-  for (const node of nodes) {
-    const expanded = allOpen || searching.value || store.expanded[node.id]
+  // What a row is numbered by is its place in the level, not the number Go stores: the two agree
+  // after every move, and a drop has to name a place among the rows the window drew.
+  children.forEach((child, at) => {
+    if (child.kind === 'collection') {
+      rows.push(...level(child.collection, child.collection.id, depth + 1, allOpen, false))
+      return
+    }
     rows.push({
-      id: node.id,
-      kind: node.kind,
-      name: node.name,
-      method: node.method ?? 'GET',
-      count: node.kind === 'folder' ? requestCount(node) : 0,
-      depth,
-      expandable: (node.items ?? []).length > 0,
-      expanded: !!expanded,
+      id: child.node.id,
+      kind: 'request',
+      name: child.node.name,
+      method: child.node.method ?? 'GET',
+      count: 0,
+      depth: depth + 1,
+      expandable: false,
+      expanded: false,
       collectionId,
-      parentId: node.parentId ?? '',
+      position: at,
       divider: false,
     })
-    if (expanded && node.kind === 'folder') {
-      rows.push(...children(node.items ?? [], collectionId, depth + 1, allOpen))
-    }
-  }
+  })
   return rows
 }
 
-// The indent a row is drawn at. Deeper nesting keeps the last step rather than running off the
-// panel.
+// The indent a row is drawn at: the three steps the design gives, and a fixed step past them so that a
+// collection inside a collection inside a collection is still a level the eye can follow.
 function indentDepth(depth: number): string {
-  return `${INDENT[Math.min(depth, INDENT.length - 1)]}px`
+  if (depth < INDENT.length) return `${INDENT[depth]}px`
+  return `${INDENT[INDENT.length - 1] + (depth - INDENT.length + 1) * STEP}px`
 }
 
-// Where the row being named will land: one level inside whatever it is being added to. The parent
-// is looked up among the rows on screen, because that is where its depth is known.
-function creatingIndent(parentId: string): string {
-  const parent = visible.value.find((row) => row.id === parentId)
-  return indentDepth((parent?.depth ?? 0) + 1)
-}
-
-// A click selects and opens: a request as a card, a collection or a folder as its overview. What is
-// inside a collapsed row is reached by its chevron, which is the gesture the tree has always had.
+// A click selects and opens: a request as a card, a collection as its overview. What is inside a
+// collapsed row is reached by its chevron, which is the gesture the tree has always had.
 async function pick(row: Row) {
   if (!(await leave())) return
   await store.select(row.id)
+}
+
+// ---- carrying a row ------------------------------------------------------
+
+const treeEl = ref<HTMLElement | null>(null)
+
+// The element a row is drawn in. The drag is the only thing that needs a row by id rather than by
+// index, so it is found in the drawing instead of kept in a map that would have to be kept in step
+// with it.
+function elementOf(id: string): HTMLElement | null {
+  return treeEl.value?.querySelector<HTMLElement>(`[data-id="${id}"]`) ?? null
+}
+
+// Whether a collection would take a row dropped into it. A collection inside itself, or inside one of
+// its own, is a ring — and Go refuses the same thing, so the window does not offer it as a place.
+function acceptsDrag(dragged: Row, collectionId: string): boolean {
+  if (dragged.kind === 'request') return true
+  if (dragged.id === collectionId) return false
+  const from = findCollection(store.tree, dragged.id)
+  return !from || findCollection(from.children ?? [], collectionId) === null
+}
+
+// Where a drop lands, in the coordinates Go is told about: a collection, and a place among the rows of
+// its level. A row dropped into a collection joins the end of it; dropped above or below another row
+// it takes that row's place, counted in the level as it looks now — the row being carried included.
+function dropOn(dragged: Row, target: DropTarget) {
+  const place = placeOf(target)
+  if (!place) return
+  if (dragged.kind === 'collection') {
+    void store.moveCollection(dragged.id, place.collectionId, place.position)
+    return
+  }
+  void store.moveNode(dragged.id, place.collectionId, place.position)
+}
+
+function placeOf(target: DropTarget): { collectionId: string; position: number } | null {
+  if (target.zone === 'inside') {
+    const collection = findCollection(store.tree, target.id)
+    if (!collection) return null
+    return { collectionId: collection.id, position: childrenOf(collection).length }
+  }
+
+  const at = visible.value.find((row) => row.id === target.id)
+  if (!at) return null
+  return { collectionId: at.collectionId, position: at.position + (target.zone === 'after' ? 1 : 0) }
+}
+
+const { drag, press, swallowClick } = useTreeDrag({
+  rows: () => visible.value,
+  elementOf,
+  accepts: acceptsDrag,
+  open: (id) => {
+    store.expanded[id] = true
+  },
+  move: dropOn,
+})
+
+// The click the browser sends after a carry would select the row the user just moved — and the row it
+// landed on is what the gesture was about.
+function onClickCapture(e: MouseEvent) {
+  if (!swallowClick()) return
+  e.stopPropagation()
+  e.preventDefault()
+}
+
+function dropClass(row: Row): Record<string, boolean> {
+  const target = drag.value?.target
+  return {
+    'drop-into': target?.id === row.id && target.zone === 'inside',
+    'drop-before': target?.id === row.id && target.zone === 'before',
+    'drop-after': target?.id === row.id && target.zone === 'after',
+  }
 }
 
 // Opens the levels above a row, so that a row the walk reached is a row on screen. The row itself is
 // left as it was: the walk moved the selection, and what is open is the user's own answer.
 function reveal(row: Row) {
   const trail = trailOf(store.tree, row.id)
-  // A collection is the top of its own tree: there is nothing above it to open, and opening it would
-  // be opening the row the walk stands on.
-  if (!trail || !trail.node) return
-  store.expanded[trail.collection.id] = true
+  // A collection at the top is the top of its own tree: there is nothing above it to open, and opening
+  // it would be opening the row the walk stands on.
+  if (!trail) return
   for (const ancestor of trail.ancestors) store.expanded[ancestor.id] = true
 }
 
@@ -256,7 +336,7 @@ function onRenameKeydown(e: KeyboardEvent) {
 
 // The row being named right now: the design creates straight in the tree, the way the environments
 // sheet does, so the name is typed where the row will be.
-const creating = ref<{ parentId: string; collectionId: string; kind: NodeKind; method: string } | null>(null)
+const creating = ref<{ collectionId: string; method: string } | null>(null)
 const creatingName = ref('')
 const creatingInput = ref<HTMLInputElement | null>(null)
 const creatingInvalid = ref(false)
@@ -272,11 +352,14 @@ function focusNextFrame(el: HTMLInputElement | null) {
   requestAnimationFrame(() => el?.focus())
 }
 
-function startCreating(parentId: string, collectionId: string, kind: NodeKind, method = 'GET') {
-  creating.value = { parentId, collectionId, kind, method }
-  creatingName.value = kind === NodeKind.NodeFolder ? t('collections.newFolder') : t('collections.newRequest')
+// A request is created in the collection it will live in — the one that was right-clicked. A
+// collection is not made here: the «+» in the head makes one at the top, and a drop is what puts it
+// inside another.
+function startCreating(row: Row, method = 'GET') {
+  creating.value = { collectionId: row.collectionId, method }
+  creatingName.value = t('collections.newRequest')
   creatingInvalid.value = false
-  if (parentId) store.expanded[parentId] = true
+  store.expanded[row.collectionId] = true
   nextTick(() => {
     focusNextFrame(creatingInput.value)
     creatingInput.value?.select()
@@ -294,7 +377,7 @@ async function commitCreating() {
   }
   creating.value = null
   creatingInvalid.value = false
-  await store.createNode(pending.collectionId, pending.parentId, pending.kind, name, pending.method)
+  await store.createNode(pending.collectionId, name, pending.method)
 }
 
 function cancelCreating() {
@@ -311,13 +394,6 @@ function onCreatingKeydown(e: KeyboardEvent) {
     e.preventDefault()
     cancelCreating()
   }
-}
-
-// What a new row goes inside: the row that was right-clicked — or the collection's own root, which
-// is an empty parent rather than the collection's id. A folder holds its children; a collection is
-// not its own child.
-function parentFor(row: Row): string {
-  return row.kind === 'collection' ? '' : row.id
 }
 
 const METHODS = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE']
@@ -364,9 +440,9 @@ function nextCollectionName(): string {
 const confirming = ref<Row | null>(null)
 
 async function askRemove(row: Row) {
-  // A collection or a folder holding more than one request takes everything inside with it, which is
-  // worth a question; an empty folder or a lone request is not.
-  if (row.kind !== 'request' && row.count > 1) {
+  // A collection holding more than one request takes everything inside with it, which is worth a
+  // question; an empty collection or a lone request is not.
+  if (row.kind === 'collection' && row.count > 1) {
     confirming.value = row
     return
   }
@@ -415,19 +491,23 @@ function cancelTop(): boolean {
       </IconButton>
     </div>
 
-    <div class="tree-scroll">
+    <div ref="treeEl" class="tree-scroll" @click.capture="onClickCapture">
       <ContextMenu v-for="row in visible" :key="row.id">
         <ContextMenuTrigger as-child>
           <div
             class="row"
+            :data-id="row.id"
             :class="{
               'row-collection': row.kind === 'collection',
               'row-divider': row.divider,
               active: row.id === store.selectedId,
+              'row-carried': drag?.row.id === row.id,
+              ...dropClass(row),
             }"
             :style="{ paddingLeft: indentDepth(row.depth) }"
             role="button"
             tabindex="0"
+            @pointerdown="press($event, row)"
             @click="pick(row)"
             @keydown.enter="pick(row)"
             @dblclick="startRename(row)"
@@ -436,14 +516,15 @@ function cancelTop(): boolean {
               v-if="row.expandable"
               class="caret"
               :class="{ open: row.expanded }"
+              @pointerdown.stop
               @click.stop="store.toggleExpand(row.id)"
             >
               <Icon name="chevron-right" :size="10" />
             </span>
             <span v-else class="caret-space"></span>
 
-            <span v-if="row.kind !== 'request'" class="row-icon">
-              <Icon name="folder" :size="row.kind === 'collection' ? 14 : 13" />
+            <span v-if="row.kind === 'collection'" class="row-icon">
+              <Icon name="folder" :size="14" />
             </span>
 
             <span v-if="row.kind === 'request'" class="row-method mono">{{ row.method }}</span>
@@ -455,6 +536,7 @@ function cancelTop(): boolean {
               class="row-rename"
               :class="{ invalid: renameInvalid }"
               spellcheck="false"
+              @pointerdown.stop
               @click.stop
               @dblclick.stop
               @keydown="onRenameKeydown"
@@ -462,16 +544,13 @@ function cancelTop(): boolean {
             />
             <span v-else class="row-name" :title="row.name">{{ row.name }}</span>
 
-            <span v-if="row.kind !== 'request'" class="row-count mono">{{ row.count }}</span>
+            <span v-if="row.kind === 'collection'" class="row-count mono">{{ row.count }}</span>
           </div>
         </ContextMenuTrigger>
 
         <ContextMenuContent>
-          <template v-if="row.kind !== 'request'">
-            <ContextMenuItem @select="startCreating(parentFor(row), row.collectionId, NodeKind.NodeFolder)">
-              {{ t('collections.newFolder') }}
-            </ContextMenuItem>
-            <ContextMenuItem @select="startCreating(parentFor(row), row.collectionId, NodeKind.NodeRequest)">
+          <template v-if="row.kind === 'collection'">
+            <ContextMenuItem @select="startCreating(row)">
               {{ t('collections.newRequest') }}
             </ContextMenuItem>
             <ContextMenuSeparator />
@@ -486,10 +565,13 @@ function cancelTop(): boolean {
         </ContextMenuContent>
       </ContextMenu>
 
-      <div v-if="creating" class="row row-creating" :style="{ paddingLeft: creatingIndent(creating.parentId) }">
+      <div
+        v-if="creating"
+        class="row row-creating"
+        :style="{ paddingLeft: indentDepth((visible.find((r) => r.id === creating?.collectionId)?.depth ?? -1) + 1) }"
+      >
         <span class="caret-space"></span>
         <button
-          v-if="creating.kind === 'request'"
           class="row-method mono method-chip"
           :title="t('collections.changeMethod')"
           @click="nextMethod"
@@ -509,6 +591,15 @@ function cancelTop(): boolean {
 
       <div v-if="visible.length === 0 && store.tree.length > 0" class="no-results">{{ t('common.nothingFound') }}</div>
     </div>
+
+    <!-- What the hand is carrying: the row's own words on the material the popovers use, following the
+         pointer so that the gesture says what it holds. -->
+    <Teleport to="body">
+      <div v-if="drag" class="drag-ghost" :style="{ left: `${drag.x + 12}px`, top: `${drag.y + 8}px` }">
+        <span v-if="drag.row.kind === 'request'" class="row-method mono">{{ drag.row.method }}</span>
+        <span class="row-name">{{ drag.row.name }}</span>
+      </div>
+    </Teleport>
 
     <PanelFilter v-model="query" :placeholder="t('collections.treeSearch')" />
 
@@ -633,6 +724,43 @@ function cancelTop(): boolean {
 
 .no-results {
   @apply pt-4 px-4 text-center text-text-tertiary text-xs;
+}
+
+/* The row being carried stays where it is and is drawn as what it will leave behind: the drop target
+   is what the eye should be reading, and a row that jumped about under the pointer would be the
+   loudest thing on screen. */
+.row-carried {
+  @apply opacity-40;
+}
+
+/* Where the row would land. A line above or below a row is a place in the level; the fill is a
+   collection that would take it. The two are the accent the selection already uses rather than colours
+   of their own: a drop is a place, and the tree has one colour for "here". */
+.drop-before::after,
+.drop-after::after {
+  content: '';
+  @apply absolute left-0 right-0 h-0.5 rounded-full;
+  background: var(--accent);
+}
+
+.drop-before::after {
+  top: -1px;
+}
+
+.drop-after::after {
+  bottom: -1px;
+}
+
+.drop-into {
+  @apply bg-accent-soft;
+  box-shadow: inset 0 0 0 1px var(--accent);
+}
+
+.drag-ghost {
+  @apply fixed z-50 flex items-center gap-[7px] py-1.5 px-2 rounded-[7px] text-text text-[12px] pointer-events-none;
+  background: var(--glass-overlay);
+  backdrop-filter: var(--blur-overlay);
+  box-shadow: 0 8px 24px rgb(0 0 0 / 0.18);
 }
 
 </style>

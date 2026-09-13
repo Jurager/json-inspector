@@ -231,45 +231,64 @@ type runnable struct {
 	auth *domain.Auth
 }
 
-// requestsUnder lists what a run walks, in the order the tree draws it: depth first, so a folder is
-// followed by what is inside it. A request is its own subtree, which is why running a single saved
-// request and running a folder are the same call.
+// requestsUnder lists what a run walks, in the order the tree draws it: depth first, so a collection
+// is followed by what is inside it. A request is a list of one, which is why running a single saved
+// request and running a collection are the same call — and a collection inside a collection is run
+// by its own id, which is what running it on its own means.
 //
 // A node the collection does not have is not an empty run: it is a node the window knows and this
 // tree does not, which is a deletion it has not heard about yet.
 func requestsUnder(collection domain.Collection, nodeID string) ([]runnable, error) {
 	if nodeID == "" || nodeID == collection.ID {
-		return requestsIn(collection.Items, collection.Auth), nil
+		return requestsIn(collection, nil), nil
+	}
+	if nested, ok := findCollection(collection.Children, nodeID); ok {
+		return requestsIn(nested, collection.Auth), nil
 	}
 	node, ok := findNode([]domain.Collection{collection}, nodeID)
 	if !ok {
 		return nil, fmt.Errorf("node %s: %w", nodeID, domain.ErrNotFound)
 	}
-	return requestsIn([]domain.CollectionNode{node}, collection.Auth), nil
+	at := collection.Auth
+	if node.Auth != nil {
+		at = node.Auth
+	}
+	return []runnable{{node: node, auth: at}}, nil
 }
 
-func requestsIn(nodes []domain.CollectionNode, inherited *domain.Auth) []runnable {
+// requestsIn walks a level in the order it is drawn, carrying the answer of the levels above: a
+// collection's requests come first or after the collections inside it depending on where they sit.
+func requestsIn(collection domain.Collection, inherited *domain.Auth) []runnable {
+	at := inherited
+	if collection.Auth != nil {
+		at = collection.Auth
+	}
+
 	out := []runnable{}
-	for _, node := range nodes {
-		at := inherited
-		if node.Auth != nil {
-			at = node.Auth
-		}
-		if node.Kind == domain.NodeRequest {
-			out = append(out, runnable{node: node, auth: at})
+	for _, entry := range collection.Level() {
+		if entry.Collection != nil {
+			out = append(out, requestsIn(*entry.Collection, at)...)
 			continue
 		}
-		out = append(out, requestsIn(node.Items, at)...)
+		nodeAt := at
+		if entry.Node.Auth != nil {
+			nodeAt = entry.Node.Auth
+		}
+		out = append(out, runnable{node: *entry.Node, auth: nodeAt})
 	}
 	return out
 }
 
-// findCollection looks a collection up by id, which the run needs because the tree it was given
-// holds every collection and only one of them is being run.
+// findCollection looks a collection up by id, the ones inside collections included: a collection
+// answers to an id wherever it sits, because running one of them and dropping something into it are
+// the same kind of question.
 func findCollection(tree []domain.Collection, id string) (domain.Collection, bool) {
 	for _, collection := range tree {
 		if collection.ID == id {
 			return collection, true
+		}
+		if found, ok := findCollection(collection.Children, id); ok {
+			return found, true
 		}
 	}
 	return domain.Collection{}, false

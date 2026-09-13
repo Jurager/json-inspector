@@ -18,10 +18,12 @@ import (
 	"json-inspector/internal/platform"
 )
 
-// KindCollection is what a level calls the collection itself: a node is a folder or a request, and
-// the collection is neither. KindDraft is a request that is not in a tree at all — the command line's.
+// KindCollection is what a level calls a collection — the one being run, or one inside it, which is a
+// level of the chain like any other. KindRequest is the request itself, the last level of a chain.
+// KindDraft is a request that is not in a tree at all — the command line's.
 const (
 	KindCollection = "collection"
+	KindRequest    = "request"
 	KindDraft      = "draft"
 )
 
@@ -44,7 +46,7 @@ func NewUseCase(engine Engine, tree Tree, store Store, vars Variables, ids platf
 	return &UseCase{engine: engine, tree: tree, store: store, vars: vars, ids: ids, runs: map[string]map[string]string{}}
 }
 
-// Level is one step of a chain: a collection, a folder or a request, and what it runs.
+// Level is one step of a chain: a collection, a collection inside one, or a request, and what it runs.
 type Level struct {
 	NodeID  string         `json:"nodeId"`
 	Name    string         `json:"name"`
@@ -52,9 +54,9 @@ type Level struct {
 	Scripts domain.Scripts `json:"scripts"`
 }
 
-// Chain is what runs around a request, outermost first — the collection's scripts, then each folder's
-// on the way down, then the request's own. A level with nothing to run is not in it: this is what
-// runs, not the places it could have run from.
+// Chain is what runs around a request, outermost first — the collection's scripts, then each
+// collection inside it on the way down, then the request's own. A level with nothing to run is not in
+// it: this is what runs, not the places it could have run from.
 func (u *UseCase) Chain(ctx context.Context, nodeID string) ([]Level, error) {
 	// An empty id is a request nothing was composed around: one that came out of a link in a response,
 	// or out of the browser. Nothing is above it because there is no it.
@@ -67,41 +69,13 @@ func (u *UseCase) Chain(ctx context.Context, nodeID string) ([]Level, error) {
 		return nil, err
 	}
 	for _, collection := range tree {
-		// The collection itself: nothing is above it, and what it runs is the whole chain.
-		if collection.ID == nodeID {
-			scripts, err := u.tree.Scripts(ctx, collection.ID)
-			if err != nil {
-				return nil, err
-			}
-			if level, ok := newLevel(collection.ID, collection.Name, KindCollection, scripts); ok {
-				return []Level{level}, nil
-			}
-			return []Level{}, nil
-		}
-
-		path, ok := pathTo(collection.Items, nodeID)
-		if !ok {
-			continue
-		}
-
-		chain := []Level{}
-		scripts, err := u.tree.Scripts(ctx, collection.ID)
+		chain, ok, err := u.pathTo(ctx, collection, nodeID)
 		if err != nil {
 			return nil, err
 		}
-		if level, ok := newLevel(collection.ID, collection.Name, KindCollection, scripts); ok {
-			chain = append(chain, level)
+		if ok {
+			return chain, nil
 		}
-		for _, node := range path {
-			scripts, err := u.tree.Scripts(ctx, node.ID)
-			if err != nil {
-				return nil, err
-			}
-			if level, ok := newLevel(node.ID, node.Name, string(node.Kind), scripts); ok {
-				chain = append(chain, level)
-			}
-		}
-		return chain, nil
 	}
 
 	// Not in any tree: the command line's request, whose code lives with the draft it is. It is a chain
@@ -117,14 +91,15 @@ func (u *UseCase) Chain(ctx context.Context, nodeID string) ([]Level, error) {
 	if err != nil {
 		return nil, err
 	}
-	if level, ok := newLevel(nodeID, "", KindDraft, scripts); ok {
-		return []Level{level}, nil
+	if scripts.Empty() {
+		return []Level{}, nil
 	}
-	return []Level{}, nil
+	return []Level{{NodeID: nodeID, Kind: KindDraft, Scripts: *scripts}}, nil
 }
 
-// Scripts is what a level runs of its own: a collection's, a folder's, a request's — or the command
-// line's. Nil is "not set here", which is a different answer from a script that is simply empty.
+// Scripts is what a level runs of its own: a collection's, a collection's inside it, a request's — or
+// the command line's. Nil is "not set here", which is a different answer from a script that is simply
+// empty.
 func (u *UseCase) Scripts(ctx context.Context, id string) (*domain.Scripts, error) {
 	return u.store.Scripts(ctx, id)
 }
@@ -290,23 +265,65 @@ func (u *UseCase) setRunVariable(run string, name string, value string) {
 	u.runs[run][name] = value
 }
 
-// pathTo is the way down from a collection's root to one node. What is above a request is what runs
-// before it does, so the order of this walk is the order of the chain.
-func pathTo(nodes []domain.CollectionNode, id string) ([]domain.CollectionNode, bool) {
-	for _, node := range nodes {
-		if node.ID == id {
-			return []domain.CollectionNode{node}, true
-		}
-		if below, ok := pathTo(node.Items, id); ok {
-			return append([]domain.CollectionNode{node}, below...), true
-		}
+// pathTo is the way down from a collection to one id, collections inside it included. What is above a
+// request is what runs before it does, so the order of this walk is the order of the chain.
+//
+// A collection that is the id itself is a chain of one: what it runs is its own code, and nothing is
+// above it because there is nothing above it.
+func (u *UseCase) pathTo(ctx context.Context, from domain.Collection, id string) ([]Level, bool, error) {
+	own, err := u.levelOf(ctx, from.ID, from.Name, KindCollection)
+	if err != nil {
+		return nil, false, err
 	}
-	return nil, false
+	if from.ID == id {
+		return levelsOf(own), true, nil
+	}
+
+	for _, entry := range from.Level() {
+		if entry.Collection != nil {
+			below, ok, err := u.pathTo(ctx, *entry.Collection, id)
+			if err != nil {
+				return nil, false, err
+			}
+			if ok {
+				return append(levelsOf(own), below...), true, nil
+			}
+			continue
+		}
+		if entry.Node.ID != id {
+			continue
+		}
+
+		last, err := u.levelOf(ctx, entry.Node.ID, entry.Node.Name, KindRequest)
+		if err != nil {
+			return nil, false, err
+		}
+		return levelsOf(own, last), true, nil
+	}
+	return nil, false, nil
 }
 
-func newLevel(id string, name string, kind string, scripts *domain.Scripts) (Level, bool) {
-	if scripts.Empty() {
-		return Level{}, false
+// levelOf is one step of a chain, or nothing when the level has no code of its own to run: a level
+// that runs nothing is not a step, it is a collection on the way.
+func (u *UseCase) levelOf(ctx context.Context, id string, name string, kind string) (*Level, error) {
+	scripts, err := u.tree.Scripts(ctx, id)
+	if err != nil {
+		return nil, err
 	}
-	return Level{NodeID: id, Name: name, Kind: kind, Scripts: *scripts}, true
+	if scripts.Empty() {
+		return nil, nil
+	}
+	return &Level{NodeID: id, Name: name, Kind: kind, Scripts: *scripts}, nil
+}
+
+// levelsOf drops the levels with nothing to run, which is what keeps a chain what runs rather than
+// the places it could have run from.
+func levelsOf(levels ...*Level) []Level {
+	out := []Level{}
+	for _, level := range levels {
+		if level != nil {
+			out = append(out, *level)
+		}
+	}
+	return out
 }

@@ -38,8 +38,8 @@ export function Delete(id: string): $CancellablePromise<domain$0.Collection[] | 
 }
 
 /**
- * Describe writes what a collection or a folder is for — the line the overview draws above its tabs.
- * Empty is an answer there: the header then shows the placeholder that invites one.
+ * Describe writes what a collection is for — the line the overview draws above its tabs. Empty is an
+ * answer there: the header then shows the placeholder that invites one.
  */
 export function Describe(id: string, description: string): $CancellablePromise<domain$0.Collection[] | null> {
     return $Call.ByID(4022716643, id, description);
@@ -82,6 +82,19 @@ export function LastRun(collectionID: string, nodeID: string): $CancellablePromi
     return $Call.ByID(1189953743, collectionID, nodeID);
 }
 
+export function MoveCollection(id: string, parentID: string, position: number): $CancellablePromise<domain$0.Collection[] | null> {
+    return $Call.ByID(2780926367, id, parentID, position);
+}
+
+/**
+ * MoveNode and MoveCollection are what a drop in the tree calls. The position is an index in the level
+ * the row was dropped into, counted the way the window drew it — the requests of a collection and the
+ * collections inside it are one list on screen and one number line here.
+ */
+export function MoveNode(id: string, collectionID: string, position: number): $CancellablePromise<domain$0.Collection[] | null> {
+    return $Call.ByID(2249490431, id, collectionID, position);
+}
+
 /**
  * Node is what opening a saved request needs: a tree row carries its method and nothing else.
  */
@@ -112,9 +125,9 @@ export function Run(collectionID: string, nodeID: string): $CancellablePromise<s
 }
 
 /**
- * SaveAuth writes what a collection or a folder authorizes its requests with. «Нет» is the same
- * call with an empty auth: a level that has none is a level the ones below it inherit past, and the
- * overview then draws the tab the way a collection without one looks.
+ * SaveAuth writes what a collection authorizes its requests with. «Нет» is the same call with an
+ * empty auth: a level that has none is a level the ones below it inherit past, and the overview then
+ * draws the tab the way a collection without one looks.
  */
 export function SaveAuth(id: string, auth: domain$0.Auth): $CancellablePromise<domain$0.Collection[] | null> {
     return $Call.ByID(3442193257, id, auth);
@@ -128,8 +141,8 @@ export function SaveAuth(id: string, auth: domain$0.Auth): $CancellablePromise<d
  * node is written once: an empty request filled in by a second call would be a saved request with no
  * address if that call failed.
  */
-export function SaveDraft(collectionID: string, parentID: string, name: string): $CancellablePromise<$models.CreatedNode> {
-    return $Call.ByID(1665422330, collectionID, parentID, name);
+export function SaveDraft(collectionID: string, name: string): $CancellablePromise<$models.CreatedNode> {
+    return $Call.ByID(1665422330, collectionID, name);
 }
 
 /**

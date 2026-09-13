@@ -98,7 +98,7 @@ const sidePanelShown = computed(() => {
           <CollectionOverview v-else-if="collections.selectedId" />
           <div v-else class="empty">
             <span class="empty-title">{{ t('workspace.chooseRequest') }}</span>
-            <span>{{ t('workspace.orFolder') }}</span>
+            <span>{{ t('workspace.orCollection') }}</span>
           </div>
         </template>
       </div>

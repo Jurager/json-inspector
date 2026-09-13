@@ -17,12 +17,12 @@ const LABELS: Record<string, string> = { bearer: 'Bearer Token', basic: 'Basic',
 
 const NONE: Auth = { type: 'none' as Auth['type'], token: '' }
 
-// The level the tab is about: the collection itself, or the folder that is open.
+// The level the tab is about: the collection that is open, wherever it sits.
 const levelId = computed(() => store.selectedId ?? '')
 // What this level answers with *itself* — which is what the tab edits. A folder with nothing of its
 // own is «Нет» rather than the token it inherits: showing the parent's here would make the next
 // keystroke a copy of it, and inheriting is not owning.
-const auth = computed<Auth>(() => store.selected?.auth ?? store.trail?.collection.auth ?? NONE)
+const auth = computed<Auth>(() => store.selected?.auth ?? store.trail?.collection?.auth ?? NONE)
 // What the levels above answer with, said in a line of its own. Only a node has levels above it: a
 // collection is the top of its own tree.
 const inherited = computed<Auth | null>(() => (store.selected ? store.inheritedAuth : null))

@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"slices"
+	"sort"
 	"strings"
 	"sync"
 	"testing"
@@ -13,9 +15,10 @@ import (
 	"json-inspector/internal/platform"
 )
 
-// fakeStore is the tree without a database: collections in their order, nodes in one flat slice,
-// deleted subtrees marked rather than removed. It keeps the two things the use case relies on — the
-// tree nests by parent and a node reads whole while a tree row is shallow.
+// fakeStore is the tree without a database: collections in their order, requests in one flat slice,
+// deleted subtrees marked rather than removed. It keeps the two things the use case relies on — a
+// collection nests by parent and its level is the requests and the collections inside it — and a
+// request reads whole while a tree row is shallow.
 //
 // A run writes to it from its own goroutine while a test reads, so the mutex is the fake standing in
 // for the database's own serialisation.
@@ -26,7 +29,7 @@ type fakeStore struct {
 	runs        []domain.CollectionRun
 	results     map[string][]domain.CollectionRunResult
 	gone        map[string]bool
-	// A node carries its own scripts, a collection does not — which is the shape the table has, and
+	// A request carries its own scripts, a collection does not — which is the shape the table has, and
 	// the reason this is a map rather than a field.
 	scripts map[string]*domain.Scripts
 }
@@ -43,14 +46,24 @@ func (f *fakeStore) hidden(id string) bool {
 	return f.gone[id]
 }
 
-// bury marks a node and everything under it, the way the schema's cascade would.
+// bury marks a request gone, and buryCollection a collection with everything inside it — the way the
+// schema's two cascades would: the nesting one, and the collection a request belongs to.
 func (f *fakeStore) bury(id string) {
+	f.gone[id] = true
+}
+
+func (f *fakeStore) buryCollection(id string) {
 	if f.gone[id] {
 		return
 	}
 	f.gone[id] = true
+	for _, collection := range f.collections {
+		if collection.ParentID == id {
+			f.buryCollection(collection.ID)
+		}
+	}
 	for _, node := range f.nodes {
-		if node.ParentID == id {
+		if node.CollectionID == id {
 			f.bury(node.ID)
 		}
 	}
@@ -60,35 +73,53 @@ func (f *fakeStore) Collections(context.Context) ([]domain.Collection, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 
-	out := make([]domain.Collection, 0, len(f.collections))
+	return f.tree(), nil
+}
+
+// tree is the shape the use case reads: collections nested by parent, and inside each one its own
+// requests, shallow and in position order — which is the order the store's own query returns them in,
+// and the order both the level merge and the run walk depend on.
+func (f *fakeStore) tree() []domain.Collection {
+	byParent := map[string][]domain.Collection{}
 	for _, collection := range f.collections {
 		if f.hidden(collection.ID) {
 			continue
 		}
-		collection.Items = f.nest(collection.ID)
-		out = append(out, collection)
+		byParent[collection.ParentID] = append(byParent[collection.ParentID], collection)
 	}
-	return out, nil
-}
 
-// nest builds the shallow tree the list draws: a row knows its children by shape, not by content.
-func (f *fakeStore) nest(collectionID string) []domain.CollectionNode {
-	var build func(parent string) []domain.CollectionNode
-	build = func(parent string) []domain.CollectionNode {
-		items := []domain.CollectionNode{}
-		for _, node := range f.nodes {
-			if node.CollectionID != collectionID || node.ParentID != parent || f.hidden(node.ID) {
-				continue
-			}
-			row := node
-			row.Items = build(row.ID)
-			row.Params, row.Headers, row.Cookies, row.Body = nil, nil, nil, ""
-			row.URL, row.Scripts = "", nil
-			items = append(items, row)
+	var build func(parent string) []domain.Collection
+	build = func(parent string) []domain.Collection {
+		children := byParent[parent]
+		sort.SliceStable(children, func(i, j int) bool { return children[i].Position < children[j].Position })
+
+		out := []domain.Collection{}
+		for _, collection := range children {
+			row := collection
+			row.Items = f.itemsOf(row.ID)
+			row.Children = build(row.ID)
+			out = append(out, row)
 		}
-		return items
+		return out
 	}
 	return build("")
+}
+
+// itemsOf is one collection's requests as the list draws them: a row carries its method, and two
+// hundred bodies is not what a list loads.
+func (f *fakeStore) itemsOf(collectionID string) []domain.CollectionNode {
+	out := []domain.CollectionNode{}
+	for _, node := range f.nodes {
+		if node.CollectionID != collectionID || f.hidden(node.ID) {
+			continue
+		}
+		row := node
+		row.Params, row.Headers, row.Cookies, row.Body = nil, nil, nil, ""
+		row.URL, row.Scripts = "", nil
+		out = append(out, row)
+	}
+	sort.SliceStable(out, func(i, j int) bool { return out[i].Position < out[j].Position })
+	return out
 }
 
 func (f *fakeStore) Node(_ context.Context, id string) (domain.CollectionNode, error) {
@@ -97,7 +128,6 @@ func (f *fakeStore) Node(_ context.Context, id string) (domain.CollectionNode, e
 
 	for _, node := range f.nodes {
 		if node.ID == id && !f.hidden(id) {
-			node.Items = nil
 			return node, nil
 		}
 	}
@@ -108,9 +138,12 @@ func (f *fakeStore) SaveCollection(_ context.Context, collection domain.Collecti
 	f.mu.Lock()
 	defer f.mu.Unlock()
 
-	collection.Items = nil
+	collection.Items, collection.Children = nil, nil
 	for i := range f.collections {
 		if f.collections[i].ID == collection.ID {
+			// The row's place is written by the insert and left alone by the update, the way the SQL
+			// does it: a rename saves the row it read, and moving is a gesture of its own.
+			collection.ParentID = f.collections[i].ParentID
 			f.collections[i] = collection
 			return nil
 		}
@@ -123,7 +156,6 @@ func (f *fakeStore) SaveNode(_ context.Context, node domain.CollectionNode) erro
 	f.mu.Lock()
 	defer f.mu.Unlock()
 
-	node.Items = nil
 	for i := range f.nodes {
 		if f.nodes[i].ID == node.ID {
 			f.nodes[i] = node
@@ -138,13 +170,7 @@ func (f *fakeStore) DeleteCollection(_ context.Context, id string) error {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 
-	f.bury(id)
-	for _, node := range f.nodes {
-		if node.CollectionID == id {
-			f.bury(node.ID)
-		}
-	}
-	f.gone[id] = true
+	f.buryCollection(id)
 	return nil
 }
 
@@ -202,19 +228,136 @@ func (f *fakeStore) SaveScripts(_ context.Context, id string, scripts *domain.Sc
 	return domain.ErrNotFound
 }
 
-func (f *fakeStore) NextPosition(_ context.Context, collectionID string, parentID string) (int64, error) {
+// NextPosition is one past the last child of a level, requests and nested collections counted
+// together: they share one number line, which is what makes them one list on screen.
+func (f *fakeStore) NextPosition(_ context.Context, collectionID string) (int64, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 
 	var next int64
+	consider := func(position int64) {
+		if position >= next {
+			next = position + 1
+		}
+	}
 	for _, node := range f.nodes {
-		if node.CollectionID == collectionID && node.ParentID == parentID && !f.hidden(node.ID) {
-			if node.Position >= next {
-				next = node.Position + 1
-			}
+		if node.CollectionID == collectionID && !f.hidden(node.ID) {
+			consider(node.Position)
+		}
+	}
+	for _, collection := range f.collections {
+		if collection.ParentID == collectionID && !f.hidden(collection.ID) {
+			consider(collection.Position)
 		}
 	}
 	return next, nil
+}
+
+// MoveNode and MoveCollection are the store's own two moves: the row changes where it lives, and both
+// the level it left and the level it joined are numbered again with it in place.
+func (f *fakeStore) MoveNode(_ context.Context, id string, collectionID string, position int64) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+
+	for i := range f.nodes {
+		if f.nodes[i].ID != id || f.hidden(id) {
+			continue
+		}
+		from := f.nodes[i].CollectionID
+		f.nodes[i].CollectionID = collectionID
+		f.number(placeAt(f.levelOf(from), "", 0))
+		f.number(placeAt(f.levelOf(collectionID), id, position))
+		return nil
+	}
+	return domain.ErrNotFound
+}
+
+func (f *fakeStore) MoveCollection(_ context.Context, id string, parentID string, position int64) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+
+	for i := range f.collections {
+		if f.collections[i].ID != id || f.hidden(id) {
+			continue
+		}
+		from := f.collections[i].ParentID
+		f.collections[i].ParentID = parentID
+		f.number(placeAt(f.levelOf(from), "", 0))
+		f.number(placeAt(f.levelOf(parentID), id, position))
+		return nil
+	}
+	return domain.ErrNotFound
+}
+
+// levelOf is one level in the order it is drawn: a collection's requests and the collections inside
+// it, merged by position — the same one list the window draws and the store numbers.
+func (f *fakeStore) levelOf(collectionID string) []string {
+	type entry struct {
+		id       string
+		position int64
+	}
+	entries := []entry{}
+	for _, node := range f.nodes {
+		if node.CollectionID == collectionID && !f.hidden(node.ID) {
+			entries = append(entries, entry{id: node.ID, position: node.Position})
+		}
+	}
+	for _, collection := range f.collections {
+		if collection.ParentID == collectionID && !f.hidden(collection.ID) {
+			entries = append(entries, entry{id: collection.ID, position: collection.Position})
+		}
+	}
+	sort.SliceStable(entries, func(i, j int) bool { return entries[i].position < entries[j].position })
+
+	out := make([]string, 0, len(entries))
+	for _, one := range entries {
+		out = append(out, one.id)
+	}
+	return out
+}
+
+// placeAt lifts a row out of a level and puts it back at the dropped index, which counts the level as
+// it looks now — the row being moved included — the way the store's own does.
+func placeAt(level []string, moved string, at int64) []string {
+	others := make([]string, 0, len(level))
+	insert := int64(0)
+	for i, id := range level {
+		if id == moved {
+			continue
+		}
+		if int64(i) < at {
+			insert++
+		}
+		others = append(others, id)
+	}
+	if insert > int64(len(others)) {
+		insert = int64(len(others))
+	}
+	if insert < 0 {
+		insert = 0
+	}
+
+	out := make([]string, 0, len(others)+1)
+	out = append(out, others[:insert]...)
+	out = append(out, moved)
+	out = append(out, others[insert:]...)
+	return out
+}
+
+// number writes a level back numbered from zero, in whichever table each row lives in.
+func (f *fakeStore) number(level []string) {
+	for i, id := range level {
+		for j := range f.nodes {
+			if f.nodes[j].ID == id {
+				f.nodes[j].Position = int64(i)
+			}
+		}
+		for j := range f.collections {
+			if f.collections[j].ID == id {
+				f.collections[j].Position = int64(i)
+			}
+		}
+	}
 }
 
 func (f *fakeStore) SaveRun(_ context.Context, run domain.CollectionRun) error {
@@ -456,7 +599,7 @@ func TestCreateCollectionRejectsAnEmptyName(t *testing.T) {
 	}
 }
 
-func TestCreateNodeLandsAtTheEndOfItsGroup(t *testing.T) {
+func TestCreateNodeLandsAtTheEndOfItsLevel(t *testing.T) {
 	uc, _ := newTestUseCase()
 	ctx := context.Background()
 
@@ -466,57 +609,63 @@ func TestCreateNodeLandsAtTheEndOfItsGroup(t *testing.T) {
 	}
 	id := only(t, tree).ID
 
-	_, tree, err = uc.CreateNode(ctx, NewNode{CollectionID: id, Kind: domain.NodeRequest, Name: "Первый"})
-	if err != nil {
+	if _, tree, err = uc.CreateNode(ctx, NewNode{CollectionID: id, Name: "Первый"}); err != nil {
 		t.Fatalf("CreateNode: %v", err)
 	}
-	_, folder, err := uc.CreateNode(ctx, NewNode{CollectionID: id, Kind: domain.NodeFolder, Name: "Папка"})
-	if err != nil {
-		t.Fatalf("CreateNode: %v", err)
-	}
-	folderID := only(t, folder).Items[1].ID
+	// Dropped in at the top of the level, so the request that was there is now second.
+	nestedID := nestCollection(t, uc, "Вложенная", id)
 
-	_, tree, err = uc.CreateNode(ctx, NewNode{
-		CollectionID: id, ParentID: folderID, Kind: domain.NodeRequest, Name: "Внутри", Method: "post",
-	})
+	_, tree, err = uc.CreateNode(ctx, NewNode{CollectionID: id, Name: "Второй", Method: "post"})
 	if err != nil {
 		t.Fatalf("CreateNode: %v", err)
 	}
 
-	root := only(t, tree).Items
-	if len(root) != 2 {
-		t.Fatalf("root = %d nodes, want 2", len(root))
+	collection := only(t, tree)
+	level := collection.Level()
+	if len(level) != 3 {
+		t.Fatalf("level = %+v, want two requests and the collection between them", level)
 	}
-	// The second request's own position is unrelated to the one inside the folder: groups count
-	// separately, and a node that landed at the end of the wrong one would show it here.
-	if root[0].Position != 0 || root[0].Method != "GET" {
-		t.Errorf("first request = %+v, want position 0 and the default method", root[0])
+	// The requests of a collection and the collections inside it are one number line: the new request
+	// lands after the collection that was dropped in, not at the end of a group of its own.
+	if level[0].Collection == nil || level[0].Collection.ID != nestedID {
+		t.Errorf("level[0] = %+v, want the nested collection at 0", level[0])
 	}
-	if root[1].Position != 1 || root[1].Kind != domain.NodeFolder || len(root[1].Items) != 1 {
-		t.Errorf("folder = %+v, want position 1 with one child", root[1])
+	if level[0].Collection.Position != 0 {
+		t.Errorf("level[0] = %+v, want it numbered 0", level[0])
 	}
-	child := root[1].Items[0]
-	if child.Position != 0 || child.Method != "POST" {
-		t.Errorf("child = %+v, want the first of its group and the method as typed", child)
+	if level[1].Node == nil || level[1].Node.Name != "Первый" || level[1].Node.Position != 1 {
+		t.Errorf("level[1] = %+v, want the first request pushed to 1", level[1])
+	}
+	if level[1].Node.Method != "GET" {
+		t.Errorf("method = %q, want the default one", level[1].Node.Method)
+	}
+	if level[2].Node == nil || level[2].Node.Position != 2 || level[2].Node.Method != "POST" {
+		t.Errorf("level[2] = %+v, want the new request at 2 with the method as typed", level[2])
 	}
 }
 
-func TestCreateNodeRefusesARequestAsParent(t *testing.T) {
-	uc, _ := newTestUseCase()
+// nestCollection creates a collection and drops it at the top of the one named, which is how a
+// collection comes to sit inside another: the tree has no gesture that makes one there.
+func nestCollection(t *testing.T, uc *UseCase, name string, parentID string) string {
+	t.Helper()
+	return nestCollectionAt(t, uc, name, parentID, 0)
+}
+
+// nestCollectionAt is the same drop at a place of its own, which is what a fixture needs when it is
+// the order of the level that a test is about.
+func nestCollectionAt(t *testing.T, uc *UseCase, name string, parentID string, at int64) string {
+	t.Helper()
 	ctx := context.Background()
 
-	tree, _ := uc.CreateCollection(ctx, "Коллекция", "")
-	id := only(t, tree).ID
-	_, tree, err := uc.CreateNode(ctx, NewNode{CollectionID: id, Kind: domain.NodeRequest, Name: "Запрос"})
+	tree, err := uc.CreateCollection(ctx, name, "")
 	if err != nil {
-		t.Fatalf("CreateNode: %v", err)
+		t.Fatalf("CreateCollection: %v", err)
 	}
-	requestID := only(t, tree).Items[0].ID
-
-	_, _, err = uc.CreateNode(ctx, NewNode{CollectionID: id, ParentID: requestID, Kind: domain.NodeFolder, Name: "Внутри"})
-	if !errors.Is(err, domain.ErrNotAllowed) {
-		t.Fatalf("a request as parent = %v, want ErrNotAllowed", err)
+	created := tree[len(tree)-1].ID
+	if _, err := uc.MoveCollection(ctx, created, parentID, at); err != nil {
+		t.Fatalf("MoveCollection: %v", err)
 	}
+	return created
 }
 
 // A request saved from a composer is written whole: the row that comes back is the one that
@@ -533,7 +682,6 @@ func TestCreateNodeTakesAWholeRequest(t *testing.T) {
 
 	created, tree, err := uc.CreateNode(ctx, NewNode{
 		CollectionID: collectionID,
-		Kind:         domain.NodeRequest,
 		Name:         "Сохранённый",
 		Method:       "patch",
 		URL:          "https://api.example.com/users/1?page=2",
@@ -573,7 +721,7 @@ func TestRenameReachesBothKinds(t *testing.T) {
 
 	tree, _ := uc.CreateCollection(ctx, "Коллекция", "")
 	collectionID := only(t, tree).ID
-	_, tree, _ = uc.CreateNode(ctx, NewNode{CollectionID: collectionID, Kind: domain.NodeRequest, Name: "Запрос"})
+	_, tree, _ = uc.CreateNode(ctx, NewNode{CollectionID: collectionID, Name: "Запрос"})
 	requestID := only(t, tree).Items[0].ID
 
 	tree, err := uc.Rename(ctx, collectionID, "Переименована")
@@ -586,14 +734,37 @@ func TestRenameReachesBothKinds(t *testing.T) {
 
 	tree, err = uc.Rename(ctx, requestID, "  Тоже  ")
 	if err != nil {
-		t.Fatalf("Rename node: %v", err)
+		t.Fatalf("Rename request: %v", err)
 	}
 	if only(t, tree).Items[0].Name != "Тоже" {
-		t.Errorf("node = %+v, want the name trimmed", only(t, tree).Items[0])
+		t.Errorf("request = %+v, want the name trimmed", only(t, tree).Items[0])
 	}
 }
 
-// What a level is for is written the same way both levels answer it, and an empty answer is a real
+// Renaming a collection inside another one is the same gesture, and it leaves the row where it is: a
+// rename saves the row it read, and where a row sits is not part of what a rename edits.
+func TestRenameKeepsANestedCollectionNested(t *testing.T) {
+	uc, _ := newTestUseCase()
+	ctx := context.Background()
+
+	tree, _ := uc.CreateCollection(ctx, "Коллекция", "")
+	collectionID := only(t, tree).ID
+	nestedID := nestCollection(t, uc, "Вложенная", collectionID)
+
+	tree, err := uc.Rename(ctx, nestedID, "Переименована")
+	if err != nil {
+		t.Fatalf("Rename: %v", err)
+	}
+	renamed, ok := findCollection(tree, nestedID)
+	if !ok {
+		t.Fatalf("the nested collection left the tree: %+v", tree)
+	}
+	if renamed.Name != "Переименована" || renamed.ParentID != collectionID {
+		t.Errorf("nested = %+v, want it renamed and still inside the collection", renamed)
+	}
+}
+
+// What a level is for is written the same way every level answers it, and an empty answer is a real
 // one: the header draws a placeholder for it rather than a gap.
 func TestDescribeReachesBothKinds(t *testing.T) {
 	uc, _ := newTestUseCase()
@@ -601,8 +772,7 @@ func TestDescribeReachesBothKinds(t *testing.T) {
 
 	tree, _ := uc.CreateCollection(ctx, "Коллекция", "старое описание")
 	collectionID := only(t, tree).ID
-	_, tree, _ = uc.CreateNode(ctx, NewNode{CollectionID: collectionID, Kind: domain.NodeFolder, Name: "Папка"})
-	folderID := only(t, tree).Items[0].ID
+	nestedID := nestCollection(t, uc, "Вложенная", collectionID)
 
 	tree, err := uc.Describe(ctx, collectionID, "  Эндпоинты каталога  ")
 	if err != nil {
@@ -612,12 +782,12 @@ func TestDescribeReachesBothKinds(t *testing.T) {
 		t.Errorf("description = %q, want it trimmed", got)
 	}
 
-	tree, err = uc.Describe(ctx, folderID, "Только админские")
+	tree, err = uc.Describe(ctx, nestedID, "Только админские")
 	if err != nil {
 		t.Fatalf("Describe: %v", err)
 	}
-	if got := only(t, tree).Items[0].Description; got != "Только админские" {
-		t.Errorf("folder description = %q, want what was written", got)
+	if nested, ok := findCollection(tree, nestedID); !ok || nested.Description != "Только админские" {
+		t.Errorf("nested = %+v, want the description it was given", nested)
 	}
 
 	// Empty is allowed and means what it says — unlike a name, which cannot be empty.
@@ -648,15 +818,12 @@ func TestDuplicateCopiesTheSubtree(t *testing.T) {
 
 	tree, _ := uc.CreateCollection(ctx, "Коллекция", "")
 	collectionID := only(t, tree).ID
-	_, tree, _ = uc.CreateNode(ctx, NewNode{CollectionID: collectionID, Kind: domain.NodeFolder, Name: "Папка"})
-	folderID := only(t, tree).Items[0].ID
-	_, tree, _ = uc.CreateNode(ctx, NewNode{
-		CollectionID: collectionID, ParentID: folderID, Kind: domain.NodeRequest, Name: "Внутри",
-	})
-	requestID := only(t, tree).Items[0].Items[0].ID
+	nestedID := nestCollection(t, uc, "Вложенная", collectionID)
+	_, tree, _ = uc.CreateNode(ctx, NewNode{CollectionID: nestedID, Name: "Внутри"})
+	requestID := findIn(t, tree, nestedID).Items[0].ID
 
-	// A request inside a folder is more than the tree row the copy starts from, and a copy that
-	// forgot it would be an empty folder.
+	// A request inside a collection is more than the tree row the copy starts from, and a copy that
+	// forgot it would be an empty collection.
 	if _, err := uc.SaveNode(ctx, domain.CollectionNode{
 		ID: requestID, Name: "Внутри", Method: "PATCH", URL: "https://api.example.com/users/1",
 		Headers: []domain.Row{{ID: "h1", Name: "X-Test", Value: "1", Enabled: true}},
@@ -664,21 +831,26 @@ func TestDuplicateCopiesTheSubtree(t *testing.T) {
 		t.Fatalf("SaveNode: %v", err)
 	}
 
-	tree, err := uc.Duplicate(ctx, folderID, copySuffix)
+	tree, err := uc.Duplicate(ctx, nestedID, copySuffix)
 	if err != nil {
 		t.Fatalf("Duplicate: %v", err)
 	}
-	items := only(t, tree).Items
-	if len(items) != 2 {
-		t.Fatalf("root = %d nodes, want the copy beside the original", len(items))
+	// The copy lands in the level the original is in: a copy of a nested collection is not a reason to
+	// hoist it to the top.
+	level := only(t, tree).Children
+	if len(level) != 2 {
+		t.Fatalf("children = %d, want the copy beside the original", len(level))
 	}
-	if items[1].Name != "Папка"+copySuffix || items[1].Position != 1 {
-		t.Errorf("copy = %+v, want it named and placed next to the original", items[1])
+	if level[1].Name != "Вложенная"+copySuffix || level[1].Position != 1 {
+		t.Errorf("copy = %+v, want it named and placed next to the original", level[1])
 	}
-	if len(items[1].Items) != 1 {
-		t.Fatalf("copy = %+v, want its child", items[1])
+	if level[1].ParentID != collectionID {
+		t.Errorf("copy = %+v, want it inside the collection the original is in", level[1])
 	}
-	copiedID := items[1].Items[0].ID
+	if len(level[1].Items) != 1 {
+		t.Fatalf("copy = %+v, want its own request", level[1])
+	}
+	copiedID := level[1].Items[0].ID
 	if copiedID == requestID {
 		t.Error("the copy kept the original's id")
 	}
@@ -686,15 +858,25 @@ func TestDuplicateCopiesTheSubtree(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Node: %v", err)
 	}
-	if copied.CollectionID != collectionID || copied.ParentID != items[1].ID {
-		t.Errorf("copied child = %+v, want it inside the copy", copied)
+	if copied.CollectionID != level[1].ID {
+		t.Errorf("copied request = %+v, want it inside the copy", copied)
 	}
 	if copied.URL != "https://api.example.com/users/1" || len(copied.Headers) != 1 {
-		t.Errorf("copied child = %+v, want the request's own fields", copied)
+		t.Errorf("copied request = %+v, want the request's own fields", copied)
 	}
 	if copied.Method != "PATCH" {
 		t.Errorf("copied method = %q, want the original's", copied.Method)
 	}
+}
+
+// findIn is a collection of the tree by id, which is how a test reaches one that is not at the top.
+func findIn(t *testing.T, tree []domain.Collection, id string) domain.Collection {
+	t.Helper()
+	collection, ok := findCollection(tree, id)
+	if !ok {
+		t.Fatalf("collection %s is not in the tree", id)
+	}
+	return collection
 }
 
 // A copy of a request is the request, not its name: the tree row a duplicate starts from carries the
@@ -705,7 +887,7 @@ func TestDuplicateCopiesTheRequestItself(t *testing.T) {
 
 	tree, _ := uc.CreateCollection(ctx, "Коллекция", "")
 	collectionID := only(t, tree).ID
-	_, tree, _ = uc.CreateNode(ctx, NewNode{CollectionID: collectionID, Kind: domain.NodeRequest, Name: "Запрос"})
+	_, tree, _ = uc.CreateNode(ctx, NewNode{CollectionID: collectionID, Name: "Запрос"})
 	requestID := only(t, tree).Items[0].ID
 
 	bearer := &domain.Auth{Type: domain.AuthBearer, Token: "{{token}}"}
@@ -769,7 +951,7 @@ func TestSavingARequestKeepsItsScripts(t *testing.T) {
 
 	tree, _ := uc.CreateCollection(ctx, "Коллекция", "")
 	collectionID := only(t, tree).ID
-	_, tree, _ = uc.CreateNode(ctx, NewNode{CollectionID: collectionID, Kind: domain.NodeRequest, Name: "Запрос"})
+	_, tree, _ = uc.CreateNode(ctx, NewNode{CollectionID: collectionID, Name: "Запрос"})
 	requestID := only(t, tree).Items[0].ID
 
 	if err := store.SaveScripts(ctx, requestID, &domain.Scripts{Post: "console.log('свой');"}); err != nil {
@@ -825,10 +1007,10 @@ func TestDuplicateCopiesACollection(t *testing.T) {
 
 	tree, _ := uc.CreateCollection(ctx, "Коллекция", "описание")
 	collectionID := only(t, tree).ID
-	_, tree, _ = uc.CreateNode(ctx, NewNode{CollectionID: collectionID, Kind: domain.NodeRequest, Name: "Первый"})
-	_, tree, _ = uc.CreateNode(ctx, NewNode{CollectionID: collectionID, Kind: domain.NodeFolder, Name: "Папка"})
-	// The root of a collection is a tree row too, and a copy that took the row for the content would
-	// lose the request behind it — the same trap the node duplicate had.
+	_, tree, _ = uc.CreateNode(ctx, NewNode{CollectionID: collectionID, Name: "Первый"})
+	nestedID := nestCollection(t, uc, "Вложенная", collectionID)
+	// A request is a tree row too, and a copy that took the row for the content would lose the
+	// request behind it — the same trap the request duplicate had.
 	if _, err := uc.SaveNode(ctx, domain.CollectionNode{
 		ID: only(t, tree).Items[0].ID, Name: "Первый", Method: "GET", URL: "https://api.example.com/first",
 	}); err != nil {
@@ -843,27 +1025,35 @@ func TestDuplicateCopiesACollection(t *testing.T) {
 		t.Fatalf("tree = %d collections, want 2", len(tree))
 	}
 	copied := tree[1]
-	if copied.Name != "Коллекция"+copySuffix || copied.Description != "описание" || copied.Position != 1 {
+	// The copy lands at the end of the level the original is in: the requests of a collection and the
+	// collections inside it are one list, and that list is three long here.
+	if copied.Name != "Коллекция"+copySuffix || copied.Description != "описание" || copied.Position != 2 {
 		t.Errorf("copy = %+v, want it named and placed after the original", copied)
 	}
-	if len(copied.Items) != 2 || copied.Items[1].Kind != domain.NodeFolder {
-		t.Fatalf("copy items = %+v, want both nodes in order", copied.Items)
+	if len(copied.Items) != 1 || len(copied.Children) != 1 {
+		t.Fatalf("copy = %+v, want its own level: a request and the collection inside it", copied)
 	}
-	// Every node has to move into the new collection: a row left behind would be visible in both.
+	// Everything has to move into the new collection: a row left behind would be visible in both.
 	for _, node := range copied.Items {
 		if node.CollectionID != copied.ID {
-			t.Errorf("node %s still lives in %s", node.ID, node.CollectionID)
+			t.Errorf("request %s still lives in %s", node.ID, node.CollectionID)
 		}
 	}
+	if copied.Children[0].ParentID != copied.ID || copied.Children[0].ID == nestedID {
+		t.Errorf("nested copy = %+v, want a collection of its own inside the copy", copied.Children[0])
+	}
+	if len(copied.Children[0].Items) != 0 {
+		t.Errorf("nested copy = %+v, want the original's own level copied with it", copied.Children[0])
+	}
 	if copied.Items[0].ID == tree[0].Items[0].ID {
-		t.Error("the copy kept the original's node id")
+		t.Error("the copy kept the original's request id")
 	}
 	copiedFirst, err := store.Node(ctx, copied.Items[0].ID)
 	if err != nil {
 		t.Fatalf("Node: %v", err)
 	}
 	if copiedFirst.Name != "Первый" || copiedFirst.URL != "https://api.example.com/first" {
-		t.Errorf("copied root = %+v, want the request it was copied from", copiedFirst)
+		t.Errorf("copied request = %+v, want the request it was copied from", copiedFirst)
 	}
 }
 
@@ -895,16 +1085,17 @@ func TestDeleteTakesTheWholeSubtree(t *testing.T) {
 
 	tree, _ := uc.CreateCollection(ctx, "Коллекция", "")
 	collectionID := only(t, tree).ID
-	_, tree, _ = uc.CreateNode(ctx, NewNode{CollectionID: collectionID, Kind: domain.NodeFolder, Name: "Папка"})
-	folderID := only(t, tree).Items[0].ID
-	uc.CreateNode(ctx, NewNode{CollectionID: collectionID, ParentID: folderID, Kind: domain.NodeRequest, Name: "Внутри"})
+	nestedID := nestCollection(t, uc, "Вложенная", collectionID)
+	_, tree, _ = uc.CreateNode(ctx, NewNode{CollectionID: nestedID, Name: "Внутри"})
 
-	tree, err := uc.Delete(ctx, folderID)
+	// A collection inside another is a row of its own, so removing it is what takes its requests with
+	// it — through both cascades: the nesting one, and the collection the request belongs to.
+	tree, err := uc.Delete(ctx, nestedID)
 	if err != nil {
 		t.Fatalf("Delete: %v", err)
 	}
-	if len(only(t, tree).Items) != 0 {
-		t.Errorf("items = %+v, want the folder and its child gone", only(t, tree).Items)
+	if len(only(t, tree).Children) != 0 {
+		t.Errorf("children = %+v, want it and its request gone", only(t, tree).Children)
 	}
 
 	tree, err = uc.Delete(ctx, collectionID)
@@ -916,29 +1107,26 @@ func TestDeleteTakesTheWholeSubtree(t *testing.T) {
 	}
 }
 
-func TestSaveNodeKeepsWhatTheTreeOwns(t *testing.T) {
+func TestSaveNodeKeepsWhereItLives(t *testing.T) {
 	uc, store := newTestUseCase()
 	ctx := context.Background()
 
 	tree, _ := uc.CreateCollection(ctx, "Коллекция", "")
 	collectionID := only(t, tree).ID
-	_, tree, _ = uc.CreateNode(ctx, NewNode{CollectionID: collectionID, Kind: domain.NodeFolder, Name: "Папка"})
-	folderID := only(t, tree).Items[0].ID
-	_, tree, _ = uc.CreateNode(ctx, NewNode{
-		CollectionID: collectionID, ParentID: folderID, Kind: domain.NodeRequest, Name: "Запрос",
-	})
-	requestID := only(t, tree).Items[0].Items[0].ID
+	nestedID := nestCollection(t, uc, "Вложенная", collectionID)
+	_, tree, _ = uc.CreateNode(ctx, NewNode{CollectionID: nestedID, Name: "Запрос"})
+	requestID := findIn(t, tree, nestedID).Items[0].ID
 
 	before, err := store.Node(ctx, requestID)
 	if err != nil {
 		t.Fatalf("Node: %v", err)
 	}
 
-	// The card knows nothing about where the node lives, so it sends what it has and the rest must
-	// survive: a save that moved a request to the root would be a lost tree.
+	// The card knows nothing about where the request lives, so it sends what it has and the rest must
+	// survive: a save that moved a request out of its collection would be a lost tree.
 	if _, err := uc.SaveNode(ctx, domain.CollectionNode{
 		ID: requestID, Name: "  Переименован  ", Method: "delete", URL: "https://api.example.com/users",
-		Description: "  про пользователей  ", ParentID: "", CollectionID: "",
+		Description: "  про пользователей  ", CollectionID: "",
 	}); err != nil {
 		t.Fatalf("SaveNode: %v", err)
 	}
@@ -948,14 +1136,17 @@ func TestSaveNodeKeepsWhatTheTreeOwns(t *testing.T) {
 		t.Fatalf("Node: %v", err)
 	}
 	if after.Name != "Переименован" || after.Description != "про пользователей" {
-		t.Errorf("node = %+v, want the edited name trimmed", after)
+		t.Errorf("request = %+v, want the edited name trimmed", after)
 	}
 	if after.Method != "DELETE" {
 		t.Errorf("method = %q, want it upper-cased", after.Method)
 	}
-	if after.ParentID != before.ParentID || after.Position != before.Position ||
-		after.CollectionID != before.CollectionID || after.CreatedAt != before.CreatedAt {
-		t.Errorf("node = %+v, want the place it had (%+v)", after, before)
+	if after.CollectionID != before.CollectionID || after.Position != before.Position ||
+		after.CreatedAt != before.CreatedAt {
+		t.Errorf("request = %+v, want the place it had (%+v)", after, before)
+	}
+	if after.CollectionID != nestedID {
+		t.Errorf("collection = %q, want it still in the one inside the collection", after.CollectionID)
 	}
 }
 
@@ -965,7 +1156,7 @@ func TestSaveNodeRejectsAnEmptyName(t *testing.T) {
 
 	tree, _ := uc.CreateCollection(ctx, "Коллекция", "")
 	collectionID := only(t, tree).ID
-	_, tree, _ = uc.CreateNode(ctx, NewNode{CollectionID: collectionID, Kind: domain.NodeRequest, Name: "Запрос"})
+	_, tree, _ = uc.CreateNode(ctx, NewNode{CollectionID: collectionID, Name: "Запрос"})
 	requestID := only(t, tree).Items[0].ID
 
 	_, err := uc.SaveNode(ctx, domain.CollectionNode{ID: requestID, Name: "   "})
@@ -974,8 +1165,140 @@ func TestSaveNodeRejectsAnEmptyName(t *testing.T) {
 	}
 }
 
-// A collection made elsewhere becomes a collection here: its name, its order, and its requests —
-// with ids minted for everything a file does not write.
+func TestMoveNodeTakesTheDropIndex(t *testing.T) {
+	uc, _ := newTestUseCase()
+	ctx := context.Background()
+
+	tree, err := uc.CreateCollection(ctx, "Коллекция", "")
+	if err != nil {
+		t.Fatalf("CreateCollection: %v", err)
+	}
+	collectionID := only(t, tree).ID
+	for _, name := range []string{"Первый", "Второй", "Третий"} {
+		if _, tree, err = uc.CreateNode(ctx, NewNode{CollectionID: collectionID, Name: name}); err != nil {
+			t.Fatalf("CreateNode %s: %v", name, err)
+		}
+	}
+	second := only(t, tree).Items[1].ID
+
+	// Dropped after the row that was behind it: the index counts the level as it looks, the moving row
+	// included, so "after Второй" is 2 — and the row must not be counted twice.
+	if tree, err = uc.MoveNode(ctx, second, collectionID, 2); err != nil {
+		t.Fatalf("MoveNode: %v", err)
+	}
+	order := []string{}
+	for _, node := range only(t, tree).Items {
+		order = append(order, node.Name)
+	}
+	if !slices.Equal(order, []string{"Первый", "Второй", "Третий"}) {
+		t.Errorf("level = %v, want the request where it already stood", order)
+	}
+
+	// And to the front, which is the other end of the same index.
+	if tree, err = uc.MoveNode(ctx, second, collectionID, 0); err != nil {
+		t.Fatalf("MoveNode: %v", err)
+	}
+	order = []string{}
+	for _, node := range only(t, tree).Items {
+		order = append(order, node.Name)
+	}
+	if !slices.Equal(order, []string{"Второй", "Первый", "Третий"}) {
+		t.Errorf("level = %v, want the dropped request first", order)
+	}
+	// The rows around it close up rather than keeping the numbers they had.
+	for i, node := range only(t, tree).Items {
+		if node.Position != int64(i) {
+			t.Errorf("%s is at %d, want %d", node.Name, node.Position, i)
+		}
+	}
+}
+
+func TestMoveNodeBetweenCollections(t *testing.T) {
+	uc, store := newTestUseCase()
+	ctx := context.Background()
+
+	tree, _ := uc.CreateCollection(ctx, "Коллекция", "")
+	collectionID := only(t, tree).ID
+	nestedID := nestCollection(t, uc, "Вложенная", collectionID)
+	_, tree, _ = uc.CreateNode(ctx, NewNode{CollectionID: collectionID, Name: "Снаружи"})
+	requestID := only(t, tree).Items[0].ID
+
+	if _, err := uc.MoveNode(ctx, requestID, nestedID, 0); err != nil {
+		t.Fatalf("MoveNode: %v", err)
+	}
+
+	moved, err := store.Node(ctx, requestID)
+	if err != nil {
+		t.Fatalf("Node: %v", err)
+	}
+	if moved.CollectionID != nestedID {
+		t.Errorf("collection = %q, want the one it was dropped into", moved.CollectionID)
+	}
+	tree, err = uc.Tree(ctx)
+	if err != nil {
+		t.Fatalf("Tree: %v", err)
+	}
+	if len(only(t, tree).Items) != 0 || len(findIn(t, tree, nestedID).Items) != 1 {
+		t.Errorf("tree = %+v, want the request inside the nested collection only", only(t, tree))
+	}
+}
+
+// A collection dropped into itself or into something it holds would be a ring, and a ring is a tree
+// nothing can be drawn from: the refusal is what keeps the tree a tree.
+func TestMoveCollectionRefusesARing(t *testing.T) {
+	uc, _ := newTestUseCase()
+	ctx := context.Background()
+
+	tree, _ := uc.CreateCollection(ctx, "Коллекция", "")
+	collectionID := only(t, tree).ID
+	nestedID := nestCollection(t, uc, "Вложенная", collectionID)
+
+	for _, parent := range []string{collectionID, nestedID} {
+		_, err := uc.MoveCollection(ctx, collectionID, parent, 0)
+		if !errors.Is(err, domain.ErrNotAllowed) {
+			t.Errorf("moving %s into %s = %v, want ErrNotAllowed", collectionID, parent, err)
+		}
+		// The window words the refusal from the code: "it was refused" says nothing about a ring.
+		if code := domain.CodeOf(err); code != domain.CodeIntoItself {
+			t.Errorf("code = %q, want %q", code, domain.CodeIntoItself)
+		}
+	}
+
+	// And nothing moved: a refused drop leaves the tree as it was.
+	tree, err := uc.Tree(ctx)
+	if err != nil {
+		t.Fatalf("Tree: %v", err)
+	}
+	if len(tree) != 1 || len(only(t, tree).Children) != 1 {
+		t.Errorf("tree = %+v, want it untouched", tree)
+	}
+	if any := findIn(t, tree, nestedID); any.ParentID != collectionID {
+		t.Errorf("nested = %+v, want it still inside the collection", any)
+	}
+}
+
+func TestMoveCollectionReturnsToTheTopLevel(t *testing.T) {
+	uc, _ := newTestUseCase()
+	ctx := context.Background()
+
+	tree, _ := uc.CreateCollection(ctx, "Коллекция", "")
+	collectionID := only(t, tree).ID
+	nestedID := nestCollection(t, uc, "Вложенная", collectionID)
+
+	tree, err := uc.MoveCollection(ctx, nestedID, "", 0)
+	if err != nil {
+		t.Fatalf("MoveCollection: %v", err)
+	}
+	if len(tree) != 2 || tree[0].ID != nestedID || tree[0].ParentID != "" {
+		t.Errorf("tree = %+v, want it back out at the top", tree)
+	}
+	if len(findIn(t, tree, collectionID).Children) != 0 {
+		t.Errorf("tree = %+v, want nothing left inside", tree)
+	}
+}
+
+// A collection made elsewhere becomes a collection here: its name, its order, and everything inside
+// it — with ids minted for everything a file does not write.
 func TestImportTakesAWholeCollection(t *testing.T) {
 	uc, store := newTestUseCase()
 	ctx := context.Background()
@@ -983,15 +1306,16 @@ func TestImportTakesAWholeCollection(t *testing.T) {
 	tree, err := uc.Import(ctx, domain.Collection{
 		Name: "  Импортированная  ",
 		Items: []domain.CollectionNode{
+			{Name: "Снаружи", Position: 1, Method: "GET", URL: "https://api.example.com/out?page=2",
+				Params: []domain.Row{{Name: "page", Value: "2", Enabled: true}}},
+		},
+		Children: []domain.Collection{
 			{
-				Kind: domain.NodeFolder, Name: "Папка", Items: []domain.CollectionNode{
-					{Kind: domain.NodeRequest, Name: "Внутри", Method: "post", URL: "https://api.example.com/inside",
+				Name: "Вложенная", Position: 0,
+				Items: []domain.CollectionNode{
+					{Name: "Внутри", Method: "post", URL: "https://api.example.com/inside",
 						Headers: []domain.Row{{Name: "Accept", Value: "application/json", Enabled: true}}},
 				},
-			},
-			{
-				Kind: domain.NodeRequest, Name: "Снаружи", Method: "GET", URL: "https://api.example.com/out?page=2",
-				Params: []domain.Row{{Name: "page", Value: "2", Enabled: true}},
 			},
 		},
 	})
@@ -1003,20 +1327,32 @@ func TestImportTakesAWholeCollection(t *testing.T) {
 	if collection.Name != "Импортированная" || collection.Position != 0 {
 		t.Errorf("collection = %+v, want the file's name, trimmed", collection)
 	}
-	if len(collection.Items) != 2 || collection.Items[0].Items[0].Name != "Внутри" {
-		t.Fatalf("items = %+v, want the file's tree", collection.Items)
+	if len(collection.Items) != 1 || len(collection.Children) != 1 {
+		t.Fatalf("imported = %+v, want the request and the collection inside it", collection)
 	}
-	for _, node := range []domain.CollectionNode{collection.Items[0], collection.Items[1], collection.Items[0].Items[0]} {
-		if node.ID == "" || node.CollectionID != collection.ID {
-			t.Errorf("node = %+v, want an id and the collection it was imported into", node)
+	nested := collection.Children[0]
+	if nested.Name != "Вложенная" || len(nested.Items) != 1 || nested.Items[0].Name != "Внутри" {
+		t.Fatalf("nested = %+v, want the file's tree", nested)
+	}
+	if nested.ParentID != collection.ID {
+		t.Errorf("nested = %+v, want the collection it was imported into", nested)
+	}
+	for _, node := range []domain.CollectionNode{collection.Items[0], nested.Items[0]} {
+		if node.ID == "" {
+			t.Errorf("request = %+v, want an id minted for it", node)
 		}
 	}
-	if collection.Items[0].Items[0].ParentID != collection.Items[0].ID {
-		t.Error("the row inside the folder does not name it as its parent")
+	// A request belongs to the collection that holds it: the one from inside the file's folder belongs
+	// to the collection that folder became.
+	if nested.Items[0].CollectionID != nested.ID {
+		t.Errorf("the request inside = %+v, want it in the nested collection", nested.Items[0])
+	}
+	if collection.Items[0].CollectionID != collection.ID {
+		t.Errorf("the request at the top = %+v, want it in the imported collection", collection.Items[0])
 	}
 
 	// What the tree carries is a row; what was stored is the request.
-	stored, err := store.Node(ctx, collection.Items[1].ID)
+	stored, err := store.Node(ctx, collection.Items[0].ID)
 	if err != nil {
 		t.Fatalf("Node: %v", err)
 	}
@@ -1026,7 +1362,7 @@ func TestImportTakesAWholeCollection(t *testing.T) {
 	if len(stored.Params) != 1 || stored.Params[0].ID == "" {
 		t.Errorf("params = %+v, want the row with an id the window can address", stored.Params)
 	}
-	if stored.Position != 1 || stored.Kind != domain.NodeRequest {
+	if stored.Position != 1 {
 		t.Errorf("stored = %+v, want its place in the imported order", stored)
 	}
 }
@@ -1043,7 +1379,7 @@ func TestFullReadsTheRequestsWhole(t *testing.T) {
 	}
 	collectionID := only(t, tree).ID
 	_, tree, err = uc.CreateNode(ctx, NewNode{
-		CollectionID: collectionID, Kind: domain.NodeRequest, Name: "Запрос", Method: "GET",
+		CollectionID: collectionID, Name: "Запрос", Method: "GET",
 		URL: "https://api.example.com/users", Body: `{"a": 1}`,
 		Headers: []domain.Row{{Name: "Accept", Value: "application/vnd.api+json", Enabled: true}},
 	})
@@ -1062,9 +1398,6 @@ func TestFullReadsTheRequestsWhole(t *testing.T) {
 	if full.Items[0].Body != `{"a": 1}` || len(full.Items[0].Headers) != 1 {
 		t.Errorf("request = %+v, want it read whole", full.Items[0])
 	}
-	if full.Items[0].Kind != domain.NodeRequest {
-		t.Errorf("kind = %q, want a request", full.Items[0].Kind)
-	}
 
 	single, err := uc.Full(ctx, requestID)
 	if err != nil {
@@ -1072,6 +1405,34 @@ func TestFullReadsTheRequestsWhole(t *testing.T) {
 	}
 	if single.Name != "Запрос" || len(single.Items) != 1 || single.Items[0].URL != "https://api.example.com/users" {
 		t.Errorf("single = %+v, want a collection of the one request", single)
+	}
+}
+
+// An export of a collection carries the collections inside it: what a file writes as folders is the
+// levels of the tree, and one left out would be a file that is not the collection.
+func TestFullReadsNestedCollectionsWhole(t *testing.T) {
+	uc, _ := newTestUseCase()
+	ctx := context.Background()
+
+	tree, _ := uc.CreateCollection(ctx, "Коллекция", "")
+	collectionID := only(t, tree).ID
+	nestedID := nestCollection(t, uc, "Вложенная", collectionID)
+	if _, _, err := uc.CreateNode(ctx, NewNode{
+		CollectionID: nestedID, Name: "Внутри", Method: "GET", URL: "https://api.example.com/inside",
+		Body: `{"b": 2}`,
+	}); err != nil {
+		t.Fatalf("CreateNode: %v", err)
+	}
+
+	full, err := uc.Full(ctx, collectionID)
+	if err != nil {
+		t.Fatalf("Full: %v", err)
+	}
+	if len(full.Children) != 1 || full.Children[0].Name != "Вложенная" {
+		t.Fatalf("full = %+v, want the collection and the one inside it", full)
+	}
+	if len(full.Children[0].Items) != 1 || full.Children[0].Items[0].Body != `{"b": 2}` {
+		t.Errorf("nested = %+v, want its request read whole", full.Children[0])
 	}
 }
 

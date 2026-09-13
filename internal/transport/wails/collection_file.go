@@ -68,7 +68,7 @@ func (s *CollectionsService) ExportFile(ctx context.Context, title string, id st
 	if path == "" {
 		return false, nil
 	}
-	if err := writeCollection(path, contents.Name, contents.Items); err != nil {
+	if err := writeCollection(path, contents); err != nil {
 		return false, err
 	}
 	return true, nil
@@ -85,9 +85,10 @@ func readCollection(path string) (domain.Collection, error) {
 	return postman.Import(data)
 }
 
-// writeCollection is the file half of an export: a collection written where it was asked for.
-func writeCollection(path string, name string, items []domain.CollectionNode) error {
-	data, err := postman.Export(name, items)
+// writeCollection is the file half of an export: a collection written where it was asked for. What it
+// writes is the whole of it — the collections inside it are the file's folders.
+func writeCollection(path string, contents domain.Collection) error {
+	data, err := postman.Export(contents)
 	if err != nil {
 		return err
 	}

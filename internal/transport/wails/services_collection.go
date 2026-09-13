@@ -58,7 +58,7 @@ func (s *CollectionsService) CreateNode(ctx context.Context, in collection.NewNo
 // The request arrives whole — method, address, rows, body, and the auth the chip chose — because the
 // node is written once: an empty request filled in by a second call would be a saved request with no
 // address if that call failed.
-func (s *CollectionsService) SaveDraft(ctx context.Context, collectionID string, parentID string, name string) (CreatedNode, error) {
+func (s *CollectionsService) SaveDraft(ctx context.Context, collectionID string, name string) (CreatedNode, error) {
 	draft, err := s.drafts.Current(ctx, domain.DraftCommandLine)
 	if err != nil {
 		return CreatedNode{}, err
@@ -66,8 +66,6 @@ func (s *CollectionsService) SaveDraft(ctx context.Context, collectionID string,
 
 	node, tree, err := s.collections.CreateNode(ctx, collection.NewNode{
 		CollectionID: collectionID,
-		ParentID:     parentID,
-		Kind:         domain.NodeRequest,
 		Name:         name,
 		Method:       draft.Method,
 		URL:          draft.URL,
@@ -86,15 +84,15 @@ func (s *CollectionsService) SaveDraft(ctx context.Context, collectionID string,
 	return CreatedNode{Node: node, Tree: tree}, nil
 }
 
-// Describe writes what a collection or a folder is for — the line the overview draws above its tabs.
-// Empty is an answer there: the header then shows the placeholder that invites one.
+// Describe writes what a collection is for — the line the overview draws above its tabs. Empty is an
+// answer there: the header then shows the placeholder that invites one.
 func (s *CollectionsService) Describe(ctx context.Context, id string, description string) ([]domain.Collection, error) {
 	return s.collections.Describe(ctx, id, description)
 }
 
-// SaveAuth writes what a collection or a folder authorizes its requests with. «Нет» is the same
-// call with an empty auth: a level that has none is a level the ones below it inherit past, and the
-// overview then draws the tab the way a collection without one looks.
+// SaveAuth writes what a collection authorizes its requests with. «Нет» is the same call with an
+// empty auth: a level that has none is a level the ones below it inherit past, and the overview then
+// draws the tab the way a collection without one looks.
 func (s *CollectionsService) SaveAuth(ctx context.Context, id string, auth domain.Auth) ([]domain.Collection, error) {
 	return s.collections.SaveAuth(ctx, id, auth)
 }
@@ -107,6 +105,17 @@ func (s *CollectionsService) Rename(ctx context.Context, id string, name string)
 // a word, and words belong to the side that knows the language.
 func (s *CollectionsService) Duplicate(ctx context.Context, id string, suffix string) ([]domain.Collection, error) {
 	return s.collections.Duplicate(ctx, id, suffix)
+}
+
+// MoveNode and MoveCollection are what a drop in the tree calls. The position is an index in the level
+// the row was dropped into, counted the way the window drew it — the requests of a collection and the
+// collections inside it are one list on screen and one number line here.
+func (s *CollectionsService) MoveNode(ctx context.Context, id string, collectionID string, position int64) ([]domain.Collection, error) {
+	return s.collections.MoveNode(ctx, id, collectionID, position)
+}
+
+func (s *CollectionsService) MoveCollection(ctx context.Context, id string, parentID string, position int64) ([]domain.Collection, error) {
+	return s.collections.MoveCollection(ctx, id, parentID, position)
 }
 
 func (s *CollectionsService) Delete(ctx context.Context, id string) ([]domain.Collection, error) {

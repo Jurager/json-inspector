@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia'
 import { bodyMissing, recordView, type RecordBodies, type RecordView } from '../lib/requestRecord'
-import { findNode, requestCount, trailOf, type Trail } from '../lib/collectionTree'
+import { findCollection, holderOf, requestCount, trailOf, type Trail } from '../lib/collectionTree'
 import type { ChipName } from '../lib/requestSource'
 import { t as tr } from '../i18n'
 import {
@@ -15,7 +15,6 @@ import {
   type CollectionRunResult,
   type CookieRow,
   type FormRow,
-  type NodeKind,
   type Record,
   type Row,
   type Scripts,
@@ -100,12 +99,12 @@ export const useCollectionsStore = defineStore('collections', {
     selected(): CollectionNode | null {
       return this.trail?.node ?? null
     },
-    // A request opens as a card; a collection or a folder opens as its own overview.
+    // A request opens as a card; a collection opens as its own overview.
     cardOpen(): boolean {
-      return this.selected?.kind === 'request'
+      return this.selected !== null
     },
     collectionId(): string | null {
-      return this.trail?.collection.id ?? null
+      return holderOf(this.trail)?.id ?? null
     },
     // Whether the open request takes its authorization from the levels above it. A card does: it is
     // one node of a tree, and the design gives it «Наследовать» where the command line has «Нет».
@@ -120,20 +119,20 @@ export const useCollectionsStore = defineStore('collections', {
       for (const level of [...trail.ancestors].reverse()) {
         if (level.auth) return level.auth
       }
-      return trail.collection.auth ?? null
+      return null
     },
     // What the open level is called: the status bar names it when the level is what is on screen,
     // and the path to it when a card inside is.
     levelName(): string {
       const trail = this.trail
       if (!trail) return ''
-      return trail.node?.name ?? trail.collection.name
+      return trail.node?.name ?? trail.collection?.name ?? ''
     },
     breadcrumbs(): { id: string; name: string }[] {
       const trail = this.trail
       if (!trail) return []
-      const crumbs = [{ id: trail.collection.id, name: trail.collection.name }]
-      for (const node of trail.ancestors) crumbs.push({ id: node.id, name: node.name })
+      const crumbs = trail.ancestors.map((level) => ({ id: level.id, name: level.name }))
+      if (trail.collection) crumbs.push({ id: trail.collection.id, name: trail.collection.name })
       if (trail.node) crumbs.push({ id: trail.node.id, name: trail.node.name })
       return crumbs
     },
@@ -141,20 +140,19 @@ export const useCollectionsStore = defineStore('collections', {
     selectedRequestCount(): number {
       const trail = this.trail
       if (!trail) return 0
-      if (trail.node) return trail.node.kind === 'request' ? 1 : requestCount(trail.node)
-      return (trail.collection.items ?? []).reduce((total: number, node: CollectionNode) => {
-        return total + (node.kind === 'request' ? 1 : requestCount(node))
-      }, 0)
+      if (trail.node) return 1
+      return trail.collection ? requestCount(trail.collection) : 0
     },
     // The level whose code the editor shows: a card edits the node it opened, and the overview the
     // collection or the folder that is selected.
     scriptsLevel(state): string | null {
       return state.selectedId
     },
-    // The node a run of the current selection is started from: a folder runs its subtree, and the
-    // collection itself is the empty id — a saved folder is a row of its own, not the absence of one.
+    // What a run of the current selection is started from. A collection runs everything inside it,
+    // the collections inside it included, so it answers with the empty id: there is nothing narrower
+    // to name. A request is the one request it is.
     runNodeId(): string {
-      return this.selected?.kind === 'folder' ? (this.selected.id ?? '') : ''
+      return this.selected?.id ?? ''
     },
 
     // ---- the card's request, read the way the command line reads it --------
@@ -246,20 +244,31 @@ export const useCollectionsStore = defineStore('collections', {
       this.pendingRename = created.id
     },
 
-    async createNode(collectionId: string, parentId: string, kind: NodeKind, name: string, method = 'GET') {
-      const created = await CollectionsService.CreateNode({ collectionId, parentId, kind, name, method })
+    async createNode(collectionId: string, name: string, method = 'GET') {
+      const created = await CollectionsService.CreateNode({ collectionId, name, method })
       this.applyTree(created.tree ?? [])
-      this.expanded[parentId || collectionId] = true
+      this.expanded[collectionId] = true
       // A new request opens straight away: it was made to be filled in.
       await this.select(created.node.id)
     },
 
+    // What a drop in the tree calls. A row the drop ended up in the same collection it came from is
+    // still a move: a request dropped above its neighbour is the order changing and nothing else.
+    async moveNode(id: string, collectionId: string, position: number) {
+      this.applyTree((await CollectionsService.MoveNode(id, collectionId, position)) ?? [])
+    },
+
+    // A collection dropped into another one, or back out at the top level when the parent is empty.
+    async moveCollection(id: string, parentId: string, position: number) {
+      this.applyTree((await CollectionsService.MoveCollection(id, parentId, position)) ?? [])
+    },
+
     // Saving from the command line copies what is composed into a collection. The draft is not
     // touched: saving a copy is not a move, and what is being composed stays where it is.
-    async saveDraft(collectionId: string, parentId: string, name: string) {
-      const created = await CollectionsService.SaveDraft(collectionId, parentId, name)
+    async saveDraft(collectionId: string, name: string) {
+      const created = await CollectionsService.SaveDraft(collectionId, name)
       this.applyTree(created.tree ?? [])
-      this.expanded[parentId || collectionId] = true
+      this.expanded[collectionId] = true
     },
 
     // A collection travels as a file: the window asks Go for an import, and Go reads the file. A
@@ -313,15 +322,15 @@ export const useCollectionsStore = defineStore('collections', {
       this.expanded[id] = open
       if (open) return
 
-      const collection = this.tree.find((c) => c.id === id)
-      const inside = collection ? collection.items ?? [] : findNode(this.tree, id)?.items ?? []
-      for (const node of inside) this.closeBelow(node)
+      const collection = findCollection(this.tree, id)
+      if (collection) this.closeBelow(collection)
     },
 
-    // Everything under one row, down to the leaves.
-    closeBelow(node: CollectionNode) {
-      this.expanded[node.id] = false
-      for (const child of node.items ?? []) this.closeBelow(child)
+    // Every collection under one row, down to the leaves. A request holds nothing, so the walk goes
+    // through the collections and stops there.
+    closeBelow(collection: Collection) {
+      this.expanded[collection.id] = false
+      for (const child of collection.children ?? []) this.closeBelow(child)
     },
 
     setFilter(text: string) {
@@ -339,10 +348,10 @@ export const useCollectionsStore = defineStore('collections', {
 
     // ---- the card ---------------------------------------------------------
 
-    // What a click in the tree does: a request opens a card, everything else opens its overview.
+    // What a click in the tree does: a request opens a card, a collection opens its overview.
     async select(id: string) {
       this.selectedId = id
-      if (this.selected?.kind === 'request') {
+      if (this.selected) {
         await this.openNode(id)
         return
       }

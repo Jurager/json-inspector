@@ -27,6 +27,7 @@ const Schema = "https://schema.getpostman.com/json/collection/v2.1.0/collection.
 // document is a collection file.
 type document struct {
 	Info info   `json:"info"`
+	Auth *auth  `json:"auth,omitempty"`
 	Item []item `json:"item"`
 }
 
@@ -35,9 +36,12 @@ type info struct {
 	Schema string `json:"schema,omitempty"`
 }
 
-// item is a row of a collection: a folder holds more, a request is the thing that gets sent.
+// item is a row of a collection: a folder holds more, a request is the thing that gets sent. A folder
+// is what this app calls a collection inside one, auth and all — the format has a place for both, and
+// a group that lost its authorization on the way in would be a group that behaved differently here.
 type item struct {
 	Name    string   `json:"name"`
+	Auth    *auth    `json:"auth,omitempty"`
 	Item    []item   `json:"item,omitempty"`
 	Request *request `json:"request,omitempty"`
 }
@@ -116,39 +120,52 @@ func Import(data []byte) (domain.Collection, error) {
 		return domain.Collection{}, domain.Refuse(domain.CodeNotPostman, domain.ErrNotAllowed, nil)
 	}
 
-	return domain.Collection{
+	imported := domain.Collection{
 		Name:        doc.Info.Name,
 		Description: "",
-		Items:       nodes(doc.Item),
-	}, nil
-}
-
-// nodes reads a list of rows, keeping the order they are written in: that order is the order the
-// tree draws them and the order a run walks them.
-func nodes(items []item) []domain.CollectionNode {
-	out := make([]domain.CollectionNode, 0, len(items))
-	for i, entry := range items {
-		node := domain.CollectionNode{
-			Name:     entry.Name,
-			Position: int64(i),
-			Kind:     domain.NodeFolder,
-			Items:    []domain.CollectionNode{},
-		}
-		if entry.Request != nil {
-			node = requestNode(node, *entry.Request)
-		} else {
-			node.Items = nodes(entry.Item)
-		}
-		out = append(out, node)
 	}
-	return out
+	if doc.Auth != nil {
+		imported.Auth = authOf(*doc.Auth)
+	}
+	level(doc.Item, &imported)
+	return imported, nil
 }
 
-func requestNode(node domain.CollectionNode, from request) domain.CollectionNode {
-	node.Kind = domain.NodeRequest
-	node.Method = strings.ToUpper(strings.TrimSpace(from.Method))
-	node.URL = from.URL.Raw
-	node.Items = nil
+// level reads one level of a file into the collection that holds it, keeping the order the rows are
+// written in: that order is the order the tree draws them and the order a run walks them, and it is
+// one list for requests and folders together.
+//
+// A row with a request is a request; a row with items and no request is a folder, which in this app is
+// a collection inside one — a group with a name, its own authorization and its own place. The two
+// kinds share one position line here, numbered by where the row stood in the file, so that the level
+// merges back into the file's order on the way out.
+func level(items []item, into *domain.Collection) {
+	into.Items = []domain.CollectionNode{}
+	into.Children = []domain.Collection{}
+
+	for i, entry := range items {
+		position := int64(i)
+		if entry.Request != nil {
+			into.Items = append(into.Items, requestNode(entry.Name, position, *entry.Request))
+			continue
+		}
+
+		nested := domain.Collection{Name: entry.Name, Position: position}
+		if entry.Auth != nil {
+			nested.Auth = authOf(*entry.Auth)
+		}
+		level(entry.Item, &nested)
+		into.Children = append(into.Children, nested)
+	}
+}
+
+func requestNode(name string, position int64, from request) domain.CollectionNode {
+	node := domain.CollectionNode{
+		Name:     name,
+		Position: position,
+		Method:   strings.ToUpper(strings.TrimSpace(from.Method)),
+		URL:      from.URL.Raw,
+	}
 
 	for _, header := range from.Header {
 		if strings.TrimSpace(header.Key) == "" {
@@ -244,33 +261,41 @@ func value(rows []field, key string) string {
 }
 
 // Export writes what it is given as a collection file: a whole collection, or a single request when
-// the list holds one — the design exports one from the context menu, and a file with one item is
-// what Postman expects to be handed.
+// the collection holds one — the design exports one from the context menu, and a file with one item
+// is what Postman expects to be handed.
 //
 // Tokens stay tokens: a `{{name}}` is written as the text it is, and no value behind it is written
 // anywhere. That is not a rule this function enforces — the app never gives it a value to write.
-func Export(name string, items []domain.CollectionNode) ([]byte, error) {
+func Export(collection domain.Collection) ([]byte, error) {
 	doc := document{
-		Info: info{Name: name, Schema: Schema},
-		Item: exported(items),
+		Info: info{Name: collection.Name, Schema: Schema},
+		Item: exported(collection),
+	}
+	if collection.Auth != nil {
+		doc.Auth = exportedAuth(*collection.Auth)
 	}
 	data, err := json.MarshalIndent(doc, "", "  ")
 	if err != nil {
-		return nil, fmt.Errorf("collection %q could not be written: %w", name, err)
+		return nil, fmt.Errorf("collection %q could not be written: %w", collection.Name, err)
 	}
 	return append(data, '\n'), nil
 }
 
-func exported(items []domain.CollectionNode) []item {
-	out := make([]item, 0, len(items))
-	for _, node := range items {
-		entry := item{Name: node.Name}
-		if node.Kind == domain.NodeFolder {
-			entry.Item = exported(node.Items)
-		} else {
-			entry.Request = exportedRequest(node)
+// exported writes a level the way the file keeps it: the requests and the collections inside them in
+// one list, in the order the tree draws them.
+func exported(collection domain.Collection) []item {
+	out := make([]item, 0, len(collection.Items)+len(collection.Children))
+	for _, entry := range collection.Level() {
+		if entry.Collection != nil {
+			group := item{Name: entry.Collection.Name}
+			if entry.Collection.Auth != nil {
+				group.Auth = exportedAuth(*entry.Collection.Auth)
+			}
+			group.Item = exported(*entry.Collection)
+			out = append(out, group)
+			continue
 		}
-		out = append(out, entry)
+		out = append(out, item{Name: entry.Node.Name, Request: exportedRequest(*entry.Node)})
 	}
 	return out
 }

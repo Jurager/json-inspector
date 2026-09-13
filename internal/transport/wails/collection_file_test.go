@@ -17,22 +17,27 @@ func TestCollectionFileRoundTrip(t *testing.T) {
 	dir := t.TempDir()
 	both := filepath.Join(dir, "collection.postman_collection.json")
 
-	source := []domain.CollectionNode{
-		{Kind: domain.NodeFolder, Name: "Папка", Position: 0, Items: []domain.CollectionNode{
-			{Kind: domain.NodeRequest, Name: "Внутри", Position: 0, Method: "GET",
-				URL: "https://api.example.com/users?page=2", Body: `{"a": 1}`,
-				Headers: []domain.Row{{ID: "h1", Name: "Accept", Value: "application/json", Enabled: true}},
-				Auth:    &domain.Auth{Type: domain.AuthBearer, Token: "{{token}}"}},
-		}},
-		{Kind: domain.NodeRequest, Name: "Снаружи", Position: 1, Method: "POST",
-			URL: "https://api.example.com/users",
-			Params: []domain.Row{
-				{ID: "p1", Name: "page", Value: "2", Enabled: true},
-				{ID: "p2", Name: "filter[state]", Value: "active", Enabled: false},
+	source := domain.Collection{
+		Name: "Отгружено",
+		Items: []domain.CollectionNode{
+			{Name: "Снаружи", Position: 1, Method: "POST",
+				URL: "https://api.example.com/users",
+				Params: []domain.Row{
+					{ID: "p1", Name: "page", Value: "2", Enabled: true},
+					{ID: "p2", Name: "filter[state]", Value: "active", Enabled: false},
+				}},
+		},
+		Children: []domain.Collection{
+			{Name: "Вложенная", Position: 0, Items: []domain.CollectionNode{
+				{Name: "Внутри", Position: 0, Method: "GET",
+					URL: "https://api.example.com/users?page=2", Body: `{"a": 1}`,
+					Headers: []domain.Row{{ID: "h1", Name: "Accept", Value: "application/json", Enabled: true}},
+					Auth:    &domain.Auth{Type: domain.AuthBearer, Token: "{{token}}"}},
 			}},
+		},
 	}
 
-	if err := writeCollection(both, "Отгружено", source); err != nil {
+	if err := writeCollection(both, source); err != nil {
 		t.Fatalf("writeCollection: %v", err)
 	}
 
@@ -40,15 +45,15 @@ func TestCollectionFileRoundTrip(t *testing.T) {
 	if err != nil {
 		t.Fatalf("readCollection: %v", err)
 	}
-	if read.Name != "Отгружено" || len(read.Items) != 2 {
+	if read.Name != "Отгружено" || len(read.Items) != 1 || len(read.Children) != 1 {
 		t.Fatalf("read = %+v, want the collection that was written", read)
 	}
 
-	inside := read.Items[0]
-	if inside.Kind != domain.NodeFolder || len(inside.Items) != 1 {
-		t.Fatalf("folder = %+v, want its request", inside)
+	nested := read.Children[0]
+	if nested.Name != "Вложенная" || len(nested.Items) != 1 {
+		t.Fatalf("nested = %+v, want its request", nested)
 	}
-	request := inside.Items[0]
+	request := nested.Items[0]
 	if request.Method != "GET" || request.URL != "https://api.example.com/users?page=2" ||
 		request.Body != `{"a": 1}` {
 		t.Errorf("request = %+v, want it as it was written", request)
@@ -61,7 +66,7 @@ func TestCollectionFileRoundTrip(t *testing.T) {
 	}
 	// A parameter that is switched off is not in the address, and the file is the only place it can
 	// travel — losing it here would be losing it for good.
-	outside := read.Items[1]
+	outside := read.Items[0]
 	if len(outside.Params) != 2 || outside.Params[1].Enabled {
 		t.Errorf("params = %+v, want the parked row kept", outside.Params)
 	}

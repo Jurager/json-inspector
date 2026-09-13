@@ -8,15 +8,15 @@ import (
 	"json-inspector/internal/domain"
 )
 
-// runFixture is a collection with a request, a folder holding two more, and a request after the
-// folder — the shape that says whether the walk goes depth first and in the tree's order.
+// runFixture is a collection with a request, a collection inside it holding two more, and a request
+// after that one — the shape that says whether the walk goes depth first and in the tree's order.
 type runFixture struct {
 	uc           *UseCase
 	store        *fakeStore
 	sender       *fakeSender
 	notifier     *fakeNotifier
 	collectionID string
-	folderID     string
+	nestedID     string
 	requests     map[string]string // name → url
 }
 
@@ -32,10 +32,10 @@ func setupRunnable(t *testing.T) *runFixture {
 	collectionID := only(t, tree).ID
 
 	requests := map[string]string{}
-	add := func(parentID string, name, url string) string {
+	add := func(collectionID, name, url string) string {
 		t.Helper()
 		_, tree, err := uc.CreateNode(ctx, NewNode{
-			CollectionID: collectionID, ParentID: parentID, Kind: domain.NodeRequest, Name: name, Method: "GET",
+			CollectionID: collectionID, Name: name, Method: "GET",
 		})
 		if err != nil {
 			t.Fatalf("CreateNode %s: %v", name, err)
@@ -55,21 +55,17 @@ func setupRunnable(t *testing.T) *runFixture {
 		return node.ID
 	}
 
-	add("", "Первый", "https://api.example.com/first")
-	_, tree, err = uc.CreateNode(ctx, NewNode{
-		CollectionID: collectionID, Kind: domain.NodeFolder, Name: "Папка",
-	})
-	if err != nil {
-		t.Fatalf("CreateNode fold: %v", err)
-	}
-	folderID := findInTree(t, tree, "Папка").ID
-	add(folderID, "Второй", "https://api.example.com/second")
-	add(folderID, "Третий", "https://api.example.com/third")
-	add("", "Четвёртый", "https://api.example.com/fourth")
+	add(collectionID, "Первый", "https://api.example.com/first")
+	// Dropped in second, so that the level is a request, a collection and then a request: the shape
+	// that says whether the walk goes in the drawn order rather than by kind.
+	nestedID := nestCollectionAt(t, uc, "Вложенная", collectionID, 1)
+	add(nestedID, "Второй", "https://api.example.com/second")
+	add(nestedID, "Третий", "https://api.example.com/third")
+	add(collectionID, "Четвёртый", "https://api.example.com/fourth")
 
 	return &runFixture{
 		uc: uc, store: store, sender: sender, notifier: notifier,
-		collectionID: collectionID, folderID: folderID, requests: requests,
+		collectionID: collectionID, nestedID: nestedID, requests: requests,
 	}
 }
 
@@ -81,18 +77,25 @@ func findInTree(t *testing.T, tree []domain.Collection, name string) domain.Coll
 			if node.Name == name {
 				return node, true
 			}
-			if found, ok := walk(node.Items); ok {
+		}
+		return domain.CollectionNode{}, false
+	}
+	var inCollection func([]domain.Collection) (domain.CollectionNode, bool)
+	inCollection = func(collections []domain.Collection) (domain.CollectionNode, bool) {
+		for _, collection := range collections {
+			if found, ok := walk(collection.Items); ok {
+				return found, true
+			}
+			if found, ok := inCollection(collection.Children); ok {
 				return found, true
 			}
 		}
 		return domain.CollectionNode{}, false
 	}
-	for _, collection := range tree {
-		if found, ok := walk(collection.Items); ok {
-			return found
-		}
+	if found, ok := inCollection(tree); ok {
+		return found
 	}
-	t.Fatalf("no node named %s in the tree", name)
+	t.Fatalf("no request named %s in the tree", name)
 	return domain.CollectionNode{}
 }
 
@@ -142,14 +145,14 @@ func TestRunWalksTheSubtreeDepthFirst(t *testing.T) {
 func TestRunSendsWhatTheRequestIsMadeOf(t *testing.T) {
 	r := setupRunnable(t)
 
-	if _, err := r.uc.Run(context.Background(), r.collectionID, r.folderID); err != nil {
+	if _, err := r.uc.Run(context.Background(), r.collectionID, r.nestedID); err != nil {
 		t.Fatalf("Run: %v", err)
 	}
 	r.notifier.runFinished(t)
 
 	sent := r.sender.sent
 	if len(sent) != 2 {
-		t.Fatalf("sent %d requests, want the folder's two", len(sent))
+		t.Fatalf("sent %d requests, want the nested collection's two", len(sent))
 	}
 	if sent[0].Method != "GET" || sent[0].URL != r.requests["Второй"] {
 		t.Errorf("request = %+v, want the saved method and address", sent[0])
@@ -160,19 +163,19 @@ func TestRunSendsWhatTheRequestIsMadeOf(t *testing.T) {
 	}
 }
 
-func TestRunOfAFolderTouchesOnlyItsSubtree(t *testing.T) {
+func TestRunOfANestedCollectionTouchesOnlyItsSubtree(t *testing.T) {
 	r := setupRunnable(t)
 
-	if _, err := r.uc.Run(context.Background(), r.collectionID, r.folderID); err != nil {
+	if _, err := r.uc.Run(context.Background(), r.collectionID, r.nestedID); err != nil {
 		t.Fatalf("Run: %v", err)
 	}
 	run := r.notifier.runFinished(t)
 
 	if len(run.Results) != 2 || run.Passed != 2 {
-		t.Errorf("run = %+v, want the folder's two requests and nothing else", run)
+		t.Errorf("run = %+v, want the nested collection's two requests and nothing else", run)
 	}
-	if run.NodeID != r.folderID {
-		t.Errorf("run node = %q, want the folder it was started from", run.NodeID)
+	if run.NodeID != r.nestedID {
+		t.Errorf("run node = %q, want the nested collection it was started from", run.NodeID)
 	}
 }
 
@@ -200,8 +203,8 @@ func TestRunSendsTheInheritedAuth(t *testing.T) {
 	if _, err := r.uc.SaveAuth(ctx, r.collectionID, domain.Auth{Type: domain.AuthBearer, Token: "коллекция"}); err != nil {
 		t.Fatalf("SaveAuth collection: %v", err)
 	}
-	if _, err := r.uc.SaveAuth(ctx, r.folderID, domain.Auth{Type: domain.AuthBearer, Token: "папка"}); err != nil {
-		t.Fatalf("SaveAuth folder: %v", err)
+	if _, err := r.uc.SaveAuth(ctx, r.nestedID, domain.Auth{Type: domain.AuthBearer, Token: "вложенная"}); err != nil {
+		t.Fatalf("SaveAuth nested: %v", err)
 	}
 
 	if _, err := r.uc.Run(ctx, r.collectionID, ""); err != nil {
@@ -213,9 +216,9 @@ func TestRunSendsTheInheritedAuth(t *testing.T) {
 	if len(sent) != 4 {
 		t.Fatalf("sent %d requests, want the whole collection", len(sent))
 	}
-	// The first request is the collection's own; the two inside the folder are the folder's; the last
-	// one is the collection's again.
-	want := []string{"коллекция", "папка", "папка", "коллекция"}
+	// The first request is the collection's own; the two inside the nested collection are its own; the
+	// last one is the collection's again.
+	want := []string{"коллекция", "вложенная", "вложенная", "коллекция"}
 	for i, token := range want {
 		auth := sent[i].Auth
 		if auth == nil || auth.Token != token {
@@ -357,7 +360,7 @@ func TestRunRefusesASecondOne(t *testing.T) {
 	}
 	<-held
 
-	if _, err := r.uc.Run(context.Background(), r.collectionID, r.folderID); !errors.Is(err, domain.ErrNotAllowed) {
+	if _, err := r.uc.Run(context.Background(), r.collectionID, r.nestedID); !errors.Is(err, domain.ErrNotAllowed) {
 		t.Errorf("a second run = %v, want ErrNotAllowed", err)
 	}
 	if stopped := r.uc.Stop(); !stopped {
@@ -372,7 +375,7 @@ func TestRunRefusesASecondOne(t *testing.T) {
 	if stopped := r.uc.Stop(); stopped {
 		t.Error("Stop reported a run after the run had finished")
 	}
-	if _, err := r.uc.Run(context.Background(), r.collectionID, r.folderID); err != nil {
+	if _, err := r.uc.Run(context.Background(), r.collectionID, r.nestedID); err != nil {
 		t.Errorf("a run after the first one: %v", err)
 	}
 	r.notifier.runFinished(t)
@@ -399,7 +402,7 @@ func TestRunRefusesAnEmptySubtree(t *testing.T) {
 		t.Errorf("run of a missing collection = %v, want ErrNotFound", err)
 	}
 
-	// A node of another collection is a stale selection, not an empty folder: the two are told apart
+	// A request of another collection is a stale selection, not an empty run: the two are told apart
 	// because the window shows them differently.
 	other, err := uc.CreateCollection(ctx, "Другая", "")
 	if err != nil {
@@ -410,7 +413,7 @@ func TestRunRefusesAnEmptySubtree(t *testing.T) {
 		t.Fatal("the second collection is not in the tree")
 	}
 	otherID := otherCollection.ID
-	_, tree, err = uc.CreateNode(ctx, NewNode{CollectionID: otherID, Kind: domain.NodeRequest, Name: "Чужой"})
+	_, tree, err = uc.CreateNode(ctx, NewNode{CollectionID: otherID, Name: "Чужой"})
 	if err != nil {
 		t.Fatalf("CreateNode: %v", err)
 	}
@@ -432,37 +435,37 @@ func TestLastRunReadsWhatTheRunWrote(t *testing.T) {
 		t.Fatalf("LastRun = %+v, want nothing before the first run", last)
 	}
 
-	if _, err := r.uc.Run(ctx, r.collectionID, r.folderID); err != nil {
+	if _, err := r.uc.Run(ctx, r.collectionID, r.nestedID); err != nil {
 		t.Fatalf("Run: %v", err)
 	}
 	r.notifier.runFinished(t)
 
-	last, err = r.uc.LastRun(ctx, r.collectionID, r.folderID)
+	last, err = r.uc.LastRun(ctx, r.collectionID, r.nestedID)
 	if err != nil {
 		t.Fatalf("LastRun: %v", err)
 	}
 	if last == nil || len(last.Results) != 2 || last.Passed != 2 {
-		t.Fatalf("LastRun = %+v, want the folder's run with its rows", last)
+		t.Fatalf("LastRun = %+v, want the nested collection's run with its rows", last)
 	}
 	if last.Results[0].NodeID != findInTree(t, mustTree(t, r), "Второй").ID {
-		t.Errorf("first result = %+v, want the folder's first request", last.Results[0])
+		t.Errorf("first result = %+v, want the nested collection's first request", last.Results[0])
 	}
 
-	// A run of the folder is not a run of the collection: the overview of one must not draw the
+	// A run of a nested collection is not a run of the one around it: the overview of one must not draw the
 	// other's summary.
 	collection, err := r.uc.LastRun(ctx, r.collectionID, "")
 	if err != nil {
 		t.Fatalf("LastRun: %v", err)
 	}
 	if collection != nil {
-		t.Errorf("the collection reports a run of its folder: %+v", collection)
+		t.Errorf("the collection reports a run of the nested collection: %+v", collection)
 	}
 }
 
 func TestRunPublishesEveryRequestAsItGoes(t *testing.T) {
 	r := setupRunnable(t)
 
-	if _, err := r.uc.Run(context.Background(), r.collectionID, r.folderID); err != nil {
+	if _, err := r.uc.Run(context.Background(), r.collectionID, r.nestedID); err != nil {
 		t.Fatalf("Run: %v", err)
 	}
 	r.notifier.runFinished(t)
@@ -488,7 +491,7 @@ func TestRunPublishesEveryRequestAsItGoes(t *testing.T) {
 		// The row itself travels with the count: the pane draws each finished request as it comes, and
 		// the level the run was started from is what tells a window looking elsewhere that it is not
 		// this run's.
-		if event.Result.NodeID == "" || event.CollectionID != r.collectionID || event.NodeID != r.folderID {
+		if event.Result.NodeID == "" || event.CollectionID != r.collectionID || event.NodeID != r.nestedID {
 			t.Errorf("progress %d = %+v, want the row and the level it came from", i, event)
 		}
 	}

@@ -60,15 +60,24 @@ func (f *fakeTree) knows(id string) bool {
 	if id == string(domain.DraftCommandLine) {
 		return true
 	}
-	for _, collection := range f.collections {
-		if collection.ID == id {
-			return true
+	var walk func(collections []domain.Collection) bool
+	walk = func(collections []domain.Collection) bool {
+		for _, collection := range collections {
+			if collection.ID == id {
+				return true
+			}
+			for _, node := range collection.Items {
+				if node.ID == id {
+					return true
+				}
+			}
+			if walk(collection.Children) {
+				return true
+			}
 		}
-		if _, ok := pathTo(collection.Items, id); ok {
-			return true
-		}
+		return false
 	}
-	return false
+	return walk(f.collections)
 }
 
 // seeded is the code of one level, written the way the editor writes it: the two fakes share the map,
@@ -78,20 +87,21 @@ func (f *fakeTree) seeded(id string, scripts *domain.Scripts) *fakeTree {
 	return f
 }
 
-// levelsOf is every level the fixture has: the store answers for them, and for nothing else.
-func levelsOf(tree *fakeTree) map[string]bool {
+// knownLevels is every level the fixture has: the store answers for them, and for nothing else. A
+// collection inside a collection is a level like any other, so the walk goes through them.
+func knownLevels(tree *fakeTree) map[string]bool {
 	known := map[string]bool{commandLine: true}
-	var walk func(nodes []domain.CollectionNode)
-	walk = func(nodes []domain.CollectionNode) {
-		for _, node := range nodes {
-			known[node.ID] = true
-			walk(node.Items)
+	var walk func(collections []domain.Collection)
+	walk = func(collections []domain.Collection) {
+		for _, collection := range collections {
+			known[collection.ID] = true
+			for _, node := range collection.Items {
+				known[node.ID] = true
+			}
+			walk(collection.Children)
 		}
 	}
-	for _, collection := range tree.collections {
-		known[collection.ID] = true
-		walk(collection.Items)
-	}
+	walk(tree.collections)
 	return known
 }
 
@@ -184,25 +194,28 @@ func (f *fakeVariables) SetVariable(_ context.Context, scope domain.VarScope, na
 	return nil
 }
 
-// seedTree is one collection with a folder inside it and a request inside the folder, plus a request
-// at the root: every shape a chain has to keep straight.
+// seedTree is one collection with another one inside it and a request inside that, plus a request at
+// the top: every shape a chain has to keep straight.
 func seedTree() *fakeTree {
 	return &fakeTree{
 		collections: []domain.Collection{
 			{
 				ID: "col-1", Name: "Пользователи",
 				Items: []domain.CollectionNode{
-					{ID: "f-1", CollectionID: "col-1", Kind: domain.NodeFolder, Name: "Админ", Items: []domain.CollectionNode{
-						{ID: "r-1", CollectionID: "col-1", ParentID: "f-1", Kind: domain.NodeRequest, Name: "Список"},
-					}},
-					{ID: "r-2", CollectionID: "col-1", Kind: domain.NodeRequest, Name: "Один"},
+					{ID: "r-2", CollectionID: "col-1", Name: "Один", Position: 1},
+				},
+				Children: []domain.Collection{
+					{
+						ID: "f-1", ParentID: "col-1", Name: "Админ", Position: 0,
+						Items: []domain.CollectionNode{{ID: "r-1", CollectionID: "f-1", Name: "Список"}},
+					},
 				},
 			},
-			{ID: "col-2", Name: "Заказы", Items: []domain.CollectionNode{}},
+			{ID: "col-2", Name: "Заказы", Items: []domain.CollectionNode{}, Children: []domain.Collection{}},
 		},
 		scripts: map[string]*domain.Scripts{
 			"col-1": {Pre: "console.log('коллекция');", Post: "console.log('после коллекции');"},
-			"f-1":   {Pre: "console.log('папка');"},
+			"f-1":   {Pre: "console.log('вложенная');"},
 			"r-1":   {Pre: "console.log('запрос');"},
 		},
 	}
@@ -213,7 +226,7 @@ func newTest() (*UseCase, *fakeEngine, *fakeTree, *fakeStore, *fakeVariables) {
 	tree := seedTree()
 	// One map for the two fakes: the tree answers what each level runs, the store is where the code
 	// lives, and in the database that is the same row.
-	store := &fakeStore{scripts: tree.scripts, known: levelsOf(tree)}
+	store := &fakeStore{scripts: tree.scripts, known: knownLevels(tree)}
 	vars := newFakeVariables()
 	uc := NewUseCase(engine, tree, store, vars, platform.NewIDGen())
 	return uc, engine, tree, store, vars
@@ -233,7 +246,7 @@ func pass(nodeID string) domain.ScriptPass {
 }
 
 // What runs around a request is everything above it, outermost first — the collection's scripts, then
-// the folder's, then the request's own. A level that runs nothing is not in the chain at all.
+// the collection's inside it, then the request's own. A level that runs nothing is not in the chain.
 func TestTheChainIsEverythingAboveTheRequest(t *testing.T) {
 	uc, _, _, _, _ := newTest()
 
@@ -242,16 +255,42 @@ func TestTheChainIsEverythingAboveTheRequest(t *testing.T) {
 		t.Fatalf("Chain: %v", err)
 	}
 	if len(chain) != 3 {
-		t.Fatalf("chain = %+v, want the collection, the folder and the request", chain)
+		t.Fatalf("chain = %+v, want the collection, the one inside it and the request", chain)
 	}
 	if chain[0].NodeID != "col-1" || chain[0].Kind != KindCollection || chain[0].Name != "Пользователи" {
 		t.Errorf("chain[0] = %+v, want the collection first", chain[0])
 	}
-	if chain[1].NodeID != "f-1" || chain[1].Kind != string(domain.NodeFolder) {
-		t.Errorf("chain[1] = %+v, want the folder next", chain[1])
+	if chain[1].NodeID != "f-1" || chain[1].Kind != KindCollection {
+		t.Errorf("chain[1] = %+v, want the collection inside it next", chain[1])
 	}
-	if chain[2].NodeID != "r-1" || chain[2].Kind != string(domain.NodeRequest) {
+	if chain[2].NodeID != "r-1" || chain[2].Kind != KindRequest {
 		t.Errorf("chain[2] = %+v, want the request last", chain[2])
+	}
+}
+
+// A collection inside a collection is a level of the chain in its own right, and what is above it is
+// still above it: the code the outer collection runs has to run for the nested one's requests too.
+func TestAChainGoesThroughTheCollectionsInsideOne(t *testing.T) {
+	uc, _, _, _, _ := newTest()
+	ctx := context.Background()
+
+	chain, err := uc.Chain(ctx, "f-1")
+	if err != nil {
+		t.Fatalf("Chain: %v", err)
+	}
+	if len(chain) != 2 || chain[0].NodeID != "col-1" || chain[1].NodeID != "f-1" {
+		t.Errorf("chain of a nested collection = %+v, want the collection around it and itself", chain)
+	}
+	if chain[1].Kind != KindCollection || chain[1].Name != "Админ" {
+		t.Errorf("chain[1] = %+v, want the nested collection as a level of its own", chain[1])
+	}
+
+	chain, err = uc.Chain(ctx, "r-2")
+	if err != nil {
+		t.Fatalf("Chain: %v", err)
+	}
+	if len(chain) != 1 || chain[0].NodeID != "col-1" {
+		t.Errorf("chain of the request at the top = %+v, want the collection only", chain)
 	}
 }
 
@@ -302,7 +341,7 @@ func TestBeforeRunsEveryPreScriptInOrder(t *testing.T) {
 		t.Error("the run was called off by a script that said nothing of the kind")
 	}
 
-	want := []string{"console.log('коллекция');", "console.log('папка');", "console.log('запрос');"}
+	want := []string{"console.log('коллекция');", "console.log('вложенная');", "console.log('запрос');"}
 	if got := engine.sources(); !equal(got, want) {
 		t.Errorf("scripts that ran = %q, want %q", got, want)
 	}
@@ -323,7 +362,7 @@ func TestBeforeRunsEveryPreScriptInOrder(t *testing.T) {
 }
 
 // A script that changes the request changes what the ones after it see: the collection's script runs
-// first and the request's own sees what the folder left.
+// first and the request's own sees what the collection inside it left.
 func TestWhatAScriptChangesTheNextOneSees(t *testing.T) {
 	uc, engine, _, _, _ := newTest()
 	engine.onRun = func(in domain.ScriptInput) domain.ScriptRun {
@@ -347,7 +386,7 @@ func TestWhatAScriptChangesTheNextOneSees(t *testing.T) {
 func TestAPreRequestScriptCanCallTheRequestOff(t *testing.T) {
 	uc, engine, _, _, _ := newTest()
 	engine.onRun = func(in domain.ScriptInput) domain.ScriptRun {
-		return domain.ScriptRun{Scope: in.Scope, OK: true, SkipRequest: in.Source == "console.log('папка');"}
+		return domain.ScriptRun{Scope: in.Scope, OK: true, SkipRequest: in.Source == "console.log('вложенная');"}
 	}
 
 	asked := pass("r-1")
@@ -356,7 +395,7 @@ func TestAPreRequestScriptCanCallTheRequestOff(t *testing.T) {
 		t.Fatalf("Before: %v", err)
 	}
 	if !skip {
-		t.Error("the folder's script called the request off and the run did not hear it")
+		t.Error("the nested collection's script called the request off and the run did not hear it")
 	}
 	// Saying so does not stop the chain: the scripts below it still run, and one of them may undo it.
 	if len(engine.ran) != 3 {
@@ -395,7 +434,7 @@ func TestAfterRunsThePostScriptsAndKeepsTheReports(t *testing.T) {
 	after.Response = &domain.Response{Status: 200, Body: `{"data":[]}`}
 	uc.After(context.Background(), after)
 
-	// The collection and the folder have post scripts; the request's own has none.
+	// The collection and the one inside it have post scripts; the request's own has none.
 	if len(engine.ran) != 1 || engine.ran[0].Source != "console.log('после коллекции');" {
 		t.Fatalf("scripts that ran = %q, want the collection's", engine.sources())
 	}
@@ -434,8 +473,8 @@ func TestAStoreThatCannotKeepReportsDoesNotFailTheRequest(t *testing.T) {
 	uc.After(context.Background(), asked)
 }
 
-// A level's code is the level's own: what a folder runs is not what the collection runs, and "nothing
-// here" is the answer the editor draws the inherited text over.
+// A level's code is the level's own: what a collection inside another runs is not what the one around
+// it runs, and "nothing here" is the answer the editor draws the inherited text over.
 func TestALevelAnswersForItsOwnCode(t *testing.T) {
 	uc, _, _, _, _ := newTest()
 	ctx := context.Background()
@@ -661,11 +700,11 @@ func TestAScopeThatRefusesAWriteSaysSo(t *testing.T) {
 }
 
 // A script that fails is a report, not the end of the chain: the levels below it still run, and a
-// collection that counts its requests keeps counting even when a folder's script is broken.
+// collection that counts its requests keeps counting even when a script of one inside it is broken.
 func TestAFailedScriptDoesNotStopTheChain(t *testing.T) {
 	uc, engine, _, store, _ := newTest()
 	engine.onRun = func(in domain.ScriptInput) domain.ScriptRun {
-		if in.Source == "console.log('папка');" {
+		if in.Source == "console.log('вложенная');" {
 			return domain.ScriptRun{Scope: in.Scope, OK: false, Error: "ReferenceError: nope"}
 		}
 		return domain.ScriptRun{Scope: in.Scope, OK: true}
@@ -678,8 +717,8 @@ func TestAFailedScriptDoesNotStopTheChain(t *testing.T) {
 	asked.Response = &domain.Response{Status: 200}
 	uc.After(context.Background(), asked)
 
-	// The three pre-request scripts of the chain and the collection's post-response one: the folder's
-	// failure stopped neither the levels below it nor the second half.
+	// The three pre-request scripts of the chain and the collection's post-response one: the failure
+	// stopped neither the levels below it nor the second half.
 	if len(engine.ran) != 4 {
 		t.Fatalf("%d scripts ran, want all four", len(engine.ran))
 	}
@@ -687,7 +726,7 @@ func TestAFailedScriptDoesNotStopTheChain(t *testing.T) {
 		t.Fatalf("%d reports were kept, want one per script", len(store.runs))
 	}
 	if store.runs[1].OK || store.runs[1].Error != "ReferenceError: nope" {
-		t.Errorf("report = %+v, want the failure the folder's script came with", store.runs[1])
+		t.Errorf("report = %+v, want the failure that script came with", store.runs[1])
 	}
 }
 

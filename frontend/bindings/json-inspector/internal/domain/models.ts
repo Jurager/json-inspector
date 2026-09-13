@@ -129,15 +129,16 @@ export enum Code {
     CodeUnknownField = "unknownField",
     CodeUnknownList = "unknownList",
     CodeDraftWithoutID = "draftWithoutId",
-    CodeUnknownNodeKind = "unknownNodeKind",
+    CodeIntoItself = "intoItself",
     CodeUnknownTheme = "unknownTheme",
     CodeUnknownLanguage = "unknownLanguage",
     CodeUnknownRetention = "unknownRetention",
 };
 
 /**
- * Collection is a saved tree of requests with a name of its own. Folders and requests live inside it
- * in one order, which is the order the tree draws them and the order a run walks them.
+ * Collection is a saved group of requests with a name of its own, and it may hold other collections.
+ * What used to be a folder is one of these with a parent: the two were never more than that apart,
+ * and keeping them separate is what stopped a collection from being put inside one.
  */
 export interface Collection {
     "id": string;
@@ -146,7 +147,19 @@ export interface Collection {
     "position": number;
     "createdAt": number;
     "updatedAt": number;
+
+    /**
+     * ParentID is the collection this one sits in. Empty means the top level.
+     */
+    "parentId"?: string;
+
+    /**
+     * Items are the requests this collection holds, and Children the collections inside it. The two
+     * share one position space, which is what keeps a nested collection where it was put rather than
+     * at the end of the group.
+     */
     "items": CollectionNode[] | null;
+    "children": Collection[] | null;
 
     /**
      * Auth is what everything inside inherits unless it says otherwise. It is a pointer for the same
@@ -156,11 +169,9 @@ export interface Collection {
 }
 
 /**
- * CollectionNode is one entry of a collection's tree. Folders and requests share the type because
- * they share the tree: moving one is a parent and a position, not a different table.
- * 
- * The request's own fields are absent until the node is opened: a tree of two hundred nodes has no
- * business carrying two hundred bodies, and the method is all a tree row draws.
+ * CollectionNode is one request of a collection. The fields beyond the name are absent until the node
+ * is opened: a collection of two hundred requests has no business carrying two hundred bodies, and
+ * the method is all a tree row draws.
  * 
  * Auth and Scripts are pointers for the reason the schema's NULL columns exist: nil means "not set
  * here, take the parent's" and a value — even an empty one — means "this is the answer, stop
@@ -168,9 +179,7 @@ export interface Collection {
  */
 export interface CollectionNode {
     "id": string;
-    "parentId"?: string;
     "collectionId": string;
-    "kind": NodeKind;
     "name": string;
     "position": number;
 
@@ -196,24 +205,19 @@ export interface CollectionNode {
     "description"?: string;
     "createdAt": number;
     "updatedAt": number;
-
-    /**
-     * Items are a folder's children, in order. A request has none.
-     */
-    "items"?: CollectionNode[] | null;
 }
 
 /**
- * CollectionRun is one execution of a collection or a folder: when it happened and how it went. The
- * requests it reached are beside it, one row each.
+ * CollectionRun is one execution of a collection: when it happened and how it went. The requests it
+ * reached are beside it, one row each.
  */
 export interface CollectionRun {
     "id": string;
     "collectionId": string;
 
     /**
-     * NodeID is what the run was started from. Empty means the collection itself — a saved folder is
-     * a row of its own, not the absence of one.
+     * NodeID is the single request the run was started from. Empty means the collection as a whole,
+     * nested collections included.
      */
     "nodeId"?: string;
     "startedAt": number;
@@ -396,19 +400,6 @@ export enum Language {
     LanguageSystem = "system",
     LanguageRU = "ru",
     LanguageEN = "en",
-};
-
-/**
- * NodeKind is what a node is: a folder holds other nodes, a request is the thing that gets sent.
- */
-export enum NodeKind {
-    /**
-     * The Go zero value for the underlying type of the enum.
-     */
-    $zero = "",
-
-    NodeFolder = "folder",
-    NodeRequest = "request",
 };
 
 /**

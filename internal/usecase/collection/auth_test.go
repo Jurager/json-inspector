@@ -7,12 +7,12 @@ import (
 	"json-inspector/internal/domain"
 )
 
-// authTree is a collection with a folder in it, a request inside the folder and one beside it: the
+// authTree is a collection with another one inside it, a request inside that and one beside it: the
 // shape that says whether a request finds the level that answers for it.
 type authTree struct {
 	uc           *UseCase
 	collectionID string
-	folderID     string
+	nestedID     string
 	insideID     string
 	besideID     string
 }
@@ -27,32 +27,21 @@ func setupAuthTree(t *testing.T) authTree {
 		t.Fatalf("CreateCollection: %v", err)
 	}
 	collectionID := only(t, tree).ID
+	nestedID := nestCollection(t, uc, "Вложенная", collectionID)
 
-	_, tree, err = uc.CreateNode(ctx, NewNode{
-		CollectionID: collectionID, Kind: domain.NodeFolder, Name: "Папка",
-	})
-	if err != nil {
-		t.Fatalf("CreateNode folder: %v", err)
-	}
-	folderID := findInTree(t, tree, "Папка").ID
-
-	_, tree, err = uc.CreateNode(ctx, NewNode{
-		CollectionID: collectionID, ParentID: folderID, Kind: domain.NodeRequest, Name: "Внутри",
-	})
+	_, tree, err = uc.CreateNode(ctx, NewNode{CollectionID: nestedID, Name: "Внутри"})
 	if err != nil {
 		t.Fatalf("CreateNode inside: %v", err)
 	}
 	insideID := findInTree(t, tree, "Внутри").ID
 
-	_, tree, err = uc.CreateNode(ctx, NewNode{
-		CollectionID: collectionID, Kind: domain.NodeRequest, Name: "Рядом",
-	})
+	_, tree, err = uc.CreateNode(ctx, NewNode{CollectionID: collectionID, Name: "Рядом"})
 	if err != nil {
 		t.Fatalf("CreateNode beside: %v", err)
 	}
 	besideID := findInTree(t, tree, "Рядом").ID
 
-	return authTree{uc: uc, collectionID: collectionID, folderID: folderID, insideID: insideID, besideID: besideID}
+	return authTree{uc: uc, collectionID: collectionID, nestedID: nestedID, insideID: insideID, besideID: besideID}
 }
 
 func bearer(token string) domain.Auth {
@@ -60,8 +49,8 @@ func bearer(token string) domain.Auth {
 }
 
 // What a level authorizes its requests with, and where a request finds it: the nearest level above
-// it that answered, which is the folder for what is inside the folder and the collection for what
-// is not.
+// it that answered, which is the collection inside one for what it holds and the outer collection
+// for what is not in it.
 func TestAuthIsInheritedDownTheTree(t *testing.T) {
 	ctx := context.Background()
 	a := setupAuthTree(t)
@@ -78,18 +67,18 @@ func TestAuthIsInheritedDownTheTree(t *testing.T) {
 		t.Errorf("inherited = %+v, want the collection's", got)
 	}
 
-	// A folder that answers for itself stops the walk for everything under it, and only for that.
-	if _, err := a.uc.SaveAuth(ctx, a.folderID, bearer("папка")); err != nil {
-		t.Fatalf("SaveAuth folder: %v", err)
+	// A collection that answers for itself stops the walk for everything inside it, and only for that.
+	if _, err := a.uc.SaveAuth(ctx, a.nestedID, bearer("вложенная")); err != nil {
+		t.Fatalf("SaveAuth nested: %v", err)
 	}
-	if got, _ := a.uc.AuthFor(ctx, domain.DraftID(a.insideID)); got == nil || got.Token != "папка" {
-		t.Errorf("inside inherited = %+v, want the folder's", got)
+	if got, _ := a.uc.AuthFor(ctx, domain.DraftID(a.insideID)); got == nil || got.Token != "вложенная" {
+		t.Errorf("inside inherited = %+v, want the nested collection's", got)
 	}
 	if got, _ := a.uc.AuthFor(ctx, domain.DraftID(a.besideID)); got == nil || got.Token != "коллекция" {
 		t.Errorf("beside inherited = %+v, want the collection's", got)
 	}
 
-	// A request that answers for itself is not the folder's any more.
+	// A request that answers for itself is not the nested collection's any more.
 	if _, err := a.uc.SaveAuth(ctx, a.insideID, bearer("сам")); err != nil {
 		t.Fatalf("SaveAuth request: %v", err)
 	}
@@ -99,18 +88,18 @@ func TestAuthIsInheritedDownTheTree(t *testing.T) {
 
 	// «Нет» is not an answer that stops the walk: a level with nothing of its own lets the one below
 	// it inherit from the one above.
-	if _, err := a.uc.SaveAuth(ctx, a.folderID, domain.Auth{Type: domain.AuthNone}); err != nil {
-		t.Fatalf("SaveAuth folder none: %v", err)
+	if _, err := a.uc.SaveAuth(ctx, a.nestedID, domain.Auth{Type: domain.AuthNone}); err != nil {
+		t.Fatalf("SaveAuth nested none: %v", err)
 	}
 	if got, _ := a.uc.AuthFor(ctx, domain.DraftID(a.besideID)); got == nil || got.Token != "коллекция" {
-		t.Errorf("after clearing the folder = %+v, want the collection's still", got)
+		t.Errorf("after clearing the nested one = %+v, want the collection's still", got)
 	}
 	tree, err := a.uc.Tree(ctx)
 	if err != nil {
 		t.Fatalf("Tree: %v", err)
 	}
-	if folder := findInTree(t, tree, "Папка"); folder.Auth != nil {
-		t.Errorf("folder auth = %+v, want it stored as nothing at all", folder.Auth)
+	if nested := findIn(t, tree, a.nestedID); nested.Auth != nil {
+		t.Errorf("nested auth = %+v, want it stored as nothing at all", nested.Auth)
 	}
 }
 

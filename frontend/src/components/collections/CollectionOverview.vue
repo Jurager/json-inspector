@@ -7,7 +7,7 @@ import CollectionAuth from './CollectionAuth.vue'
 import CollectionScripts from './CollectionScripts.vue'
 import { useCollectionsStore } from '../../stores/collections'
 import { useToast } from '../../composables/useToast'
-import { requestCount } from '../../lib/collectionTree'
+import { childrenOf, findNode } from '../../lib/collectionTree'
 import { describeFailure, formatAgo, formatMicros, useMessages } from '../../i18n'
 import type { CollectionNode } from '../../../bindings/json-inspector/internal/domain'
 
@@ -32,13 +32,13 @@ async function importCollection() {
   }
 }
 
-const title = computed(() => store.selected?.name ?? store.trail?.collection.name ?? '')
-const description = computed(() => store.selected?.description ?? store.trail?.collection.description ?? '')
+const title = computed(() => store.selected?.name ?? store.trail?.collection?.name ?? '')
+const description = computed(() => store.selected?.description ?? store.trail?.collection?.description ?? '')
 const requestTotal = computed(() => store.selectedRequestCount)
 const editingDescription = ref(false)
 const descriptionDraft = ref('')
 const descriptionInput = ref<HTMLInputElement | null>(null)
-const levelId = computed(() => store.selected?.id ?? store.trail?.collection.id ?? '')
+const levelId = computed(() => store.selected?.id ?? store.trail?.collection?.id ?? '')
 const descriptionLevel = ref('')
 const descriptionOpen = ref('')
 
@@ -92,14 +92,13 @@ interface RunRow {
 const rows = computed<RunRow[]>(() => {
   const run = store.lastRun
   if (!run) return []
+  // The run names its rows by id, and what a row is called now is the tree's answer: the requests of
+  // every collection, the collections inside them included.
   const byId = new Map<string, CollectionNode>()
-  const walk = (nodes: CollectionNode[]) => {
-    for (const node of nodes) {
-      byId.set(node.id, node)
-      walk(node.items ?? [])
-    }
+  for (const result of run.results ?? []) {
+    const node = findNode(store.tree, result.nodeId)
+    if (node) byId.set(node.id, node)
   }
-  for (const collection of store.tree) walk(collection.items ?? [])
 
   return [...(run.results ?? [])]
     .sort((a, b) => a.position - b.position)

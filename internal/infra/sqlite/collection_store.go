@@ -11,25 +11,26 @@ import (
 	"json-inspector/internal/domain"
 )
 
-// Collections reads every collection with its tree. The nodes come in one query and are nested here
-// rather than in the window: the order they are drawn in is the order this table keeps, and a tree
-// assembled in two places is a tree that can disagree with itself.
+// Collections reads every collection with its tree. Requests and nested collections come in flat and
+// are placed here rather than in the window: the order they are drawn in is the order this table
+// keeps, and a tree assembled in two places is a tree that can disagree with itself.
 func (s *Store) Collections(ctx context.Context) ([]domain.Collection, error) {
 	rows, err := s.db.QueryContext(ctx,
-		`SELECT id, name, description, position, created_at, updated_at, auth_json
+		`SELECT id, name, description, position, created_at, updated_at, auth_json, ifnull(parent_id, '')
 		   FROM collections ORDER BY position, created_at`)
 	if err != nil {
 		return nil, fmt.Errorf("listing collections: %w", err)
 	}
 	defer rows.Close()
 
-	out := []domain.Collection{}
+	flat := []domain.Collection{}
 	for rows.Next() {
 		var (
 			c    domain.Collection
 			auth sql.NullString
 		)
-		if err := rows.Scan(&c.ID, &c.Name, &c.Description, &c.Position, &c.CreatedAt, &c.UpdatedAt, &auth); err != nil {
+		if err := rows.Scan(&c.ID, &c.Name, &c.Description, &c.Position, &c.CreatedAt, &c.UpdatedAt, &auth,
+			&c.ParentID); err != nil {
 			return nil, fmt.Errorf("listing collections: %w", err)
 		}
 		if auth.Valid {
@@ -39,44 +40,58 @@ func (s *Store) Collections(ctx context.Context) ([]domain.Collection, error) {
 			}
 			c.Auth = &value
 		}
+		// Empty rather than nil: a level with nothing in it is drawn as nothing, and the window
+		// would have to guard every walk otherwise.
 		c.Items = []domain.CollectionNode{}
-		out = append(out, c)
+		c.Children = []domain.Collection{}
+		flat = append(flat, c)
 	}
 	if err := rows.Err(); err != nil {
 		return nil, fmt.Errorf("listing collections: %w", err)
 	}
-	if len(out) == 0 {
-		return out, nil
+	if len(flat) == 0 {
+		return flat, nil
 	}
 
 	nodes, err := s.nodes(ctx)
 	if err != nil {
 		return nil, err
 	}
-	for i := range out {
-		out[i].Items = nest(out[i].ID, nodes)
+	// Requests are hung on the collection that holds them, which is a lookup rather than a walk: the
+	// rows already came in the order the tree keeps.
+	byCollection := map[string][]domain.CollectionNode{}
+	for _, node := range nodes {
+		byCollection[node.CollectionID] = append(byCollection[node.CollectionID], node)
 	}
-	return out, nil
+	for i := range flat {
+		if items := byCollection[flat[i].ID]; len(items) > 0 {
+			flat[i].Items = items
+		}
+	}
+	return nestCollections(flat), nil
 }
 
-// nest hangs the flat rows on their parents. Children are grouped by parent first, so a node is
-// placed by a lookup instead of by walking the tree for its parent — and the order the rows came in
-// is the order the tree keeps.
-func nest(collectionID string, nodes []domain.CollectionNode) []domain.CollectionNode {
-	byParent := map[string][]domain.CollectionNode{}
-	for _, node := range nodes {
-		if node.CollectionID == collectionID {
-			byParent[node.ParentID] = append(byParent[node.ParentID], node)
-		}
+// nestCollections hangs the collections on their parents, grouped by parent first so each one is
+// placed by a lookup.
+//
+// The requests and the collections of a level are kept apart here although they share one number
+// line: merging the two lists by position is what drawing a row means, and that is the window's.
+func nestCollections(flat []domain.Collection) []domain.Collection {
+	byParent := map[string][]domain.Collection{}
+	for _, c := range flat {
+		byParent[c.ParentID] = append(byParent[c.ParentID], c)
 	}
 
-	var build func(parent string) []domain.CollectionNode
-	build = func(parent string) []domain.CollectionNode {
-		items := byParent[parent]
-		for i := range items {
-			items[i].Items = build(items[i].ID)
+	var build func(parent string) []domain.Collection
+	build = func(parent string) []domain.Collection {
+		children := byParent[parent]
+		if children == nil {
+			return []domain.Collection{}
 		}
-		return items
+		for i := range children {
+			children[i].Children = build(children[i].ID)
+		}
+		return children
 	}
 	return build("")
 }
@@ -86,7 +101,6 @@ func nest(collectionID string, nodes []domain.CollectionNode) []domain.Collectio
 func (s *Store) Node(ctx context.Context, id string) (domain.CollectionNode, error) {
 	var (
 		node                        domain.CollectionNode
-		parentID                    sql.NullString
 		params, headers, cookies    string
 		auth, scripts               sql.NullString
 		description                 sql.NullString
@@ -94,11 +108,11 @@ func (s *Store) Node(ctx context.Context, id string) (domain.CollectionNode, err
 		form, bodyFile              sql.NullString
 	)
 	err := s.db.QueryRowContext(ctx,
-		`SELECT id, collection_id, parent_id, kind, name, position, description, auth_json, scripts_json,
+		`SELECT id, collection_id, name, position, description, auth_json, scripts_json,
 		        method, url, params_json, headers_json, body, body_kind, form_json, body_file,
 		        cookies_json, created_at, updated_at
 		   FROM collection_nodes WHERE id = ?`, id).
-		Scan(&node.ID, &node.CollectionID, &parentID, &node.Kind, &node.Name, &node.Position, &description,
+		Scan(&node.ID, &node.CollectionID, &node.Name, &node.Position, &description,
 			&auth, &scripts, &method, &url, &params, &headers, &body, &bodyKind, &form, &bodyFile,
 			&cookies, &node.CreatedAt, &node.UpdatedAt)
 	if errors.Is(err, sql.ErrNoRows) {
@@ -108,7 +122,6 @@ func (s *Store) Node(ctx context.Context, id string) (domain.CollectionNode, err
 		return domain.CollectionNode{}, fmt.Errorf("reading collection node %s: %w", id, err)
 	}
 
-	node.ParentID = parentID.String
 	node.Description = description.String
 	node.Method = method.String
 	node.URL = url.String
@@ -161,10 +174,10 @@ func readAuth(raw sql.NullString, into **domain.Auth, what string) error {
 	return nil
 }
 
-// nodes reads every node of every collection, flat, in the order its tree draws them.
+// nodes reads every request of every collection, flat, in the order the trees draw them.
 func (s *Store) nodes(ctx context.Context) ([]domain.CollectionNode, error) {
 	rows, err := s.db.QueryContext(ctx,
-		`SELECT id, collection_id, parent_id, kind, name, position, method, description, auth_json
+		`SELECT id, collection_id, name, position, method, description, auth_json
 		   FROM collection_nodes ORDER BY collection_id, position, created_at`)
 	if err != nil {
 		return nil, fmt.Errorf("listing collection nodes: %w", err)
@@ -175,19 +188,16 @@ func (s *Store) nodes(ctx context.Context) ([]domain.CollectionNode, error) {
 	for rows.Next() {
 		var (
 			node        domain.CollectionNode
-			parentID    sql.NullString
 			method      sql.NullString
 			description sql.NullString
 			auth        sql.NullString
 		)
-		if err := rows.Scan(&node.ID, &node.CollectionID, &parentID, &node.Kind, &node.Name, &node.Position,
+		if err := rows.Scan(&node.ID, &node.CollectionID, &node.Name, &node.Position,
 			&method, &description, &auth); err != nil {
 			return nil, fmt.Errorf("listing collection nodes: %w", err)
 		}
-		node.ParentID = parentID.String
 		node.Method = method.String
-		// The description travels with the row: it is the line the overview draws under the title, and
-		// a folder has one of those too.
+		// The description travels with the row: it is the line the overview draws under the title.
 		node.Description = description.String
 		// Auth travels with it as well, although no row draws it: inheritance is a property of the
 		// tree, and a request has to be able to ask what the levels above it answered.
@@ -201,6 +211,9 @@ func (s *Store) nodes(ctx context.Context) ([]domain.CollectionNode, error) {
 
 // SaveCollection writes a collection's own row: its name, its description, its place, and the auth
 // everything inside it inherits.
+//
+// Where it sits is written by the insert and left alone by the update, the way a node's collection is:
+// a rename or a new auth saves the row it read, and moving is a gesture of its own.
 func (s *Store) SaveCollection(ctx context.Context, c domain.Collection) error {
 	auth, err := encodeAuth(c.Auth)
 	if err != nil {
@@ -209,13 +222,14 @@ func (s *Store) SaveCollection(ctx context.Context, c domain.Collection) error {
 
 	now := time.Now().UnixMilli()
 	if _, err := s.db.ExecContext(ctx,
-		`INSERT INTO collections (id, name, description, position, auth_json, created_at, updated_at)
-		 VALUES (?, ?, ?, ?, ?, ?, ?)
+		`INSERT INTO collections (id, name, description, position, parent_id, auth_json, created_at,
+		                          updated_at)
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?)
 		 ON CONFLICT(id) DO UPDATE SET
 		   name = excluded.name, description = excluded.description,
 		   position = excluded.position, auth_json = excluded.auth_json,
 		   updated_at = excluded.updated_at`,
-		c.ID, c.Name, c.Description, c.Position, auth, now, now); err != nil {
+		c.ID, c.Name, c.Description, c.Position, nullIfEmpty(c.ParentID), auth, now, now); err != nil {
 		return fmt.Errorf("saving collection %s: %w", c.ID, err)
 	}
 	return nil
@@ -264,11 +278,11 @@ func (s *Store) SaveNode(ctx context.Context, node domain.CollectionNode) error 
 
 	now := time.Now().UnixMilli()
 	_, err = s.db.ExecContext(ctx,
-		`INSERT INTO collection_nodes (id, collection_id, parent_id, kind, name, position, description,
+		`INSERT INTO collection_nodes (id, collection_id, name, position, description,
 		                               auth_json, scripts_json, method, url, params_json, headers_json,
 		                               body, body_kind, form_json, body_file, cookies_json, created_at,
 		                               updated_at)
-		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 		 ON CONFLICT(id) DO UPDATE SET
 		   name = excluded.name, position = excluded.position, description = excluded.description,
 		   auth_json = excluded.auth_json, scripts_json = excluded.scripts_json,
@@ -277,7 +291,7 @@ func (s *Store) SaveNode(ctx context.Context, node domain.CollectionNode) error 
 		   body = excluded.body, body_kind = excluded.body_kind, form_json = excluded.form_json,
 		   body_file = excluded.body_file,
 		   cookies_json = excluded.cookies_json, updated_at = excluded.updated_at`,
-		node.ID, node.CollectionID, nullIfEmpty(node.ParentID), string(node.Kind), node.Name, node.Position,
+		node.ID, node.CollectionID, node.Name, node.Position,
 		nullIfEmpty(node.Description), auth, scripts, nullIfEmpty(node.Method), nullIfEmpty(node.URL),
 		string(params), string(headers), node.Body, string(domain.KindOf(node.BodyKind)), string(form),
 		node.BodyFile, string(cookies), now, now)
@@ -388,14 +402,21 @@ func (s *Store) LastRun(ctx context.Context, collectionID string, nodeID string)
 	return run, true, rows.Err()
 }
 
-// NextPosition is one past the last sibling, which is where a new node lands: the end of its group,
-// the way a new row lands in a list.
-func (s *Store) NextPosition(ctx context.Context, collectionID string, parentID string) (int64, error) {
+// NextPosition is one past the last child of a collection, which is where a new row lands: the end of
+// its level, the way a new row lands in a list. The empty id is the top level — the collections that
+// have no parent.
+//
+// A level's requests and the collections inside it are numbered in one sequence, so both tables are
+// asked and the larger answer wins; a new collection then lands after the request it follows rather
+// than at the end of a group of its own.
+func (s *Store) NextPosition(ctx context.Context, collectionID string) (int64, error) {
 	var next int64
 	err := s.db.QueryRowContext(ctx,
-		`SELECT ifnull(max(position), -1) + 1 FROM collection_nodes
-		  WHERE collection_id = ? AND ifnull(parent_id, '') = ?`,
-		collectionID, parentID).Scan(&next)
+		`SELECT ifnull(max(position), -1) + 1 FROM (
+		   SELECT position FROM collection_nodes WHERE collection_id = ?
+		    UNION ALL
+		   SELECT position FROM collections WHERE ifnull(parent_id, '') = ?)`,
+		collectionID, collectionID).Scan(&next)
 	if err != nil {
 		return 0, fmt.Errorf("reading the next position in %s: %w", collectionID, err)
 	}

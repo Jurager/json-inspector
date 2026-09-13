@@ -261,7 +261,7 @@ const en = {
     orLoadSample: 'Or load the JSON:API sample from the menu.',
     sendDoesNotSave: 'Sending does not save your edit — “Save” in the status bar does.',
     chooseRequest: 'Choose a request',
-    orFolder: 'Or a folder — then everything in it can be run.',
+    orCollection: 'Or a collection — then everything in it can be run.',
   },
 
   varToken: {
@@ -349,8 +349,7 @@ const en = {
     lastRun: 'Last run {ago}',
     deletedRequest: 'a deleted request',
     authNote:
-      'Every folder and request in the collection inherits it; in a request card, choose “Inherit”.',
-    newFolder: 'New folder',
+      'Every nested collection and every request in the collection inherits it; in a request card, choose “Inherit”.',
     newRequest: 'New request',
     newCollection: 'New collection',
     newCollectionN: 'New collection {n}',
@@ -379,7 +378,7 @@ const en = {
     unsavedHint:
       'The edit is not saved into the collection: “Send” does not write it. Without saving, the changes are lost.',
     importCollection: 'Import a collection',
-    emptyHint: 'Save your requests into collections and folders — and run them all in turn with one button.',
+    emptyHint: 'Save your requests into collections — and run them all in turn with one button.',
     authType: 'Authorization type',
     loginPassword: 'Username and password',
     loginPasswordPlaceholder: 'login:password',
@@ -460,7 +459,7 @@ const en = {
       unknownField: 'Unknown field: {field}',
       unknownList: 'Unknown list: {list}',
       draftWithoutId: 'The draft has no id.',
-      unknownNodeKind: 'Unknown kind of node: {kind}',
+      intoItself: 'A collection cannot be put inside itself.',
       unknownTheme: 'Unknown theme: {theme}',
       unknownLanguage: 'Unknown language: {language}',
       unknownRetention: 'Unknown history retention: {retention}',

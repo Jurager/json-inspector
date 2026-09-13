@@ -18,16 +18,17 @@ func fixture(t *testing.T, name string) []byte {
 	return data
 }
 
-// asRequest is the fixture row that must be a request; it saves a type assertion at every use.
-func asRequest(t *testing.T, node domain.CollectionNode) domain.CollectionNode {
+// asRequest is the fixture row that must be a request: a level holds requests and collections, and a
+// test that names one of them by index is easier to read with the index checked here.
+func asRequest(t *testing.T, collection domain.Collection, i int) domain.CollectionNode {
 	t.Helper()
-	if node.Kind != domain.NodeRequest {
-		t.Fatalf("%q is a %s, want a request", node.Name, node.Kind)
+	if i >= len(collection.Items) {
+		t.Fatalf("the level holds %d requests, want one at %d", len(collection.Items), i)
 	}
-	return node
+	return collection.Items[i]
 }
 
-func TestImportReadsFoldersAndRequests(t *testing.T) {
+func TestImportReadsNestedCollectionsAndRequests(t *testing.T) {
 	collection, err := Import(fixture(t, "collection.json"))
 	if err != nil {
 		t.Fatalf("Import: %v", err)
@@ -35,20 +36,32 @@ func TestImportReadsFoldersAndRequests(t *testing.T) {
 	if collection.Name != "Storefront" {
 		t.Errorf("name = %q, want the file's", collection.Name)
 	}
-	if len(collection.Items) != 2 {
-		t.Fatalf("items = %d, want a folder and a request", len(collection.Items))
+
+	// The file writes one list; the app keeps two, because a folder is a collection inside one and a
+	// request is a row of the level it is in.
+	if len(collection.Children) != 1 || len(collection.Items) != 1 {
+		t.Fatalf("level = %d children and %d requests, want a folder and a request",
+			len(collection.Children), len(collection.Items))
+	}
+	nested := collection.Children[0]
+	if nested.Name != "Пользователи" || len(nested.Items) != 2 {
+		t.Fatalf("nested = %+v, want the folder with its two requests", nested)
+	}
+	// The two share one number line, numbered by where each row stood in the file, so the level merges
+	// back into the file's order rather than into two groups.
+	if nested.Position != 0 || collection.Items[0].Position != 1 {
+		t.Errorf("positions = %d and %d, want the order the file is written in",
+			nested.Position, collection.Items[0].Position)
+	}
+	if order := collection.Level(); order[0].Collection == nil || order[1].Node == nil {
+		t.Errorf("level = %+v, want the folder first and the request after it", order)
+	}
+	if nested.Items[1].Position != 1 {
+		t.Errorf("position inside the folder = %d, want the order the file is written in",
+			nested.Items[1].Position)
 	}
 
-	folder := collection.Items[0]
-	if folder.Kind != domain.NodeFolder || folder.Name != "Пользователи" || len(folder.Items) != 2 {
-		t.Fatalf("folder = %+v, want a folder with its two requests", folder)
-	}
-	if folder.Position != 0 || folder.Items[1].Position != 1 {
-		t.Errorf("positions = %d, %d, want the order the file is written in",
-			folder.Position, folder.Items[1].Position)
-	}
-
-	list := asRequest(t, folder.Items[0])
+	list := asRequest(t, nested, 0)
 	if list.Method != "GET" || list.URL != "https://api.example.com/users?include=author,comments&page[size]=25" {
 		t.Errorf("request = %+v, want the method and the address", list)
 	}
@@ -65,7 +78,7 @@ func TestImportReadsFoldersAndRequests(t *testing.T) {
 		t.Errorf("auth = %+v, want the bearer token as it was written", list.Auth)
 	}
 
-	create := asRequest(t, folder.Items[1])
+	create := asRequest(t, nested, 1)
 	if create.Body != "{\n  \"data\": {\n    \"type\": \"users\"\n  }\n}" {
 		t.Errorf("body = %q, want it as it was written", create.Body)
 	}
@@ -85,13 +98,49 @@ func TestImportReadsAFormBody(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Import: %v", err)
 	}
-	report := asRequest(t, collection.Items[1])
+	report := asRequest(t, collection, 0)
 	if report.Body != "from=2026-01-01" {
 		t.Errorf("body = %q, want the enabled rows of the form", report.Body)
 	}
 	// Basic carries two values and the chip has one field, so they are joined here.
 	if report.Auth == nil || report.Auth.Type != domain.AuthBasic || report.Auth.Token != "reader:{{secret}}" {
 		t.Errorf("auth = %+v, want the pair joined", report.Auth)
+	}
+}
+
+// A folder's authorization is what everything inside it inherits, and the format has a place for it:
+// a group that lost its auth on the way in would be a group that behaved differently here.
+func TestImportReadsTheAuthOfANestedCollection(t *testing.T) {
+	file := []byte(`{"info":{"name":"Магазин","schema":"` + Schema + `"},"item":[
+		{"name":"Админ","auth":{"type":"bearer","bearer":[{"key":"token","value":"{{admin}}"}]},
+		 "item":[{"name":"Список","request":{"method":"GET","url":{"raw":"https://api.example.com/admins"}}}]}]}`)
+
+	collection, err := Import(file)
+	if err != nil {
+		t.Fatalf("Import: %v", err)
+	}
+	if len(collection.Children) != 1 {
+		t.Fatalf("children = %+v, want the group", collection.Children)
+	}
+	nested := collection.Children[0]
+	if nested.Auth == nil || nested.Auth.Token != "{{admin}}" {
+		t.Errorf("auth = %+v, want the group's own", nested.Auth)
+	}
+
+	// And back out again, on the group rather than on the requests inside it.
+	data, err := Export(collection)
+	if err != nil {
+		t.Fatalf("Export: %v", err)
+	}
+	var doc document
+	if err := json.Unmarshal(data, &doc); err != nil {
+		t.Fatalf("the export does not read back: %v", err)
+	}
+	if len(doc.Item) != 1 || doc.Item[0].Auth == nil || doc.Item[0].Request != nil {
+		t.Fatalf("item = %+v, want the group with its auth", doc.Item)
+	}
+	if doc.Item[0].Auth.Bearer[0].Value != "{{admin}}" {
+		t.Errorf("auth = %+v, want the token as it was written", doc.Item[0].Auth)
 	}
 }
 
@@ -108,14 +157,14 @@ func TestImportRefusesAFileThatIsNotACollection(t *testing.T) {
 }
 
 // The round trip is what makes an export worth anything: a collection written out and read back is
-// the collection it was.
+// the collection it was, the collections inside it included.
 func TestRoundTrip(t *testing.T) {
 	first, err := Import(fixture(t, "collection.json"))
 	if err != nil {
 		t.Fatalf("Import: %v", err)
 	}
 
-	data, err := Export(first.Name, first.Items)
+	data, err := Export(first)
 	if err != nil {
 		t.Fatalf("Export: %v", err)
 	}
@@ -124,33 +173,35 @@ func TestRoundTrip(t *testing.T) {
 		t.Fatalf("Import after Export: %v", err)
 	}
 
-	if second.Name != first.Name {
-		t.Errorf("name = %q, want %q", second.Name, first.Name)
-	}
-	if len(second.Items) != len(first.Items) {
-		t.Fatalf("items = %d, want %d", len(second.Items), len(first.Items))
-	}
-	for i := range first.Items {
-		compare(t, first.Items[i], second.Items[i])
-	}
+	compareCollection(t, first, second)
 	if !json.Valid(data) {
 		t.Error("the export is not valid JSON")
 	}
 }
 
-func compare(t *testing.T, want domain.CollectionNode, got domain.CollectionNode) {
+func compareCollection(t *testing.T, want domain.Collection, got domain.Collection) {
 	t.Helper()
-	if got.Name != want.Name || got.Kind != want.Kind || got.Position != want.Position {
-		t.Errorf("node = %+v, want %+v", got, want)
+	if got.Name != want.Name || got.Position != want.Position {
+		t.Errorf("collection = %+v, want %+v", got, want)
 	}
-	if want.Kind == domain.NodeFolder {
-		if len(got.Items) != len(want.Items) {
-			t.Fatalf("folder %q holds %d rows, want %d", got.Name, len(got.Items), len(want.Items))
-		}
-		for i := range want.Items {
-			compare(t, want.Items[i], got.Items[i])
-		}
-		return
+	if len(got.Items) != len(want.Items) {
+		t.Fatalf("%q holds %d requests, want %d", got.Name, len(got.Items), len(want.Items))
+	}
+	for i := range want.Items {
+		compareNode(t, want.Items[i], got.Items[i])
+	}
+	if len(got.Children) != len(want.Children) {
+		t.Fatalf("%q holds %d collections, want %d", got.Name, len(got.Children), len(want.Children))
+	}
+	for i := range want.Children {
+		compareCollection(t, want.Children[i], got.Children[i])
+	}
+}
+
+func compareNode(t *testing.T, want domain.CollectionNode, got domain.CollectionNode) {
+	t.Helper()
+	if got.Name != want.Name || got.Position != want.Position {
+		t.Errorf("node = %+v, want %+v", got, want)
 	}
 	if got.Method != want.Method || got.URL != want.URL || got.Body != want.Body {
 		t.Errorf("%q = %+v, want %+v", want.Name, got, want)
@@ -172,9 +223,9 @@ func TestExportWritesASingleRequest(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Import: %v", err)
 	}
-	single := asRequest(t, collection.Items[1])
+	single := asRequest(t, collection, 0)
 
-	data, err := Export(single.Name, []domain.CollectionNode{single})
+	data, err := Export(domain.Collection{Name: single.Name, Items: []domain.CollectionNode{single}})
 	if err != nil {
 		t.Fatalf("Export: %v", err)
 	}
@@ -207,7 +258,7 @@ func TestAFormBodyTravelsBothWays(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Import: %v", err)
 	}
-	node := asRequest(t, collection.Items[0])
+	node := asRequest(t, collection, 0)
 
 	if node.BodyKind != domain.BodyForm {
 		t.Errorf("bodyKind = %q, want a form", node.BodyKind)
@@ -230,7 +281,7 @@ func TestAFormBodyTravelsBothWays(t *testing.T) {
 	}
 
 	// And back out again, with the rows, the switch and the path where they were.
-	data, err := Export(collection.Name, collection.Items)
+	data, err := Export(collection)
 	if err != nil {
 		t.Fatalf("Export: %v", err)
 	}
@@ -263,12 +314,12 @@ func TestABinaryBodyTravelsBothWays(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Import: %v", err)
 	}
-	node := asRequest(t, collection.Items[0])
+	node := asRequest(t, collection, 0)
 	if node.BodyKind != domain.BodyBinary || node.BodyFile != "/tmp/report.pdf" {
 		t.Errorf("node = %+v, want a binary body and its path", node)
 	}
 
-	data, err := Export(collection.Name, collection.Items)
+	data, err := Export(collection)
 	if err != nil {
 		t.Fatalf("Export: %v", err)
 	}
@@ -286,7 +337,7 @@ func TestABinaryBodyTravelsBothWays(t *testing.T) {
 // Writing a language this reader does not honour would be a promise the next import breaks.
 func TestAJsonBodyLeavesAsRaw(t *testing.T) {
 	node := domain.CollectionNode{
-		Kind: domain.NodeRequest, Name: "Создать", Method: "POST",
+		Name: "Создать", Method: "POST",
 		URL: "https://api.example.com/products", Body: `{"a": 1}`, BodyKind: domain.BodyJSON,
 	}
 	body := exportedBody(node)
@@ -295,12 +346,12 @@ func TestAJsonBodyLeavesAsRaw(t *testing.T) {
 	}
 
 	// A request with nothing in it has no body at all, not an empty one.
-	empty := domain.CollectionNode{Kind: domain.NodeRequest, BodyKind: domain.BodyJSON}
+	empty := domain.CollectionNode{BodyKind: domain.BodyJSON}
 	if body := exportedBody(empty); body != nil {
 		t.Errorf("body = %+v, want none for a request with nothing in it", body)
 	}
 	// A file body with no file picked is the same kind of nothing.
-	unpicked := domain.CollectionNode{Kind: domain.NodeRequest, BodyKind: domain.BodyBinary}
+	unpicked := domain.CollectionNode{BodyKind: domain.BodyBinary}
 	if body := exportedBody(unpicked); body != nil {
 		t.Errorf("body = %+v, want none for a binary body with no file", body)
 	}

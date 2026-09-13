@@ -38,7 +38,7 @@ const (
 	CodeUnknownField       Code = "unknownField"
 	CodeUnknownList        Code = "unknownList"
 	CodeDraftWithoutID     Code = "draftWithoutId"
-	CodeUnknownNodeKind    Code = "unknownNodeKind"
+	CodeIntoItself         Code = "intoItself"
 	CodeUnknownTheme       Code = "unknownTheme"
 	CodeUnknownLanguage    Code = "unknownLanguage"
 	CodeUnknownRetention   Code = "unknownRetention"

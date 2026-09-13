@@ -7,12 +7,13 @@ import { Popover, PopoverAnchor, PopoverContent, PopoverClose } from '../ui/popo
 import { useCollectionsStore } from '../../stores/collections'
 import { describeFailure, useMessages } from '../../i18n'
 import { useToast } from '../../composables/useToast'
-import type { CollectionNode } from '../../../bindings/json-inspector/internal/domain'
+import type { Collection } from '../../../bindings/json-inspector/internal/domain'
 
 const { t } = useMessages()
 
-// Where a request composed in the command line goes when it is saved. It is not a tree: only the
-// places a request can live — collections and folders — in the order the tree draws them.
+// Where a request composed in the command line goes when it is saved: a collection, in the order the
+// tree draws them. It is not the tree itself — the sheet offers what a request can live in, and a
+// request lives in a collection.
 const props = defineProps<{ open: boolean; url: string; defaultName: string }>()
 const emit = defineEmits<{ (e: 'update:open', value: boolean): void }>()
 
@@ -21,25 +22,19 @@ const toast = useToast()
 
 interface Place {
   id: string
-  parentId: string
-  collectionId: string
   name: string
   depth: number
 }
 
 const places = computed<Place[]>(() => {
   const out: Place[] = []
-  for (const collection of store.tree) {
-    out.push({ id: collection.id, parentId: '', collectionId: collection.id, name: collection.name, depth: 0 })
-    const walk = (nodes: CollectionNode[], collectionId: string, depth: number) => {
-      for (const node of nodes) {
-        if (node.kind !== 'folder') continue
-        out.push({ id: node.id, parentId: node.id, collectionId, name: node.name, depth })
-        walk(node.items ?? [], collectionId, depth + 1)
-      }
+  const walk = (collections: Collection[], depth: number) => {
+    for (const collection of collections) {
+      out.push({ id: collection.id, name: collection.name, depth })
+      walk(collection.children ?? [], depth + 1)
     }
-    walk(collection.items ?? [], collection.id, 1)
   }
+  walk(store.tree, 0)
   return out
 })
 
@@ -55,7 +50,7 @@ watch(
   (open) => {
     if (!open) return
     name.value = props.defaultName
-    const current = places.value.find((p) => p.collectionId === store.collectionId) ?? places.value[0] ?? null
+    const current = places.value.find((p) => p.id === store.collectionId) ?? places.value[0] ?? null
     selected.value = current
     nextTick(() => {
       nameInput.value?.focus()
@@ -73,7 +68,7 @@ async function save() {
   if (!place || !canSave.value || saving.value) return
   saving.value = true
   try {
-    await store.saveDraft(place.collectionId, place.parentId, name.value.trim())
+    await store.saveDraft(place.id, name.value.trim())
     toast.show(t('collections.savedTo', { name: place.name }))
     emit('update:open', false)
   } catch (error) {

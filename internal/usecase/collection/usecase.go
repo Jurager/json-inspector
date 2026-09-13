@@ -50,15 +50,15 @@ func (u *UseCase) Node(ctx context.Context, id string) (domain.CollectionNode, e
 	return u.store.Node(ctx, id)
 }
 
-// CreateCollection adds an empty collection at the end of the list. The name is given rather than
-// invented: the window asks for it in the tree, in the row the user is looking at.
+// CreateCollection adds an empty collection at the end of the top level. The name is given rather
+// than invented: the window asks for it in the tree, in the row the user is looking at.
 func (u *UseCase) CreateCollection(ctx context.Context, name string, description string) ([]domain.Collection, error) {
 	name, err := validName(name)
 	if err != nil {
 		return nil, err
 	}
 
-	tree, err := u.store.Collections(ctx)
+	position, err := u.store.NextPosition(ctx, "")
 	if err != nil {
 		return nil, err
 	}
@@ -66,24 +66,22 @@ func (u *UseCase) CreateCollection(ctx context.Context, name string, description
 		ID:          u.ids(),
 		Name:        name,
 		Description: strings.TrimSpace(description),
-		Position:    int64(len(tree)),
+		Position:    position,
 		Items:       []domain.CollectionNode{},
+		Children:    []domain.Collection{},
 	}); err != nil {
 		return nil, err
 	}
 	return u.Tree(ctx)
 }
 
-// NewNode is what the tree asks for when a row is created: where it goes, what it is, and what is
-// already known about the request. A request made by hand arrives with its method and nothing else —
-// the rest is filled in by the card that opens next — while one saved from the command line is a
-// whole request, and building it empty first would be a node with no address if the second step
-// failed.
+// NewNode is what the tree asks for when a row is created: where it goes and what is already known
+// about the request. A request made by hand arrives with its method and nothing else — the rest is
+// filled in by the card that opens next — while one saved from the command line is a whole request,
+// and building it empty first would be a node with no address if the second step failed.
 type NewNode struct {
-	CollectionID string          `json:"collectionId"`
-	ParentID     string          `json:"parentId,omitempty"`
-	Kind         domain.NodeKind `json:"kind"`
-	Name         string          `json:"name"`
+	CollectionID string `json:"collectionId"`
+	Name         string `json:"name"`
 
 	Method   string             `json:"method,omitempty"`
 	URL      string             `json:"url,omitempty"`
@@ -97,8 +95,7 @@ type NewNode struct {
 	Auth     *domain.Auth       `json:"auth,omitempty"`
 }
 
-// CreateNode adds a folder or a request to the end of its group. An empty parent means the node
-// lives in the collection's own root.
+// CreateNode adds a request to the end of a collection's level.
 //
 // It answers with the row that appeared and the tree it appeared in: the window needs the id Go
 // minted, and looking it up by name afterwards would find the older row of the same name.
@@ -107,28 +104,13 @@ func (u *UseCase) CreateNode(ctx context.Context, in NewNode) (domain.Collection
 	if err != nil {
 		return domain.CollectionNode{}, nil, err
 	}
-	if in.Kind != domain.NodeFolder && in.Kind != domain.NodeRequest {
-		return domain.CollectionNode{}, nil, domain.Refuse(domain.CodeUnknownNodeKind, domain.ErrNotAllowed,
-			domain.Args{"kind": string(in.Kind)})
-	}
 	if _, ok, err := u.collection(ctx, in.CollectionID); err != nil {
 		return domain.CollectionNode{}, nil, err
 	} else if !ok {
 		return domain.CollectionNode{}, nil, fmt.Errorf("collection %s: %w", in.CollectionID, domain.ErrNotFound)
 	}
-	// A request can hold nothing, so only a folder is a place: without this a request dropped into
-	// another one would be a node the tree can never draw.
-	if in.ParentID != "" {
-		parent, err := u.store.Node(ctx, in.ParentID)
-		if err != nil {
-			return domain.CollectionNode{}, nil, err
-		}
-		if parent.Kind != domain.NodeFolder || parent.CollectionID != in.CollectionID {
-			return domain.CollectionNode{}, nil, fmt.Errorf("parent %s: %w", in.ParentID, domain.ErrNotAllowed)
-		}
-	}
 
-	position, err := u.store.NextPosition(ctx, in.CollectionID, in.ParentID)
+	position, err := u.store.NextPosition(ctx, in.CollectionID)
 	if err != nil {
 		return domain.CollectionNode{}, nil, err
 	}
@@ -136,22 +118,18 @@ func (u *UseCase) CreateNode(ctx context.Context, in NewNode) (domain.Collection
 	node := domain.CollectionNode{
 		ID:           u.ids(),
 		CollectionID: in.CollectionID,
-		ParentID:     in.ParentID,
-		Kind:         in.Kind,
 		Name:         name,
 		Position:     position,
-	}
-	if in.Kind == domain.NodeRequest {
-		node.Method = defaultMethod(in.Method)
-		node.URL = strings.TrimSpace(in.URL)
-		node.Params = orEmptyRows(in.Params)
-		node.Headers = orEmptyRows(in.Headers)
-		node.Body = in.Body
-		node.BodyKind = domain.KindOf(in.BodyKind)
-		node.Form = withFormIDs(u.ids, in.Form)
-		node.BodyFile = in.BodyFile
-		node.Cookies = orEmptyCookies(in.Cookies)
-		node.Auth = in.Auth
+		Method:       defaultMethod(in.Method),
+		URL:          strings.TrimSpace(in.URL),
+		Params:       orEmptyRows(in.Params),
+		Headers:      orEmptyRows(in.Headers),
+		Body:         in.Body,
+		BodyKind:     domain.KindOf(in.BodyKind),
+		Form:         withFormIDs(u.ids, in.Form),
+		BodyFile:     in.BodyFile,
+		Cookies:      orEmptyCookies(in.Cookies),
+		Auth:         in.Auth,
 	}
 	if err := u.store.SaveNode(ctx, node); err != nil {
 		return domain.CollectionNode{}, nil, err
@@ -161,6 +139,53 @@ func (u *UseCase) CreateNode(ctx context.Context, in NewNode) (domain.Collection
 		return domain.CollectionNode{}, nil, err
 	}
 	return node, tree, nil
+}
+
+// MoveNode puts a request where it was dropped: another collection, or another place in its own. The
+// position counts the level the way the tree draws it — a collection's requests and the collections
+// inside it are one list — so the window can name the row it was dropped after.
+func (u *UseCase) MoveNode(ctx context.Context, id string, collectionID string, position int64) ([]domain.Collection, error) {
+	if _, err := u.store.Node(ctx, id); err != nil {
+		return nil, err
+	}
+	if _, ok, err := u.collection(ctx, collectionID); err != nil {
+		return nil, err
+	} else if !ok {
+		return nil, fmt.Errorf("collection %s: %w", collectionID, domain.ErrNotFound)
+	}
+
+	if err := u.store.MoveNode(ctx, id, collectionID, position); err != nil {
+		return nil, err
+	}
+	return u.Tree(ctx)
+}
+
+// MoveCollection puts a collection inside another, or back at the top level when the parent is empty.
+//
+// A collection dropped into itself or into one of its own children is refused rather than stored: the
+// tree would be a ring, and a ring is a tree nothing can be drawn from.
+func (u *UseCase) MoveCollection(ctx context.Context, id string, parentID string, position int64) ([]domain.Collection, error) {
+	tree, err := u.store.Collections(ctx)
+	if err != nil {
+		return nil, err
+	}
+	moved, ok := findCollection(tree, id)
+	if !ok {
+		return nil, fmt.Errorf("collection %s: %w", id, domain.ErrNotFound)
+	}
+	if parentID != "" {
+		if _, ok := findCollection(tree, parentID); !ok {
+			return nil, fmt.Errorf("collection %s: %w", parentID, domain.ErrNotFound)
+		}
+		if _, inside := findCollection(moved.Children, parentID); parentID == id || inside {
+			return nil, domain.Refuse(domain.CodeIntoItself, domain.ErrNotAllowed, nil)
+		}
+	}
+
+	if err := u.store.MoveCollection(ctx, id, parentID, position); err != nil {
+		return nil, err
+	}
+	return u.Tree(ctx)
 }
 
 // Rename is the one edit a tree row takes: the name. What a request is made of is edited in its own
@@ -263,25 +288,34 @@ func (u *UseCase) AuthFor(ctx context.Context, id domain.DraftID) (*domain.Auth,
 		return nil, err
 	}
 	for _, collection := range tree {
-		if inherited, ok := inheritUnder(collection.Items, string(id), collection.Auth); ok {
+		if inherited, ok := inheritUnder([]domain.Collection{collection}, string(id), nil); ok {
 			return authOrNil(actionable(inherited)), nil
 		}
 	}
 	return nil, nil
 }
 
-// inheritUnder walks a subtree looking for a node, carrying the answer of the levels above it: the
+// inheritUnder walks the tree looking for a request, carrying the answer of the levels above it: the
 // nearest level that set one wins, and a level that set none passes down what it was given.
-func inheritUnder(nodes []domain.CollectionNode, id string, inherited *domain.Auth) (*domain.Auth, bool) {
-	for _, node := range nodes {
+//
+// A collection is a level like any other, which is why the walk descends into the collections inside
+// one and not only into its requests.
+func inheritUnder(collections []domain.Collection, id string, inherited *domain.Auth) (*domain.Auth, bool) {
+	for _, collection := range collections {
 		at := inherited
-		if node.Auth != nil {
-			at = node.Auth
+		if collection.Auth != nil {
+			at = collection.Auth
 		}
-		if node.ID == id {
-			return at, true
+		for _, node := range collection.Items {
+			nodeAt := at
+			if node.Auth != nil {
+				nodeAt = node.Auth
+			}
+			if node.ID == id {
+				return nodeAt, true
+			}
 		}
-		if found, ok := inheritUnder(node.Items, id, at); ok {
+		if found, ok := inheritUnder(collection.Children, id, at); ok {
 			return found, true
 		}
 	}
@@ -315,8 +349,8 @@ func (u *UseCase) Duplicate(ctx context.Context, id string, suffix string) ([]do
 		return u.duplicateCollection(ctx, collection, suffix)
 	}
 
-	// The copy starts from the tree row, which is the only place a node's children are: copyNode
-	// reads each node whole on the way, so a copy is the request and not just its name.
+	// The copy starts from the tree row and reads the request whole on the way: a copy is the request
+	// and not just its name.
 	tree, err := u.store.Collections(ctx)
 	if err != nil {
 		return nil, err
@@ -325,16 +359,16 @@ func (u *UseCase) Duplicate(ctx context.Context, id string, suffix string) ([]do
 	if !ok {
 		return nil, fmt.Errorf("node %s: %w", id, domain.ErrNotFound)
 	}
-	position, err := u.store.NextPosition(ctx, node.CollectionID, node.ParentID)
+	position, err := u.store.NextPosition(ctx, node.CollectionID)
 	if err != nil {
 		return nil, err
 	}
 
-	copied, err := u.copyNode(ctx, node, node.CollectionID, node.ParentID, node.Name+suffix, position)
+	copied, err := u.copyNode(ctx, node, node.CollectionID, node.Name+suffix, position)
 	if err != nil {
 		return nil, err
 	}
-	if err := u.saveTree(ctx, copied); err != nil {
+	if err := u.store.SaveNode(ctx, copied); err != nil {
 		return nil, err
 	}
 	return u.Tree(ctx)
@@ -362,14 +396,14 @@ func (u *UseCase) Delete(ctx context.Context, id string) ([]domain.Collection, e
 }
 
 // Import writes a collection that was made elsewhere — a Postman file — into the tree, at the end of
-// the list. Ids are minted here because a file has none, and the collection keeps the name, the
-// order and the requests it came with.
+// the top level. Ids are minted here because a file has none, and the collection keeps the name, the
+// order and everything it came with, nested collections included.
 func (u *UseCase) Import(ctx context.Context, collection domain.Collection) ([]domain.Collection, error) {
 	name, err := validName(collection.Name)
 	if err != nil {
 		return nil, err
 	}
-	tree, err := u.store.Collections(ctx)
+	position, err := u.store.NextPosition(ctx, "")
 	if err != nil {
 		return nil, err
 	}
@@ -378,53 +412,57 @@ func (u *UseCase) Import(ctx context.Context, collection domain.Collection) ([]d
 		ID:          u.ids(),
 		Name:        name,
 		Description: strings.TrimSpace(collection.Description),
-		Position:    int64(len(tree)),
+		Position:    position,
+		Auth:        collection.Auth,
 	}
 
-	// The subtree is built before any of it is written: an import that failed halfway would leave a
-	// collection with half a file in it.
-	roots := make([]domain.CollectionNode, 0, len(collection.Items))
-	for i, item := range collection.Items {
-		roots = append(roots, u.adopt(item, imported.ID, "", int64(i)))
-	}
-
-	if err := u.store.SaveCollection(ctx, imported); err != nil {
-		return nil, err
-	}
-	for _, root := range roots {
-		if err := u.saveTree(ctx, root); err != nil {
-			return nil, err
-		}
-	}
-	return u.Tree(ctx)
+	// The whole subtree is built before any of it is written: an import that failed halfway would
+	// leave a collection with half a file in it.
+	pending := u.adopt(imported, collection.Items, collection.Children)
+	return u.saveTree(ctx, pending)
 }
 
 // adopt gives an imported subtree what a file does not write: ids, and where it lives. Everything
 // else — the names, the addresses, the rows — is the file's.
-func (u *UseCase) adopt(node domain.CollectionNode, collectionID string, parentID string, position int64) domain.CollectionNode {
-	adopted := node
-	adopted.ID = u.ids()
-	adopted.CollectionID = collectionID
-	adopted.ParentID = parentID
-	adopted.Position = position
-	adopted.Items = nil
-	adopted.Params = withIDs(u.ids, node.Params)
-	adopted.Headers = withIDs(u.ids, node.Headers)
-	for i := range adopted.Cookies {
-		if adopted.Cookies[i].ID == "" {
-			adopted.Cookies[i].ID = u.ids()
+//
+// A collection is a level of the file like any other, so it is adopted by this same function one
+// level down, with the level it came from carried along for its scripts.
+func (u *UseCase) adopt(collection domain.Collection, items []domain.CollectionNode, children []domain.Collection) []pendingLevel {
+	adopted := collection
+	adopted.Items = []domain.CollectionNode{}
+	adopted.Children = []domain.Collection{}
+
+	for _, node := range items {
+		node.ID = u.ids()
+		node.CollectionID = adopted.ID
+		node.Params = withIDs(u.ids, node.Params)
+		node.Headers = withIDs(u.ids, node.Headers)
+		for i := range node.Cookies {
+			if node.Cookies[i].ID == "" {
+				node.Cookies[i].ID = u.ids()
+			}
 		}
+		adopted.Items = append(adopted.Items, node)
 	}
 
-	for i, child := range node.Items {
-		adopted.Items = append(adopted.Items, u.adopt(child, collectionID, adopted.ID, int64(i)))
+	out := []pendingLevel{{collection: adopted}}
+	for _, child := range children {
+		nested := domain.Collection{
+			ID:          u.ids(),
+			Name:        child.Name,
+			Description: child.Description,
+			ParentID:    adopted.ID,
+			Position:    child.Position,
+			Auth:        child.Auth,
+		}
+		out = append(out, u.adopt(nested, child.Items, child.Children)...)
 	}
-	return adopted
+	return out
 }
 
-// Full is a collection with every node read whole, or a single request when the id names one: what an
-// export writes down. The tree the window draws carries the method and nothing else — a list of two
-// hundred rows has no business carrying two hundred bodies — so an export reads them again.
+// Full is a collection with every request read whole, or a single request when the id names one: what
+// an export writes down. The tree the window draws carries the method and nothing else — a list of
+// two hundred rows has no business carrying two hundred bodies — so an export reads them again.
 func (u *UseCase) Full(ctx context.Context, id string) (domain.Collection, error) {
 	collection, ok, err := u.collection(ctx, id)
 	if err != nil {
@@ -438,11 +476,30 @@ func (u *UseCase) Full(ctx context.Context, id string) (domain.Collection, error
 		return domain.Collection{Name: node.Name, Items: []domain.CollectionNode{node}}, nil
 	}
 
+	return u.fullCollection(ctx, collection)
+}
+
+func (u *UseCase) fullCollection(ctx context.Context, collection domain.Collection) (domain.Collection, error) {
 	items, err := u.fullNodes(ctx, collection.Items)
 	if err != nil {
 		return domain.Collection{}, err
 	}
-	return domain.Collection{Name: collection.Name, Description: collection.Description, Items: items}, nil
+	children := []domain.Collection{}
+	for _, child := range collection.Children {
+		full, err := u.fullCollection(ctx, child)
+		if err != nil {
+			return domain.Collection{}, err
+		}
+		children = append(children, full)
+	}
+	return domain.Collection{
+		Name:        collection.Name,
+		Description: collection.Description,
+		Position:    collection.Position,
+		Auth:        collection.Auth,
+		Items:       items,
+		Children:    children,
+	}, nil
 }
 
 func (u *UseCase) fullNodes(ctx context.Context, rows []domain.CollectionNode) ([]domain.CollectionNode, error) {
@@ -453,20 +510,13 @@ func (u *UseCase) fullNodes(ctx context.Context, rows []domain.CollectionNode) (
 			return nil, err
 		}
 		node.Position = row.Position
-		if row.Kind == domain.NodeFolder {
-			node.Items, err = u.fullNodes(ctx, row.Items)
-			if err != nil {
-				return nil, err
-			}
-		}
 		out = append(out, node)
 	}
 	return out, nil
 }
 
-// SaveNode writes what the card was editing back into the tree. The node is re-read first: the
-// parts the card does not own — where it sits, what kind it is, when it was made — belong to the
-// tree and stay as they are.
+// SaveNode writes what the card was editing back into the tree. The node is re-read first: the parts
+// the card does not own — where it sits, when it was made — belong to the tree and stay as they are.
 func (u *UseCase) SaveNode(ctx context.Context, edited domain.CollectionNode) ([]domain.Collection, error) {
 	stored, err := u.store.Node(ctx, edited.ID)
 	if err != nil {
@@ -478,75 +528,77 @@ func (u *UseCase) SaveNode(ctx context.Context, edited domain.CollectionNode) ([
 		return nil, err
 	}
 	stored.Description = strings.TrimSpace(edited.Description)
-	if stored.Kind == domain.NodeRequest {
-		stored.Method = defaultMethod(edited.Method)
-		stored.URL = edited.URL
-		stored.Params = orEmptyRows(edited.Params)
-		stored.Headers = orEmptyRows(edited.Headers)
-		stored.Body = edited.Body
-		stored.Cookies = orEmptyCookies(edited.Cookies)
-		stored.Auth = edited.Auth
-	}
+	stored.Method = defaultMethod(edited.Method)
+	stored.URL = edited.URL
+	stored.Params = orEmptyRows(edited.Params)
+	stored.Headers = orEmptyRows(edited.Headers)
+	stored.Body = edited.Body
+	stored.Cookies = orEmptyCookies(edited.Cookies)
+	stored.Auth = edited.Auth
 	if err := u.store.SaveNode(ctx, stored); err != nil {
 		return nil, err
 	}
 	return u.Tree(ctx)
 }
 
-// duplicateCollection copies a whole collection into a new one at the end of the list. The tree is
-// read with its request fields left out, so every node is read again on the way in — a copy of a
-// request that lost its headers would be worse than no copy at all.
+// duplicateCollection copies a whole collection into a new one beside it, what is inside it included.
+// The tree is read with its request fields left out, so every request is read again on the way in — a
+// copy that lost its headers would be worse than no copy at all.
 func (u *UseCase) duplicateCollection(ctx context.Context, collection domain.Collection, suffix string) ([]domain.Collection, error) {
-	tree, err := u.store.Collections(ctx)
+	position, err := u.store.NextPosition(ctx, collection.ParentID)
 	if err != nil {
 		return nil, err
 	}
 
+	copied, err := u.copyCollection(ctx, collection, collection.ParentID, position,
+		clip(collection.Name+suffix))
+	if err != nil {
+		return nil, err
+	}
+	return u.saveTree(ctx, copied)
+}
+
+// copyCollection builds the copy of a whole collection in memory before any of it is written: a
+// duplicate that failed halfway would leave a collection with half a tree in it.
+//
+// What it is given is a tree row — a name, and what is under it — and what it copies is what the
+// store holds: the two are not the same thing, and taking the row for the content is how a duplicate
+// once came out as an empty request with the right name.
+func (u *UseCase) copyCollection(ctx context.Context, row domain.Collection, parentID string, position int64, name string) ([]pendingLevel, error) {
 	copied := domain.Collection{
 		ID:          u.ids(),
-		Name:        clip(collection.Name + suffix),
-		Description: collection.Description,
-		Position:    int64(len(tree)),
+		Name:        name,
+		Description: row.Description,
+		ParentID:    parentID,
+		Position:    position,
+		Auth:        row.Auth,
 		Items:       []domain.CollectionNode{},
+		Children:    []domain.Collection{},
 	}
 
-	roots := make([]domain.CollectionNode, 0, len(collection.Items))
-	for i, node := range collection.Items {
-		child, err := u.copyNode(ctx, node, copied.ID, "", node.Name, int64(i))
+	for _, node := range row.Items {
+		child, err := u.copyNode(ctx, node, copied.ID, node.Name, node.Position)
 		if err != nil {
 			return nil, err
 		}
-		roots = append(roots, child)
+		copied.Items = append(copied.Items, child)
 	}
 
-	if err := u.store.SaveCollection(ctx, copied); err != nil {
-		return nil, err
-	}
-	// A copy behaves the way the original did, so what the collection runs around its requests goes
-	// with it. The tree carries no scripts — they belong to the level, not to the row — so they are
-	// read from the original and written to the copy rather than travelling in the struct.
-	if scripts, err := u.store.Scripts(ctx, collection.ID); err != nil {
-		return nil, err
-	} else if scripts != nil {
-		if err := u.store.SaveScripts(ctx, copied.ID, scripts); err != nil {
+	// The copy is a second level, so what the original ran around its requests goes with it — read at
+	// the end, because SaveScripts writes to the row the copy does not have yet.
+	out := []pendingLevel{{collection: copied, from: row.ID}}
+	for _, child := range row.Children {
+		nested, err := u.copyCollection(ctx, child, copied.ID, child.Position, child.Name)
+		if err != nil {
 			return nil, err
 		}
+		out = append(out, nested...)
 	}
-	for _, root := range roots {
-		if err := u.saveTree(ctx, root); err != nil {
-			return nil, err
-		}
-	}
-	return u.Tree(ctx)
+	return out, nil
 }
 
-// copyNode builds the copy of a subtree in memory before any of it is written: a duplicate that
-// failed halfway would leave a folder with half its requests in it.
-//
-// What it is given is a tree row — a name, a method and what is under it — and what it copies is the
-// node the store holds. The two are not the same thing, and taking the row for the content is how a
-// duplicate once came out as an empty request with the right name.
-func (u *UseCase) copyNode(ctx context.Context, row domain.CollectionNode, collectionID string, parentID string, name string, position int64) (domain.CollectionNode, error) {
+// copyNode builds the copy of one request: the row itself, read whole, with rows of its own.
+func (u *UseCase) copyNode(ctx context.Context, row domain.CollectionNode, collectionID string, name string, position int64) (domain.CollectionNode, error) {
 	node, err := u.store.Node(ctx, row.ID)
 	if err != nil {
 		return domain.CollectionNode{}, err
@@ -554,24 +606,14 @@ func (u *UseCase) copyNode(ctx context.Context, row domain.CollectionNode, colle
 	copied := node
 	copied.ID = u.ids()
 	copied.CollectionID = collectionID
-	copied.ParentID = parentID
 	copied.Name = name
 	copied.Position = position
-	copied.Items = nil
 	// The rows are the copy's own: a row is addressed by its id, and one id naming a row in two
 	// requests is one row in two places. The copy is a second thing, rows and all.
 	copied.Params = copyRows(u.ids, node.Params)
 	copied.Headers = copyRows(u.ids, node.Headers)
 	copied.Cookies = copyCookies(u.ids, node.Cookies)
 	copied.Form = copyFormRows(u.ids, node.Form)
-
-	for i, child := range row.Items {
-		child, err := u.copyNode(ctx, child, collectionID, copied.ID, child.Name, int64(i))
-		if err != nil {
-			return domain.CollectionNode{}, err
-		}
-		copied.Items = append(copied.Items, child)
-	}
 	return copied, nil
 }
 
@@ -630,39 +672,53 @@ func copyCookies(ids platform.IDGen, cookies []domain.CookieRow) []domain.Cookie
 	return out
 }
 
-// saveTree writes a copied subtree depth first: a child's parent has to exist before it does.
-func (u *UseCase) saveTree(ctx context.Context, node domain.CollectionNode) error {
-	children := node.Items
-	node.Items = nil
-	if err := u.store.SaveNode(ctx, node); err != nil {
-		return err
-	}
-	for _, child := range children {
-		if err := u.saveTree(ctx, child); err != nil {
-			return err
-		}
-	}
-	return nil
+// pendingLevel is a collection waiting to be written: its row, and the level it was copied from —
+// empty for one that came from a file rather than from the tree.
+//
+// Scripts are not part of a collection: they belong to the level and are read by id, and SaveScripts
+// can only write to a row that already exists. So they travel beside the row rather than inside it,
+// and are written the moment the row is.
+type pendingLevel struct {
+	collection domain.Collection
+	from       string
 }
 
-// findNode looks a node up in the tree, which is where its children are. The tree is small enough
-// to walk, and walking it is what says whether the id names a node at all.
+// saveTree writes built levels parents first: a row's parent has to exist before it does. The list
+// comes pre-order, so the order it is given in is the order it writes in.
+func (u *UseCase) saveTree(ctx context.Context, pending []pendingLevel) ([]domain.Collection, error) {
+	for _, level := range pending {
+		if err := u.store.SaveCollection(ctx, level.collection); err != nil {
+			return nil, err
+		}
+		if level.from != "" {
+			if scripts, err := u.store.Scripts(ctx, level.from); err != nil {
+				return nil, err
+			} else if scripts != nil {
+				if err := u.store.SaveScripts(ctx, level.collection.ID, scripts); err != nil {
+					return nil, err
+				}
+			}
+		}
+		for _, node := range level.collection.Items {
+			if err := u.store.SaveNode(ctx, node); err != nil {
+				return nil, err
+			}
+		}
+	}
+	return u.Tree(ctx)
+}
+
+// findNode looks a request up in the tree, collections inside collections included: the tree is small
+// enough to walk, and walking it is what says whether the id names a request at all.
 func findNode(tree []domain.Collection, id string) (domain.CollectionNode, bool) {
-	var walk func([]domain.CollectionNode) (domain.CollectionNode, bool)
-	walk = func(nodes []domain.CollectionNode) (domain.CollectionNode, bool) {
-		for _, node := range nodes {
+	for _, collection := range tree {
+		for _, node := range collection.Items {
 			if node.ID == id {
 				return node, true
 			}
-			if found, ok := walk(node.Items); ok {
-				return found, true
-			}
 		}
-		return domain.CollectionNode{}, false
-	}
-	for _, collection := range tree {
-		if found, ok := walk(collection.Items); ok {
-			return found, true
+		if node, ok := findNode(collection.Children, id); ok {
+			return node, true
 		}
 	}
 	return domain.CollectionNode{}, false

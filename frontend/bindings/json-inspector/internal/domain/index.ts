@@ -8,7 +8,6 @@ export {
     Code,
     DraftID,
     Language,
-    NodeKind,
     RecordSource,
     Retention,
     RowKind,
