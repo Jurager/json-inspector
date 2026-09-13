@@ -22,19 +22,14 @@ func systemIsDark() bool {
 	return w32.IsCurrentlyDarkMode()
 }
 
-// retintWindow re-tints the material behind a window that already exists. Windows takes that tint
-// from the window's own dark attribute, and the app owns its theme — the system's is only where it
-// starts — so a theme switched while the app runs has to be pushed here by hand: the page cannot
-// reach the material behind itself.
+// retintWindow moves the material behind a window that already exists to the other palette. One
+// call, not two: the backdrop re-reads the window's own dark attribute, and applying the material
+// on top of that would repaint the window a second time.
 func retintWindow(window *application.WebviewWindow, dark bool) {
 	if window == nil {
 		return
 	}
-	hwnd := uintptr(window.NativeWindow())
-	if hwnd == 0 {
-		return
+	if hwnd := uintptr(window.NativeWindow()); hwnd != 0 {
+		w32.SetTheme(hwnd, dark)
 	}
-	// One call, not two: the backdrop re-tints when the window's own dark attribute changes, and
-	// re-applying the material on top of that repaints the window a second time — the glass blinks.
-	w32.SetTheme(hwnd, dark)
 }

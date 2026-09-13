@@ -81,7 +81,9 @@ function repaint(next: Theme) {
   const palette = isDark.value
   theme.value = next
   persist(next)
-  if (isDark.value !== palette) apply(isDark.value, true)
+  // No wipe when the palette has not moved — but the switch still has to show where the choice
+  // landed, and its pill is moved by the paint hooks, which only a paint runs.
+  apply(isDark.value, isDark.value !== palette)
 }
 
 // A theme change is a diagonal wipe (see `.theme-wipe` in style.css): the document is
@@ -155,8 +157,15 @@ export function useTheme() {
     isDark,
     isSwitching,
     setTheme(next: Theme) {
-      repaint(next)
-      void saveTheme(next)
+      const palette = isDark.value
+      theme.value = next
+      persist(next)
+      // Go is told first: re-tinting the window's material moves an attribute Windows repaints the
+      // window's own frame with, and a repaint that arrives after the wipe reads as the window
+      // blinking. The wipe waits for the round trip, which is a few milliseconds.
+      void saveTheme(next).finally(() => {
+        apply(isDark.value, isDark.value !== palette)
+      })
     },
   }
 }

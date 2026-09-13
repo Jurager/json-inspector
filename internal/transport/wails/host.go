@@ -48,10 +48,10 @@ type Host struct {
 	// The theme, as the window needs it before it exists: a query string on the window's URL, so the
 	// first paint is already in the right palette. Kept in step by whoever changes it.
 	theme atomic.Value
-	// applied is the theme the windows have already been tinted with. SetTheme runs both at startup
-	// and on every save, and a save that names the theme already in force is not a change: re-tinting
-	// the material for it repaints the window for nothing.
-	applied domain.Theme
+	// What the window has already been tinted with: which way it is dark, and whether it has been told
+	// at all. Both are read and written from the request that saved the choice, and from startup.
+	tinted      atomic.Bool
+	appliedDark atomic.Bool
 	// Events raised before the window can take them: the update check runs at startup and a
 	// deep link can arrive before the frontend has mounted, and both describe state the
 	// window has to be told about anyway. The latest of each wins — an earlier tab doesn't
@@ -68,18 +68,24 @@ func NewHost() *Host {
 	return host
 }
 
-// SetTheme is the one writer of the theme: the windows this process has yet to create read it from
-// here, and the ones that already exist are re-tinted by it — the material behind a window is not
-// something the page can reach, so switching the palette has to be said twice.
+// SetTheme is the one writer of the theme: the windows this process has yet to create read the
+// choice from its URL, and the one already there is re-tinted by it — the material behind a window
+// is not something the page can reach, so the palette has to be said twice.
+//
+// The tint is Windows' own attribute, and moving it repaints the window's frame and shadow as well,
+// a little later than the call. That is why the frontend tells its window first: the repaint then
+// lands while the palette is changing rather than after it.
 func (h *Host) SetTheme(theme domain.Theme) {
 	h.theme.Store(string(theme))
-	if theme == h.applied {
+	dark := theme == domain.ThemeDark || (theme == domain.ThemeSystem && systemIsDark())
+	if h.tinted.Load() && dark == h.appliedDark.Load() {
+		// A different choice that resolves to the palette already in force — «системная» under a dark
+		// system while the app is dark — must not repaint the window: there is nothing to re-tint.
 		return
 	}
-	h.applied = theme
-	dark := theme == domain.ThemeDark || (theme == domain.ThemeSystem && systemIsDark())
-	// Only the window that shows the material: the About window is opaque, and re-tinting a window
-	// repaints it — which, over the wipe of the palette, reads as the glass blinking.
+	h.tinted.Store(true)
+	h.appliedDark.Store(dark)
+	// Only the window that shows the material: the About window is opaque.
 	if main := h.MainWindow(); main != nil {
 		retintWindow(main, dark)
 	}
