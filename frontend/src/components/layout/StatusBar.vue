@@ -10,7 +10,7 @@ import {
   type JsonApiDocument,
 } from '../../lib/jsonapi'
 import { tryParseJson } from '../../lib/json'
-import { formatBytes, formatVersion } from '../../lib/format'
+import { formatBytes, formatMicros, formatVersion } from '../../lib/format'
 import { useEnvironmentsStore } from '../../stores/environments'
 import { useCollectionsStore } from '../../stores/collections'
 import type { Info as UpdateInfo } from '../../../bindings/json-inspector/internal/infra/updater'
@@ -105,6 +105,20 @@ const runLabel = computed(() => {
   return `Прогон: ${run.done} / ${run.total || collections.selectedRequestCount} · ${run.name}`
 })
 
+// What the last run came to, in the slot the design gives it on the right of the bar: the overview
+// draws the same numbers in its own band, and the bar is what still says them when the card of a
+// request in the run is what is open.
+const runOutcome = computed(() => {
+  if (store.activeView !== 'collections' || collections.cardOpen) return ''
+  const run = collections.lastRun
+  if (!run || collections.running) return ''
+  return (
+    `Прогон завершён · ${run.passed} успешно · ` +
+    `${run.failed} ${plural(run.failed, ['ошибка', 'ошибки', 'ошибок'])} · ` +
+    formatMicros(run.durationUs)
+  )
+})
+
 const capture = computed(() => store.capture)
 
 const captureLabel = computed(() => {
@@ -141,7 +155,10 @@ const captureDotClass = computed(() => {
         <span>{{ runLabel }}</span>
       </template>
       <template v-else-if="collections.selectedId">
-        <span class="crumbs">
+        <!-- The overview is one level, and its name is what is open; a card is a way into the tree,
+             so there the whole path is what tells the two apart. -->
+        <span v-if="!collections.cardOpen" class="crumb-last">{{ collections.levelName }}</span>
+        <span v-else class="crumbs">
           <template v-for="(crumb, i) in collections.breadcrumbs" :key="crumb.id">
             <span v-if="i > 0" class="crumb-sep">›</span>
             <span :class="i === collections.breadcrumbs.length - 1 ? 'crumb-last' : ''">
@@ -169,7 +186,8 @@ const captureDotClass = computed(() => {
       Доступна версия {{ formatVersion(updateInfo.latest) }}
     </button>
 
-    <span v-if="summary" class="summary">{{ summary }}</span>
+    <span v-if="runOutcome" class="summary">{{ runOutcome }}</span>
+    <span v-else-if="summary" class="summary">{{ summary }}</span>
   </div>
 </template>
 

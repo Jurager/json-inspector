@@ -103,6 +103,13 @@ export const useCollectionsStore = defineStore('collections', {
     collectionId(): string | null {
       return this.trail?.collection.id ?? null
     },
+    // What the open level is called: the status bar names it when the level is what is on screen,
+    // and the path to it when a card inside is.
+    levelName(): string {
+      const trail = this.trail
+      if (!trail) return ''
+      return trail.node?.name ?? trail.collection.name
+    },
     breadcrumbs(): { id: string; name: string }[] {
       const trail = this.trail
       if (!trail) return []

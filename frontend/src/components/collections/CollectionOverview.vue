@@ -7,7 +7,7 @@ import CollectionScripts from './CollectionScripts.vue'
 import { useCollectionsStore } from '../../stores/collections'
 import { useToast } from '../../composables/useToast'
 import { requestCount } from '../../lib/collectionTree'
-import { formatMicros, plural, statusBadgeClass } from '../../lib/format'
+import { formatAgo, formatMicros, plural } from '../../lib/format'
 import type { CollectionNode } from '../../../bindings/json-inspector/internal/domain'
 
 const store = useCollectionsStore()
@@ -132,14 +132,9 @@ const rows = computed<RunRow[]>(() => {
 
 const runName = computed(() => title.value)
 
-function startedAt(run: { startedAt: number }): string {
-  return new Date(run.startedAt).toLocaleString('ru-RU', {
-    day: 'numeric',
-    month: 'long',
-    hour: '2-digit',
-    minute: '2-digit',
-  })
-}
+// When the last run ended, which is what the header writes next to the buttons. A run always closes
+// with a time; a row written by an older build that has none falls back to when it started.
+const lastRunAt = computed(() => store.lastRun?.finishedAt || store.lastRun?.startedAt || 0)
 
 async function run() {
   await store.run(store.runNodeId, runName.value)
@@ -157,86 +152,91 @@ function pluralRequests(n: number): string {
         <span class="title">{{ title }}</span>
         <span class="count">{{ pluralRequests(requestTotal) }}</span>
       </div>
-      <div class="head-line second">
-        <input
-          v-if="editingDescription"
-          ref="descriptionInput"
-          v-model="descriptionDraft"
-          class="description-input"
-          placeholder="Добавить описание"
-          spellcheck="false"
-          @keydown="onDescriptionKeydown"
-          @blur="commitDescription"
-        />
-        <span
-          v-else
-          class="description"
-          :class="{ placeholder: !description }"
-          role="button"
-          tabindex="0"
-          :title="description || 'Добавить описание'"
-          @click="editDescription"
-          @keydown.enter="editDescription"
-        >
-          {{ description || 'Добавить описание' }}
-        </span>
-        <span v-if="store.lastRun" class="last-run">
-          Последний прогон {{ startedAt(store.lastRun) }}
-        </span>
-      </div>
+
+      <input
+        v-if="editingDescription"
+        ref="descriptionInput"
+        v-model="descriptionDraft"
+        class="description-input"
+        placeholder="Добавить описание"
+        spellcheck="false"
+        @keydown="onDescriptionKeydown"
+        @blur="commitDescription"
+      />
+      <span
+        v-else
+        class="description"
+        :class="{ placeholder: !description }"
+        role="button"
+        tabindex="0"
+        :title="description || 'Добавить описание'"
+        @click="editDescription"
+        @keydown.enter="editDescription"
+      >
+        {{ description || 'Добавить описание' }}
+      </span>
 
       <div class="actions">
-        <Button v-if="!store.running" variant="primary" :disabled="requestTotal === 0" @click="run">
-          <Icon name="play" :size="13" /> Запустить коллекцию
+        <Button
+          v-if="!store.running"
+          variant="primary"
+          size="lg"
+          :disabled="requestTotal === 0"
+          @click="run"
+        >
+          <Icon name="play" :size="11" /> Запустить коллекцию
         </Button>
-        <Button v-else @click="store.stop">
-          <Icon name="stop" :size="13" /> Остановить
+        <Button v-else size="lg" @click="store.stop">
+          <Icon name="stop" :size="11" /> Остановить
         </Button>
 
-        <Button :disabled="store.running !== null" @click="importCollection">
-          <Icon name="download" :size="13" /> Импорт
+        <Button size="lg" :disabled="store.running !== null" @click="importCollection">
+          <Icon name="download" :size="12" /> Импорт
         </Button>
-        <Button :disabled="store.running !== null || requestTotal === 0" @click="exportSelected">
-          <Icon name="upload" :size="13" /> Экспорт
+        <Button
+          size="lg"
+          :disabled="store.running !== null || requestTotal === 0"
+          @click="exportSelected"
+        >
+          <Icon name="upload" :size="12" /> Экспорт
         </Button>
+
+        <span v-if="store.lastRun" class="last-run">Прогон {{ formatAgo(lastRunAt) }}</span>
       </div>
     </div>
 
     <Tabs v-model="tab" class="tabs-host">
-      <TabsList class="tabs">
-        <TabsTrigger class="tab" value="requests">Запросы</TabsTrigger>
-        <TabsTrigger class="tab" value="scripts">Скрипты</TabsTrigger>
+      <TabsList class="tabs coll-tabs">
+        <TabsTrigger class="tab coll-tab" value="requests">Запросы</TabsTrigger>
+        <TabsTrigger class="tab coll-tab" value="scripts">Скрипты</TabsTrigger>
       </TabsList>
 
       <div class="pane">
-        <TabsContent value="requests" class="pane-content">
-          <div v-if="store.running" class="running">
-            Прогон: {{ store.running.done }} / {{ store.running.total || requestTotal }} ·
-            {{ store.running.name }}
+        <TabsContent value="requests" class="tab-pane">
+          <div v-if="store.lastRun" class="summary">
+            <div class="cell">
+              <span class="cell-value">{{ rows.length }}</span>
+              <span class="cell-label">{{ plural(rows.length, ['запрос', 'запроса', 'запросов']) }}</span>
+            </div>
+            <div class="cell">
+              <span class="cell-value ok">{{ store.lastRun.passed }}</span>
+              <span class="cell-label">успешно</span>
+            </div>
+            <div class="cell">
+              <span class="cell-value bad">{{ store.lastRun.failed }}</span>
+              <span class="cell-label">
+                {{ plural(store.lastRun.failed, ['ошибка', 'ошибки', 'ошибок']) }}
+              </span>
+            </div>
+            <div class="cell">
+              <span class="cell-value">{{ formatMicros(store.lastRun.durationUs) }}</span>
+              <span class="cell-label">общее время</span>
+            </div>
           </div>
 
-          <template v-if="store.lastRun">
-            <div class="summary">
-              <div class="cell">
-                <span class="cell-value">{{ rows.length }}</span>
-                <span class="cell-label">{{ plural(rows.length, ['запрос', 'запроса', 'запросов']) }}</span>
-              </div>
-              <div class="cell">
-                <span class="cell-value ok">{{ store.lastRun.passed }}</span>
-                <span class="cell-label">успешно</span>
-              </div>
-              <div class="cell">
-                <span class="cell-value bad">{{ store.lastRun.failed }}</span>
-                <span class="cell-label">{{ plural(store.lastRun.failed, ['ошибка', 'ошибки', 'ошибок']) }}</span>
-              </div>
-              <div class="cell">
-                <span class="cell-value">{{ formatMicros(store.lastRun.durationUs) }}</span>
-                <span class="cell-label">всего</span>
-              </div>
-            </div>
-
-            <ul class="results">
-              <li
+          <div class="results-area">
+            <div v-if="store.lastRun" class="results">
+              <div
                 v-for="row in rows"
                 :key="row.nodeId"
                 class="result"
@@ -244,26 +244,26 @@ function pluralRequests(n: number): string {
                 @click="store.openRunResult(row)"
               >
                 <span class="result-icon" :class="row.ok ? 'ok' : 'bad'">
-                  <Icon :name="row.ok ? 'check' : 'xmark'" :size="12" :stroke-width="2.5" />
+                  <Icon :name="row.ok ? 'check' : 'xmark'" :size="13" :stroke-width="2.2" />
                 </span>
-                <span class="badge badge-method result-method">{{ row.method }}</span>
+                <span class="result-method mono">{{ row.method }}</span>
                 <span class="result-name" :title="row.error || row.name">{{ row.name }}</span>
-                <span v-if="row.status !== null" class="badge" :class="statusBadgeClass(row.status)">
+                <span v-if="row.status !== null" class="result-status" :class="row.ok ? 'ok' : 'bad'">
                   {{ row.status }}
                 </span>
                 <span v-else class="result-error">{{ row.error }}</span>
-                <span class="result-time mono">{{ formatMicros(row.durationUs) }}</span>
-              </li>
-            </ul>
-          </template>
+                <span class="result-time">{{ formatMicros(row.durationUs) }}</span>
+              </div>
+            </div>
 
-          <div v-else-if="!store.running" class="idle">
-            <span class="idle-title">Ещё не запускали</span>
-            <span>Прогон отправит все запросы по очереди и покажет, что ответил каждый.</span>
+            <div v-else-if="!store.running" class="idle">
+              <span class="idle-title">Ещё не запускали</span>
+              <span>Прогон отправит все запросы по очереди и покажет, что ответил каждый.</span>
+            </div>
           </div>
         </TabsContent>
 
-        <TabsContent value="scripts">
+        <TabsContent value="scripts" class="tab-pane scripts-pane">
           <CollectionScripts />
         </TabsContent>
       </div>
@@ -278,44 +278,27 @@ function pluralRequests(n: number): string {
   @apply flex-1 min-h-0 flex flex-col;
 }
 
-/* The tabs run the width of the panel, so the padding that used to be here belongs to the two blocks
-   around them: what is above the tabs, and what each tab draws. */
+/* The head closes with a line of its own: the tabs below it belong to the pane, not to the title. */
 .head {
-  @apply flex flex-col gap-1 px-6 pt-5 pb-4;
-}
-
-.tabs-host {
-  @apply flex-1 min-h-0 flex flex-col gap-0;
-}
-
-.pane {
-  @apply flex-1 min-h-0 overflow-y-auto;
-}
-
-.pane-content {
-  @apply px-6 py-5;
+  @apply flex-none flex flex-col gap-1.5 px-6 pt-5 pb-4 border-b border-border;
 }
 
 .head-line {
-  @apply flex items-baseline gap-2.5;
-}
-
-.head-line.second {
-  @apply justify-between;
+  @apply flex items-center gap-2.5;
 }
 
 .title {
-  @apply text-[20px] font-semibold;
+  @apply text-[20px] font-semibold tracking-[-0.01em];
 }
 
 .count {
-  @apply text-[11.5px] text-text-tertiary;
+  @apply text-[11.5px] text-text-tertiary tabular-nums;
 }
 
 /* The line the header invites a description with, and the field it turns into: the same size, the
    same place, so clicking the line does not move the header. */
 .description {
-  @apply flex-1 min-w-0 overflow-hidden text-ellipsis whitespace-nowrap text-[13px] text-text-secondary cursor-text;
+  @apply min-w-0 overflow-hidden text-ellipsis whitespace-nowrap text-[13px] text-text-secondary cursor-text;
 }
 
 .description.placeholder {
@@ -323,56 +306,96 @@ function pluralRequests(n: number): string {
 }
 
 .description-input {
-  @apply flex-1 min-w-0 p-0 border-none outline-none bg-transparent text-[13px] text-text-secondary;
+  @apply min-w-0 p-0 border-none outline-none bg-transparent text-[13px] text-text-secondary;
 }
 
 .description-input::placeholder {
   @apply text-text-tertiary;
 }
 
-.last-run {
-  @apply text-[11.5px] text-text-tertiary;
-}
-
 .actions {
-  @apply flex items-center gap-2 mt-4;
+  @apply flex items-center gap-2.5 mt-1.5;
 }
 
-.running {
-  @apply mt-3 text-[12.5px] text-text-secondary;
+.last-run {
+  @apply ml-auto text-[11.5px] text-text-tertiary;
 }
 
+/* The two tabs are drawn to the design's own numbers, which the shared row does not carry: a
+   collection's tabs are its own height and its own room. */
+.coll-tabs {
+  @apply flex-none h-[38px] gap-0.5 px-6;
+}
+
+.coll-tab {
+  @apply h-[38px] px-1 mr-5 text-[12.5px] border-b-2;
+}
+
+.coll-tab[data-state='active'] {
+  @apply text-accent font-medium;
+  border-bottom-color: var(--accent);
+}
+
+.tabs-host {
+  @apply flex-1 min-h-0 flex flex-col gap-0;
+}
+
+.pane {
+  @apply flex-1 min-h-0 flex flex-col;
+}
+
+.tab-pane {
+  @apply flex-1 min-h-0 flex flex-col;
+}
+
+.scripts-pane {
+  @apply overflow-y-auto bg-bg-panel;
+}
+
+/* The summary is a band under the tabs rather than four cards: the numbers are one line of the
+   pane's own chrome, and a box around each of them made the run look like a table of settings. */
 .summary {
-  @apply grid grid-cols-4 gap-2 mt-5;
+  @apply flex-none flex items-center gap-5 px-6 py-3 border-b border-border bg-bg-panel;
 }
 
 .cell {
-  @apply flex flex-col gap-0.5 px-3 py-2.5 rounded-lg border border-border;
-  background: var(--bg-inset);
+  @apply flex flex-col gap-px;
 }
 
 .cell-value {
-  @apply text-[15px] font-semibold;
+  @apply text-[17px] font-semibold;
 }
 
 .cell-value.ok {
-  @apply text-green;
+  color: var(--green-text);
 }
 
 .cell-value.bad {
-  @apply text-red;
+  color: var(--red-text);
 }
 
 .cell-label {
-  @apply text-[11px] text-text-tertiary;
+  @apply text-[10.5px] text-text-tertiary;
+}
+
+/* The results sit as one card on the canvas, the way a list of rows does everywhere else in the
+   design — the rows themselves are the card's, divided by a hairline. */
+.results-area {
+  @apply flex-1 min-h-0 overflow-y-auto px-6 py-3;
+  background: var(--bg);
 }
 
 .results {
-  @apply flex flex-col mt-4;
+  @apply rounded-[9px] border border-border bg-bg-panel overflow-hidden;
 }
 
 .result {
-  @apply flex items-center gap-2 h-[30px] px-2 rounded-md text-[12.5px] cursor-pointer;
+  @apply flex items-center gap-2.5 px-3.5 py-2 text-[12.5px] cursor-pointer;
+  border-bottom: 1px solid var(--border);
+}
+
+.result:last-child {
+  border-bottom: none;
 }
 
 .result:hover {
@@ -382,43 +405,58 @@ function pluralRequests(n: number): string {
 /* A row that failed is tinted the way the design tints it, so a wall of green and red is readable at
    a glance. */
 .result.failed {
-  background: rgba(255, 59, 48, 0.04);
+  background: color-mix(in srgb, var(--red) 4%, transparent);
 }
 
 .result-icon {
-  @apply flex-none inline-flex items-center justify-center w-4;
+  @apply flex-none inline-flex items-center justify-center w-[13px];
 }
 
 .result-icon.ok {
-  @apply text-green;
+  color: var(--green-text);
 }
 
 .result-icon.bad {
-  @apply text-red;
+  color: var(--red-text);
 }
 
 .result-method {
-  @apply flex-none;
-  min-width: 40px;
+  @apply flex-none text-[10.5px] font-semibold text-text-secondary;
+  min-width: 44px;
 }
 
 .result-name {
-  @apply flex-1 min-w-0 overflow-hidden text-ellipsis whitespace-nowrap;
+  @apply flex-1 min-w-0 overflow-hidden text-ellipsis whitespace-nowrap text-text;
+}
+
+.result-status {
+  @apply flex-none px-1.5 py-px rounded-[4px] text-[10px] font-semibold tabular-nums;
+}
+
+.result-status.ok {
+  color: var(--green-text);
+  background: var(--green-soft);
+}
+
+.result-status.bad {
+  color: var(--red-text);
+  background: var(--red-soft);
 }
 
 .result-error {
-  @apply flex-none max-w-[320px] overflow-hidden text-ellipsis whitespace-nowrap text-red text-[11.5px];
+  @apply flex-none max-w-[320px] overflow-hidden text-ellipsis whitespace-nowrap text-[11.5px];
+  color: var(--red-text);
 }
 
 .result-time {
-  @apply flex-none text-[11.5px] text-text-tertiary;
+  @apply flex-none w-[52px] text-right text-[10.5px] text-text-tertiary tabular-nums;
 }
 
 .idle {
-  @apply flex flex-col gap-1 mt-6 text-[12.5px] text-text-tertiary;
+  @apply flex flex-col gap-1 text-[12.5px] text-text-tertiary;
 }
 
 .idle-title {
-  @apply font-semibold text-text-secondary text-[13px];
+  @apply font-semibold text-text-secondary text-[12.5px];
 }
 </style>

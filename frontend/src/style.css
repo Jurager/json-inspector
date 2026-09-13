@@ -47,10 +47,16 @@
   --accent-text: #ffffff;
   --green: #34c759;
   --green-soft: rgba(52, 199, 89, 0.14);
+  /* The design system gives success and failure two colours each: the fill (#34c759) for dots and
+     icon strokes, and a darker one for the same meaning written as text — a status code on a white
+     row has to be readable, and the fill is not. */
+  --green-text: #1e8e3e;
   --red: #ff3b30;
   --red-soft: rgba(255, 59, 48, 0.12);
+  --red-text: #d1372c;
   --orange: #ff9500;
   --orange-soft: rgba(255, 149, 0, 0.14);
+  --orange-text: #b26a00;
   --yellow: #ffcc00;
   --purple: #af52de;
   --tok-str: #c41a16;
@@ -83,10 +89,14 @@
   --accent-text: #ffffff;
   --green: #30d158;
   --green-soft: rgba(48, 209, 88, 0.16);
+  /* On the dark ground the fill is already light enough to read, so both meanings share one colour. */
+  --green-text: #30d158;
   --red: #ff453a;
   --red-soft: rgba(255, 69, 58, 0.16);
+  --red-text: #ff453a;
   --orange: #ff9f0a;
   --orange-soft: rgba(255, 159, 10, 0.18);
+  --orange-text: #ff9f0a;
   --yellow: #ffd60a;
   --purple: #bf5af2;
   --tok-str: #fc6a5d;
@@ -461,16 +471,19 @@ button {
 }
 
 .badge-status-2xx {
-  @apply text-green bg-green-soft;
+  color: var(--green-text);
+  @apply bg-green-soft;
 }
 
 .badge-status-3xx {
-  @apply text-orange bg-orange-soft;
+  color: var(--orange-text);
+  @apply bg-orange-soft;
 }
 
 .badge-status-4xx,
 .badge-status-5xx {
-  @apply text-red bg-red-soft;
+  color: var(--red-text);
+  @apply bg-red-soft;
 }
 
 .keycap {

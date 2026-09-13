@@ -26,10 +26,11 @@ async function exportNode(row: Row) {
   if (written) toast.show(`«${row.name}» сохранён в файл`)
 }
 
-// The indent the design gives the three levels: the collection, a folder, and what is inside one.
+// The indent the design gives the three levels, measured from the panel's edge: the row's own box
+// starts 6px in, so a collection's text sits at 14px and each level below adds 16.
 // Deeper nesting is possible — a folder in a folder — and keeps the last step rather than running
 // off the panel.
-const INDENT = [0, 24, 40]
+const INDENT = [8, 24, 40]
 
 // A row of the tree, flattened: the drawing walks a list, and the nesting is what the indent says.
 // Expansion is applied here rather than by the tree, so the filter can open a path to a match
@@ -45,6 +46,8 @@ interface Row {
   expanded: boolean
   collectionId: string
   parentId: string
+  // A collection that follows another one carries the line the design separates them with.
+  divider: boolean
 }
 
 const query = computed({
@@ -71,6 +74,9 @@ function flatten(tree: Collection[]): Row[] {
       expanded: !!expanded,
       collectionId: collection.id,
       parentId: '',
+      // The design draws a hairline above every collection but the first: the trees of two
+      // collections are two things, and without the line a name under a subtree reads as its child.
+      divider: rows.length > 0,
     })
     if (expanded) rows.push(...children(collection.items ?? [], collection.id, 1))
   }
@@ -92,6 +98,7 @@ function children(nodes: CollectionNode[], collectionId: string, depth: number):
       expanded: !!expanded,
       collectionId,
       parentId: node.parentId ?? '',
+      divider: false,
     })
     if (expanded && node.kind === 'folder') rows.push(...children(node.items ?? [], collectionId, depth + 1))
   }
@@ -345,6 +352,7 @@ function cancelTop(): boolean {
             class="row"
             :class="{
               'row-collection': row.kind === 'collection',
+              'row-divider': row.divider,
               active: row.id === store.selectedId,
             }"
             :style="{ paddingLeft: indentDepth(row.depth) }"
@@ -363,6 +371,10 @@ function cancelTop(): boolean {
               <Icon name="chevron-right" :size="10" />
             </span>
             <span v-else class="caret-space"></span>
+
+            <span v-if="row.kind !== 'request'" class="row-icon">
+              <Icon name="folder" :size="row.kind === 'collection' ? 14 : 13" />
+            </span>
 
             <span v-if="row.kind === 'request'" class="row-method mono">{{ row.method }}</span>
 
@@ -459,7 +471,7 @@ function cancelTop(): boolean {
 }
 
 .panel-title {
-  @apply text-sm font-semibold text-text-secondary;
+  @apply text-[12px] font-semibold text-text-secondary;
 }
 
 .tree-scroll {
@@ -467,7 +479,7 @@ function cancelTop(): boolean {
 }
 
 .row {
-  @apply flex items-center gap-1.5 h-[26px] pr-2 rounded-md text-text text-[13px] cursor-pointer;
+  @apply flex items-center gap-[7px] py-1.5 mx-1.5 pr-1.5 rounded-[7px] text-text text-[12px] cursor-pointer;
 }
 
 .row:hover {
@@ -479,7 +491,20 @@ function cancelTop(): boolean {
 }
 
 .row-collection {
-  @apply font-semibold;
+  @apply py-[7px] mt-1 font-semibold;
+}
+
+/* A collection after the first is a new tree: the line says so, and the gap above it does the rest. */
+.row-divider {
+  border-top: 1px solid var(--border);
+}
+
+.row-icon {
+  @apply flex-none text-text-secondary;
+}
+
+.row.active .row-icon {
+  @apply text-accent;
 }
 
 .caret {
@@ -495,7 +520,7 @@ function cancelTop(): boolean {
 }
 
 .row-method {
-  @apply flex-none text-[10px] font-semibold text-text-tertiary;
+  @apply flex-none text-[10px] font-semibold text-text-secondary;
   min-width: 40px;
 }
 
@@ -508,11 +533,11 @@ function cancelTop(): boolean {
 }
 
 .row-count {
-  @apply flex-none text-xs text-text-tertiary;
+  @apply flex-none text-[10.5px] text-text-tertiary tabular-nums;
 }
 
 .row-rename {
-  @apply flex-1 min-w-0 h-[22px] box-border text-[13px] outline-none;
+  @apply flex-1 min-w-0 h-[22px] box-border text-[12px] outline-none;
   padding: 0 6px;
   border-radius: 5px;
   border: 1px solid var(--accent);
