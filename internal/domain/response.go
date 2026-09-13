@@ -35,6 +35,10 @@ type Response struct {
 	TLSMs       int64        `json:"tlsMs,omitempty"`
 	WaitMs      int64        `json:"waitMs,omitempty"`
 	DownloadMs  int64        `json:"downloadMs,omitempty"`
+	// HasTiming separates "the phases were measured" from "they all read zero": a connection reused
+	// from the pool spends no time on DNS, connect or TLS, and a request that never got an answer
+	// has no phases at all. A viewer draws the first and says so about the second.
+	HasTiming bool `json:"hasTiming,omitempty"`
 	// BodyTruncated says the body was cut at the engine's cap, so a viewer can say so instead of
 	// showing half a document as if it were all of it.
 	BodyTruncated bool `json:"bodyTruncated,omitempty"`

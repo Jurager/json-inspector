@@ -132,11 +132,17 @@ func (e *Engine) Do(ctx context.Context, spec Spec) *domain.Response {
 	}
 	end := time.Now()
 
-	// A connection reused from the pool legitimately skips DNS and connect, so TLS is what the wait
-	// is measured from when it happened, and the connect when it did not.
+	// A connection reused from the pool skips DNS, connect and TLS — those events never fire — so
+	// what the wait is measured from is the last thing that did happen: the handshake, the connect,
+	// or, when the connection was already there, the moment the request started. Without that last
+	// fallback a repeat to the same host reports nothing but the total, which reads as a breakdown
+	// that failed to be measured rather than as a request that spent its time waiting.
 	ready := tlsDone
 	if ready.IsZero() {
 		ready = connDone
+	}
+	if ready.IsZero() {
+		ready = start
 	}
 
 	res.DurationMs = end.Sub(start).Milliseconds()
@@ -151,6 +157,9 @@ func (e *Engine) Do(ctx context.Context, spec Spec) *domain.Response {
 	res.Headers = headerPairs(resp.Header)
 	res.Body = string(data)
 	res.BodyTruncated = truncated
+	// The first byte is what makes the phases mean anything: without an answer there was nothing to
+	// time, and five honest-looking zeros are not the same thing as "nothing was measured".
+	res.HasTiming = !firstByte.IsZero()
 	return res
 }
 

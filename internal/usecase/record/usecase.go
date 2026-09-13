@@ -138,9 +138,10 @@ func (u *UseCase) recordFrom(id string, started int64, in SendInput, resp *domai
 			Error:       resp.Error,
 			DurationMs:  resp.DurationMs,
 			StartedAt:   started,
-			// A manual request always has its phases: they come from the client trace, not from a
-			// browser that may or may not have reported them.
-			HasTiming: true,
+			// The engine's own answer: it traced the request, so it is the one that knows whether
+			// there was anything to trace. A request that never got an answer reports no phases at
+			// all, and the pane says so instead of drawing five zeros.
+			HasTiming: resp.HasTiming,
 		},
 		Cancelled:       resp.Cancelled,
 		DNSMs:           resp.DNSMs,

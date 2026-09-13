@@ -155,7 +155,9 @@ func (f *fakeNotifier) waitFor(t *testing.T, topic string) any {
 
 func newUseCase() (*UseCase, *fakeStore, *fakeExecutor, *fakeNotifier) {
 	store := newFakeStore()
-	executor := &fakeExecutor{response: domain.Response{Status: 200, StatusText: "200 OK", Body: `{"data":[]}`}}
+	executor := &fakeExecutor{response: domain.Response{
+		Status: 200, StatusText: "200 OK", Body: `{"data":[]}`, HasTiming: true,
+	}}
 	notifier := newFakeNotifier()
 	retention := RetentionSourceFunc(func(context.Context) (domain.Retention, error) {
 		return domain.RetainWeek, nil

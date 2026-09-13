@@ -30,8 +30,10 @@ const phases = computed<Phase[]>(() => {
 })
 
 // `hasTiming` rather than "is a phase non-zero": a real phase can legitimately be 0 (a reused
-// connection, a body that arrived with the headers).
-const hasDetail = computed(() => props.record.source === 'manual' || props.record.hasTiming === true)
+// connection, a body that arrived with the headers). It is the one thing that separates "measured,
+// and the network spent nothing on those phases" from "nothing was measured at all" — and a manual
+// record, too, has phases only when an answer came back.
+const hasDetail = computed(() => props.record.hasTiming === true)
 
 const maxMs = computed(() => Math.max(1, ...phases.value.map((p) => p.ms)))
 </script>

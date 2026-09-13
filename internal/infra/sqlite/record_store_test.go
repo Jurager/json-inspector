@@ -228,8 +228,9 @@ func TestPruneByCountAndAge(t *testing.T) {
 
 	for i := 0; i < 5; i++ {
 		rec := sampleRecord("rec-"+string(rune('a'+i)), domain.SourceManual)
-		// One of them is old enough to fall out of a week-long window.
-		rec.StartedAt = now.Add(-time.Duration(i) * 24 * time.Hour).UnixMilli()
+		// The ages are nudged past the whole days on purpose: the record the age window is meant to
+		// drop would otherwise sit exactly on the boundary, and the test would race the clock.
+		rec.StartedAt = now.Add(-time.Duration(i)*24*time.Hour - 90*time.Minute).UnixMilli()
 		if err := store.SaveRecord(ctx, rec); err != nil {
 			t.Fatalf("SaveRecord: %v", err)
 		}

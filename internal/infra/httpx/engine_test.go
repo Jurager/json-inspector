@@ -87,6 +87,56 @@ func TestTimings(t *testing.T) {
 		}
 		assertPhasesWithinTotal(t, res)
 	})
+
+	// A repeat to the same host reuses the connection: no DNS, no connect, no TLS. The wait is the
+	// whole story there, and reporting it as zero left a viewer with nothing but the total.
+	t.Run("a reused connection still has a wait", func(t *testing.T) {
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			time.Sleep(20 * time.Millisecond)
+			_, _ = w.Write([]byte("ok"))
+		}))
+		defer srv.Close()
+
+		engine := newTestEngine(t, Config{})
+		if res := send(engine, http.MethodGet, srv.URL, nil, ""); res.Error != "" {
+			t.Fatalf("first send failed: %s", res.Error)
+		}
+		second := send(engine, http.MethodGet, srv.URL, nil, "")
+
+		if second.Error != "" {
+			t.Fatalf("second send failed: %s", second.Error)
+		}
+		if second.DNSMs != 0 || second.ConnectMs != 0 {
+			t.Errorf("dns = %d, connect = %d on a pooled connection, want none — nothing was dialled",
+				second.DNSMs, second.ConnectMs)
+		}
+		if second.WaitMs < 20 {
+			t.Errorf("waitMs = %d, want at least the 20ms the handler sleeps", second.WaitMs)
+		}
+		if !second.HasTiming {
+			t.Error("hasTiming is false although an answer came back")
+		}
+		assertPhasesWithinTotal(t, second)
+	})
+}
+
+// A request that never got an answer has no phases to show, and says so rather than reporting five
+// zeroes that look like measurements.
+func TestAFailedRequestHasNoTimings(t *testing.T) {
+	// A port nothing listens on: the connect fails, so there is no first byte to measure from.
+	res := send(newTestEngine(t, Config{Timeout: 2 * time.Second}), http.MethodGet, "http://127.0.0.1:1/", nil, "")
+
+	if res.Error == "" {
+		t.Fatal("a request to a dead port reported no error")
+	}
+	if res.HasTiming {
+		t.Error("hasTiming is true for a request that never reached a server")
+	}
+	// The total is not asserted as positive: a refused connection on the loopback takes less than
+	// the millisecond the total is reported in.
+	if res.DurationMs < 0 {
+		t.Errorf("durationMs = %d, want the attempt timed", res.DurationMs)
+	}
 }
 
 func assertPhasesWithinTotal(t *testing.T, res *domain.Response) {
