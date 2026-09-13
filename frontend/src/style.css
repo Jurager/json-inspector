@@ -838,6 +838,8 @@ button:focus-visible,
   outline-offset: 2px;
 }
 
+/* A transition's own layers stand over the page; where an engine does not take the hit test for
+   itself, they would swallow every click for as long as the change runs. */
 ::view-transition,
 ::view-transition-group(*),
 ::view-transition-image-pair(*),
@@ -846,146 +848,12 @@ button:focus-visible,
   pointer-events: none;
 }
 
+/* The theme change is Chromium's own cross-fade of the two snapshots: the window as it was fades out
+   while the window as it becomes fades in, and the engine's default blend adds the two, so the desktop
+   behind a translucent window never shows through the middle of the change. Only the length is ours;
+   a stacked animation — a circle sweeping the new palette over the old one — cannot be built out of a
+   fade and is gone along with the pill's own layer and the copy of the glyphs above it. */
 ::view-transition-old(root),
 ::view-transition-new(root) {
-  animation: none;
-  mix-blend-mode: normal;
-}
-
-::view-transition-old(root) {
-  z-index: 1;
-  animation: none;
-}
-
-::view-transition-new(root) {
-  z-index: 2;
-  animation: theme-wipe 0.85s cubic-bezier(0.35, 0.25, 0.2, 1);
-}
-
-@keyframes theme-wipe {
-  from {
-    clip-path: circle(0% at 0 0);
-  }
-  to {
-    clip-path: circle(150% at 0 0);
-  }
-}
-
-/* The chrome gets a snapshot pair of its own. Its surfaces are nearly all transparent — the rest of
-   them is the material behind the window, which no snapshot carries — so the root's pair has nothing
-   to cover the old frame with, and the frame kept the previous palette for the whole wipe. Apart, the
-   old surface can be retired on its own, which is what the rules below do. */
-.titlebar {
-  view-transition-name: chrome-titlebar;
-}
-
-.sidebar {
-  view-transition-name: chrome-rail;
-}
-
-.status-bar {
-  view-transition-name: chrome-status;
-}
-
-::view-transition-group(chrome-titlebar),
-::view-transition-group(chrome-rail),
-::view-transition-group(chrome-status) {
-  /* Above the root's wipe, which covers the whole window, and below the switch in the titlebar. */
-  z-index: 2;
-}
-
-::view-transition-old(chrome-titlebar),
-::view-transition-new(chrome-titlebar),
-::view-transition-old(chrome-rail),
-::view-transition-new(chrome-rail),
-::view-transition-old(chrome-status),
-::view-transition-new(chrome-status) {
-  mix-blend-mode: normal;
-}
-
-/* The chrome's fill is nearly all transparent — what makes it glass is the material behind the
-   window, and no snapshot carries that — so the new surface cannot cover the old one: stacked, a
-   6% white over a 42% white is the 42% white, and the frame wore the previous palette for the whole
-   wipe. The old surface leaves instead: what stands under it is the live chrome, already new. */
-::view-transition-old(chrome-titlebar),
-::view-transition-old(chrome-rail),
-::view-transition-old(chrome-status) {
-  z-index: 1;
-  animation: chrome-palette-out 0.3s linear forwards;
-}
-
-@keyframes chrome-palette-out {
-  from {
-    opacity: 1;
-  }
-  to {
-    opacity: 0;
-  }
-}
-
-::view-transition-new(chrome-titlebar),
-::view-transition-new(chrome-rail),
-::view-transition-new(chrome-status) {
-  z-index: 2;
-  animation: none;
-}
-
-::view-transition-group(theme-indicator) {
-  z-index: 3;
-}
-
-::view-transition-new(theme-indicator) {
-  mix-blend-mode: normal;
-  opacity: 0;
-  animation: pill-slide 0.3s var(--wipe-arrival, 0.4s) forwards;
-}
-
-@keyframes pill-slide {
-  from {
-    transform: translateX(var(--pill-shift, 0px));
-    opacity: 0;
-    animation-timing-function: linear;
-  }
-  18% {
-    opacity: 1;
-    animation-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
-  }
-  to {
-    transform: translateX(0);
-    opacity: 1;
-  }
-}
-
-::view-transition-group(theme-glyphs) {
-  z-index: 4;
-}
-
-::view-transition-old(theme-glyphs) {
-  mix-blend-mode: normal;
-  opacity: 1;
-  animation: theme-glyphs-out 0.25s linear var(--wipe-arrival, 0.4s) forwards;
-}
-
-::view-transition-new(theme-glyphs) {
-  mix-blend-mode: normal;
-  opacity: 0;
-  animation: theme-glyphs-in 0.25s linear var(--wipe-arrival, 0.4s) forwards;
-}
-
-@keyframes theme-glyphs-in {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 1;
-  }
-}
-
-@keyframes theme-glyphs-out {
-  from {
-    opacity: 1;
-  }
-  to {
-    opacity: 0;
-  }
+  animation-duration: 0.2s;
 }

@@ -1,6 +1,5 @@
 import { computed, ref } from 'vue'
 import { Events } from '@wailsio/runtime'
-import { SWITCH_TAIL_MS, WIPE_MS } from '../lib/themeWipe'
 import { useSettings } from './useSettings'
 import { Theme as DomainTheme } from '../../bindings/json-inspector/internal/domain'
 
@@ -26,7 +25,7 @@ const systemPrefersDark = window.matchMedia('(prefers-color-scheme: dark)')
 
 // Not in TypeScript's DOM lib yet; the WebView is Chromium-based, and the webview on
 // macOS may be older Safari — hence the fallback rather than a requirement.
-type ViewTransition = { skipTransition(): void; finished?: Promise<void> }
+type ViewTransition = { skipTransition(): void }
 type TransitionDocument = Document & { startViewTransition?: (cb: () => void) => ViewTransition }
 
 /** The choice Go put on the window's URL — what the first frame has already painted with. */
@@ -49,70 +48,28 @@ const isDark = computed(() =>
   theme.value === DomainTheme.ThemeSystem ? systemIsDark.value : theme.value === DomainTheme.ThemeDark
 )
 
-// True while a wipe is on screen. Nothing in the window can be clicked until it ends — the
-// transition takes the hit test with it (events land on `<html>`) — so controls that must stay
-// usable over it answer by coordinates instead.
-const isSwitching = ref(false)
-
 let running: ViewTransition | null = null
 
-// What the window has to do when it repaints, registered by whoever needs the two palettes to be
-// snapshotted around it — the switch gives its pill its own layer there, so the outgoing snapshot
-// still has it where the user left it and the wipe reveals the new one travelling. The flag tells
-// the hook whether a wipe is really about to run: without the API, or at boot, no snapshot is
-// taken and a layer name left behind would leak into the next transition.
-const paintHooks = new Set<(wiping: boolean) => void>()
-
-export function onPaint(fn: (wiping: boolean) => void): () => void {
-  paintHooks.add(fn)
-  return () => paintHooks.delete(fn)
-}
-
-function paint(dark: boolean, wiping: boolean) {
+// The palette is one class on <html> and nothing else. Both classes are written, so a rule that has
+// to answer "which way is this window" finds an answer without a third state to think about.
+function paint(dark: boolean) {
   document.documentElement.classList.toggle('dark', dark)
   document.documentElement.classList.toggle('light', !dark)
-  paintHooks.forEach((fn) => fn(wiping))
 }
 
-// A choice is taken, and the palette follows it. Choosing a theme that resolves to the palette
-// already on screen — «системная» while the system is dark and the app is dark — is not a change to
-// paint: the wipe would reveal one palette with itself, and that reads as a flicker over nothing.
-function repaint(next: Theme) {
-  const palette = isDark.value
-  theme.value = next
-  persist(next)
-  // No wipe when the palette has not moved — but the switch still has to show where the choice
-  // landed, and its pill is moved by the paint hooks, which only a paint runs.
-  apply(isDark.value, isDark.value !== palette)
-}
-
-// A theme change is a diagonal wipe (see `.theme-wipe` in style.css): the document is
-// mutated inside the transition, so the old palette is snapshotted and the new one is
-// revealed over it instead of both changing at once.
+// The change is a cross-fade: the window is snapshotted as it is, the class moves, and the engine
+// fades the two snapshots through each other — see `::view-transition-*` in style.css. An engine
+// without the API (an older WKWebView) simply changes the palette.
 function apply(dark: boolean, animate: boolean) {
   const start = (document as TransitionDocument).startViewTransition?.bind(document)
   if (!animate || !start) {
-    paint(dark, false)
+    paint(dark)
     return
   }
-  // A switch mid-wipe starts a fresh one: waiting for the running transition would leave the
-  // click unanswered for the rest of its second, which reads as the switch being stuck.
+  // A choice made while a fade is still running starts its own: waiting for the one on screen would
+  // leave the click unanswered for the rest of it.
   running?.skipTransition()
-  const transition = start(() => paint(dark, true))
-  running = transition
-  isSwitching.value = true
-
-  // Only the transition still in charge finishes it, or a skipped one would lower the flag while
-  // its successor is on screen. The timer covers a `finished` that never settles.
-  // `--pill-shift`/`--wipe-arrival` are never cleared here: pill-slide reads them live through
-  // `var(x, fallback)`, so clearing mid-animation would snap it to the fallback early — `arm()`
-  // overwrites both before the next wipe needs them.
-  const finish = () => {
-    if (running !== transition) return
-    isSwitching.value = false
-  }
-  transition.finished?.then(finish, finish)
-  window.setTimeout(finish, WIPE_MS + SWITCH_TAIL_MS + 150)
+  running = start((): void => paint(dark))
 }
 
 function persist(next: Theme) {
@@ -121,6 +78,16 @@ function persist(next: Theme) {
   } catch {
     // Quota or unavailable storage: the choice still holds for this session.
   }
+}
+
+// A choice is taken, and the palette follows it. The answer is whether the palette moved: choosing
+// the one already on screen — «системная» under a dark system while the app is dark — is not a change
+// to fade, and the switch shows it on its own, because it reads the choice and not the paint.
+function choose(next: Theme): boolean {
+  const before = isDark.value
+  theme.value = next
+  persist(next)
+  return isDark.value !== before
 }
 
 systemPrefersDark.addEventListener('change', (e) => {
@@ -132,11 +99,12 @@ systemPrefersDark.addEventListener('change', (e) => {
 // window reaches both. Go is where the choice lives; the cache below only serves the next first frame.
 Events.On('settings:theme', (ev) => {
   const next = (ev.data as { theme: Theme }).theme
+  // The window that made the choice has painted it already; this news is for the other one.
   if (!next || next === theme.value) return
-  repaint(next)
+  if (choose(next)) apply(isDark.value, true)
 })
 
-// At boot there is nothing to wipe from, and the stored choice replaces what the URL carried only
+// At boot there is nothing to fade from, and the stored choice replaces what the URL carried only
 // if the two disagree — which happens when a window was created before the theme was changed.
 const { settings, loadSettings, setTheme: saveTheme } = useSettings()
 
@@ -155,16 +123,13 @@ export function useTheme() {
   return {
     theme,
     isDark,
-    isSwitching,
     setTheme(next: Theme) {
-      const palette = isDark.value
-      theme.value = next
-      persist(next)
-      // Go is told first: re-tinting the window's material moves an attribute Windows repaints the
-      // window's own frame with, and a repaint that arrives after the wipe reads as the window
-      // blinking. The wipe waits for the round trip, which is a few milliseconds.
+      const fading = choose(next)
+      // Go is told first: re-tinting a window's material makes Windows repaint the window's own frame
+      // and shadow, and a repaint that arrives after the fade reads as the window blinking. The fade
+      // waits for the round trip, which is a few milliseconds.
       void saveTheme(next).finally(() => {
-        apply(isDark.value, isDark.value !== palette)
+        if (fading) apply(isDark.value, true)
       })
     },
   }
