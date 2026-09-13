@@ -88,16 +88,16 @@ func (s *Store) Node(ctx context.Context, id string) (domain.CollectionNode, err
 		node                        domain.CollectionNode
 		parentID                    sql.NullString
 		params, headers, cookies    string
-		auth                        sql.NullString
+		auth, scripts               sql.NullString
 		description                 sql.NullString
 		url, body, method, bodyKind sql.NullString
 	)
 	err := s.db.QueryRowContext(ctx,
-		`SELECT id, collection_id, parent_id, kind, name, position, description, auth_json, method, url,
-		        params_json, headers_json, body, body_kind, cookies_json, created_at, updated_at
+		`SELECT id, collection_id, parent_id, kind, name, position, description, auth_json, scripts_json,
+		        method, url, params_json, headers_json, body, body_kind, cookies_json, created_at, updated_at
 		   FROM collection_nodes WHERE id = ?`, id).
 		Scan(&node.ID, &node.CollectionID, &parentID, &node.Kind, &node.Name, &node.Position, &description,
-			&auth, &method, &url, &params, &headers, &body, &bodyKind, &cookies,
+			&auth, &scripts, &method, &url, &params, &headers, &body, &bodyKind, &cookies,
 			&node.CreatedAt, &node.UpdatedAt)
 	if errors.Is(err, sql.ErrNoRows) {
 		return domain.CollectionNode{}, fmt.Errorf("collection node %s: %w", id, domain.ErrNotFound)
@@ -130,6 +130,13 @@ func (s *Store) Node(ctx context.Context, id string) (domain.CollectionNode, err
 			return domain.CollectionNode{}, fmt.Errorf("reading the auth of node %s: %w", id, err)
 		}
 		node.Auth = &value
+	}
+	if scripts.Valid {
+		var value domain.Scripts
+		if err := json.Unmarshal([]byte(scripts.String), &value); err != nil {
+			return domain.CollectionNode{}, fmt.Errorf("reading the scripts of node %s: %w", id, err)
+		}
+		node.Scripts = &value
 	}
 	return node, nil
 }
@@ -183,6 +190,70 @@ func (s *Store) SaveCollection(ctx context.Context, c domain.Collection) error {
 	return nil
 }
 
+// encodeScripts keeps "not set here" apart from "nothing to run": the column is NULL for the first
+// and a JSON object for the second, which is the difference between inheriting and having nothing to
+// add. An empty object is still a value, and it is written as one.
+func encodeScripts(scripts *domain.Scripts) (sql.NullString, error) {
+	if scripts == nil {
+		return sql.NullString{}, nil
+	}
+	encoded, err := json.Marshal(scripts)
+	if err != nil {
+		return sql.NullString{}, fmt.Errorf("encoding the scripts: %w", err)
+	}
+	return sql.NullString{String: string(encoded), Valid: true}, nil
+}
+
+// Scripts reads what is set on a collection or a node — and nothing, when nothing is set there: the
+// editor shows the difference between "take the parent's" and "nothing to run here".
+func (s *Store) Scripts(ctx context.Context, id string) (*domain.Scripts, error) {
+	var raw sql.NullString
+	err := s.db.QueryRowContext(ctx,
+		`SELECT scripts_json FROM collections WHERE id = ?
+		 UNION ALL
+		 SELECT scripts_json FROM collection_nodes WHERE id = ?`, id, id).Scan(&raw)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, fmt.Errorf("коллекция или узел %s: %w", id, domain.ErrNotFound)
+	}
+	if err != nil {
+		return nil, fmt.Errorf("reading the scripts of %s: %w", id, err)
+	}
+	if !raw.Valid {
+		return nil, nil
+	}
+	var scripts domain.Scripts
+	if err := json.Unmarshal([]byte(raw.String), &scripts); err != nil {
+		return nil, fmt.Errorf("reading the scripts of %s: %w", id, err)
+	}
+	return &scripts, nil
+}
+
+// SaveScripts writes what is set on a collection or a node. NULL stays NULL: a level with no scripts
+// of its own is a level that inherits, and writing an empty object there would turn "take the
+// parents" into "nothing to run" — the two the column exists to tell apart.
+func (s *Store) SaveScripts(ctx context.Context, id string, scripts *domain.Scripts) error {
+	encoded, err := encodeScripts(scripts)
+	if err != nil {
+		return err
+	}
+	for _, table := range []string{"collections", "collection_nodes"} {
+		result, err := s.db.ExecContext(ctx,
+			`UPDATE `+table+` SET scripts_json = ?, updated_at = ? WHERE id = ?`,
+			encoded, time.Now().UnixMilli(), id)
+		if err != nil {
+			return fmt.Errorf("saving the scripts of %s: %w", id, err)
+		}
+		changed, err := result.RowsAffected()
+		if err != nil {
+			return fmt.Errorf("saving the scripts of %s: %w", id, err)
+		}
+		if changed > 0 {
+			return nil
+		}
+	}
+	return fmt.Errorf("коллекция или узел %s: %w", id, domain.ErrNotFound)
+}
+
 // encodeAuth keeps "not set here" apart from "explicitly nothing": the column is NULL for the
 // first and a JSON object for the second, which is what makes inheritance expressible.
 func encodeAuth(auth *domain.Auth) (sql.NullString, error) {
@@ -215,20 +286,25 @@ func (s *Store) SaveNode(ctx context.Context, node domain.CollectionNode) error 
 	if err != nil {
 		return fmt.Errorf("saving node %s: %w", node.ID, err)
 	}
+	scripts, err := encodeScripts(node.Scripts)
+	if err != nil {
+		return fmt.Errorf("saving node %s: %w", node.ID, err)
+	}
 
 	now := time.Now().UnixMilli()
 	_, err = s.db.ExecContext(ctx,
 		`INSERT INTO collection_nodes (id, collection_id, parent_id, kind, name, position, description,
-		                               auth_json, method, url, params_json, headers_json, body, body_kind,
-		                               cookies_json, created_at, updated_at)
-		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'raw', ?, ?, ?)
+		                               auth_json, scripts_json, method, url, params_json, headers_json,
+		                               body, body_kind, cookies_json, created_at, updated_at)
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'raw', ?, ?, ?)
 		 ON CONFLICT(id) DO UPDATE SET
 		   name = excluded.name, position = excluded.position, description = excluded.description,
-		   auth_json = excluded.auth_json, method = excluded.method, url = excluded.url,
+		   auth_json = excluded.auth_json, scripts_json = excluded.scripts_json,
+		   method = excluded.method, url = excluded.url,
 		   params_json = excluded.params_json, headers_json = excluded.headers_json,
 		   body = excluded.body, cookies_json = excluded.cookies_json, updated_at = excluded.updated_at`,
 		node.ID, node.CollectionID, nullIfEmpty(node.ParentID), string(node.Kind), node.Name, node.Position,
-		nullIfEmpty(node.Description), auth, nullIfEmpty(node.Method), nullIfEmpty(node.URL),
+		nullIfEmpty(node.Description), auth, scripts, nullIfEmpty(node.Method), nullIfEmpty(node.URL),
 		string(params), string(headers), node.Body, string(cookies), now, now)
 	if err != nil {
 		return fmt.Errorf("saving node %s: %w", node.ID, err)

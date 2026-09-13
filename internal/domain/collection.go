@@ -49,6 +49,9 @@ type CollectionNode struct {
 	Body    string      `json:"body,omitempty"`
 	Cookies []CookieRow `json:"cookies,omitempty"`
 	Auth    *Auth       `json:"auth,omitempty"`
+	// Scripts are the code this request runs around itself. Nil means "not set here" and the levels
+	// above are what runs; empty means this level has nothing to add.
+	Scripts *Scripts `json:"scripts,omitempty"`
 
 	Description string `json:"description,omitempty"`
 	CreatedAt   int64  `json:"createdAt"`

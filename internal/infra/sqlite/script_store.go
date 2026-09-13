@@ -1,0 +1,149 @@
+package sqlite
+
+import (
+	"context"
+	"database/sql"
+	"fmt"
+
+	"json-inspector/internal/domain"
+)
+
+// SaveScriptRun writes one execution of one script with everything it printed and asserted. It is one
+// transaction because it is one report: a run whose lines were only half written would lie about what
+// happened, and the tab draws exactly this.
+func (s *Store) SaveScriptRun(ctx context.Context, run domain.ScriptRun) error {
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("saving run %s: %w", run.ID, err)
+	}
+	defer func() { _ = tx.Rollback() }()
+
+	// The record is named by the window, which addresses records by id; what the column holds is the
+	// row the body tables hang off. A record that does not exist leaves the run without one rather
+	// than failing the write.
+	if _, err := tx.ExecContext(ctx,
+		`INSERT INTO script_runs (id, record_seq, node_id, scope, ok, error, duration_us, created_at)
+		 VALUES (?, (SELECT seq FROM records WHERE id = ?), ?, ?, ?, ?, ?, ?)
+		 ON CONFLICT(id) DO UPDATE SET
+		   ok = excluded.ok, error = excluded.error, duration_us = excluded.duration_us`,
+		run.ID, run.RecordID, run.NodeID, string(run.Scope), run.OK, run.Error,
+		run.DurationUs, run.CreatedAt); err != nil {
+		return fmt.Errorf("saving run %s: %w", run.ID, err)
+	}
+
+	// Written whole and written again whole: a save that replaces a run replaces what it said.
+	if _, err := tx.ExecContext(ctx, `DELETE FROM script_logs WHERE run_id = ?`, run.ID); err != nil {
+		return fmt.Errorf("saving run %s: %w", run.ID, err)
+	}
+	for i, line := range run.Logs {
+		if _, err := tx.ExecContext(ctx,
+			`INSERT INTO script_logs (run_id, position, level, message) VALUES (?, ?, ?, ?)`,
+			run.ID, i, line.Level, line.Message); err != nil {
+			return fmt.Errorf("saving run %s: %w", run.ID, err)
+		}
+	}
+	if _, err := tx.ExecContext(ctx, `DELETE FROM test_results WHERE run_id = ?`, run.ID); err != nil {
+		return fmt.Errorf("saving run %s: %w", run.ID, err)
+	}
+	for i, test := range run.Tests {
+		if _, err := tx.ExecContext(ctx,
+			`INSERT INTO test_results (run_id, position, name, passed, error, duration_us)
+			 VALUES (?, ?, ?, ?, ?, ?)`,
+			run.ID, i, test.Name, test.Passed, test.Error, test.DurationUs); err != nil {
+			return fmt.Errorf("saving run %s: %w", run.ID, err)
+		}
+	}
+	return tx.Commit()
+}
+
+// ScriptRuns reads what the scripts of one record did, in the order they ran — the collection's
+// first, then the folders', then the request's own, which is the order they were executed in.
+func (s *Store) ScriptRuns(ctx context.Context, recordID string) ([]domain.ScriptRun, error) {
+	rows, err := s.db.QueryContext(ctx,
+		`SELECT id, node_id, scope, ok, error, duration_us, created_at
+		   FROM script_runs
+		  WHERE record_seq = (SELECT seq FROM records WHERE id = ?)
+		  ORDER BY created_at, rowid`, recordID)
+	if err != nil {
+		return nil, fmt.Errorf("reading the runs of record %s: %w", recordID, err)
+	}
+	defer rows.Close()
+
+	runs := []domain.ScriptRun{}
+	byID := map[string]int{}
+	for rows.Next() {
+		run := domain.ScriptRun{RecordID: recordID, Logs: []domain.ScriptLog{}, Tests: []domain.TestResult{}}
+		var nodeID sql.NullString
+		if err := rows.Scan(&run.ID, &nodeID, &run.Scope, &run.OK, &run.Error,
+			&run.DurationUs, &run.CreatedAt); err != nil {
+			return nil, fmt.Errorf("reading the runs of record %s: %w", recordID, err)
+		}
+		run.NodeID = nodeID.String
+		byID[run.ID] = len(runs)
+		runs = append(runs, run)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("reading the runs of record %s: %w", recordID, err)
+	}
+	if len(runs) == 0 {
+		return runs, nil
+	}
+
+	if err := s.attachLogs(ctx, runs, byID); err != nil {
+		return nil, err
+	}
+	if err := s.attachTests(ctx, runs, byID); err != nil {
+		return nil, err
+	}
+	return runs, nil
+}
+
+// attachLogs reads every line of every run in one query and hangs them where they belong: two runs
+// are two rows of the same report, and the tab draws them together.
+func (s *Store) attachLogs(ctx context.Context, runs []domain.ScriptRun, byID map[string]int) error {
+	rows, err := s.db.QueryContext(ctx,
+		`SELECT run_id, level, message
+		   FROM script_logs
+		  WHERE run_id IN (SELECT id FROM script_runs WHERE record_seq = (SELECT seq FROM records WHERE id = ?))
+		  ORDER BY run_id, position`, runs[0].RecordID)
+	if err != nil {
+		return fmt.Errorf("reading the logs of record %s: %w", runs[0].RecordID, err)
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var runID string
+		line := domain.ScriptLog{}
+		if err := rows.Scan(&runID, &line.Level, &line.Message); err != nil {
+			return fmt.Errorf("reading the logs of record %s: %w", runs[0].RecordID, err)
+		}
+		if at, ok := byID[runID]; ok {
+			runs[at].Logs = append(runs[at].Logs, line)
+		}
+	}
+	return rows.Err()
+}
+
+func (s *Store) attachTests(ctx context.Context, runs []domain.ScriptRun, byID map[string]int) error {
+	rows, err := s.db.QueryContext(ctx,
+		`SELECT run_id, name, passed, error, duration_us
+		   FROM test_results
+		  WHERE run_id IN (SELECT id FROM script_runs WHERE record_seq = (SELECT seq FROM records WHERE id = ?))
+		  ORDER BY run_id, position`, runs[0].RecordID)
+	if err != nil {
+		return fmt.Errorf("reading the tests of record %s: %w", runs[0].RecordID, err)
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var runID string
+		test := domain.TestResult{}
+		if err := rows.Scan(&runID, &test.Name, &test.Passed, &test.Error, &test.DurationUs); err != nil {
+			return fmt.Errorf("reading the tests of record %s: %w", runs[0].RecordID, err)
+		}
+		if at, ok := byID[runID]; ok {
+			runs[at].Tests = append(runs[at].Tests, test)
+		}
+	}
+	return rows.Err()
+}

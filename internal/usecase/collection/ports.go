@@ -18,6 +18,11 @@ type Store interface {
 	DeleteCollection(ctx context.Context, id string) error
 	DeleteNode(ctx context.Context, id string) error
 
+	// Scripts are read and written by the level they belong to, which is a collection or a node, and
+	// the two are addressed in the same id space. Nil is "not set here" — the level inherits.
+	Scripts(ctx context.Context, id string) (*domain.Scripts, error)
+	SaveScripts(ctx context.Context, id string, scripts *domain.Scripts) error
+
 	NextPosition(ctx context.Context, collectionID string, parentID string) (int64, error)
 
 	SaveRun(ctx context.Context, run domain.CollectionRun) error
