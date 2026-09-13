@@ -46,10 +46,17 @@ func (c Config) withDefaults() Config {
 	return c
 }
 
-// newTransport builds the one transport every request shares, which is what makes connections
-// reusable and the proxy and TLS settings apply at all.
+// newTransport builds the one transport every request shares, which is what makes the proxy and TLS
+// settings apply at all.
 func newTransport(cfg Config) *http.Transport {
 	transport := http.DefaultTransport.(*http.Transport).Clone()
+	// Every request dials. A reused connection spends nothing on DNS, TCP or TLS, so the very
+	// breakdown the timings tab exists to show would come out different for the same request sent
+	// twice — and the second send would say nothing about what a cold request costs. This is a probe,
+	// not a browsing session: what a browser does with its connections is not the question here, what
+	// the endpoint does is. Go sends `Connection: close` for this, and the server lets go of the
+	// socket too.
+	transport.DisableKeepAlives = true
 
 	if cfg.ProxyURL != "" {
 		if parsed, err := url.Parse(cfg.ProxyURL); err == nil {

@@ -87,9 +87,9 @@ func TestTimings(t *testing.T) {
 		assertPhasesWithinTotal(t, res)
 	})
 
-	// A repeat to the same host reuses the connection: no DNS, no connect, no TLS. The wait is the
-	// whole story there, and reporting it as zero left a viewer with nothing but the total.
-	t.Run("a reused connection still has a wait", func(t *testing.T) {
+	// Every send dials, even a repeat: a probe that reuses a connection reports a breakdown that
+	// depends on when it was last used, and the same request sent twice has to give the same one.
+	t.Run("a repeat dials again", func(t *testing.T) {
 		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			time.Sleep(20 * time.Millisecond)
 			_, _ = w.Write([]byte("ok"))
@@ -105,9 +105,15 @@ func TestTimings(t *testing.T) {
 		if second.Error != "" {
 			t.Fatalf("second send failed: %s", second.Error)
 		}
-		if second.DNSUs != nil || second.ConnectUs != nil || second.TLSUs != nil {
-			t.Errorf("dial phases = %v/%v/%v on a pooled connection, want them absent — nothing was dialled",
-				second.DNSUs, second.ConnectUs, second.TLSUs)
+		if second.ConnectUs == nil {
+			t.Error("connectUs is absent on a repeat, want the connection dialled again")
+		}
+		// The other two are absent for reasons of their own, and both are the same kind of absence:
+		// the server is an IP literal, so there is no name to look up, and it speaks plain HTTP, so
+		// there is no handshake to perform.
+		if second.DNSUs != nil || second.TLSUs != nil {
+			t.Errorf("dns/tls = %v/%v against a literal address over plain http, want none",
+				second.DNSUs, second.TLSUs)
 		}
 		if second.WaitUs == nil || *second.WaitUs < 20_000 {
 			t.Errorf("waitUs = %v, want at least the 20ms the handler sleeps", second.WaitUs)
