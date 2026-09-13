@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia'
 import { bodyMissing, recordView, type RecordBodies, type RecordView } from '../lib/requestRecord'
-import { requestCount, trailOf, type Trail } from '../lib/collectionTree'
+import { findNode, requestCount, trailOf, type Trail } from '../lib/collectionTree'
 import type { ChipName } from '../lib/requestSource'
 import {
   BodySide,
@@ -282,8 +282,23 @@ export const useCollectionsStore = defineStore('collections', {
       this.applyTree((await CollectionsService.Delete(id)) ?? [])
     },
 
+    // A row that closes takes what is inside it with it: a level left open inside a closed row is not a
+    // state anybody chose to keep, and the row reopened a minute later should look the way it did the
+    // first time rather than unfold whatever happened to be open inside it back then.
     toggleExpand(id: string) {
-      this.expanded[id] = !this.expanded[id]
+      const open = !this.expanded[id]
+      this.expanded[id] = open
+      if (open) return
+
+      const collection = this.tree.find((c) => c.id === id)
+      const inside = collection ? collection.items ?? [] : findNode(this.tree, id)?.items ?? []
+      for (const node of inside) this.closeBelow(node)
+    },
+
+    // Everything under one row, down to the leaves.
+    closeBelow(node: CollectionNode) {
+      this.expanded[node.id] = false
+      for (const child of node.items ?? []) this.closeBelow(child)
     },
 
     setFilter(text: string) {
