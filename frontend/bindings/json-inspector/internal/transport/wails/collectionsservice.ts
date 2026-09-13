@@ -43,23 +43,21 @@ export function Duplicate(id: string): $CancellablePromise<domain$0.Collection[]
 
 /**
  * ExportFile writes a collection — or one request, when the id names one — into a file the user
- * picks, as the shape they named. It answers whether anything was written: a cancelled save dialog is
- * not an error, and the window says nothing about it.
- * 
- * An empty shape is the first one the app can write, which is what a window that has only ever known
- * about one of them passes.
+ * picks. It answers whether anything was written: a cancelled save dialog is not an error, and the
+ * window says nothing about it.
  */
-export function ExportFile(id: string, format: string): $CancellablePromise<boolean> {
-    return $Call.ByID(4114312118, id, format);
-}
-
-export function Formats(): $CancellablePromise<$models.DocumentFormats> {
-    return $Call.ByID(643151990);
+export function ExportFile(id: string): $CancellablePromise<boolean> {
+    return $Call.ByID(4114312118, id);
 }
 
 /**
  * ImportFile asks for a file, reads it and writes what is in it into the tree. A nil tree is a
  * cancelled dialog: nothing happened, and it is not a failure.
+ * 
+ * There is one shape, and nothing is guessed: a file that is not a Postman collection is told that it
+ * is not. When a second shape arrives, the window offers them by name and the user says which one
+ * they are handing over — a file read as something it is not is worse than a wrong choice that says
+ * so out loud.
  */
 export function ImportFile(): $CancellablePromise<domain$0.Collection[] | null> {
     return $Call.ByID(548291153);

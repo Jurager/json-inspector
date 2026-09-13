@@ -32,11 +32,7 @@ func TestCollectionFileRoundTrip(t *testing.T) {
 			}},
 	}
 
-	chosen, err := chooseWriter("")
-	if err != nil {
-		t.Fatalf("chooseWriter: %v", err)
-	}
-	if err := writeCollection(both, chosen, "Отгружено", source); err != nil {
+	if err := writeCollection(both, "Отгружено", source); err != nil {
 		t.Fatalf("writeCollection: %v", err)
 	}
 
@@ -86,8 +82,7 @@ func TestReadCollectionRefusesWhatIsNotOne(t *testing.T) {
 	}
 }
 
-// A name that is legal for a collection and not for a file still becomes a file name, ending in the
-// extension of the format it is written in.
+// A name that is legal for a collection and not for a file still becomes a file name.
 func TestFileNameFor(t *testing.T) {
 	for name, want := range map[string]string{
 		"Пользователи":    "Пользователи.postman_collection.json",
@@ -95,83 +90,22 @@ func TestFileNameFor(t *testing.T) {
 		"   ":             "collection.postman_collection.json",
 		`a\b*c?d"e<f>g|h`: "a-b-c-d-e-f-g-h.postman_collection.json",
 	} {
-		if got := fileNameFor(name, ".postman_collection.json"); got != want {
+		if got := fileNameFor(name); got != want {
 			t.Errorf("fileNameFor(%q) = %q, want %q", name, got, want)
 		}
 	}
-	if got := fileNameFor("Коллекция", ".yaml"); got != "Коллекция.yaml" {
-		t.Errorf("fileNameFor with another format = %q, want the format's own extension", got)
-	}
 }
 
-// What a dialog offers is the kind of file, not the shape inside it: JSON is JSON everywhere, and a
-// shape added inside it — another tool's export — must not add a second identical filter. A shape the
-// app cannot write, and a file none of them reads, are both refused with a reason.
-func TestFormats(t *testing.T) {
-	kinds := files()
-	if len(kinds) == 0 {
-		t.Fatal("the app knows no kinds of file at all")
+// What the dialogs offer is the kind of file — JSON — and not the tool that wrote it: a Postman
+// collection is a JSON file, and a second shape inside JSON must not add a second identical filter.
+func TestFileKind(t *testing.T) {
+	if fileKindName != "JSON" || filePattern != "*.json" {
+		t.Errorf("the dialog offers %s (%s), want the file kind", fileKindName, filePattern)
 	}
-	shapes := 0
-	for _, kind := range kinds {
-		if len(kind.Readers) == 0 || len(kind.Writers) == 0 {
-			t.Errorf("%s reads %d shapes and writes %d, want both", kind.Name, len(kind.Readers), len(kind.Writers))
-		}
-		shapes += len(kind.Readers)
+	if len(jsonFilter) != 1 || jsonFilter[0].Pattern != filePattern {
+		t.Errorf("filter = %+v, want one entry for the kind of file", jsonFilter)
 	}
-	if shapes == 0 {
-		t.Fatal("the app knows no shapes at all")
-	}
-
-	first, err := chooseWriter("")
-	if err != nil {
-		t.Fatalf("chooseWriter with nothing named: %v", err)
-	}
-	if first.Label() != kinds[0].Writers[0].Label() {
-		t.Errorf("the default writer = %q, want the first one", first.Label())
-	}
-	if _, err := chooseWriter("Формат, которого нет"); !errors.Is(err, domain.ErrNotAllowed) {
-		t.Errorf("an unknown shape = %v, want ErrNotAllowed", err)
-	}
-
-	// One kind means one filter; the "all supported" entry would be a list of one.
-	filters := importFilters()
-	if len(filters) != len(kinds) {
-		t.Errorf("filters = %+v, want one per kind while there is one kind", filters)
-	}
-	if filters[0].DisplayName != kinds[0].Name || filters[0].Pattern != kinds[0].Pattern {
-		t.Errorf("filter = %+v, want the kind's own", filters[0])
-	}
-
-	// The filter a save dialog offers is the kind the shape is written as, while the name it suggests
-	// carries the shape's own ending — the convention of the tool it is for.
-	exported := exportFilter(first)
-	if len(exported) != 1 || exported[0].Pattern != kinds[0].Pattern {
-		t.Errorf("export filter = %+v, want the kind's pattern", exported)
-	}
-	if suggested := fileNameFor("Коллекция", first.Extension()); !strings.HasSuffix(suggested, first.Extension()) {
-		t.Errorf("the suggested name %q does not end in %q", suggested, first.Extension())
-	}
-}
-
-// A file none of the shapes reads says which were tried, so a user with an unsupported file is told
-// what the app can read rather than that something went wrong.
-func TestReadCollectionNamesTheShapesItTried(t *testing.T) {
-	dir := t.TempDir()
-	alien := filepath.Join(dir, "openapi.json")
-	if err := os.WriteFile(alien, []byte(`{"openapi": "3.0.0"}`), 0o644); err != nil {
-		t.Fatalf("writing the file: %v", err)
-	}
-
-	_, err := readCollection(alien)
-	if !errors.Is(err, domain.ErrNotAllowed) {
-		t.Fatalf("a file none of the shapes reads = %v, want ErrNotAllowed", err)
-	}
-	for _, kind := range files() {
-		for _, reader := range kind.Readers {
-			if !strings.Contains(err.Error(), reader.Label()) {
-				t.Errorf("the message %q does not name %s", err.Error(), reader.Label())
-			}
-		}
+	if !strings.HasSuffix(fileNameFor("Коллекция"), fileExtension) {
+		t.Errorf("a suggested name does not end in %q", fileExtension)
 	}
 }
