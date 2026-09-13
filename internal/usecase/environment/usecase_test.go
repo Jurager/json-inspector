@@ -289,43 +289,40 @@ func TestResolutionOrderAndMasking(t *testing.T) {
 	fill(domain.EnvScope{Environment: env.ID}, over, "token", "env-value", domain.VariableText)
 	fill(domain.EnvScope{Environment: env.ID}, secret, "secret", "s3cret", domain.VariableSecret)
 
-	// The environment wins over the globals.
-	resolved, found, err := u.Resolve(ctx, "token")
-	if err != nil || !found {
-		t.Fatalf("Resolve(token) = %v, %v", found, err)
-	}
-	if resolved.Value != "env-value" || resolved.Source != "env" {
-		t.Errorf("token resolved to %+v, want the environment's value", resolved)
-	}
-
-	// A secret resolves to its existence, not to its value.
-	resolved, found, _ = u.Resolve(ctx, "secret")
-	if !found || resolved.Value != "" || !resolved.HasValue || resolved.Kind != domain.VariableSecret {
-		t.Errorf("a secret resolved to %+v, want hasValue with no value", resolved)
-	}
-
-	// Substitution: the request gets the value, everything that outlives it gets the mask.
-	sent, err := u.Substitute(ctx, "{{token}}/{{secret}}", false)
+	// The environment wins over the globals: the order the design names is
+	// запрос → окружение → глобальные.
+	resolved, err := u.SubstituteTexts(ctx, []string{"{{token}}"}, false)
 	if err != nil {
-		t.Fatalf("Substitute: %v", err)
+		t.Fatalf("SubstituteTexts: %v", err)
 	}
-	if sent != "env-value/s3cret" {
-		t.Errorf("for sending = %q, want the real values", sent)
-	}
-	masked, err := u.Substitute(ctx, "{{token}}/{{secret}}", true)
-	if err != nil {
-		t.Fatalf("Substitute (masked): %v", err)
-	}
-	if masked != "env-value/"+vars.SecretMask {
-		t.Errorf("masked = %q, want the secret replaced by the mask", masked)
+	if resolved[0] != "env-value" {
+		t.Errorf("token resolved to %q, want the environment's value", resolved[0])
 	}
 
-	missing, err := u.Missing(ctx, "{{token}}/{{nope}}")
+	// Substitution: the request gets the values, everything that outlives it gets the mask — and a
+	// secret is the difference between the two.
+	sent, err := u.SubstituteTexts(ctx, []string{"{{token}}/{{secret}}"}, false)
+	if err != nil {
+		t.Fatalf("SubstituteTexts: %v", err)
+	}
+	if sent[0] != "env-value/s3cret" {
+		t.Errorf("for sending = %q, want the real values", sent[0])
+	}
+	masked, err := u.SubstituteTexts(ctx, []string{"{{token}}/{{secret}}"}, true)
+	if err != nil {
+		t.Fatalf("SubstituteTexts (masked): %v", err)
+	}
+	if masked[0] != "env-value/"+vars.SecretMask {
+		t.Errorf("masked = %q, want the secret replaced by the mask", masked[0])
+	}
+
+	// Several texts at once, and a name that repeats across them is one thing missing.
+	missing, err := u.Missing(ctx, []string{"{{token}}/{{nope}}", "{{nope}}/{{other}}"})
 	if err != nil {
 		t.Fatalf("Missing: %v", err)
 	}
-	if len(missing) != 1 || missing[0] != "nope" {
-		t.Errorf("Missing = %v, want just nope", missing)
+	if len(missing) != 2 || missing[0] != "nope" || missing[1] != "other" {
+		t.Errorf("Missing = %v, want nope once and then other", missing)
 	}
 
 	// A disabled variable stops resolving, which is what the enabled flag is for.
@@ -334,9 +331,12 @@ func TestResolutionOrderAndMasking(t *testing.T) {
 	}); err != nil {
 		t.Fatalf("UpdateVariable (disable): %v", err)
 	}
-	resolved, found, _ = u.Resolve(ctx, "token")
-	if !found || resolved.Value != "global-value" || resolved.Source != "global" {
-		t.Errorf("with the override disabled, token = %+v, want the global", resolved)
+	again, err := u.SubstituteTexts(ctx, []string{"{{token}}"}, false)
+	if err != nil {
+		t.Fatalf("SubstituteTexts: %v", err)
+	}
+	if again[0] != "global-value" {
+		t.Errorf("with the override disabled, token = %q, want the global", again[0])
 	}
 }
 

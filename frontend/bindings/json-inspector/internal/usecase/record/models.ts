@@ -64,21 +64,3 @@ export interface RequestFinished {
     "id": string;
     "record": domain$0.Record;
 }
-
-/**
- * SendInput is one attempt. The request in it is ready to go — its variables are already filled in —
- * and the masked copy beside it is what history keeps.
- * 
- * The two representations exist because the draft is still the window's: it holds the tokens, so it
- * is the one that can say what a secret was. When the draft moves here, so does this.
- */
-export interface SendInput {
-    "method": string;
-    "url": string;
-    "headers": domain$0.HeaderPair[] | null;
-    "body": string;
-    "maskedUrl": string;
-    "maskedHeaders": domain$0.HeaderPair[] | null;
-    "maskedBody": string;
-    "cookies": domain$0.CookieRow[] | null;
-}

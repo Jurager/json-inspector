@@ -137,16 +137,7 @@ function follow(url: string) {
   // Switch rails immediately so the user isn't left staring at the stale response.
   store.activeView = 'request'
   store.manualId = null
-  void store.send({
-    method: 'GET',
-    url,
-    headers: props.record.requestHeaders,
-    body: '',
-    maskedUrl: url,
-    maskedHeaders: props.record.requestHeaders,
-    maskedBody: '',
-    cookies: [],
-  })
+  void store.sendSpec({ method: 'GET', url, headers: props.record.requestHeaders, body: '' })
 }
 
 // The size Go stored, not the size of the text in hand: a body too large to travel with the record
@@ -220,7 +211,14 @@ function goBack() {
 }
 
 function openInRequest() {
-  store.loadDraft(props.record)
+  // The whole record becomes the request being composed, the jar it was sent with and all.
+  void store.replace({
+    method: props.record.method,
+    url: props.record.url,
+    headers: props.record.requestHeaders,
+    body: props.record.requestBody,
+    cookies: props.record.requestCookies,
+  })
   store.setOpenChip(null)
   store.activeView = 'request'
   focusUrlField()

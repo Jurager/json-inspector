@@ -15,6 +15,9 @@ const (
 // the flags are Set-Cookie attributes rather than parts of a request's own Cookie header; they are
 // kept so a draft can be restored from a record.
 type CookieRow struct {
+	// ID addresses the row while it is in a draft. A record keeps it as it was saved, which costs
+	// nothing and lets the same jar be handed back to the draft it came from.
+	ID       string `json:"id,omitempty"`
 	Name     string `json:"name"`
 	Value    string `json:"value"`
 	Domain   string `json:"domain,omitempty"`

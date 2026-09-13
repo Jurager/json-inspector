@@ -8,8 +8,9 @@ import (
 	"json-inspector/internal/usecase/environment"
 )
 
-// EnvironmentsService is the environments screen and the request preview: the state they draw, the
-// edits they make, and the resolution a draft's `{{tokens}}` need until that moves to Go too.
+// EnvironmentsService is the environments screen: the state it draws and the edits it makes. What
+// a `{{token}}` resolves to is no longer the window's question — the draft asks that side of the
+// boundary itself, values and all.
 type EnvironmentsService struct {
 	environments *environment.UseCase
 	secrets      environment.SecretSource
@@ -71,36 +72,6 @@ func (s *EnvironmentsService) ImportEntries(ctx context.Context, scope domain.En
 // Reveal is the eye button: the only call that hands a secret's value to the window.
 func (s *EnvironmentsService) Reveal(ctx context.Context, id string) (string, error) {
 	return s.environments.Reveal(ctx, id)
-}
-
-// ResolvedVariable is what the token tooltip needs. It is a struct because a bound method may only
-// return a value and an error, and because "not found" is a normal answer rather than a failure.
-type ResolvedVariable struct {
-	Found      bool              `json:"found"`
-	Resolution domain.Resolution `json:"resolution"`
-}
-
-func (s *EnvironmentsService) Resolve(ctx context.Context, name string) (ResolvedVariable, error) {
-	resolution, found, err := s.environments.Resolve(ctx, name)
-	if err != nil {
-		return ResolvedVariable{}, err
-	}
-	return ResolvedVariable{Found: found, Resolution: resolution}, nil
-}
-
-// Substitute fills a text in with its variables; mask is what keeps a secret out of anything that
-// outlives the moment of sending.
-func (s *EnvironmentsService) Substitute(ctx context.Context, text string, mask bool) (string, error) {
-	return s.environments.Substitute(ctx, text, mask)
-}
-
-func (s *EnvironmentsService) Missing(ctx context.Context, text string) ([]string, error) {
-	return s.environments.Missing(ctx, text)
-}
-
-// ResolveTexts fills a whole request in at once: the URL, the header names and values, the body.
-func (s *EnvironmentsService) ResolveTexts(ctx context.Context, texts []string, mask bool) ([]string, error) {
-	return s.environments.ResolveTexts(ctx, texts, mask)
 }
 
 // ImportLegacy moves what the old frontend kept in localStorage into the database, once. The

@@ -7,6 +7,7 @@ import { Button, IconButton } from '../ui/button'
 import { Checkbox } from '../ui/checkbox'
 import { useRequestsStore } from '../../stores/requests'
 import { parseTokens, tokenSegments } from '../../lib/vars'
+import { AuthType, RowKind, type Auth } from '../../../bindings/json-inspector/internal/domain'
 
 const props = defineProps<{ chip: 'params' | 'headers' | 'auth' | 'body' }>()
 
@@ -25,19 +26,42 @@ const title = computed(() => {
   }
 })
 
-const isBodyDisabled = computed(() => store.draft.method === 'GET' || store.draft.method === 'HEAD')
+const isBodyDisabled = computed(() => store.bodyDisabled)
 
-const AUTH_TYPES = ['none', 'bearer', 'basic', 'oauth2'] as const
+// The choices and their names come from Go, so the chip and the draft cannot disagree about what a
+// mode is called.
+const AUTH_TYPES: Auth['type'][] = [AuthType.AuthNone, AuthType.AuthBearer, AuthType.AuthBasic, AuthType.AuthOAuth2]
 const AUTH_LABELS: Record<string, string> = { none: 'Нет', bearer: 'Bearer', basic: 'Basic', oauth2: 'OAuth 2' }
 
 // The pill moves one segment (+ the 2px gap) per step, animated by a CSS transition on transform.
-const activeAuthIndex = computed(() => AUTH_TYPES.indexOf(store.draft.auth.type))
+const activeAuthIndex = computed(() => AUTH_TYPES.indexOf(store.auth.type))
 const authIndicatorStyle = computed(() => ({
   transform: `translateX(calc(${activeAuthIndex.value} * (100% + 2px)))`,
 }))
 
 function dismiss() {
   store.setOpenChip(null)
+}
+
+function selectAuth(type: Auth['type']) {
+  void store.setAuth({ ...store.auth, type })
+}
+
+function setToken(token: string) {
+  void store.setAuth({ ...store.auth, token })
+}
+
+// A row edit goes straight over: the rows are Go's, and the answer is what the popover draws.
+function patch(kind: RowKind, id: string, patch: { name?: string; value?: string }) {
+  void store.patchRow(kind, id, patch)
+}
+
+function toggle(kind: RowKind, id: string, enabled: boolean) {
+  void store.toggleRow(kind, id, enabled)
+}
+
+function remove(kind: RowKind, id: string) {
+  void store.removeRow(kind, id)
 }
 
 // A chip button sits outside the popover's own content, so clicking it — even the one already
@@ -86,9 +110,9 @@ function valueClass(v: string): string {
     <template v-if="props.chip === 'params' || props.chip === 'headers'">
       <template v-if="props.chip === 'params'">
         <TransitionGroup tag="div" name="row" class="rows">
-          <div v-for="(p, i) in store.draft.params" :key="i" class="row" :class="{ off: !p.enabled }">
-            <Checkbox :model-value="p.enabled" @update:model-value="store.toggleParam(i)" @click.stop />
-            <input :value="p.name" class="row-input mono" placeholder="имя" spellcheck="false" @input="store.updateParam(i, { name: ($event.target as HTMLInputElement).value })" />
+          <div v-for="p in store.params" :key="p.id" class="row" :class="{ off: !p.enabled }">
+            <Checkbox :model-value="p.enabled" @update:model-value="toggle(RowKind.RowParams, p.id, $event)" @click.stop />
+            <input :value="p.name" class="row-input mono" placeholder="имя" spellcheck="false" @input="patch(RowKind.RowParams, p.id, { name: ($event.target as HTMLInputElement).value })" />
             <div class="row-cell">
               <input
                 :value="p.value"
@@ -96,7 +120,7 @@ function valueClass(v: string): string {
                 :class="[valueClass(p.value), { 'row-input-veiled': hasTokens(p.value) }]"
                 placeholder="значение"
                 spellcheck="false"
-                @input="store.updateParam(i, { value: ($event.target as HTMLInputElement).value }); syncCellScroll($event)"
+                @input="patch(RowKind.RowParams, p.id, { value: ($event.target as HTMLInputElement).value }); syncCellScroll($event)"
                 @scroll="syncCellScroll"
               />
               <span
@@ -111,20 +135,20 @@ function valueClass(v: string): string {
                 </template>
               </span>
             </div>
-            <IconButton variant="danger" size="sm" hint="Удалить" @click.stop="store.removeParam(i)"><Icon name="xmark" :size="12" /></IconButton>
+            <IconButton variant="danger" size="sm" hint="Удалить" @click.stop="remove(RowKind.RowParams, p.id)"><Icon name="xmark" :size="12" /></IconButton>
           </div>
         </TransitionGroup>
         <div class="popover-foot">
-          <Button variant="ghost" size="sm" @click="store.addParam()">+ Параметр</Button>
+          <Button variant="ghost" size="sm" @click="store.addRow(RowKind.RowParams)">+ Параметр</Button>
           <span class="foot-hint">Выключенные не уходят в запрос</span>
         </div>
       </template>
 
       <template v-else>
         <TransitionGroup tag="div" name="row" class="rows">
-          <div v-for="(h, i) in store.draft.headers" :key="i" class="row" :class="{ off: !h.enabled }">
-            <Checkbox :model-value="h.enabled" @update:model-value="store.toggleHeader(i)" @click.stop />
-            <input :value="h.name" class="row-input mono" placeholder="Header" spellcheck="false" @input="store.updateHeader(i, { name: ($event.target as HTMLInputElement).value })" />
+          <div v-for="h in store.headers" :key="h.id" class="row" :class="{ off: !h.enabled }">
+            <Checkbox :model-value="h.enabled" @update:model-value="toggle(RowKind.RowHeaders, h.id, $event)" @click.stop />
+            <input :value="h.name" class="row-input mono" placeholder="Header" spellcheck="false" @input="patch(RowKind.RowHeaders, h.id, { name: ($event.target as HTMLInputElement).value })" />
             <div class="row-cell">
               <input
                 :value="h.value"
@@ -132,7 +156,7 @@ function valueClass(v: string): string {
                 :class="[valueClass(h.value), { 'row-input-veiled': hasTokens(h.value) }]"
                 placeholder="Value"
                 spellcheck="false"
-                @input="store.updateHeader(i, { value: ($event.target as HTMLInputElement).value }); syncCellScroll($event)"
+                @input="patch(RowKind.RowHeaders, h.id, { value: ($event.target as HTMLInputElement).value }); syncCellScroll($event)"
                 @scroll="syncCellScroll"
               />
               <span
@@ -147,11 +171,11 @@ function valueClass(v: string): string {
                 </template>
               </span>
             </div>
-            <IconButton variant="danger" size="sm" hint="Удалить" @click.stop="store.removeHeader(i)"><Icon name="xmark" :size="12" /></IconButton>
+            <IconButton variant="danger" size="sm" hint="Удалить" @click.stop="remove(RowKind.RowHeaders, h.id)"><Icon name="xmark" :size="12" /></IconButton>
           </div>
         </TransitionGroup>
         <div class="popover-foot">
-          <Button variant="ghost" size="sm" @click="store.addHeader()">+ Заголовок</Button>
+          <Button variant="ghost" size="sm" @click="store.addRow(RowKind.RowHeaders)">+ Заголовок</Button>
           <span class="foot-hint">Accept подставлен по умолчанию</span>
         </div>
       </template>
@@ -164,18 +188,19 @@ function valueClass(v: string): string {
           v-for="t in AUTH_TYPES"
           :key="t"
           class="seg"
-          :class="{ active: store.draft.auth.type === t }"
-          @click="store.draft.auth.type = t"
+          :class="{ active: store.auth.type === t }"
+          @click="selectAuth(t)"
         >
           {{ AUTH_LABELS[t] }}
         </button>
       </div>
       <input
-        v-if="store.draft.auth.type !== 'none'"
-        v-model="store.draft.auth.token"
+        v-if="store.auth.type !== 'none'"
+        :value="store.auth.token"
         class="row-input mono"
         placeholder="Токен"
         spellcheck="false"
+        @input="setToken(($event.target as HTMLInputElement).value)"
       />
       <div class="hint">Значение можно взять из окружения — переменные подставляются в URL, заголовки и тело.</div>
     </template>
@@ -183,12 +208,14 @@ function valueClass(v: string): string {
     <template v-else>
       <textarea
         v-if="!isBodyDisabled"
-        v-model="store.draft.body"
+        :value="store.body"
         class="body-area mono"
         placeholder="{ ... JSON body ... }"
         spellcheck="false"
+        @input="store.setBody(($event.target as HTMLTextAreaElement).value)"
+        @blur="store.flush()"
       ></textarea>
-      <div v-else class="body-area body-disabled">{{ store.draft.method }} не отправляет тело</div>
+      <div v-else class="body-area body-disabled">{{ store.method }} не отправляет тело</div>
     </template>
   </PopoverContent>
 </template>

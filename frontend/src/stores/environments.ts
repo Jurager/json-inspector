@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia'
-import { missingTokens, substituteTokens, substituteTokensMasked, type VarResolution } from '../lib/vars'
+import type { VarResolution } from '../lib/vars'
 import { EnvironmentsService } from '../../bindings/json-inspector/internal/transport/wails'
 import { VariableKind } from '../../bindings/json-inspector/internal/domain'
 import type { EnvScope, EnvState, Environment, Variable } from '../../bindings/json-inspector/internal/domain'
@@ -181,6 +181,8 @@ export const useEnvironmentsStore = defineStore('environments', {
     },
 
     // ---- resolution over the mirror --------------------------------------
+    // What is left of it is what the window draws: the tooltip over a `{{token}}` pill, and the
+    // export templates. Filling a request in is Go's now, values and all.
 
     effectiveValue(v: Variable): string {
       if (v.kind !== VariableKind.VariableSecret) return v.value ?? ''
@@ -196,18 +198,6 @@ export const useEnvironmentsStore = defineStore('environments', {
       const g = this.globals.find((x) => x.name === name && x.enabled)
       if (g) return { value: this.effectiveValue(g), source: 'global', kind: g.kind }
       return null
-    },
-
-    substitute(text: string): string {
-      return substituteTokens(text, this.resolveVariable)
-    },
-
-    maskSecrets(text: string): string {
-      return substituteTokensMasked(text, this.resolveVariable)
-    },
-
-    missingVarNames(text: string): string[] {
-      return missingTokens(text, this.resolveVariable)
     },
 
     rowsFor(envId: string | null): { own: Variable[]; inherited: (Variable & { overridden: boolean })[] } {

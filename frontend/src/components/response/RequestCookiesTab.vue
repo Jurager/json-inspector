@@ -4,6 +4,7 @@ import { IconButton } from '../ui/button'
 import VarToken from '../ui/VarToken.vue'
 import { useRequestsStore } from '../../stores/requests'
 import { parseTokens, tokenSegments } from '../../lib/vars'
+import { RowKind, type CookieRow } from '../../../bindings/json-inspector/internal/domain'
 
 const store = useRequestsStore()
 
@@ -11,6 +12,16 @@ const store = useRequestsStore()
 // realistically always a literal, and the domain/expires columns are informational, not sent.
 function hasTokens(value: string): boolean {
   return parseTokens(value).length > 0
+}
+
+// The jar is Go's: a row is addressed by id, and an edit goes over as a patch. That is what makes a
+// click land on the row it was aimed at even if another one left first.
+function patch(row: CookieRow, change: { name?: string; value?: string; domain?: string; expires?: string }) {
+  void store.patchRow(RowKind.RowCookies, row.id ?? '', change)
+}
+
+function toggleFlag(row: CookieRow, flag: 'secure' | 'httpOnly') {
+  void store.patchRow(RowKind.RowCookies, row.id ?? '', { [flag]: !row[flag] })
 }
 
 function syncCellScroll(e: Event) {
@@ -25,13 +36,13 @@ function syncCellScroll(e: Event) {
     <div class="req-cookies-head">
       <div>Имя</div><div>Значение</div><div>Домен</div><div>Истекает</div><div>Флаги</div><div></div>
     </div>
-    <div v-for="(c, i) in store.draft.cookies" :key="i" class="req-cookies-row">
+    <div v-for="c in store.cookies" :key="c.id" class="req-cookies-row">
       <input
         :value="c.name"
         class="cell-input mono"
         placeholder="имя"
         spellcheck="false"
-        @input="store.updateCookie(i, { name: ($event.target as HTMLInputElement).value })"
+        @input="patch(c, { name: ($event.target as HTMLInputElement).value })"
       />
       <div class="cell">
         <input
@@ -40,7 +51,7 @@ function syncCellScroll(e: Event) {
           :class="{ 'cell-input-veiled': hasTokens(c.value) }"
           placeholder="значение"
           spellcheck="false"
-          @input="store.updateCookie(i, { value: ($event.target as HTMLInputElement).value }); syncCellScroll($event)"
+          @input="patch(c, { value: ($event.target as HTMLInputElement).value }); syncCellScroll($event)"
           @scroll="syncCellScroll"
         />
         <span v-if="hasTokens(c.value)" class="cell-input row-display mono" aria-hidden="true">
@@ -55,36 +66,36 @@ function syncCellScroll(e: Event) {
         class="cell-input"
         placeholder="домен"
         spellcheck="false"
-        @input="store.updateCookie(i, { domain: ($event.target as HTMLInputElement).value })"
+        @input="patch(c, { domain: ($event.target as HTMLInputElement).value })"
       />
       <input
         :value="c.expires"
         class="cell-input expires"
         placeholder="Session"
         spellcheck="false"
-        @input="store.updateCookie(i, { expires: ($event.target as HTMLInputElement).value })"
+        @input="patch(c, { expires: ($event.target as HTMLInputElement).value })"
       />
       <div class="req-cookies-flags">
         <button
           class="flag-btn"
           :class="{ active: c.secure }"
-          @click="store.toggleCookieFlag(i, 'secure')"
+          @click="toggleFlag(c, 'secure')"
         >
           Secure
         </button>
         <button
           class="flag-btn"
           :class="{ active: c.httpOnly }"
-          @click="store.toggleCookieFlag(i, 'httpOnly')"
+          @click="toggleFlag(c, 'httpOnly')"
         >
           HttpOnly
         </button>
       </div>
-      <IconButton variant="danger" size="sm" hint="Удалить" @click="store.removeCookie(i)">
+      <IconButton variant="danger" size="sm" hint="Удалить" @click="store.removeRow(RowKind.RowCookies, c.id ?? '')">
         <Icon name="xmark" :size="12" />
       </IconButton>
     </div>
-    <button class="req-cookies-add" @click="store.addCookie()">
+    <button class="req-cookies-add" @click="store.addRow(RowKind.RowCookies)">
       <Icon name="plus" :size="13" />
       <span>Добавить cookie</span>
     </button>

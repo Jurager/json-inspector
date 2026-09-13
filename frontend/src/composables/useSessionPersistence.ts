@@ -5,8 +5,9 @@ import { useSettings } from './useSettings'
 
 const SAVE_DEBOUNCE_MS = 300
 
-// What outlives a window. Both the history and the panel geometry now live in the database, so this
-// only has to ask for them and, for the geometry, say when it changed.
+// What outlives a window. The history, the draft being composed and the panel geometry all live in
+// the database, so this asks for them on the way in and hands back what the window was still typing
+// on the way out.
 export function useSessionPersistence(
   store: ReturnType<typeof useRequestsStore>,
   envStore: ReturnType<typeof useEnvironmentsStore>
@@ -14,6 +15,10 @@ export function useSessionPersistence(
   const { settings, loadSettings, setLayout } = useSettings()
   let unsubscribe: (() => void) | null = null
   let saveTimer: ReturnType<typeof setTimeout> | null = null
+
+  // A window that is hidden or loses focus is a window the user has stopped typing in: whatever is
+  // still in its buffers goes over now, before anything can close it.
+  const handOver = () => void store.flush()
 
   onMounted(() => {
     void loadSettings().then(() => {
@@ -27,9 +32,14 @@ export function useSessionPersistence(
     store
       .importLegacyOnce()
       .then(() => store.load())
+      .then(() => store.loadDraft())
       .catch(() => {
-        // An empty list is a state the panel can show; the next launch tries again.
+        // An empty list and an empty command line are states the window can show; the next launch
+        // tries again.
       })
+
+    window.addEventListener('blur', handOver)
+    document.addEventListener('visibilitychange', handOver)
 
     // The environments now live in the database: read them, take over what the old build left in
     // localStorage, and give a fresh install the environment it has always started with.
@@ -53,6 +63,9 @@ export function useSessionPersistence(
   })
 
   onBeforeUnmount(() => {
+    handOver()
+    window.removeEventListener('blur', handOver)
+    document.removeEventListener('visibilitychange', handOver)
     if (unsubscribe) unsubscribe()
     if (saveTimer) clearTimeout(saveTimer)
   })

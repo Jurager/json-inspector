@@ -122,9 +122,9 @@ const displayedConfirmingName = computed(
 )
 
 function isNameReferenced(name: string): boolean {
-  const texts: string[] = [reqStore.draft.url, reqStore.draft.body]
-  for (const p of reqStore.draft.params) texts.push(p.name, p.value)
-  for (const h of reqStore.draft.headers) texts.push(h.name, h.value)
+  const texts: string[] = [reqStore.url, reqStore.body]
+  for (const p of reqStore.params) texts.push(p.name, p.value)
+  for (const h of reqStore.headers) texts.push(h.name, h.value)
   // History keeps a record's URL and headers in full but not its bodies — a body stays in the
   // database until something opens it — so a name that only ever appeared inside one is missed
   // here. That is a hint not given, not a wrong answer.

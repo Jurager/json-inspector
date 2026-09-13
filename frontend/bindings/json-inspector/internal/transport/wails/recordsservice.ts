@@ -4,6 +4,10 @@
 /**
  * RecordsService is the history and the requests that fill it: sending one, reading what came back,
  * and forgetting what the retention rules no longer keep.
+ * 
+ * It holds the draft as well as the history, and this is the one place that does: a request is
+ * composed by one feature and sent by another, and the layer that knows both is the layer that puts
+ * them together.
  * @module
  */
 
@@ -14,6 +18,9 @@ import { Call as $Call, CancellablePromise as $CancellablePromise } from "@wails
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: Unused imports
 import * as domain$0 from "../../domain/models.js";
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-ignore: Unused imports
+import * as draft$0 from "../../usecase/draft/models.js";
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: Unused imports
 import * as record$0 from "../../usecase/record/models.js";
@@ -68,9 +75,22 @@ export function Prune(): $CancellablePromise<number> {
 }
 
 /**
- * Send starts a request and answers with its id at once. What comes of it arrives as an event, which
- * is what lets the spinner belong to an id the window can cancel.
+ * Send starts the request the window is composing and answers with its id at once. The draft is
+ * read here rather than handed in: sending it means resolving its `{{tokens}}`, and a secret's
+ * value is on this side of the boundary — handing the window a request to send would mean handing
+ * it the secrets in it.
+ * 
+ * What comes of the attempt arrives as an event, which is what lets the spinner belong to an id the
+ * window can cancel.
  */
-export function Send($in: record$0.SendInput): $CancellablePromise<string> {
-    return $Call.ByID(442880083, $in);
+export function Send(): $CancellablePromise<string> {
+    return $Call.ByID(442880083);
+}
+
+/**
+ * SendSpec starts a request that is not the one being composed — following a link out of a
+ * response, which must not disturb the draft the user is typing in.
+ */
+export function SendSpec(seed: draft$0.Seed): $CancellablePromise<string> {
+    return $Call.ByID(2929572836, seed);
 }

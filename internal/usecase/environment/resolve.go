@@ -7,36 +7,13 @@ import (
 	"json-inspector/internal/vars"
 )
 
-// Resolve answers one `{{name}}` for the editor's tooltip. A secret reports that it has a value
-// without showing it: the tooltip says "скрыто", and Reveal is the deliberate way to see it.
-func (u *UseCase) Resolve(ctx context.Context, name string) (domain.Resolution, bool, error) {
-	resolver, err := u.resolver(ctx, false)
-	if err != nil {
-		return domain.Resolution{}, false, err
-	}
-	value, ok := resolver(name)
-	return value, ok, nil
-}
-
-// Substitute fills a text in with its variables. mask is the difference between the request that
-// goes out and everything that outlives it: the preview, an export, the record — a secret leaves
-// those as the mask.
-func (u *UseCase) Substitute(ctx context.Context, text string, mask bool) (string, error) {
-	resolver, err := u.resolver(ctx, !mask)
-	if err != nil {
-		return "", err
-	}
-	if mask {
-		return vars.SubstituteMasked(text, resolver), nil
-	}
-	return vars.Substitute(text, resolver), nil
-}
-
-// ResolveTexts fills several texts in at once, in the order they were given. A request needs its
-// URL, every header name and value, and its body resolved together, and one call keeps that a
-// single round trip — and keeps the values on this side of the boundary: the window asks for a
-// resolved request, not for the secrets in it.
-func (u *UseCase) ResolveTexts(ctx context.Context, texts []string, mask bool) ([]string, error) {
+// SubstituteTexts fills texts in with their variables, in the order they were given. A request is a
+// list of texts — its URL, its body, every header name and value — and resolving them together
+// keeps the answers consistent with each other and the values on this side of the boundary.
+//
+// mask is the difference between the request that goes out and everything that outlives it: the
+// preview, an export, the record. A secret leaves those as its mask.
+func (u *UseCase) SubstituteTexts(ctx context.Context, texts []string, mask bool) ([]string, error) {
 	resolver, err := u.resolver(ctx, !mask)
 	if err != nil {
 		return nil, err
@@ -52,13 +29,26 @@ func (u *UseCase) ResolveTexts(ctx context.Context, texts []string, mask bool) (
 	return out, nil
 }
 
-// Missing lists the tokens in a text that resolve to nothing, which is what blocks sending.
-func (u *UseCase) Missing(ctx context.Context, text string) ([]string, error) {
+// Missing lists the tokens in a set of texts that resolve to nothing, which is what blocks sending.
+// Names repeat across texts — the same variable in a URL and in a header is one thing missing.
+func (u *UseCase) Missing(ctx context.Context, texts []string) ([]string, error) {
 	resolver, err := u.resolver(ctx, false)
 	if err != nil {
 		return nil, err
 	}
-	return vars.Missing(text, resolver), nil
+
+	out := []string{}
+	seen := map[string]bool{}
+	for _, text := range texts {
+		for _, name := range vars.Missing(text, resolver) {
+			if seen[name] {
+				continue
+			}
+			seen[name] = true
+			out = append(out, name)
+		}
+	}
+	return out, nil
 }
 
 // resolver is the lookup the `{{}}` grammar calls. The active environment wins over the globals,

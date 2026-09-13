@@ -5,23 +5,63 @@ import (
 	"errors"
 
 	"json-inspector/internal/domain"
+	"json-inspector/internal/usecase/draft"
 	"json-inspector/internal/usecase/record"
 )
 
 // RecordsService is the history and the requests that fill it: sending one, reading what came back,
 // and forgetting what the retention rules no longer keep.
+//
+// It holds the draft as well as the history, and this is the one place that does: a request is
+// composed by one feature and sent by another, and the layer that knows both is the layer that puts
+// them together.
 type RecordsService struct {
 	records *record.UseCase
+	drafts  *draft.UseCase
 }
 
-func NewRecordsService(records *record.UseCase) *RecordsService {
-	return &RecordsService{records: records}
+func NewRecordsService(records *record.UseCase, drafts *draft.UseCase) *RecordsService {
+	return &RecordsService{records: records, drafts: drafts}
 }
 
-// Send starts a request and answers with its id at once. What comes of it arrives as an event, which
-// is what lets the spinner belong to an id the window can cancel.
-func (s *RecordsService) Send(ctx context.Context, in record.SendInput) (string, error) {
-	return s.records.Send(ctx, in)
+// Send starts the request the window is composing and answers with its id at once. The draft is
+// read here rather than handed in: sending it means resolving its `{{tokens}}`, and a secret's
+// value is on this side of the boundary — handing the window a request to send would mean handing
+// it the secrets in it.
+//
+// What comes of the attempt arrives as an event, which is what lets the spinner belong to an id the
+// window can cancel.
+func (s *RecordsService) Send(ctx context.Context) (string, error) {
+	prepared, err := s.drafts.Prepared(ctx)
+	if err != nil {
+		return "", err
+	}
+	return s.records.Send(ctx, recordInput(prepared))
+}
+
+// SendSpec starts a request that is not the one being composed — following a link out of a
+// response, which must not disturb the draft the user is typing in.
+func (s *RecordsService) SendSpec(ctx context.Context, seed draft.Seed) (string, error) {
+	prepared, err := s.drafts.Prepare(ctx, seed)
+	if err != nil {
+		return "", err
+	}
+	return s.records.Send(ctx, recordInput(prepared))
+}
+
+// recordInput is where the two features meet: what a draft calls a request ready to go, the record
+// calls one attempt.
+func recordInput(prepared draft.Prepared) record.SendInput {
+	return record.SendInput{
+		Method:        prepared.Method,
+		URL:           prepared.URL,
+		Headers:       prepared.Headers,
+		Body:          prepared.Body,
+		MaskedURL:     prepared.MaskedURL,
+		MaskedHeaders: prepared.MaskedHeaders,
+		MaskedBody:    prepared.MaskedBody,
+		Cookies:       prepared.Cookies,
+	}
 }
 
 func (s *RecordsService) Cancel(ctx context.Context, id string) (bool, error) {

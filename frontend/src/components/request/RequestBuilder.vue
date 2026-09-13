@@ -11,15 +11,11 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
 } from '../ui/dropdown-menu'
-import { EnvironmentsService } from '../../../bindings/json-inspector/internal/transport/wails'
-import type { SendInput } from '../../../bindings/json-inspector/internal/usecase/record'
-import type { HeaderPair } from '../../../bindings/json-inspector/internal/domain'
 import { useRequestsStore } from '../../stores/requests'
 import { useEnvironmentsStore } from '../../stores/environments'
 import { usePlatform } from '../../composables/usePlatform'
 import { registerUrlField } from '../../composables/urlFocus'
 import { tokenSegments } from '../../lib/vars'
-import { cookieHeaderValue } from '../../lib/cookies'
 import { parseRequestCommand, type ParseErrorReason } from '../../lib/parseRequest'
 import type { ExportFormat } from '../../lib/export'
 import { useToast } from '../../composables/useToast'
@@ -61,25 +57,21 @@ const METHOD_COLORS: Record<string, string> = {
   OPTIONS: 'var(--text-tertiary)',
 }
 
-const methodColor = computed(() => METHOD_COLORS[store.draft.method] ?? 'var(--accent)')
+const methodColor = computed(() => METHOD_COLORS[store.method] ?? 'var(--accent)')
 
 const methodBg = computed(() => {
-  const c = METHOD_COLORS[store.draft.method] ?? 'var(--accent)'
+  const c = METHOD_COLORS[store.method] ?? 'var(--accent)'
   return `color-mix(in srgb, ${c} 14%, transparent)`
 })
 
 function selectMethod(m: string) {
-  store.draft.method = m
+  void store.setMethod(m)
 }
 
-const enabledParamsCount = computed(
-  () => store.draft.params.filter((p) => p.enabled && p.name.trim()).length
-)
-const enabledHeadersCount = computed(
-  () => store.draft.headers.filter((h) => h.enabled && h.name.trim()).length
-)
-const hasBody = computed(() => store.draft.body.trim().length > 0)
-const isBodyDisabled = computed(() => store.draft.method === 'GET' || store.draft.method === 'HEAD')
+const enabledParamsCount = computed(() => store.enabledParamsCount)
+const enabledHeadersCount = computed(() => store.enabledHeadersCount)
+const hasBody = computed(() => store.body.trim().length > 0)
+const isBodyDisabled = computed(() => store.bodyDisabled)
 
 function toggleChip(chip: 'params' | 'headers' | 'auth' | 'body') {
   store.setOpenChip(store.openChip === chip ? null : chip)
@@ -110,60 +102,12 @@ function createMissing() {
   envStore.openSheet({ envId, varName: missingVarNames.value[0] ?? '' })
 }
 
-// The request as it goes out and the copy history keeps, built in one pass so the two can never
-// disagree about which header is which. Go fills the variables in: a secret's value lives on that
-// side, and the window only ever asks for the finished request. Masking stays local — it needs only
-// which variables are secret, not what they hold.
-const mask = (text: string) => envStore.maskSecrets(text)
-
-async function buildSendInput(): Promise<SendInput> {
-  const headerRows = store.draft.headers.filter((h) => h.enabled && h.name.trim())
-  const cookieRows = store.draft.cookies
-
-  const texts = [
-    store.draft.url.trim(),
-    store.draft.body,
-    ...headerRows.flatMap((h) => [h.name.trim(), h.value]),
-    ...cookieRows.flatMap((c) => [c.name, c.value]),
-  ]
-
-  const resolved = (await EnvironmentsService.ResolveTexts(texts, false)) ?? texts
-  let at = 2
-
-  const headers: HeaderPair[] = []
-  const maskedHeaders: HeaderPair[] = []
-  for (const row of headerRows) {
-    const name = resolved[at++]
-    const value = resolved[at++]
-    if (!name) continue
-    headers.push({ name, value })
-    maskedHeaders.push({ name: mask(row.name.trim()), value: mask(row.value) })
-  }
-
-  const cookies = cookieRows.map((c) => ({ ...c, name: resolved[at++], value: resolved[at++] }))
-  const cookieHeader = cookieHeaderValue(cookies)
-  if (cookieHeader) {
-    const masked = cookieHeaderValue(cookieRows.map((c) => ({ ...c, name: mask(c.name), value: mask(c.value) })))
-    headers.push({ name: 'Cookie', value: cookieHeader })
-    maskedHeaders.push({ name: 'Cookie', value: masked })
-  }
-
-  return {
-    method: store.draft.method,
-    url: resolved[0],
-    headers,
-    body: resolved[1],
-    maskedUrl: mask(store.draft.url.trim()),
-    maskedHeaders,
-    maskedBody: mask(store.draft.body),
-    cookies: cookieRows.map((c) => ({ ...c })),
-  }
-}
-
+// The request goes out through Go, which is the side that can fill its `{{tokens}}` in — a secret's
+// value has not been in this window since it was typed. All the window does is hand over whatever it
+// is still holding in its buffers first, so what goes out is what is on screen.
 async function send() {
-  if (!store.draft.url.trim() || store.loading || sendBlocked.value) return
   try {
-    await store.send(await buildSendInput())
+    await store.send()
   } catch (error) {
     store.failSend()
     toast.show(`Запрос не отправлен: ${String(error)}`, 'error')
@@ -180,7 +124,7 @@ onMounted(() => onBeforeUnmount(registerUrlField(() => urlInputRef.value?.focus(
 
 const urlDisplayRef = ref<HTMLElement | null>(null)
 
-const urlSegments = computed(() => tokenSegments(store.draft.url))
+const urlSegments = computed(() => tokenSegments(store.url))
 const showUrlDisplay = computed(() => urlSegments.value.length > 0)
 
 function syncUrlScroll() {
@@ -207,7 +151,15 @@ function onUrlPaste(e: ClipboardEvent) {
     return
   }
 
-  store.loadCommand(result.request)
+  // A pasted command is a whole request, not an edit to one: it goes over as a seed and the draft
+  // becomes it.
+  void store.replace({
+    method: result.request.method,
+    url: result.request.url,
+    headers: Object.entries(result.request.requestHeaders).map(([name, value]) => ({ name, value })),
+    body: result.request.requestBody,
+    cookies: [],
+  })
   store.setOpenChip(null)
   void nextTick(syncUrlScroll)
   toast.show(`Распознан ${FORMAT_LABELS[result.format]}`)
@@ -225,7 +177,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onWindowKeydown))
           <DropdownMenu>
             <DropdownMenuTrigger as-child>
               <button class="method-btn" :style="{ color: methodColor, background: methodBg }">
-                <span>{{ store.draft.method }}</span>
+                <span>{{ store.method }}</span>
                 <Icon name="chevron-down" :size="10" />
               </button>
             </DropdownMenuTrigger>
@@ -245,13 +197,14 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onWindowKeydown))
         <div class="url-text">
           <input
             ref="urlInputRef"
-            :value="store.draft.url"
+            :value="store.url"
             class="url-input mono"
             :class="{ 'url-input-veiled': showUrlDisplay }"
             placeholder="https://api.example.com/articles?include=author"
             spellcheck="false"
             @input="store.setUrl(($event.target as HTMLInputElement).value); syncUrlScroll()"
             @keydown.enter="send"
+            @blur="store.flush()"
             @paste="onUrlPaste"
             @scroll="syncUrlScroll"
           />
@@ -275,7 +228,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onWindowKeydown))
             <button
               class="chip chip-body"
               :class="{ 'has-body': hasBody, active: store.openChip === 'body' }"
-              :title="isBodyDisabled ? `${store.draft.method} не отправляет тело` : undefined"
+              :title="isBodyDisabled ? `${store.method} не отправляет тело` : undefined"
               @click="toggleChip('body')"
             >
               Тело
@@ -292,7 +245,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onWindowKeydown))
       <Button
         variant="primary"
         size="lg"
-        :disabled="!store.draft.url.trim() || sendBlocked"
+        :disabled="!store.url.trim() || sendBlocked"
         :title="sendBlockedReason"
         @click="store.loading ? cancel() : send()"
       >
