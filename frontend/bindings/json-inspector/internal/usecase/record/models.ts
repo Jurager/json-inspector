@@ -38,7 +38,6 @@ export interface IngestInput {
      * says so on the wire, so a caller with no tab names none of them instead of spelling out zeros.
      */
     "startedAt"?: number;
-    "hasTiming"?: boolean;
     "waitMs"?: number;
     "downloadMs"?: number;
     "tabId"?: number;

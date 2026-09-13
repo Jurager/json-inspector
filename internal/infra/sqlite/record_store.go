@@ -36,14 +36,14 @@ func (s *Store) SaveRecord(ctx context.Context, rec domain.Record) error {
 	finishedAt := time.Now().UnixMilli()
 	res, err := tx.ExecContext(ctx,
 		`INSERT INTO records (id, source, method, url, status, status_text, content_type, error,
-		                      cancelled, duration_ms, dns_ms, connect_ms, tls_ms, wait_ms, download_ms,
-		                      has_timing, request_bytes, response_bytes, request_headers_json,
+		                      cancelled, duration_us, dns_us, connect_us, tls_us, wait_us, download_us,
+		                      request_bytes, response_bytes, request_headers_json,
 		                      response_headers_json, request_cookies_json, started_at, finished_at,
 		                      tab_id, tab_title, tab_url, favicon_url)
-		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		rec.ID, string(rec.Source), rec.Method, rec.URL, rec.Status, rec.StatusText, rec.ContentType,
-		rec.Error, boolToInt(rec.Cancelled), rec.DurationMs, rec.DNSMs, rec.ConnectMs, rec.TLSMs,
-		rec.WaitMs, rec.DownloadMs, boolToInt(rec.HasTiming), rec.RequestBytes, rec.ResponseBytes,
+		rec.Error, boolToInt(rec.Cancelled), rec.DurationUs, rec.DNSUs, rec.ConnectUs, rec.TLSUs,
+		rec.WaitUs, rec.DownloadUs, rec.RequestBytes, rec.ResponseBytes,
 		string(requestHeaders), string(responseHeaders), string(cookies), rec.StartedAt, finishedAt,
 		nullIfZero(rec.TabID), nullIfEmpty(rec.TabTitle), nullIfEmpty(rec.TabURL), nullIfEmpty(rec.FavIconURL))
 	if err != nil {
@@ -90,7 +90,7 @@ func (s *Store) Records(ctx context.Context, source domain.RecordSource, limit i
 
 	rows, err := s.db.QueryContext(ctx,
 		`SELECT seq, id, source, method, url, status, status_text, content_type, error, cancelled,
-		        duration_ms, dns_ms, connect_ms, tls_ms, wait_ms, download_ms, has_timing,
+		        duration_us, dns_us, connect_us, tls_us, wait_us, download_us,
 		        request_bytes, response_bytes, request_headers_json, response_headers_json,
 		        request_cookies_json, started_at, ifnull(tab_id, 0), ifnull(tab_title, ''),
 		        ifnull(tab_url, ''), ifnull(favicon_url, '')
@@ -106,18 +106,19 @@ func (s *Store) Records(ctx context.Context, source domain.RecordSource, limit i
 		var (
 			rec                                      domain.Record
 			seq                                      int64
-			cancelled, hasTiming                     int
+			cancelled                                int
 			requestHeaders, responseHeaders, cookies string
 		)
+		// The phases come back as nullable columns: absent is a phase that did not happen, which is
+		// not the same thing as one that took no time.
 		if err := rows.Scan(&seq, &rec.ID, &rec.Source, &rec.Method, &rec.URL, &rec.Status, &rec.StatusText,
-			&rec.ContentType, &rec.Error, &cancelled, &rec.DurationMs, &rec.DNSMs, &rec.ConnectMs, &rec.TLSMs,
-			&rec.WaitMs, &rec.DownloadMs, &hasTiming, &rec.RequestBytes, &rec.ResponseBytes, &requestHeaders,
+			&rec.ContentType, &rec.Error, &cancelled, &rec.DurationUs, &rec.DNSUs, &rec.ConnectUs, &rec.TLSUs,
+			&rec.WaitUs, &rec.DownloadUs, &rec.RequestBytes, &rec.ResponseBytes, &requestHeaders,
 			&responseHeaders, &cookies, &rec.StartedAt, &rec.TabID, &rec.TabTitle, &rec.TabURL,
 			&rec.FavIconURL); err != nil {
 			return nil, fmt.Errorf("listing records: %w", err)
 		}
 		rec.Cancelled = cancelled != 0
-		rec.HasTiming = hasTiming != 0
 		if err := json.Unmarshal([]byte(requestHeaders), &rec.RequestHeaders); err != nil {
 			return nil, fmt.Errorf("reading the request headers of %s: %w", rec.ID, err)
 		}

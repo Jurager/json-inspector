@@ -57,17 +57,16 @@ func TestTimings(t *testing.T) {
 		if res.Error != "" {
 			t.Fatalf("send failed: %s", res.Error)
 		}
-		if res.TLSMs != 0 {
-			t.Errorf("tlsMs = %d on a plaintext server, want 0", res.TLSMs)
+		if res.TLSUs != nil {
+			t.Errorf("tlsUs = %d on a plaintext server, want no phase at all", *res.TLSUs)
 		}
-		// Not asserted as positive: a connect to localhost takes a fraction of a millisecond, and
-		// the phase is reported in whole ones.
-		if res.ConnectMs < 0 || res.ConnectMs > res.DurationMs {
-			t.Errorf("connectMs = %d, want a phase inside the %dms total", res.ConnectMs, res.DurationMs)
+		// Not asserted as positive: a connect to localhost takes a fraction of a millisecond.
+		if res.ConnectUs == nil || *res.ConnectUs > res.DurationUs {
+			t.Errorf("connectUs = %v, want a phase inside the %dus total", res.ConnectUs, res.DurationUs)
 		}
 		// The wait starts when the connection is ready — there is no TLS handshake to wait for.
-		if res.WaitMs < 20 {
-			t.Errorf("waitMs = %d, want at least the 20ms the handler sleeps", res.WaitMs)
+		if res.WaitUs == nil || *res.WaitUs < 20_000 {
+			t.Errorf("waitUs = %v, want at least the 20ms the handler sleeps", res.WaitUs)
 		}
 		assertPhasesWithinTotal(t, res)
 	})
@@ -82,8 +81,8 @@ func TestTimings(t *testing.T) {
 		if res.Error != "" {
 			t.Fatalf("send failed: %s", res.Error)
 		}
-		if res.TLSMs <= 0 {
-			t.Errorf("tlsMs = %d, want the handshake measured", res.TLSMs)
+		if res.TLSUs == nil || *res.TLSUs <= 0 {
+			t.Errorf("tlsUs = %v, want the handshake measured", res.TLSUs)
 		}
 		assertPhasesWithinTotal(t, res)
 	})
@@ -106,49 +105,52 @@ func TestTimings(t *testing.T) {
 		if second.Error != "" {
 			t.Fatalf("second send failed: %s", second.Error)
 		}
-		if second.DNSMs != 0 || second.ConnectMs != 0 {
-			t.Errorf("dns = %d, connect = %d on a pooled connection, want none — nothing was dialled",
-				second.DNSMs, second.ConnectMs)
+		if second.DNSUs != nil || second.ConnectUs != nil || second.TLSUs != nil {
+			t.Errorf("dial phases = %v/%v/%v on a pooled connection, want them absent — nothing was dialled",
+				second.DNSUs, second.ConnectUs, second.TLSUs)
 		}
-		if second.WaitMs < 20 {
-			t.Errorf("waitMs = %d, want at least the 20ms the handler sleeps", second.WaitMs)
-		}
-		if !second.HasTiming {
-			t.Error("hasTiming is false although an answer came back")
+		if second.WaitUs == nil || *second.WaitUs < 20_000 {
+			t.Errorf("waitUs = %v, want at least the 20ms the handler sleeps", second.WaitUs)
 		}
 		assertPhasesWithinTotal(t, second)
 	})
 }
 
-// A request that never got an answer has no phases to show, and says so rather than reporting five
-// zeroes that look like measurements.
-func TestAFailedRequestHasNoTimings(t *testing.T) {
+// A request that never got an answer has no phases to show, and says so by having none — the five
+// zeroes that look like measurements are the thing this replaced.
+func TestAFailedRequestHasNoPhases(t *testing.T) {
 	// A port nothing listens on: the connect fails, so there is no first byte to measure from.
 	res := send(newTestEngine(t, Config{Timeout: 2 * time.Second}), http.MethodGet, "http://127.0.0.1:1/", nil, "")
 
 	if res.Error == "" {
 		t.Fatal("a request to a dead port reported no error")
 	}
-	if res.HasTiming {
-		t.Error("hasTiming is true for a request that never reached a server")
+	if res.WaitUs != nil || res.DownloadUs != nil {
+		t.Errorf("wait/download = %v/%v for a request that never reached a server, want none",
+			res.WaitUs, res.DownloadUs)
 	}
 	// The total is not asserted as positive: a refused connection on the loopback takes less than
-	// the millisecond the total is reported in.
-	if res.DurationMs < 0 {
-		t.Errorf("durationMs = %d, want the attempt timed", res.DurationMs)
+	// the microsecond the total is reported in.
+	if res.DurationUs < 0 {
+		t.Errorf("durationUs = %d, want the attempt timed", res.DurationUs)
 	}
 }
 
 func assertPhasesWithinTotal(t *testing.T, res *domain.Response) {
 	t.Helper()
-	sum := res.DNSMs + res.ConnectMs + res.TLSMs + res.WaitMs + res.DownloadMs
-	// The phases are measured around the same clock as the total, so they can only come out a
-	// millisecond or two over it from rounding.
-	if sum > res.DurationMs+2 {
-		t.Errorf("phases sum to %dms, more than the %dms total", sum, res.DurationMs)
+	// Only the phases that happened are added up: an absent one was not a zero-length phase, it was
+	// no phase at all, and the total already accounts for the request as a whole.
+	var sum int64
+	for _, us := range []*int64{res.DNSUs, res.ConnectUs, res.TLSUs, res.WaitUs, res.DownloadUs} {
+		if us != nil {
+			sum += *us
+		}
 	}
-	if res.DurationMs <= 0 {
-		t.Errorf("durationMs = %d, want a positive total", res.DurationMs)
+	if sum > res.DurationUs {
+		t.Errorf("phases sum to %dus, more than the %dus total", sum, res.DurationUs)
+	}
+	if res.DurationUs <= 0 {
+		t.Errorf("durationUs = %d, want a positive total", res.DurationUs)
 	}
 }
 

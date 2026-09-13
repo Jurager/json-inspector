@@ -143,14 +143,8 @@ export interface Record {
     "statusText": string;
     "contentType"?: string;
     "error"?: string;
-    "durationMs": number;
+    "durationUs": number;
     "startedAt": number;
-
-    /**
-     * HasTiming separates "phases were measured" from "they all read zero": a captured request that
-     * reused a connection has no connect phase, and one without the header has no phases at all.
-     */
-    "hasTiming"?: boolean;
     "tabId"?: number;
     "tabTitle"?: string;
     "tabURL"?: string;
@@ -162,13 +156,22 @@ export interface Record {
      * because a record is the shape of an attempt, and that is one of the things an attempt can be.
      */
     "cancelled"?: boolean;
-    "dnsMs"?: number;
-    "connectMs"?: number;
-    "tlsMs"?: number;
-    "waitMs"?: number;
-    "downloadMs"?: number;
+
+    /**
+     * The phases, in microseconds, absent when they did not happen: a captured request carries only
+     * what the page could time, and a repeat to a server it is already talking to dials nothing.
+     */
+    "dnsUs"?: number | null;
+    "connectUs"?: number | null;
+    "tlsUs"?: number | null;
+    "waitUs"?: number | null;
+    "downloadUs"?: number | null;
     "requestBytes"?: number;
     "responseBytes"?: number;
+
+    /**
+     * Headers, cookies and bodies of the request and the answer.
+     */
     "requestHeaders": HeaderPair[] | null;
     "responseHeaders": HeaderPair[] | null;
     "requestCookies"?: CookieRow[] | null;

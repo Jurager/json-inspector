@@ -21,24 +21,25 @@ func PairsFromMap(headers map[string]string) []HeaderPair {
 }
 
 // Response is what a request comes back as: the body plus the per-phase timings.
+//
+// The phases are microseconds and pointers, and the two go together: a millisecond is too coarse to
+// say anything about a warm connection, and a phase that did not happen at all — nothing was dialled
+// because the connection was already open — is not the same thing as a phase that took no time.
+// Absent means "not measured"; zero means "measured, and it took less than a microsecond".
 type Response struct {
 	Status      int          `json:"status"`
 	StatusText  string       `json:"statusText"`
 	Headers     []HeaderPair `json:"headers"`
 	Body        string       `json:"body"`
-	DurationMs  int64        `json:"durationMs"`
+	DurationUs  int64        `json:"durationUs"`
 	ContentType string       `json:"contentType"`
 	Error       string       `json:"error,omitempty"`
 	Cancelled   bool         `json:"cancelled,omitempty"`
-	DNSMs       int64        `json:"dnsMs,omitempty"`
-	ConnectMs   int64        `json:"connectMs,omitempty"`
-	TLSMs       int64        `json:"tlsMs,omitempty"`
-	WaitMs      int64        `json:"waitMs,omitempty"`
-	DownloadMs  int64        `json:"downloadMs,omitempty"`
-	// HasTiming separates "the phases were measured" from "they all read zero": a connection reused
-	// from the pool spends no time on DNS, connect or TLS, and a request that never got an answer
-	// has no phases at all. A viewer draws the first and says so about the second.
-	HasTiming bool `json:"hasTiming,omitempty"`
+	DNSUs       *int64       `json:"dnsUs,omitempty"`
+	ConnectUs   *int64       `json:"connectUs,omitempty"`
+	TLSUs       *int64       `json:"tlsUs,omitempty"`
+	WaitUs      *int64       `json:"waitUs,omitempty"`
+	DownloadUs  *int64       `json:"downloadUs,omitempty"`
 	// BodyTruncated says the body was cut at the engine's cap, so a viewer can say so instead of
 	// showing half a document as if it were all of it.
 	BodyTruncated bool `json:"bodyTruncated,omitempty"`

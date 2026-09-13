@@ -155,8 +155,10 @@ func (f *fakeNotifier) waitFor(t *testing.T, topic string) any {
 
 func newUseCase() (*UseCase, *fakeStore, *fakeExecutor, *fakeNotifier) {
 	store := newFakeStore()
+	micros := func(us int64) *int64 { return &us }
 	executor := &fakeExecutor{response: domain.Response{
-		Status: 200, StatusText: "200 OK", Body: `{"data":[]}`, HasTiming: true,
+		Status: 200, StatusText: "200 OK", Body: `{"data":[]}`, DurationUs: 12000,
+		WaitUs: micros(9000), DownloadUs: micros(3000),
 	}}
 	notifier := newFakeNotifier()
 	retention := RetentionSourceFunc(func(context.Context) (domain.Retention, error) {
@@ -208,8 +210,12 @@ func TestSendRecordsTheMaskedRequest(t *testing.T) {
 	if len(rec.RequestHeaders) != 1 || rec.RequestHeaders[0].Value != "Bearer ••••" {
 		t.Errorf("recorded headers = %+v, want the masked ones", rec.RequestHeaders)
 	}
-	if !rec.HasTiming || rec.Status != 200 || rec.Source != domain.SourceManual {
+	if rec.Status != 200 || rec.Source != domain.SourceManual || rec.DurationUs != 12000 {
 		t.Errorf("record = %+v, want a 200 from the request builder", rec.RecordSummary)
+	}
+	// The phases the engine measured travel as they are, and the ones it did not are absent.
+	if rec.WaitUs == nil || *rec.WaitUs != 9000 || rec.DNSUs != nil {
+		t.Errorf("phases = wait %v, dns %v; want the measured wait and no dial", rec.WaitUs, rec.DNSUs)
 	}
 	if rec.ResponseBody == nil || rec.ResponseBody.Inline != `{"data":[]}` {
 		t.Errorf("responseBody = %+v, want the text the engine returned", rec.ResponseBody)
@@ -283,7 +289,7 @@ func TestIngestStoresAndAnnounces(t *testing.T) {
 		ResponseHeaders: []domain.HeaderPair{{Name: "Set-Cookie", Value: "a=1"}, {Name: "Set-Cookie", Value: "b=2"}},
 		ResponseBody:    `{"data":[]}`,
 		DurationMs:      12,
-		HasTiming:       true,
+		WaitMs:          3,
 		TabID:           4,
 		TabTitle:        "Example",
 	})
@@ -295,6 +301,11 @@ func TestIngestStoresAndAnnounces(t *testing.T) {
 	}
 	if rec.StartedAt == 0 {
 		t.Error("a record with no timestamp was not given one")
+	}
+	// What the browser timed is milliseconds; what is recorded is microseconds, and a phase it did
+	// not report stays absent.
+	if rec.DurationUs != 12_000 || rec.WaitUs == nil || *rec.WaitUs != 3_000 || rec.DNSUs != nil {
+		t.Errorf("timings = %dus, wait %v, dns %v", rec.DurationUs, rec.WaitUs, rec.DNSUs)
 	}
 
 	announced, ok := notifier.waitFor(t, TopicRecordAdded).(domain.Record)

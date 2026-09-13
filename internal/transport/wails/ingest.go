@@ -40,7 +40,6 @@ func (c captureIngest) Captured(req bridge.CapturedRequest) {
 		ResponseBody:    req.ResponseBody,
 		DurationMs:      req.DurationMs,
 		StartedAt:       req.StartedAt,
-		HasTiming:       req.HasTiming,
 		WaitMs:          req.WaitMs,
 		DownloadMs:      req.DownloadMs,
 		TabID:           req.TabID,

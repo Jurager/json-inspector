@@ -71,15 +71,12 @@ type RecordSummary struct {
 	StatusText  string       `json:"statusText"`
 	ContentType string       `json:"contentType,omitempty"`
 	Error       string       `json:"error,omitempty"`
-	DurationMs  int64        `json:"durationMs"`
+	DurationUs  int64        `json:"durationUs"`
 	StartedAt   int64        `json:"startedAt"`
-	// HasTiming separates "phases were measured" from "they all read zero": a captured request that
-	// reused a connection has no connect phase, and one without the header has no phases at all.
-	HasTiming  bool   `json:"hasTiming,omitempty"`
-	TabID      int    `json:"tabId,omitempty"`
-	TabTitle   string `json:"tabTitle,omitempty"`
-	TabURL     string `json:"tabURL,omitempty"`
-	FavIconURL string `json:"favIconUrl,omitempty"`
+	TabID       int          `json:"tabId,omitempty"`
+	TabTitle    string       `json:"tabTitle,omitempty"`
+	TabURL      string       `json:"tabURL,omitempty"`
+	FavIconURL  string       `json:"favIconUrl,omitempty"`
 }
 
 // Record is a summary plus everything the response pane shows. The summary is embedded rather than
@@ -90,14 +87,17 @@ type Record struct {
 	// Cancelled is the engine saying the user stopped this attempt. Nothing records such a request —
 	// there is nothing to show for one — so it is false for everything history holds; it is here
 	// because a record is the shape of an attempt, and that is one of the things an attempt can be.
-	Cancelled       bool         `json:"cancelled,omitempty"`
-	DNSMs           int64        `json:"dnsMs,omitempty"`
-	ConnectMs       int64        `json:"connectMs,omitempty"`
-	TLSMs           int64        `json:"tlsMs,omitempty"`
-	WaitMs          int64        `json:"waitMs,omitempty"`
-	DownloadMs      int64        `json:"downloadMs,omitempty"`
-	RequestBytes    int64        `json:"requestBytes,omitempty"`
-	ResponseBytes   int64        `json:"responseBytes,omitempty"`
+	Cancelled bool `json:"cancelled,omitempty"`
+	// The phases, in microseconds, absent when they did not happen: a captured request carries only
+	// what the page could time, and a repeat to a server it is already talking to dials nothing.
+	DNSUs         *int64 `json:"dnsUs,omitempty"`
+	ConnectUs     *int64 `json:"connectUs,omitempty"`
+	TLSUs         *int64 `json:"tlsUs,omitempty"`
+	WaitUs        *int64 `json:"waitUs,omitempty"`
+	DownloadUs    *int64 `json:"downloadUs,omitempty"`
+	RequestBytes  int64  `json:"requestBytes,omitempty"`
+	ResponseBytes int64  `json:"responseBytes,omitempty"`
+	// Headers, cookies and bodies of the request and the answer.
 	RequestHeaders  []HeaderPair `json:"requestHeaders"`
 	ResponseHeaders []HeaderPair `json:"responseHeaders"`
 	RequestCookies  []CookieRow  `json:"requestCookies,omitempty"`

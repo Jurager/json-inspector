@@ -10,9 +10,14 @@ export function formatBytes(n: number): string {
   return `${v.toFixed(v >= 100 || i === 0 ? 0 : 1)} ${units[i]}`
 }
 
-export function formatDuration(ms: number): string {
-  if (ms < 1000) return `${ms} ms`
-  return `${(ms / 1000).toFixed(2)} s`
+// Every time in the app is microseconds, because a millisecond is too coarse to say anything about a
+// warm connection: its phases are over before the second millisecond ticks, and rounding them to zero
+// made a measured request look like one that failed to be measured. A phase under a millisecond gets
+// a decimal for the same reason.
+export function formatMicros(us: number): string {
+  if (us < 1000) return `${(us / 1000).toFixed(1)} мс`
+  if (us < 1_000_000) return `${Math.round(us / 1000)} мс`
+  return `${(us / 1_000_000).toFixed(2)} с`
 }
 
 // The three status bands the badges are coloured by, as a class name.

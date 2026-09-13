@@ -19,17 +19,16 @@ func sampleRecord(id string, source domain.RecordSource) domain.Record {
 			URL:        "https://api.example.com/articles",
 			Status:     200,
 			StatusText: "200 OK",
-			DurationMs: 42,
+			DurationUs: 42000,
 			StartedAt:  time.Now().UnixMilli(),
-			HasTiming:  true,
 			TabID:      7,
 			TabTitle:   "Example",
 		},
-		DNSMs:      1,
-		ConnectMs:  2,
-		TLSMs:      3,
-		WaitMs:     4,
-		DownloadMs: 5,
+		DNSUs:      micros(1000),
+		ConnectUs:  micros(2000),
+		TLSUs:      micros(3000),
+		WaitUs:     micros(4000),
+		DownloadUs: micros(5000),
 		RequestHeaders: []domain.HeaderPair{
 			{Name: "Accept", Value: "application/vnd.api+json"},
 		},
@@ -43,6 +42,10 @@ func sampleRecord(id string, source domain.RecordSource) domain.Record {
 		ResponseBody:   &domain.BodyRef{Inline: `{"data":[]}`, Size: 11},
 	}
 }
+
+// micros is a phase length for the fixtures: the field is a pointer, because a phase that did not
+// happen is not the same as one that took no time.
+func micros(us int64) *int64 { return &us }
 
 func TestRecordRoundTrip(t *testing.T) {
 	store := newMigratedStore(t)
@@ -62,10 +65,10 @@ func TestRecordRoundTrip(t *testing.T) {
 		t.Fatalf("records = %d, want one", len(list))
 	}
 	row := list[0]
-	if row.Method != "GET" || row.Status != 200 || row.TabTitle != "Example" || !row.HasTiming {
+	if row.Method != "GET" || row.Status != 200 || row.TabTitle != "Example" {
 		t.Errorf("record = %+v, want the saved fields", row)
 	}
-	if row.WaitMs != 4 || row.ResponseBytes != 11 {
+	if row.WaitUs == nil || *row.WaitUs != 4000 || row.DurationUs != 42000 || row.ResponseBytes != 11 {
 		t.Errorf("phases = %+v, want them back with the list", row)
 	}
 	// Repeated names survive, in the order they came in: two Set-Cookie lines are two cookies.
@@ -180,6 +183,32 @@ func TestRecordsFilterAndOrder(t *testing.T) {
 	}
 	if len(limited) != 2 || limited[0].ID != "m-2" {
 		t.Errorf("limited = %v, want the two newest", ids(limited))
+	}
+}
+
+// A phase that did not happen stays absent through the database: a fact about the attempt, not a
+// zero to be averaged.
+func TestAbsentPhasesStayAbsent(t *testing.T) {
+	store := newMigratedStore(t)
+	ctx := context.Background()
+
+	rec := sampleRecord("rec-nodial", domain.SourceManual)
+	rec.DNSUs, rec.ConnectUs, rec.TLSUs = nil, nil, nil
+	if err := store.SaveRecord(ctx, rec); err != nil {
+		t.Fatalf("SaveRecord: %v", err)
+	}
+
+	list, err := store.Records(ctx, "", 0)
+	if err != nil {
+		t.Fatalf("Records: %v", err)
+	}
+	got := list[0]
+	if got.DNSUs != nil || got.ConnectUs != nil || got.TLSUs != nil {
+		t.Errorf("dial phases = %v/%v/%v, want them absent — nothing was dialled",
+			got.DNSUs, got.ConnectUs, got.TLSUs)
+	}
+	if got.WaitUs == nil || *got.WaitUs != 4000 {
+		t.Errorf("waitUs = %v, want the phase that did happen", got.WaitUs)
 	}
 }
 

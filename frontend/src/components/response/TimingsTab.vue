@@ -1,71 +1,55 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import type { RecordView } from '../../lib/requestRecord'
+import { formatMicros } from '../../lib/format'
 
 const props = defineProps<{ record: RecordView }>()
 
 interface Phase {
   label: string
-  ms: number
+  us: number
 }
 
-// An app-made request is traced by Go's own httptrace, which knows the whole connection
-// handshake. A captured one only ever has the two phases the page itself can time — when the
-// response headers arrived and when the body finished — so it is not offered DNS/TCP/TLS
-// rather than showing them as three honest-looking zeros.
-const phases = computed<Phase[]>(() => {
-  if (props.record.source !== 'manual') {
-    return [
-      { label: 'Ожидание', ms: props.record.waitMs ?? 0 },
-      { label: 'Загрузка', ms: props.record.downloadMs ?? 0 },
-    ]
-  }
-  return [
-    { label: 'DNS', ms: props.record.dnsMs ?? 0 },
-    { label: 'TCP', ms: props.record.connectMs ?? 0 },
-    { label: 'TLS', ms: props.record.tlsMs ?? 0 },
-    { label: 'Ожидание', ms: props.record.waitMs ?? 0 },
-    { label: 'Загрузка', ms: props.record.downloadMs ?? 0 },
-  ]
-})
+// Only the phases that happened are drawn, and which those are is Go's answer: a phase is absent when
+// it did not take place at all — a repeat to a server the app is already talking to dials nothing, and
+// a captured request carries only the two phases a page can time. A zero would be a different
+// statement: a phase that was measured and took no measurable time.
+const phases = computed<Phase[]>(() =>
+  (
+    [
+      { label: 'DNS', us: props.record.dnsUs },
+      { label: 'TCP', us: props.record.connectUs },
+      { label: 'TLS', us: props.record.tlsUs },
+      { label: 'Ожидание', us: props.record.waitUs },
+      { label: 'Загрузка', us: props.record.downloadUs },
+    ] as { label: string; us: number | null | undefined }[]
+  )
+    .filter((phase): phase is Phase => phase.us != null)
+    .map((phase) => ({ label: phase.label, us: phase.us }))
+)
 
-// `hasTiming` rather than "is a phase non-zero": a real phase can legitimately be 0 (a reused
-// connection, a body that arrived with the headers). It is the one thing that separates "measured,
-// and the network spent nothing on those phases" from "nothing was measured at all" — and a manual
-// record, too, has phases only when an answer came back.
-const hasDetail = computed(() => props.record.hasTiming === true)
-
-const maxMs = computed(() => Math.max(1, ...phases.value.map((p) => p.ms)))
+const maxUs = computed(() => Math.max(1, ...phases.value.map((p) => p.us)))
 </script>
 
 <template>
   <div class="timings">
-    <template v-if="hasDetail">
-      <div class="timing-row timing-total">
-        <span class="timing-label">Всего</span>
-        <div class="timing-track">
-          <div class="timing-fill" style="width: 100%"></div>
-        </div>
-        <span class="timing-value mono">{{ record.durationMs }} мс</span>
+    <div class="timing-row timing-total">
+      <span class="timing-label">Всего</span>
+      <div class="timing-track">
+        <div class="timing-fill" style="width: 100%"></div>
       </div>
-      <div v-for="p in phases" :key="p.label" class="timing-row">
-        <span class="timing-label">{{ p.label }}</span>
-        <div class="timing-track">
-          <div class="timing-fill" :style="{ width: (p.ms / maxMs) * 100 + '%' }"></div>
-        </div>
-        <span class="timing-value mono">{{ p.ms }} мс</span>
+      <span class="timing-value mono">{{ formatMicros(record.durationUs) }}</span>
+    </div>
+    <div v-for="p in phases" :key="p.label" class="timing-row">
+      <span class="timing-label">{{ p.label }}</span>
+      <div class="timing-track">
+        <div class="timing-fill" :style="{ width: (p.us / maxUs) * 100 + '%' }"></div>
       </div>
-    </template>
-    <template v-else>
-      <div class="timing-row">
-        <span class="timing-label">Всего</span>
-        <div class="timing-track">
-          <div class="timing-fill" style="width: 100%"></div>
-        </div>
-        <span class="timing-value mono">{{ record.durationMs }} мс</span>
-      </div>
-      <div class="timing-note">Запрос не удалось засечь по фазам — тело не читалось или запрос не дошёл.</div>
-    </template>
+      <span class="timing-value mono">{{ formatMicros(p.us) }}</span>
+    </div>
+    <div v-if="phases.length === 0" class="timing-note">
+      Запрос не удалось засечь по фазам — ответа не было.
+    </div>
   </div>
 </template>
 

@@ -136,19 +136,15 @@ func (u *UseCase) recordFrom(id string, started int64, in SendInput, resp *domai
 			StatusText:  resp.StatusText,
 			ContentType: resp.ContentType,
 			Error:       resp.Error,
-			DurationMs:  resp.DurationMs,
+			DurationUs:  resp.DurationUs,
 			StartedAt:   started,
-			// The engine's own answer: it traced the request, so it is the one that knows whether
-			// there was anything to trace. A request that never got an answer reports no phases at
-			// all, and the pane says so instead of drawing five zeros.
-			HasTiming: resp.HasTiming,
 		},
 		Cancelled:       resp.Cancelled,
-		DNSMs:           resp.DNSMs,
-		ConnectMs:       resp.ConnectMs,
-		TLSMs:           resp.TLSMs,
-		WaitMs:          resp.WaitMs,
-		DownloadMs:      resp.DownloadMs,
+		DNSUs:           resp.DNSUs,
+		ConnectUs:       resp.ConnectUs,
+		TLSUs:           resp.TLSUs,
+		WaitUs:          resp.WaitUs,
+		DownloadUs:      resp.DownloadUs,
 		RequestBytes:    int64(len(in.Body)),
 		ResponseBytes:   int64(len(resp.Body)),
 		RequestHeaders:  orEmptyPairs(in.MaskedHeaders),
@@ -177,7 +173,6 @@ type IngestInput struct {
 	// Everything below only exists for a record that came from a browser tab. `omitempty` is what
 	// says so on the wire, so a caller with no tab names none of them instead of spelling out zeros.
 	StartedAt  int64  `json:"startedAt,omitempty"`
-	HasTiming  bool   `json:"hasTiming,omitempty"`
 	WaitMs     int64  `json:"waitMs,omitempty"`
 	DownloadMs int64  `json:"downloadMs,omitempty"`
 	TabID      int    `json:"tabId,omitempty"`
@@ -209,9 +204,8 @@ func (u *UseCase) Ingest(ctx context.Context, in IngestInput) (domain.Record, er
 			Status:      in.Status,
 			StatusText:  in.StatusText,
 			ContentType: in.ContentType,
-			DurationMs:  in.DurationMs,
+			DurationUs:  in.DurationMs * 1000,
 			StartedAt:   started,
-			HasTiming:   in.HasTiming,
 			TabID:       in.TabID,
 			TabTitle:    in.TabTitle,
 			TabURL:      in.TabURL,
@@ -223,8 +217,10 @@ func (u *UseCase) Ingest(ctx context.Context, in IngestInput) (domain.Record, er
 		ResponseBody:    bodyRef(in.ResponseBody),
 		RequestBytes:    int64(len(in.RequestBody)),
 		ResponseBytes:   int64(len(in.ResponseBody)),
-		WaitMs:          in.WaitMs,
-		DownloadMs:      in.DownloadMs,
+		// The two phases a page can time itself. Absent stays absent: a capture that reported none is
+		// a capture with no phases, not one whose phases were zero.
+		WaitUs:     millisToMicros(in.WaitMs),
+		DownloadUs: millisToMicros(in.DownloadMs),
 	}
 
 	if err := u.save(ctx, rec); err != nil {
@@ -307,6 +303,16 @@ func bodyRef(text string, truncated ...bool) *domain.BodyRef {
 		ref.Truncated = truncated[0]
 	}
 	return ref
+}
+
+// millisToMicros converts what the browser measured, keeping zero as "nothing to report": a page
+// that timed no phase sends none, and that has to stay distinguishable from a measured zero.
+func millisToMicros(ms int64) *int64 {
+	if ms <= 0 {
+		return nil
+	}
+	us := ms * 1000
+	return &us
 }
 
 func orEmptyPairs(pairs []domain.HeaderPair) []domain.HeaderPair {

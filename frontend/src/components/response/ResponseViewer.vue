@@ -14,7 +14,7 @@ import {
 } from '../ui/dropdown-menu'
 import type { RecordView } from '../../lib/requestRecord'
 import { tryParseJson, prettyJson, highlightJson } from '../../lib/json'
-import { formatBytes, formatDuration, statusBadgeClass } from '../../lib/format'
+import { formatBytes, formatMicros, statusBadgeClass } from '../../lib/format'
 import { dataResources, linkHref, isJsonApi, resourceMatchesQuery, type JsonApiDocument } from '../../lib/jsonapi'
 import JsonApiTree from '../json/JsonApiTree.vue'
 import TextViewerTab from './TextViewerTab.vue'
@@ -307,7 +307,7 @@ async function copyAs(format: ExportFormat, { keepTokens = false } = {}) {
       <span v-if="record.source === 'browser'" class="resp-url mono" :title="record.url">{{ hostPath(record.url) }}</span>
       <template v-else>
         <span class="divider"></span>
-        <span class="resp-meta">{{ formatDuration(record.durationMs) }}</span>
+        <span class="resp-meta">{{ formatMicros(record.durationUs) }}</span>
         <span class="divider"></span>
         <span class="resp-meta">{{ formatBytes(bodySize) }}</span>
         <span class="divider"></span>
@@ -352,7 +352,7 @@ async function copyAs(format: ExportFormat, { keepTokens = false } = {}) {
         </Popover>
         <!-- The handoff keeps "742 мс · 35,1 КБ" here, so duration/size must not
              vanish when a captured URL has query params. -->
-        <span class="resp-meta">{{ formatDuration(record.durationMs) }} · {{ formatBytes(bodySize) }}</span>
+        <span class="resp-meta">{{ formatMicros(record.durationUs) }} · {{ formatBytes(bodySize) }}</span>
       </template>
 
       <Button size="sm" disabled title="Сравнение ответов — скоро">Сравнить</Button>

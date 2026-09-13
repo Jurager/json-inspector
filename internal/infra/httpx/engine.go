@@ -145,21 +145,18 @@ func (e *Engine) Do(ctx context.Context, spec Spec) *domain.Response {
 		ready = start
 	}
 
-	res.DurationMs = end.Sub(start).Milliseconds()
-	res.DNSMs = diffMs(dnsStart, dnsDone)
-	res.ConnectMs = diffMs(connStart, connDone)
-	res.TLSMs = diffMs(tlsStart, tlsDone)
-	res.WaitMs = diffMs(ready, firstByte)
-	res.DownloadMs = diffMs(firstByte, end)
+	res.DurationUs = end.Sub(start).Microseconds()
+	res.DNSUs = diffUs(dnsStart, dnsDone)
+	res.ConnectUs = diffUs(connStart, connDone)
+	res.TLSUs = diffUs(tlsStart, tlsDone)
+	res.WaitUs = diffUs(ready, firstByte)
+	res.DownloadUs = diffUs(firstByte, end)
 	res.Status = resp.StatusCode
 	res.StatusText = resp.Status
 	res.ContentType = resp.Header.Get("Content-Type")
 	res.Headers = headerPairs(resp.Header)
 	res.Body = string(data)
 	res.BodyTruncated = truncated
-	// The first byte is what makes the phases mean anything: without an answer there was nothing to
-	// time, and five honest-looking zeros are not the same thing as "nothing was measured".
-	res.HasTiming = !firstByte.IsZero()
 	return res
 }
 
