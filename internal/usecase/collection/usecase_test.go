@@ -671,7 +671,7 @@ func TestDuplicateCopiesTheRequestItself(t *testing.T) {
 	}
 
 	// A copy runs the same code the original did: its scripts come with it, the way its rows do.
-	if err := uc.SaveScripts(ctx, requestID, &domain.Scripts{Post: "console.log('свой');"}); err != nil {
+	if err := store.SaveScripts(ctx, requestID, &domain.Scripts{Post: "console.log('свой');"}); err != nil {
 		t.Fatalf("SaveScripts: %v", err)
 	}
 
@@ -710,66 +710,6 @@ func TestDuplicateCopiesTheRequestItself(t *testing.T) {
 	}
 }
 
-// Scripts belong to a level, and each level answers for its own: what a folder runs is not what the
-// collection runs, and "nothing here" is the answer the editor draws the inherited text over.
-func TestScriptsBelongToTheLevel(t *testing.T) {
-	uc, _ := newTestUseCase()
-	ctx := context.Background()
-
-	tree, _ := uc.CreateCollection(ctx, "Коллекция", "")
-	collectionID := only(t, tree).ID
-	_, tree, _ = uc.CreateNode(ctx, NewNode{CollectionID: collectionID, Kind: domain.NodeFolder, Name: "Папка"})
-	folderID := only(t, tree).Items[0].ID
-	_, tree, _ = uc.CreateNode(ctx, NewNode{
-		CollectionID: collectionID, ParentID: folderID, Kind: domain.NodeRequest, Name: "Внутри",
-	})
-	requestID := only(t, tree).Items[0].Items[0].ID
-
-	if scripts, err := uc.Scripts(ctx, collectionID); err != nil || scripts != nil {
-		t.Fatalf("scripts of a fresh collection = %+v, %v, want nothing", scripts, err)
-	}
-
-	pre := &domain.Scripts{Pre: "pm.environment.set('started', Date.now());"}
-	if err := uc.SaveScripts(ctx, collectionID, pre); err != nil {
-		t.Fatalf("SaveScripts: %v", err)
-	}
-	if err := uc.SaveScripts(ctx, requestID, &domain.Scripts{Post: "console.log('свой');"}); err != nil {
-		t.Fatalf("SaveScripts: %v", err)
-	}
-
-	fromCollection, err := uc.Scripts(ctx, collectionID)
-	if err != nil {
-		t.Fatalf("Scripts: %v", err)
-	}
-	if fromCollection == nil || fromCollection.Pre != pre.Pre || fromCollection.Post != "" {
-		t.Errorf("collection scripts = %+v, want only its own", fromCollection)
-	}
-	// The folder has none of its own, and that is what it answers: the chain is what runs a request,
-	// and it is not what the editor of one level shows.
-	if scripts, err := uc.Scripts(ctx, folderID); err != nil || scripts != nil {
-		t.Errorf("folder scripts = %+v, %v, want nothing of its own", scripts, err)
-	}
-	fromRequest, err := uc.Scripts(ctx, requestID)
-	if err != nil {
-		t.Fatalf("Scripts: %v", err)
-	}
-	if fromRequest == nil || fromRequest.Post != "console.log('свой');" || fromRequest.Pre != "" {
-		t.Errorf("request scripts = %+v, want its own", fromRequest)
-	}
-
-	// Taking them off a level puts it back to "not set here", which is how it inherits again.
-	if err := uc.SaveScripts(ctx, collectionID, nil); err != nil {
-		t.Fatalf("SaveScripts(nil): %v", err)
-	}
-	if scripts, err := uc.Scripts(ctx, collectionID); err != nil || scripts != nil {
-		t.Errorf("cleared scripts = %+v, %v, want nothing", scripts, err)
-	}
-
-	if err := uc.SaveScripts(ctx, "нет-такого", pre); !errors.Is(err, domain.ErrNotFound) {
-		t.Errorf("scripts of nothing = %v, want ErrNotFound", err)
-	}
-}
-
 // The card edits a request — its address, its rows, its body — and knows nothing about its scripts: a
 // save that dropped them would take the code off a request every time it was touched.
 func TestSavingARequestKeepsItsScripts(t *testing.T) {
@@ -781,7 +721,7 @@ func TestSavingARequestKeepsItsScripts(t *testing.T) {
 	_, tree, _ = uc.CreateNode(ctx, NewNode{CollectionID: collectionID, Kind: domain.NodeRequest, Name: "Запрос"})
 	requestID := only(t, tree).Items[0].ID
 
-	if err := uc.SaveScripts(ctx, requestID, &domain.Scripts{Post: "console.log('свой');"}); err != nil {
+	if err := store.SaveScripts(ctx, requestID, &domain.Scripts{Post: "console.log('свой');"}); err != nil {
 		t.Fatalf("SaveScripts: %v", err)
 	}
 	if _, err := uc.SaveNode(ctx, domain.CollectionNode{
@@ -803,12 +743,12 @@ func TestSavingARequestKeepsItsScripts(t *testing.T) {
 // with it. The tree carries no scripts — they belong to the level, not to the row — so a duplicate
 // that only copied the row would lose them without saying so.
 func TestDuplicateCopiesTheCollectionScripts(t *testing.T) {
-	uc, _ := newTestUseCase()
+	uc, store := newTestUseCase()
 	ctx := context.Background()
 
 	tree, _ := uc.CreateCollection(ctx, "Коллекция", "")
 	collectionID := only(t, tree).ID
-	if err := uc.SaveScripts(ctx, collectionID, &domain.Scripts{Pre: "console.log('пошли');"}); err != nil {
+	if err := store.SaveScripts(ctx, collectionID, &domain.Scripts{Pre: "console.log('пошли');"}); err != nil {
 		t.Fatalf("SaveScripts: %v", err)
 	}
 
@@ -816,14 +756,14 @@ func TestDuplicateCopiesTheCollectionScripts(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Duplicate: %v", err)
 	}
-	copied, err := uc.Scripts(ctx, tree[1].ID)
+	copied, err := store.Scripts(ctx, tree[1].ID)
 	if err != nil {
 		t.Fatalf("Scripts: %v", err)
 	}
 	if copied == nil || copied.Pre != "console.log('пошли');" {
 		t.Errorf("copied scripts = %+v, want the original's", copied)
 	}
-	if original, err := uc.Scripts(ctx, collectionID); err != nil || original == nil {
+	if original, err := store.Scripts(ctx, collectionID); err != nil || original == nil {
 		t.Errorf("the original's scripts = %+v, %v, want them where they were", original, err)
 	}
 }

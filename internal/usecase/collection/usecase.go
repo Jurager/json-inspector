@@ -370,19 +370,6 @@ func (u *UseCase) SaveNode(ctx context.Context, edited domain.CollectionNode) ([
 	return u.Tree(ctx)
 }
 
-// Scripts is what a level runs around every request under it — a collection's, a folder's or a
-// request's own. Nil is "not set here": that level has nothing of its own and the levels above it
-// are what runs, which is a different answer from a script that is simply empty.
-func (u *UseCase) Scripts(ctx context.Context, id string) (*domain.Scripts, error) {
-	return u.store.Scripts(ctx, id)
-}
-
-// SaveScripts writes what a level has to say about its own requests, and nil puts it back to "not
-// set here" — the state a level returns to when its scripts are taken off it.
-func (u *UseCase) SaveScripts(ctx context.Context, id string, scripts *domain.Scripts) error {
-	return u.store.SaveScripts(ctx, id, scripts)
-}
-
 // duplicateCollection copies a whole collection into a new one at the end of the list. The tree is
 // read with its request fields left out, so every node is read again on the way in — a copy of a
 // request that lost its headers would be worse than no copy at all.

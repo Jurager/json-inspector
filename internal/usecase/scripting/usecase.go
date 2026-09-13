@@ -9,7 +9,7 @@ package scripting
 
 import (
 	"context"
-	"fmt"
+	"errors"
 	"strings"
 	"sync"
 	"time"
@@ -19,8 +19,11 @@ import (
 )
 
 // KindCollection is what a level calls the collection itself: a node is a folder or a request, and
-// the collection is neither.
-const KindCollection = "collection"
+// the collection is neither. KindDraft is a request that is not in a tree at all — the command line's.
+const (
+	KindCollection = "collection"
+	KindDraft      = "draft"
+)
 
 type UseCase struct {
 	engine Engine
@@ -53,7 +56,8 @@ type Level struct {
 // on the way down, then the request's own. A level with nothing to run is not in it: this is what
 // runs, not the places it could have run from.
 func (u *UseCase) Chain(ctx context.Context, nodeID string) ([]Level, error) {
-	// A request composed on the command line came from nowhere, so nothing is around it.
+	// An empty id is a request nothing was composed around: one that came out of a link in a response,
+	// or out of the browser. Nothing is above it because there is no it.
 	if nodeID == "" {
 		return []Level{}, nil
 	}
@@ -99,7 +103,36 @@ func (u *UseCase) Chain(ctx context.Context, nodeID string) ([]Level, error) {
 		}
 		return chain, nil
 	}
-	return nil, fmt.Errorf("узел %s: %w", nodeID, domain.ErrNotFound)
+
+	// Not in any tree: the command line's request, whose code lives with the draft it is. It is a chain
+	// of one, and it has no name to be drawn with — nobody named it.
+	//
+	// An id nothing knows is the same answer: a request whose level is gone — a card open on a node
+	// deleted beside it — has nothing around it, and saying so is better than failing a send over code
+	// that no longer exists.
+	scripts, err := u.tree.Scripts(ctx, nodeID)
+	if errors.Is(err, domain.ErrNotFound) {
+		return []Level{}, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	if level, ok := newLevel(nodeID, "", KindDraft, scripts); ok {
+		return []Level{level}, nil
+	}
+	return []Level{}, nil
+}
+
+// Scripts is what a level runs of its own: a collection's, a folder's, a request's — or the command
+// line's. Nil is "not set here", which is a different answer from a script that is simply empty.
+func (u *UseCase) Scripts(ctx context.Context, id string) (*domain.Scripts, error) {
+	return u.store.Scripts(ctx, id)
+}
+
+// SaveScripts writes what a level has to say about the requests it runs around, and nil puts it back
+// to "not set here" — the state a level returns to when its code is taken off it.
+func (u *UseCase) SaveScripts(ctx context.Context, id string, scripts *domain.Scripts) error {
+	return u.store.SaveScripts(ctx, id, scripts)
 }
 
 // Before runs the pre-request scripts of everything above a request and answers whether the request

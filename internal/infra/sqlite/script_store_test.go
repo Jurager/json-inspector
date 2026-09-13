@@ -8,8 +8,9 @@ import (
 	"json-inspector/internal/domain"
 )
 
-// A script belongs to a level — a collection or a node — and "not set here" is not the same as
-// "nothing to run": the first is NULL and inherits, the second is an empty answer.
+// A script belongs to a level — a collection, a node of one, or the draft the command line composes —
+// and "not set here" is not the same as "nothing to run": the first is NULL and inherits, the second
+// is an empty answer.
 func TestScriptsRoundTrip(t *testing.T) {
 	store := newMigratedStore(t)
 	ctx := context.Background()
@@ -77,11 +78,37 @@ func TestScriptsRoundTrip(t *testing.T) {
 		t.Errorf("empty scripts = %+v, want an answer that says there is nothing to run", empty)
 	}
 
+	// The command line's request is a level too, and its code lives with the draft it is: nobody has to
+	// save a collection for the code around a request to exist.
+	if err := store.SaveDraft(ctx, domain.Draft{ID: domain.DraftCommandLine, Method: "GET"}); err != nil {
+		t.Fatalf("SaveDraft: %v", err)
+	}
+	if scripts, err := store.Scripts(ctx, string(domain.DraftCommandLine)); err != nil || scripts != nil {
+		t.Errorf("a fresh draft's scripts = %+v, %v, want nothing", scripts, err)
+	}
+	if err := store.SaveScripts(ctx, string(domain.DraftCommandLine), &domain.Scripts{Pre: "console.log('черновик');"}); err != nil {
+		t.Fatalf("SaveScripts: %v", err)
+	}
+	fromDraft, err := store.Scripts(ctx, string(domain.DraftCommandLine))
+	if err != nil {
+		t.Fatalf("Scripts: %v", err)
+	}
+	if fromDraft == nil || fromDraft.Pre != "console.log('черновик');" {
+		t.Errorf("draft scripts = %+v, want what was written", fromDraft)
+	}
+	// Saving the draft itself — every keystroke in the command line does — leaves its code alone.
+	if err := store.SaveDraft(ctx, domain.Draft{ID: domain.DraftCommandLine, Method: "POST", URL: "https://api.example.com"}); err != nil {
+		t.Fatalf("SaveDraft: %v", err)
+	}
+	if scripts, err := store.Scripts(ctx, string(domain.DraftCommandLine)); err != nil || scripts == nil {
+		t.Errorf("draft scripts after a save = %+v, %v, want them where they were", scripts, err)
+	}
+
 	if err := store.SaveScripts(ctx, "нет-такого", nil); !errors.Is(err, domain.ErrNotFound) {
-		t.Errorf("scripts of a collection that does not exist = %v, want ErrNotFound", err)
+		t.Errorf("scripts of a level that does not exist = %v, want ErrNotFound", err)
 	}
 	if _, err := store.Scripts(ctx, "нет-такого"); !errors.Is(err, domain.ErrNotFound) {
-		t.Errorf("reading scripts of a collection that does not exist = %v, want ErrNotFound", err)
+		t.Errorf("reading scripts of a level that does not exist = %v, want ErrNotFound", err)
 	}
 }
 

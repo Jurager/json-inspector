@@ -35,7 +35,8 @@ func (f *fakeEngine) sources() []string {
 }
 
 // fakeTree is the tree without a database: one list of collections and what each level runs. A level
-// nobody put anything in answers nothing, the way the NULL column does.
+// nobody put anything in answers nothing, the way the NULL column does. It shares the scripts map with
+// the store, which is what the database does: one row, read through two ports.
 type fakeTree struct {
 	collections []domain.Collection
 	scripts     map[string]*domain.Scripts
@@ -46,14 +47,82 @@ func (f *fakeTree) Collections(context.Context) ([]domain.Collection, error) {
 }
 
 func (f *fakeTree) Scripts(_ context.Context, id string) (*domain.Scripts, error) {
+	if !f.knows(id) {
+		return nil, domain.ErrNotFound
+	}
 	return f.scripts[id], nil
 }
 
-// fakeStore keeps the reports, which is what the response viewer asks by.
+// knows is the rule the store follows: every level of the fixture exists — and so does the command
+// line's draft — while an id that names none of them is not found. A level that exists and has no code
+// answers nothing, which is not the same thing.
+func (f *fakeTree) knows(id string) bool {
+	if id == string(domain.DraftCommandLine) {
+		return true
+	}
+	for _, collection := range f.collections {
+		if collection.ID == id {
+			return true
+		}
+		if _, ok := pathTo(collection.Items, id); ok {
+			return true
+		}
+	}
+	return false
+}
+
+// seeded is the code of one level, written the way the editor writes it: the two fakes share the map,
+// so a test writes once and both answer.
+func (f *fakeTree) seeded(id string, scripts *domain.Scripts) *fakeTree {
+	f.scripts[id] = scripts
+	return f
+}
+
+// levelsOf is every level the fixture has: the store answers for them, and for nothing else.
+func levelsOf(tree *fakeTree) map[string]bool {
+	known := map[string]bool{commandLine: true}
+	var walk func(nodes []domain.CollectionNode)
+	walk = func(nodes []domain.CollectionNode) {
+		for _, node := range nodes {
+			known[node.ID] = true
+			walk(node.Items)
+		}
+	}
+	for _, collection := range tree.collections {
+		known[collection.ID] = true
+		walk(collection.Items)
+	}
+	return known
+}
+
+// fakeStore keeps the reports, which is what the response viewer asks by, and a level's code, which
+// the editor reads and writes. A level nobody has written to answers nothing — which is not the same
+// as an empty script, and not the same as a level that does not exist at all.
 type fakeStore struct {
-	runs []domain.ScriptRun
-	// fail is the database being broken, which is the only way writing a report can fail.
+	runs    []domain.ScriptRun
+	scripts map[string]*domain.Scripts
+	known   map[string]bool
+	// fail is the database being broken, which is the only way writing anything can fail.
 	fail bool
+}
+
+func (f *fakeStore) Scripts(_ context.Context, id string) (*domain.Scripts, error) {
+	if f.fail {
+		return nil, errors.New("база недоступна")
+	}
+	if !f.known[id] {
+		return nil, domain.ErrNotFound
+	}
+	return f.scripts[id], nil
+}
+
+func (f *fakeStore) SaveScripts(_ context.Context, id string, scripts *domain.Scripts) error {
+	if f.fail {
+		return errors.New("база недоступна")
+	}
+	f.known[id] = true
+	f.scripts[id] = scripts
+	return nil
 }
 
 func (f *fakeStore) SaveScriptRun(_ context.Context, run domain.ScriptRun) error {
@@ -142,11 +211,17 @@ func seedTree() *fakeTree {
 func newTest() (*UseCase, *fakeEngine, *fakeTree, *fakeStore, *fakeVariables) {
 	engine := &fakeEngine{}
 	tree := seedTree()
-	store := &fakeStore{}
+	// One map for the two fakes: the tree answers what each level runs, the store is where the code
+	// lives, and in the database that is the same row.
+	store := &fakeStore{scripts: tree.scripts, known: levelsOf(tree)}
 	vars := newFakeVariables()
 	uc := NewUseCase(engine, tree, store, vars, platform.NewIDGen())
 	return uc, engine, tree, store, vars
 }
+
+// commandLine is the id of the draft the command line writes into — the one level that is not in any
+// tree, and the reason the scripting feature knows a draft at all.
+const commandLine = string(domain.DraftCommandLine)
 
 func pass(nodeID string) domain.ScriptPass {
 	return domain.ScriptPass{
@@ -208,8 +283,10 @@ func TestAChainIsEmptyWhenNothingRuns(t *testing.T) {
 	if chain, err := uc.Chain(ctx, ""); err != nil || len(chain) != 0 {
 		t.Errorf("chain of a request from nowhere = %+v, %v, want nothing", chain, err)
 	}
-	if _, err := uc.Chain(ctx, "нет-такого"); !errors.Is(err, domain.ErrNotFound) {
-		t.Errorf("chain of an unknown node = %v, want ErrNotFound", err)
+	// An id no level has is not an error either: a card open on a node deleted beside it has nothing
+	// around it, and a send should not fail over code that is no longer there.
+	if chain, err := uc.Chain(ctx, "нет-такого"); err != nil || len(chain) != 0 {
+		t.Errorf("chain of an id nothing knows = %+v, %v, want nothing", chain, err)
 	}
 }
 
@@ -355,6 +432,81 @@ func TestAStoreThatCannotKeepReportsDoesNotFailTheRequest(t *testing.T) {
 	}
 	asked.Response = &domain.Response{Status: 200}
 	uc.After(context.Background(), asked)
+}
+
+// A level's code is the level's own: what a folder runs is not what the collection runs, and "nothing
+// here" is the answer the editor draws the inherited text over.
+func TestALevelAnswersForItsOwnCode(t *testing.T) {
+	uc, _, _, _, _ := newTest()
+	ctx := context.Background()
+
+	if scripts, err := uc.Scripts(ctx, "col-1"); err != nil || scripts == nil || scripts.Pre == "" {
+		t.Errorf("collection scripts = %+v, %v, want its own", scripts, err)
+	}
+	// A level nobody has written into answers nothing rather than somebody else's code: the chain is
+	// what runs a request, and it is not what the editor of one level shows.
+	if scripts, err := uc.Scripts(ctx, "r-2"); err != nil || scripts != nil {
+		t.Errorf("scripts of a level with no code = %+v, %v, want nothing", scripts, err)
+	}
+
+	// Writing is what gives a level code; taking it off puts the level back to "not set here", which is
+	// how it inherits again.
+	if err := uc.SaveScripts(ctx, "col-2", &domain.Scripts{Post: "console.log('своё');"}); err != nil {
+		t.Fatalf("SaveScripts: %v", err)
+	}
+	if scripts, err := uc.Scripts(ctx, "col-2"); err != nil || scripts == nil || scripts.Post == "" {
+		t.Errorf("collection scripts = %+v, %v, want what was written", scripts, err)
+	}
+	if err := uc.SaveScripts(ctx, "col-2", nil); err != nil {
+		t.Fatalf("SaveScripts(nil): %v", err)
+	}
+	if scripts, err := uc.Scripts(ctx, "col-2"); err != nil || scripts != nil {
+		t.Errorf("cleared scripts = %+v, %v, want nothing", scripts, err)
+	}
+
+	if _, err := uc.Scripts(ctx, "нет-такого"); !errors.Is(err, domain.ErrNotFound) {
+		t.Errorf("scripts of a level that does not exist = %v, want ErrNotFound", err)
+	}
+}
+
+// The command line's request is in no tree, so what runs around it is the code of its own draft: one
+// level, with nobody's name on it.
+func TestTheCommandLineIsAChainOfItsOwn(t *testing.T) {
+	uc, engine, tree, store, _ := newTest()
+	ctx := context.Background()
+
+	if chain, err := uc.Chain(ctx, commandLine); err != nil || len(chain) != 0 {
+		t.Errorf("chain of a command line with no code = %+v, %v, want nothing", chain, err)
+	}
+
+	tree.seeded(commandLine, &domain.Scripts{
+		Pre:  "console.log('перед');",
+		Post: "console.log('после');",
+	})
+	chain, err := uc.Chain(ctx, commandLine)
+	if err != nil {
+		t.Fatalf("Chain: %v", err)
+	}
+	if len(chain) != 1 || chain[0].Kind != KindDraft || chain[0].Name != "" {
+		t.Fatalf("chain = %+v, want the draft's own code and nothing else", chain)
+	}
+
+	asked := pass(commandLine)
+	if _, err := uc.Before(ctx, &asked); err != nil {
+		t.Fatalf("Before: %v", err)
+	}
+	asked.Response = &domain.Response{Status: 200}
+	uc.After(ctx, asked)
+
+	if got := engine.sources(); !equal(got, []string{"console.log('перед');", "console.log('после');"}) {
+		t.Errorf("scripts that ran = %q, want the draft's own two", got)
+	}
+	if len(store.runs) != 2 {
+		t.Errorf("%d report(s) were kept, want one per script", len(store.runs))
+	}
+	if store.runs[0].NodeID != commandLine {
+		t.Errorf("report = %+v, want it named by the level it came from", store.runs[0])
+	}
 }
 
 // The run's own scope is the run's: the next request of the same run sees what the last one wrote,

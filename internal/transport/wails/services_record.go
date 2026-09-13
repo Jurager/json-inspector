@@ -41,11 +41,10 @@ func (s *RecordsService) Send(ctx context.Context, draftID domain.DraftID) (stri
 	}
 
 	input := recordInput(prepared)
-	// A node whose card sent this is a node of a collection, and the scripts above it are part of what
-	// sending it means. The command line's draft names no node: nothing is above it, so nothing runs.
-	if draftID != domain.DraftCommandLine {
-		input.Node = string(draftID)
-	}
+	// The draft is where the scripts around this request are found: a node of a collection brings the
+	// ones above it, and the command line's draft brings the code of its own. Sending is the gesture
+	// the scripts belong to, whichever of the two it is.
+	input.Node = string(draftID)
 	return s.records.Send(ctx, input)
 }
 

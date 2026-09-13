@@ -20,9 +20,13 @@ type Tree interface {
 	Scripts(ctx context.Context, id string) (*domain.Scripts, error)
 }
 
-// Store is where the reports go. They hang off the record of the request they ran around, which is
-// what the response viewer asks by.
+// Store is where the reports go, and where the level's own code is read and written. Reports hang off
+// the record of the request they ran around, which is what the response viewer asks by; a level's code
+// is addressed by its id, and which table that id names is not the editor's business.
 type Store interface {
+	Scripts(ctx context.Context, id string) (*domain.Scripts, error)
+	SaveScripts(ctx context.Context, id string, scripts *domain.Scripts) error
+
 	SaveScriptRun(ctx context.Context, run domain.ScriptRun) error
 	ScriptRuns(ctx context.Context, recordID string) ([]domain.ScriptRun, error)
 }
