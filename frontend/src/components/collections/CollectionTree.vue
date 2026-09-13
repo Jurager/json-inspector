@@ -13,7 +13,7 @@ import {
 import DeleteNodeDialog from './DeleteNodeDialog.vue'
 import { useListKeys } from '../../composables/useListKeys'
 import { useCollectionsStore } from '../../stores/collections'
-import { filterTree, requestCount } from '../../lib/collectionTree'
+import { filterTree, requestCount, trailOf } from '../../lib/collectionTree'
 import { useToast } from '../../composables/useToast'
 import { NodeKind, type Collection, type CollectionNode } from '../../../bindings/json-inspector/internal/domain'
 
@@ -58,12 +58,18 @@ const query = computed({
 
 const searching = computed(() => store.filter.trim().length > 0)
 
-const visible = computed<Row[]>(() => flatten(filterTree(store.tree, store.filter)))
+const visible = computed<Row[]>(() => flatten(filterTree(store.tree, store.filter), false))
 
-function flatten(tree: Collection[]): Row[] {
+// What the arrows walk: the same tree with every level open. A walk that stopped at each closed level
+// would be a walk the user has to open the tree for — and reaching a folder without touching the
+// chevron is what the arrows are for. The row the walk lands on is brought into view by opening what
+// is above it, so the selection is always a row the user can see.
+const walkable = computed<Row[]>(() => flatten(filterTree(store.tree, store.filter), true))
+
+function flatten(tree: Collection[], allOpen: boolean): Row[] {
   const rows: Row[] = []
   for (const collection of tree) {
-    const expanded = searching.value || store.expanded[collection.id]
+    const expanded = allOpen || searching.value || store.expanded[collection.id]
     rows.push({
       id: collection.id,
       kind: 'collection',
@@ -79,15 +85,15 @@ function flatten(tree: Collection[]): Row[] {
       // collections are two things, and without the line a name under a subtree reads as its child.
       divider: rows.length > 0,
     })
-    if (expanded) rows.push(...children(collection.items ?? [], collection.id, 1))
+    if (expanded) rows.push(...children(collection.items ?? [], collection.id, 1, allOpen))
   }
   return rows
 }
 
-function children(nodes: CollectionNode[], collectionId: string, depth: number): Row[] {
+function children(nodes: CollectionNode[], collectionId: string, depth: number, allOpen: boolean): Row[] {
   const rows: Row[] = []
   for (const node of nodes) {
-    const expanded = searching.value || store.expanded[node.id]
+    const expanded = allOpen || searching.value || store.expanded[node.id]
     rows.push({
       id: node.id,
       kind: node.kind,
@@ -101,7 +107,9 @@ function children(nodes: CollectionNode[], collectionId: string, depth: number):
       parentId: node.parentId ?? '',
       divider: false,
     })
-    if (expanded && node.kind === 'folder') rows.push(...children(node.items ?? [], collectionId, depth + 1))
+    if (expanded && node.kind === 'folder') {
+      rows.push(...children(node.items ?? [], collectionId, depth + 1, allOpen))
+    }
   }
   return rows
 }
@@ -126,16 +134,28 @@ async function pick(row: Row) {
   await store.select(row.id)
 }
 
-// The arrows of a tree: up and down walk the rows that are drawn, and left and right are the opening
-// and the closing — a closed row opens, an open one closes, and left on either steps out to what
-// holds it. That is the gesture the chevron makes with a mouse, on the key a file list has always
-// answered to.
+// Opens the levels above a row, so that a row the walk reached is a row on screen. The row itself is
+// left as it was: the walk moved the selection, and what is open is the user's own answer.
+function reveal(row: Row) {
+  const trail = trailOf(store.tree, row.id)
+  // A collection is the top of its own tree: there is nothing above it to open, and opening it would
+  // be opening the row the walk stands on.
+  if (!trail || !trail.node) return
+  store.expanded[trail.collection.id] = true
+  for (const ancestor of trail.ancestors) store.expanded[ancestor.id] = true
+}
+
+// The arrows of a tree: up and down walk the tree, and left and right are the opening and the
+// closing — a closed row opens, an open one closes, and left on either steps out to what holds it.
+// That is the gesture the chevron makes with a mouse, on the key a file list has always answered to.
 useListKeys({
-  ids: () => visible.value.map((row) => row.id),
+  ids: () => walkable.value.map((row) => row.id),
   current: () => store.selectedId,
   move: (id) => {
-    const row = visible.value.find((r) => r.id === id)
-    if (row) void pick(row)
+    const row = walkable.value.find((r) => r.id === id)
+    if (!row) return
+    reveal(row)
+    void pick(row)
   },
   selected: '.tree-panel .row.active',
   onSideKey: (key, id) => {
