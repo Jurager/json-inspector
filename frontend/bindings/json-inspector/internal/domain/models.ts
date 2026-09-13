@@ -109,6 +109,12 @@ export interface Record {
     "tabTitle"?: string;
     "tabURL"?: string;
     "favIconUrl"?: string;
+
+    /**
+     * Cancelled is the engine saying the user stopped this attempt. Nothing records such a request —
+     * there is nothing to show for one — so it is false for everything history holds; it is here
+     * because a record is the shape of an attempt, and that is one of the things an attempt can be.
+     */
     "cancelled"?: boolean;
     "dnsMs"?: number;
     "connectMs"?: number;
