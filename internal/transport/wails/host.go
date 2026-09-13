@@ -1,6 +1,7 @@
 package wails
 
 import (
+	"errors"
 	"net/url"
 	"strconv"
 	"strings"
@@ -202,6 +203,53 @@ func (h *Host) ToggleMaximize() {
 	if win := h.MainWindow(); win != nil {
 		win.ToggleMaximise()
 	}
+}
+
+// OpenFile asks the user for a file to read and answers with its path, or with nothing when the
+// dialog was closed — closing a dialog is not a failure.
+//
+// The dialogs live on the Host because they are the desktop's, and a feature that needs a file asks
+// for one here instead of knowing how this app talks to the system.
+func (h *Host) OpenFile(title string, filters ...application.FileFilter) (string, error) {
+	app := h.App()
+	if app == nil {
+		return "", errors.New("окно ещё не создано")
+	}
+	dialog := app.Dialog.OpenFile().SetTitle(title)
+	for _, filter := range filters {
+		dialog = dialog.AddFilter(filter.DisplayName, filter.Pattern)
+	}
+	path, err := dialog.PromptForSingleSelection()
+	return path, withoutCancellation(err)
+}
+
+// withoutCancellation turns a closed dialog into "nothing happened". Wails answers a cancelled
+// dialog with an error and not with an empty path, and the sentinel it uses lives in an internal
+// package of the module — so the text is all there is to go by. Getting this wrong is not cosmetic:
+// without it, closing a file dialog reports a failure the user did not have.
+func withoutCancellation(err error) error {
+	if err != nil && strings.Contains(strings.ToLower(err.Error()), "cancel") {
+		return nil
+	}
+	return err
+}
+
+// SaveFile asks where to write a file, offering the name to start from, and answers with the path
+// the user chose — or with nothing, when they chose none.
+func (h *Host) SaveFile(title string, suggestedName string) (string, error) {
+	app := h.App()
+	if app == nil {
+		return "", errors.New("окно ещё не создано")
+	}
+	path, err := app.Dialog.SaveFileWithOptions(&application.SaveFileDialogOptions{
+		Title:   title,
+		Message: title,
+		// The name is a suggestion: the dialog opens on it, and the user types over it or picks
+		// another place, which is what a save dialog is for.
+		Filename: suggestedName,
+		Filters:  []application.FileFilter{{DisplayName: "Коллекция Postman", Pattern: "*.json"}},
+	}).PromptForSingleSelection()
+	return path, withoutCancellation(err)
 }
 
 func (h *Host) HandleURLOpen(rawURL string) {

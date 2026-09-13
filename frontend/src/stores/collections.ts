@@ -196,6 +196,25 @@ export const useCollectionsStore = defineStore('collections', {
       this.expanded[parentId || collectionId] = true
     },
 
+    // A collection travels as a file: the window asks Go for an import, and Go reads the file. A
+    // cancelled dialog answers with nothing — neither a change nor a failure.
+    async importFile(): Promise<string | null> {
+      const tree = await CollectionsService.ImportFile()
+      if (!tree) return null
+      this.applyTree(tree)
+      // What was imported is the last collection: Go appends, and the file's name is its id-less
+      // introduction to the tree.
+      const imported = tree[tree.length - 1]
+      if (imported) await this.select(imported.id)
+      return imported?.name ?? ''
+    },
+
+    // Export answers whether anything was written; a cancelled save dialog is not an error and the
+    // window says nothing about it.
+    async exportFile(id: string): Promise<boolean> {
+      return CollectionsService.ExportFile(id)
+    },
+
     async rename(id: string, name: string) {
       this.applyTree((await CollectionsService.Rename(id, name)) ?? [])
     },

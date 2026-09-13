@@ -548,6 +548,55 @@ func TestOpenResetsTheRevision(t *testing.T) {
 	}
 }
 
+// A request that came from a file has an address and maybe no rows of its own: the rows follow the
+// address here exactly as they do when it is typed, and a row that was parked stays parked.
+func TestOpenDerivesRowsFromTheAddress(t *testing.T) {
+	uc, _ := loaded(t)
+	ctx := context.Background()
+
+	state, err := uc.Open(ctx, domain.Draft{
+		ID:      "node-1",
+		Method:  "GET",
+		URL:     "https://api.example.com/users?include=author&page[size]=25",
+		Headers: []domain.Row{{Name: "Accept", Value: "application/json", Enabled: true}},
+	})
+	if err != nil {
+		t.Fatalf("Open: %v", err)
+	}
+	if len(state.Draft.Params) != 2 {
+		t.Fatalf("params = %+v, want the address's two", state.Draft.Params)
+	}
+	if state.Draft.Params[0].Name != "include" || state.Draft.Params[1].Name != "page[size]" {
+		t.Errorf("params = %+v, want them in the order the address writes them", state.Draft.Params)
+	}
+	for _, row := range state.Draft.Params {
+		if row.ID == "" {
+			t.Error("a derived row has no id, so nothing can address it")
+		}
+	}
+
+	// A row the file kept beside the address — switched off, so the address does not mention it —
+	// is not thrown away by opening.
+	state, err = uc.Open(ctx, domain.Draft{
+		ID:     "node-2",
+		Method: "GET",
+		URL:    "https://api.example.com/users?page=1",
+		Params: []domain.Row{
+			{ID: "parked", Name: "filter[state]", Value: "active", Enabled: false},
+			{ID: "kept", Name: "page", Value: "1", Enabled: true},
+		},
+	})
+	if err != nil {
+		t.Fatalf("Open: %v", err)
+	}
+	if len(state.Draft.Params) != 2 || state.Draft.Params[1].ID != "parked" {
+		t.Fatalf("params = %+v, want the address's row and the parked one", state.Draft.Params)
+	}
+	if state.Draft.Params[0].ID != "kept" {
+		t.Errorf("params = %+v, want the row that is in the address to keep its id", state.Draft.Params)
+	}
+}
+
 func TestADraftNobodyOpenedIsNotFound(t *testing.T) {
 	uc, _ := loaded(t)
 	ctx := context.Background()

@@ -16,10 +16,11 @@ import (
 type CollectionsService struct {
 	collections *collection.UseCase
 	drafts      *draft.UseCase
+	host        *Host
 }
 
-func NewCollectionsService(uc *collection.UseCase, drafts *draft.UseCase) *CollectionsService {
-	return &CollectionsService{collections: uc, drafts: drafts}
+func NewCollectionsService(uc *collection.UseCase, drafts *draft.UseCase, host *Host) *CollectionsService {
+	return &CollectionsService{collections: uc, drafts: drafts, host: host}
 }
 
 func (s *CollectionsService) Tree(ctx context.Context) ([]domain.Collection, error) {

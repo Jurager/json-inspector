@@ -13,9 +13,18 @@ import {
 import DeleteNodeDialog from './DeleteNodeDialog.vue'
 import { useCollectionsStore } from '../../stores/collections'
 import { filterTree, requestCount } from '../../lib/collectionTree'
+import { useToast } from '../../composables/useToast'
 import { NodeKind, type Collection, type CollectionNode } from '../../../bindings/json-inspector/internal/domain'
 
 const store = useCollectionsStore()
+const toast = useToast()
+
+// One request, one file: the menu exports what it was opened on, and a folder or a collection is
+// exported from its own overview.
+async function exportNode(row: Row) {
+  const written = await store.exportFile(row.id)
+  if (written) toast.show(`«${row.name}» сохранён в файл`)
+}
 
 // The indent the design gives the three levels: the collection, a folder, and what is inside one.
 // Deeper nesting is possible — a folder in a folder — and keeps the last step rather than running
@@ -387,6 +396,9 @@ function cancelTop(): boolean {
           </template>
           <ContextMenuItem @select="startRename(row)">Переименовать</ContextMenuItem>
           <ContextMenuItem @select="store.duplicate(row.id)">Дублировать</ContextMenuItem>
+          <ContextMenuItem @select="exportNode(row)">
+            {{ row.kind === 'request' ? 'Экспорт запроса' : 'Экспорт' }}
+          </ContextMenuItem>
           <ContextMenuSeparator />
           <ContextMenuItem class="danger" @select="askRemove(row)">Удалить</ContextMenuItem>
         </ContextMenuContent>

@@ -3,11 +3,29 @@ import { computed } from 'vue'
 import Icon from '../ui/Icon.vue'
 import { Button } from '../ui/button'
 import { useCollectionsStore } from '../../stores/collections'
+import { useToast } from '../../composables/useToast'
 import { requestCount } from '../../lib/collectionTree'
 import { formatMicros, plural, statusBadgeClass } from '../../lib/format'
 import type { CollectionNode } from '../../../bindings/json-inspector/internal/domain'
 
 const store = useCollectionsStore()
+const toast = useToast()
+
+// What is being exported is what is selected: a folder exports its subtree, a collection everything
+// in it. Go reads the tree again — the rows the list carries have no bodies.
+async function exportSelected() {
+  const written = await store.exportFile(store.selectedId ?? '')
+  if (written) toast.show('Коллекция сохранена в файл')
+}
+
+async function importCollection() {
+  try {
+    const name = await store.importFile()
+    if (name) toast.show(`Импортировано: «${name}»`)
+  } catch (error) {
+    toast.show(`Не удалось импортировать: ${String(error)}`, 'error')
+  }
+}
 
 const title = computed(() => store.selected?.name ?? store.trail?.collection.name ?? '')
 const description = computed(() => store.selected?.description ?? store.trail?.collection.description ?? '')
@@ -93,6 +111,13 @@ function pluralRequests(n: number): string {
       </Button>
       <Button v-else @click="store.stop">
         <Icon name="stop" :size="13" /> Остановить
+      </Button>
+
+      <Button :disabled="store.running !== null" @click="importCollection">
+        <Icon name="download" :size="13" /> Импорт
+      </Button>
+      <Button :disabled="store.running !== null || requestTotal === 0" @click="exportSelected">
+        <Icon name="upload" :size="13" /> Экспорт
       </Button>
     </div>
 

@@ -2,13 +2,24 @@
 import Icon from '../ui/Icon.vue'
 import { Button } from '../ui/button'
 import { useCollectionsStore } from '../../stores/collections'
+import { useToast } from '../../composables/useToast'
 
 // Until the first collection exists there is nothing to list, so the window says what a collection
 // is and offers the one gesture that starts one — the panel with a lone «+» would say less.
 const store = useCollectionsStore()
+const toast = useToast()
 
 function create() {
   void store.createCollection('Новая коллекция')
+}
+
+async function importCollection() {
+  try {
+    const name = await store.importFile()
+    if (name) toast.show(`Импортировано: «${name}»`)
+  } catch (error) {
+    toast.show(`Не удалось импортировать: ${String(error)}`, 'error')
+  }
 }
 </script>
 
@@ -21,6 +32,9 @@ function create() {
     <div class="actions">
       <Button variant="primary" @click="create">
         <Icon name="plus" :size="14" /> Новая коллекция
+      </Button>
+      <Button @click="importCollection">
+        <Icon name="download" :size="14" /> Импортировать коллекцию
       </Button>
     </div>
   </div>

@@ -238,6 +238,109 @@ func (u *UseCase) Delete(ctx context.Context, id string) ([]domain.Collection, e
 	return u.Tree(ctx)
 }
 
+// Import writes a collection that was made elsewhere — a Postman file — into the tree, at the end of
+// the list. Ids are minted here because a file has none, and the collection keeps the name, the
+// order and the requests it came with.
+func (u *UseCase) Import(ctx context.Context, collection domain.Collection) ([]domain.Collection, error) {
+	name, err := validName(collection.Name)
+	if err != nil {
+		return nil, err
+	}
+	tree, err := u.store.Collections(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	imported := domain.Collection{
+		ID:          u.ids(),
+		Name:        name,
+		Description: strings.TrimSpace(collection.Description),
+		Position:    int64(len(tree)),
+	}
+
+	// The subtree is built before any of it is written: an import that failed halfway would leave a
+	// collection with half a file in it.
+	roots := make([]domain.CollectionNode, 0, len(collection.Items))
+	for i, item := range collection.Items {
+		roots = append(roots, u.adopt(item, imported.ID, "", int64(i)))
+	}
+
+	if err := u.store.SaveCollection(ctx, imported); err != nil {
+		return nil, err
+	}
+	for _, root := range roots {
+		if err := u.saveTree(ctx, root); err != nil {
+			return nil, err
+		}
+	}
+	return u.Tree(ctx)
+}
+
+// adopt gives an imported subtree what a file does not write: ids, and where it lives. Everything
+// else — the names, the addresses, the rows — is the file's.
+func (u *UseCase) adopt(node domain.CollectionNode, collectionID string, parentID string, position int64) domain.CollectionNode {
+	adopted := node
+	adopted.ID = u.ids()
+	adopted.CollectionID = collectionID
+	adopted.ParentID = parentID
+	adopted.Position = position
+	adopted.Items = nil
+	adopted.Params = withIDs(u.ids, node.Params)
+	adopted.Headers = withIDs(u.ids, node.Headers)
+	for i := range adopted.Cookies {
+		if adopted.Cookies[i].ID == "" {
+			adopted.Cookies[i].ID = u.ids()
+		}
+	}
+
+	for i, child := range node.Items {
+		adopted.Items = append(adopted.Items, u.adopt(child, collectionID, adopted.ID, int64(i)))
+	}
+	return adopted
+}
+
+// Full is a collection with every node read whole, or a single request when the id names one: what an
+// export writes down. The tree the window draws carries the method and nothing else — a list of two
+// hundred rows has no business carrying two hundred bodies — so an export reads them again.
+func (u *UseCase) Full(ctx context.Context, id string) (domain.Collection, error) {
+	collection, ok, err := u.collection(ctx, id)
+	if err != nil {
+		return domain.Collection{}, err
+	}
+	if !ok {
+		node, err := u.store.Node(ctx, id)
+		if err != nil {
+			return domain.Collection{}, err
+		}
+		return domain.Collection{Name: node.Name, Items: []domain.CollectionNode{node}}, nil
+	}
+
+	items, err := u.fullNodes(ctx, collection.Items)
+	if err != nil {
+		return domain.Collection{}, err
+	}
+	return domain.Collection{Name: collection.Name, Description: collection.Description, Items: items}, nil
+}
+
+func (u *UseCase) fullNodes(ctx context.Context, rows []domain.CollectionNode) ([]domain.CollectionNode, error) {
+	out := make([]domain.CollectionNode, 0, len(rows))
+	for _, row := range rows {
+		node, err := u.store.Node(ctx, row.ID)
+		if err != nil {
+			return nil, err
+		}
+		node.Position = row.Position
+		if row.Kind == domain.NodeFolder {
+			node.Items, err = u.fullNodes(ctx, row.Items)
+			if err != nil {
+				return nil, err
+			}
+		}
+		out = append(out, node)
+	}
+	return out, nil
+}
+
 // SaveNode writes what the card was editing back into the tree. The node is re-read first: the
 // parts the card does not own — where it sits, what kind it is, when it was made — belong to the
 // tree and stay as they are.
@@ -336,6 +439,19 @@ func (u *UseCase) copyNode(ctx context.Context, row domain.CollectionNode, colle
 		copied.Items = append(copied.Items, child)
 	}
 	return copied, nil
+}
+
+// withIDs gives rows ids they do not have. A file writes no ids at all, and a row the window cannot
+// address is a row it cannot edit.
+func withIDs(ids platform.IDGen, rows []domain.Row) []domain.Row {
+	out := make([]domain.Row, 0, len(rows))
+	for _, row := range rows {
+		if row.ID == "" {
+			row.ID = ids()
+		}
+		out = append(out, row)
+	}
+	return out
 }
 
 // copyRows and copyCookies give a copy rows of its own, for the reason the ids exist at all: the

@@ -793,6 +793,107 @@ func TestSaveNodeRejectsAnEmptyName(t *testing.T) {
 	}
 }
 
+// A collection made elsewhere becomes a collection here: its name, its order, and its requests —
+// with ids minted for everything a file does not write.
+func TestImportTakesAWholeCollection(t *testing.T) {
+	uc, store := newTestUseCase()
+	ctx := context.Background()
+
+	tree, err := uc.Import(ctx, domain.Collection{
+		Name: "  Импортированная  ",
+		Items: []domain.CollectionNode{
+			{
+				Kind: domain.NodeFolder, Name: "Папка", Items: []domain.CollectionNode{
+					{Kind: domain.NodeRequest, Name: "Внутри", Method: "post", URL: "https://api.example.com/inside",
+						Headers: []domain.Row{{Name: "Accept", Value: "application/json", Enabled: true}}},
+				},
+			},
+			{
+				Kind: domain.NodeRequest, Name: "Снаружи", Method: "GET", URL: "https://api.example.com/out?page=2",
+				Params: []domain.Row{{Name: "page", Value: "2", Enabled: true}},
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("Import: %v", err)
+	}
+
+	collection := only(t, tree)
+	if collection.Name != "Импортированная" || collection.Position != 0 {
+		t.Errorf("collection = %+v, want the file's name, trimmed", collection)
+	}
+	if len(collection.Items) != 2 || collection.Items[0].Items[0].Name != "Внутри" {
+		t.Fatalf("items = %+v, want the file's tree", collection.Items)
+	}
+	for _, node := range []domain.CollectionNode{collection.Items[0], collection.Items[1], collection.Items[0].Items[0]} {
+		if node.ID == "" || node.CollectionID != collection.ID {
+			t.Errorf("node = %+v, want an id and the collection it was imported into", node)
+		}
+	}
+	if collection.Items[0].Items[0].ParentID != collection.Items[0].ID {
+		t.Error("the row inside the folder does not name it as its parent")
+	}
+
+	// What the tree carries is a row; what was stored is the request.
+	stored, err := store.Node(ctx, collection.Items[1].ID)
+	if err != nil {
+		t.Fatalf("Node: %v", err)
+	}
+	if stored.URL != "https://api.example.com/out?page=2" || stored.Method != "GET" {
+		t.Errorf("stored = %+v, want the request the file had", stored)
+	}
+	if len(stored.Params) != 1 || stored.Params[0].ID == "" {
+		t.Errorf("params = %+v, want the row with an id the window can address", stored.Params)
+	}
+	if stored.Position != 1 || stored.Kind != domain.NodeRequest {
+		t.Errorf("stored = %+v, want its place in the imported order", stored)
+	}
+}
+
+// An export writes down what a tree row does not carry: Full reads the nodes whole, and a request
+// on its own is the collection an export of one request makes.
+func TestFullReadsTheRequestsWhole(t *testing.T) {
+	uc, _ := newTestUseCase()
+	ctx := context.Background()
+
+	tree, err := uc.CreateCollection(ctx, "Коллекция", "описание")
+	if err != nil {
+		t.Fatalf("CreateCollection: %v", err)
+	}
+	collectionID := only(t, tree).ID
+	_, tree, err = uc.CreateNode(ctx, NewNode{
+		CollectionID: collectionID, Kind: domain.NodeRequest, Name: "Запрос", Method: "GET",
+		URL: "https://api.example.com/users", Body: `{"a": 1}`,
+		Headers: []domain.Row{{Name: "Accept", Value: "application/vnd.api+json", Enabled: true}},
+	})
+	if err != nil {
+		t.Fatalf("CreateNode: %v", err)
+	}
+	requestID := only(t, tree).Items[0].ID
+
+	full, err := uc.Full(ctx, collectionID)
+	if err != nil {
+		t.Fatalf("Full: %v", err)
+	}
+	if full.Name != "Коллекция" || full.Description != "описание" || len(full.Items) != 1 {
+		t.Fatalf("full = %+v, want the collection and its request", full)
+	}
+	if full.Items[0].Body != `{"a": 1}` || len(full.Items[0].Headers) != 1 {
+		t.Errorf("request = %+v, want it read whole", full.Items[0])
+	}
+	if full.Items[0].Kind != domain.NodeRequest {
+		t.Errorf("kind = %q, want a request", full.Items[0].Kind)
+	}
+
+	single, err := uc.Full(ctx, requestID)
+	if err != nil {
+		t.Fatalf("Full: %v", err)
+	}
+	if single.Name != "Запрос" || len(single.Items) != 1 || single.Items[0].URL != "https://api.example.com/users" {
+		t.Errorf("single = %+v, want a collection of the one request", single)
+	}
+}
+
 func TestNodeInAMissingTree(t *testing.T) {
 	uc, _ := newTestUseCase()
 

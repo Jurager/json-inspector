@@ -123,6 +123,10 @@ func (u *UseCase) Open(ctx context.Context, d domain.Draft) (State, error) {
 		return State{}, fmt.Errorf("черновик без id: %w", domain.ErrNotAllowed)
 	}
 	d = u.withRowIDs(d)
+	// The rows follow the address, exactly as they do when it is typed: a request that came from a
+	// file has an address and maybe no rows of its own, and a card that opened it would otherwise
+	// show an empty Параметры list beside a query string.
+	d.Params = u.rowsFromURL(d.URL, d.Params)
 	// The revision counts the edits made since the draft was opened, and the window reads "nothing
 	// unsaved" out of it — a draft that has just been opened is the saved request, not an edit of it.
 	d.Revision = 0

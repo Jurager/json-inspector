@@ -42,6 +42,23 @@ export function Duplicate(id: string): $CancellablePromise<domain$0.Collection[]
 }
 
 /**
+ * ExportFile writes a collection — or one request, when the id names one — into a file the user
+ * chooses, and answers whether anything was written: a cancelled dialog is not an error, and the
+ * window says nothing about it.
+ */
+export function ExportFile(id: string): $CancellablePromise<boolean> {
+    return $Call.ByID(4114312118, id);
+}
+
+/**
+ * ImportFile asks for a file, reads it and writes what is in it into the tree. A nil tree is a
+ * cancelled dialog: nothing happened, and it is not a failure.
+ */
+export function ImportFile(): $CancellablePromise<domain$0.Collection[] | null> {
+    return $Call.ByID(548291153);
+}
+
+/**
  * LastRun is what the overview draws when it opens, and nil when nothing has been run here yet.
  */
 export function LastRun(collectionID: string, nodeID: string): $CancellablePromise<domain$0.CollectionRun | null> {
