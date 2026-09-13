@@ -6,8 +6,10 @@ import (
 	"go.uber.org/fx"
 
 	"json-inspector/internal/usecase/environment"
+	"json-inspector/internal/usecase/settings"
 )
 
 var Module = fx.Module("usecase",
 	environment.Module,
+	settings.Module,
 )

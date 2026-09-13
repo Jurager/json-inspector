@@ -1,7 +1,25 @@
 import { computed, ref } from 'vue'
+import { Events } from '@wailsio/runtime'
 import { SWITCH_TAIL_MS, WIPE_MS } from '../lib/themeWipe'
+import { useSettings } from './useSettings'
+import { Theme as DomainTheme } from '../../bindings/json-inspector/internal/domain'
 
-export type Theme = 'light' | 'dark' | 'system'
+// The choice is declared once, in Go, and reaches the window as a generated enum.
+export type Theme = DomainTheme
+
+/** Reads a stored or URL-supplied value; anything else — a newer build's theme — is not one. */
+function asTheme(raw: string | null): Theme | null {
+  switch (raw) {
+    case 'light':
+      return DomainTheme.ThemeLight
+    case 'dark':
+      return DomainTheme.ThemeDark
+    case 'system':
+      return DomainTheme.ThemeSystem
+    default:
+      return null
+  }
+}
 
 const THEME_STORAGE_KEY = 'ji-theme-v1'
 const systemPrefersDark = window.matchMedia('(prefers-color-scheme: dark)')
@@ -11,14 +29,25 @@ const systemPrefersDark = window.matchMedia('(prefers-color-scheme: dark)')
 type ViewTransition = { skipTransition(): void; finished?: Promise<void> }
 type TransitionDocument = Document & { startViewTransition?: (cb: () => void) => ViewTransition }
 
-function storedTheme(): Theme {
-  const raw = localStorage.getItem(THEME_STORAGE_KEY)
-  return raw === 'light' || raw === 'dark' || raw === 'system' ? raw : 'system'
+/** The choice Go put on the window's URL — what the first frame has already painted with. */
+function urlTheme(): Theme | null {
+  return asTheme(new URLSearchParams(location.search).get('theme'))
 }
 
-const theme = ref<Theme>(storedTheme())
+/** The cache a dev reload falls back on, since a reload carries no query string. */
+function cachedTheme(): Theme {
+  try {
+    return asTheme(localStorage.getItem(THEME_STORAGE_KEY)) ?? DomainTheme.ThemeSystem
+  } catch {
+    return DomainTheme.ThemeSystem
+  }
+}
+
+const theme = ref<Theme>(urlTheme() ?? cachedTheme())
 const systemIsDark = ref(systemPrefersDark.matches)
-const isDark = computed(() => (theme.value === 'system' ? systemIsDark.value : theme.value === 'dark'))
+const isDark = computed(() =>
+  theme.value === DomainTheme.ThemeSystem ? systemIsDark.value : theme.value === DomainTheme.ThemeDark
+)
 
 // True while a wipe is on screen. Nothing in the window can be clicked until it ends — the
 // transition takes the hit test with it (events land on `<html>`) — so controls that must stay
@@ -84,17 +113,32 @@ function persist(next: Theme) {
 
 systemPrefersDark.addEventListener('change', (e) => {
   systemIsDark.value = e.matches
-  if (theme.value === 'system') apply(e.matches, true)
+  if (theme.value === DomainTheme.ThemeSystem) apply(e.matches, true)
 })
 
-// The About window is a separate app: the storage event is the only signal that crosses.
-window.addEventListener('storage', (e) => {
-  if (e.key !== THEME_STORAGE_KEY) return
-  theme.value = storedTheme()
+// The About window is a separate app, and it follows along on this event: a change made in either
+// window reaches both. Go is where the choice lives; the cache below only serves the next first frame.
+Events.On('settings:theme', (ev) => {
+  const next = (ev.data as { theme: Theme }).theme
+  if (!next || next === theme.value) return
+  theme.value = next
+  persist(next)
   apply(isDark.value, true)
 })
 
-// At boot there is nothing to wipe from.
+// At boot there is nothing to wipe from, and the stored choice replaces what the URL carried only
+// if the two disagree — which happens when a window was created before the theme was changed.
+const { settings, loadSettings, setTheme: saveTheme } = useSettings()
+
+void loadSettings().then(() => {
+  const stored = settings.value?.theme
+  if (stored && stored !== theme.value) {
+    theme.value = stored
+    persist(stored)
+    apply(isDark.value, false)
+  }
+})
+
 apply(isDark.value, false)
 
 export function useTheme() {
@@ -106,6 +150,7 @@ export function useTheme() {
       theme.value = next
       persist(next)
       apply(isDark.value, true)
+      void saveTheme(next)
     },
   }
 }

@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { useRequestsStore } from '../../stores/requests'
 import { useResizableWidth } from '../../composables/useResizableWidth'
+import { useSettings } from '../../composables/useSettings'
 import HistoryPanel from '../history/HistoryPanel.vue'
 import RequestBuilder from '../request/RequestBuilder.vue'
 import ResponseViewer from '../response/ResponseViewer.vue'
@@ -9,9 +10,24 @@ import CaptureBar from '../browser/CaptureBar.vue'
 import BrowserEmptyState from '../browser/BrowserEmptyState.vue'
 
 const store = useRequestsStore()
+const { settings, loadSettings, setLayout } = useSettings()
 
-const sideWidth = ref(300)
+// Where the user last left the list. The window paints its own default first; Go's answer replaces
+// it as soon as it arrives, which keeps the panel from jumping on a slow start.
+const sideWidth = ref(settings.value?.sideWidth ?? 288)
 const { startDrag: startSideDrag } = useResizableWidth(sideWidth, { min: 220, max: 560, side: 'left' })
+
+watch(
+  () => settings.value?.sideWidth,
+  (stored) => {
+    if (stored !== undefined && stored !== sideWidth.value) sideWidth.value = stored
+  }
+)
+
+// Every drag frame lands here; the write itself is collected and sent when the drag settles.
+watch(sideWidth, (width) => setLayout({ sideWidth: width }))
+
+void loadSettings()
 
 const browserEmpty = computed(
   () => store.activeView === 'browser' && !store.requests.some((r) => r.source === 'browser')

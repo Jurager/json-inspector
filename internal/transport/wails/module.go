@@ -1,6 +1,7 @@
 package wails
 
 import (
+	"context"
 	"io/fs"
 
 	"github.com/wailsapp/wails/v3/pkg/application"
@@ -10,6 +11,7 @@ import (
 	"json-inspector/internal/infra/sqlite"
 	"json-inspector/internal/platform"
 	"json-inspector/internal/usecase/environment"
+	"json-inspector/internal/usecase/settings"
 )
 
 // Assets is what only main can embed: the built frontend and the window icon. go:embed reaches
@@ -25,6 +27,7 @@ type Assets struct {
 type ServicesIn struct {
 	fx.In
 	System       *SystemService
+	Settings     *SettingsService
 	Requests     *RequestsService
 	Environments *EnvironmentsService
 	Bridge       *BridgeService
@@ -35,11 +38,14 @@ var Module = fx.Module("wails",
 		// Ports are bound here, in the composition layer: it is the only place that knows both a use
 		// case and the adapter that serves it. Everything above this line is a constructor.
 		func(store *sqlite.Store) environment.Store { return store },
+		func(store *sqlite.Store) settings.Store { return store },
 		func() environment.SecretSource { return keychainSecrets{} },
+		func(host *Host) settings.Notifier { return newBus(host) },
 		NewHost,
 		NewStatus,
 		openStorage,
 		NewSystemService,
+		NewSettingsService,
 		NewRequestsService,
 		NewEnvironmentsService,
 		NewBridgeService,
@@ -80,13 +86,21 @@ func setup(
 	status *Status,
 	in ServicesIn,
 	info platform.BuildInfo,
+	settingsUC *settings.UseCase,
 ) {
+	// The window's first paint happens before any frontend code runs, so the theme travels on its
+	// URL rather than over IPC. Reading it here is safe: the database opened before this ran.
+	if theme, err := settingsUC.Theme(context.Background()); err == nil {
+		host.SetTheme(string(theme))
+	}
 	system := application.NewService(in.System)
+	settingsService := application.NewService(in.Settings)
 	requests := application.NewService(in.Requests)
 	environments := application.NewService(in.Environments)
 	bridgeService := application.NewService(in.Bridge)
 
 	app.RegisterService(system)
+	app.RegisterService(settingsService)
 	// Without a database there is nothing else to offer, and a reduced surface is the difference
 	// between a window that explains itself and one where half the controls fail. The frontend
 	// reads StartupStatus and renders the failure instead of reaching for these.
@@ -105,7 +119,7 @@ func setup(
 		MinHeight:        600,
 		Frameless:        UseCustomTitlebar(),
 		BackgroundColour: application.NewRGB(30, 30, 30),
-		URL:              "/",
+		URL:              "/" + host.themeQuery(),
 		Mac: application.MacWindow{
 			TitleBar:                application.MacTitleBarHiddenInset,
 			InvisibleTitleBarHeight: 50,

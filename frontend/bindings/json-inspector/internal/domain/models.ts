@@ -90,6 +90,48 @@ export interface Response {
 }
 
 /**
+ * Retention is how long history is kept. The count cap that has always applied stays: this is what
+ * removes records by age on top of it.
+ */
+export enum Retention {
+    /**
+     * The Go zero value for the underlying type of the enum.
+     */
+    $zero = "",
+
+    RetainWeek = "7",
+    RetainMonth = "30",
+    RetainForever = "forever",
+};
+
+/**
+ * Settings is everything the app remembers about how it is set up, in the order the screen shows
+ * it. Defaults live in one place — the use case's — so a fresh database and a missing row agree.
+ */
+export interface Settings {
+    "theme": Theme;
+    "inspectorOpen": boolean;
+    "inspectorWidth": number;
+    "sideWidth": number;
+    "historyRetention": Retention;
+}
+
+/**
+ * Theme is the user's choice; which palette it means is decided in the window, because "system" is
+ * a question only the window can ask.
+ */
+export enum Theme {
+    /**
+     * The Go zero value for the underlying type of the enum.
+     */
+    $zero = "",
+
+    ThemeLight = "light",
+    ThemeDark = "dark",
+    ThemeSystem = "system",
+};
+
+/**
  * Variable is one `{{name}}` value. A secret's value is stored here like any other — the OS
  * keychain is gone, because it only ever worked on macOS — so masking is what keeps it out of
  * everything the user can see or copy.

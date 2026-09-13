@@ -1,16 +1,17 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import Icon from '../ui/Icon.vue'
-import { onPaint, useTheme, type Theme } from '../../composables/useTheme'
+import { onPaint, useTheme } from '../../composables/useTheme'
+import { Theme } from '../../../bindings/json-inspector/internal/domain'
 import { fillArrival } from '../../lib/themeWipe'
 
 const { theme, setTheme, isSwitching } = useTheme()
 
 // The handoff's order: light, dark, system.
 const OPTIONS: { value: Theme; icon: string; title: string }[] = [
-  { value: 'light', icon: 'sun', title: 'Светлая' },
-  { value: 'dark', icon: 'moon', title: 'Тёмная' },
-  { value: 'system', icon: 'monitor', title: 'Системная' },
+  { value: Theme.ThemeLight, icon: 'sun', title: 'Светлая' },
+  { value: Theme.ThemeDark, icon: 'moon', title: 'Тёмная' },
+  { value: Theme.ThemeSystem, icon: 'monitor', title: 'Системная' },
 ]
 
 const rootEl = ref<HTMLElement | null>(null)

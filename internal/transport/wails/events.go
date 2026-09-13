@@ -7,6 +7,7 @@ import (
 
 	"json-inspector/internal/infra/updater"
 	"json-inspector/internal/transport/bridge"
+	"json-inspector/internal/usecase/settings"
 )
 
 // Event names, declared once here. Each is registered with the payload type it carries, which is
@@ -29,4 +30,20 @@ func init() {
 	application.RegisterEvent[int](eventOpenTab)
 	application.RegisterEvent[*updater.Info](eventUpdateAvailable)
 	application.RegisterEvent[application.Void](eventUpdateCheck)
+	// A preference change reaches every window: the About window draws in the same palette.
+	application.RegisterEvent[settings.ThemeChanged](settings.TopicThemeChanged)
+}
+
+// bus is the Notifier the features publish to. A topic is the event name — one spelling, so the
+// registration above and the publish below cannot drift apart.
+type bus struct {
+	host *Host
+}
+
+func newBus(host *Host) *bus {
+	return &bus{host: host}
+}
+
+func (b *bus) Publish(topic string, payload any) {
+	b.host.Broadcast(topic, payload)
 }

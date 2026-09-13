@@ -43,6 +43,9 @@ type Host struct {
 	mainWin *application.WebviewWindow
 
 	ready atomic.Bool
+	// The theme, as the window needs it before it exists: a query string on the window's URL, so the
+	// first paint is already in the right palette. Kept in step by whoever changes it.
+	theme atomic.Value
 	// Events raised before the window can take them: the update check runs at startup and a
 	// deep link can arrive before the frontend has mounted, and both describe state the
 	// window has to be told about anyway. The latest of each wins — an earlier tab doesn't
@@ -54,7 +57,24 @@ type Host struct {
 }
 
 func NewHost() *Host {
-	return &Host{}
+	host := &Host{}
+	host.theme.Store("")
+	return host
+}
+
+// SetTheme remembers the choice for the windows this process has yet to create.
+func (h *Host) SetTheme(theme string) {
+	h.theme.Store(theme)
+}
+
+// themeQuery is what goes on a window's URL: the pre-paint script reads it and sets the palette
+// before the first frame, which is a thing no IPC call can do.
+func (h *Host) themeQuery() string {
+	theme, _ := h.theme.Load().(string)
+	if theme == "" {
+		return ""
+	}
+	return "?theme=" + theme
 }
 
 // Attach is the one writer of the application handle: the app cannot be built before the graph
@@ -225,7 +245,7 @@ func (h *Host) ShowAbout() {
 		DisableResize:    true,
 		Frameless:        UseCustomTitlebar(),
 		BackgroundColour: application.NewRGB(30, 30, 30),
-		URL:              "/about.html",
+		URL:              "/about.html" + h.themeQuery(),
 		Mac: application.MacWindow{
 			TitleBar:                application.MacTitleBarHiddenInset,
 			InvisibleTitleBarHeight: aboutTitleBarHeight,

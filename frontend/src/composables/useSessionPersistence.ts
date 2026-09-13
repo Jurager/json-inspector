@@ -1,18 +1,19 @@
 import { onBeforeUnmount, onMounted } from 'vue'
 import { useEnvironmentsStore } from '../stores/environments'
 import { useRequestsStore } from '../stores/requests'
+import { useSettings } from './useSettings'
 
 const HISTORY_STORAGE_KEY = 'ji-history-v1'
-const UI_STORAGE_KEY = 'ji-ui-v1'
 const MAX_HISTORY = 200
 const SAVE_DEBOUNCE_MS = 300
 
-// History and panel layout outlive a window: read once at startup, written back
-// on every change. Secrets deliberately stay out — they live in the keychain.
+// What outlives a window: history (still in localStorage until it moves to the database) and the
+// panel geometry (already in the database, through the settings feature).
 export function useSessionPersistence(
   store: ReturnType<typeof useRequestsStore>,
   envStore: ReturnType<typeof useEnvironmentsStore>
 ) {
+  const { settings, loadSettings, setLayout } = useSettings()
   let unsubscribe: (() => void) | null = null
   let saveTimer: ReturnType<typeof setTimeout> | null = null
 
@@ -27,16 +28,13 @@ export function useSessionPersistence(
       // ignore corrupt storage
     }
 
-    try {
-      const raw = localStorage.getItem(UI_STORAGE_KEY)
-      if (raw) {
-        const parsed = JSON.parse(raw)
-        if (parsed && typeof parsed.open === 'boolean') store.setInspector({ open: parsed.open })
-        if (parsed && typeof parsed.width === 'number') store.setInspector({ width: parsed.width })
-      }
-    } catch {
-      // ignore corrupt storage
-    }
+    // The panel geometry comes from the database, so it survives a reinstall; the store is what the
+    // window draws from while it is open.
+    void loadSettings().then(() => {
+      const stored = settings.value
+      if (!stored) return
+      store.setInspector({ open: stored.inspectorOpen, width: stored.inspectorWidth })
+    })
 
     // Secrets come back out of the keychain before the first request needs one.
     // The environments now live in the database: read them, take over what the old build left in
@@ -55,13 +53,10 @@ export function useSessionPersistence(
       saveTimer = setTimeout(() => {
         try {
           localStorage.setItem(HISTORY_STORAGE_KEY, JSON.stringify(state.requests.slice(0, MAX_HISTORY)))
-          localStorage.setItem(
-            UI_STORAGE_KEY,
-            JSON.stringify({ open: state.inspector.open, width: state.inspector.width })
-          )
         } catch {
           // ignore quota errors
         }
+        setLayout({ inspectorOpen: state.inspector.open, inspectorWidth: state.inspector.width })
       }, SAVE_DEBOUNCE_MS)
     })
   })

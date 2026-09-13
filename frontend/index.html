@@ -7,9 +7,14 @@
     <script>
       ;(function () {
         try {
-          var stored = localStorage.getItem('ji-theme-v1')
+          // The theme travels on the window's URL: Go knows it before the window exists, and this
+          // runs before the first frame — an IPC call is always too late for that.
+          var asked = new URLSearchParams(location.search).get('theme')
+          // localStorage is only a cache, for a dev reload that carries no query string.
+          var stored = asked || localStorage.getItem('ji-theme-v1')
+          var followsSystem = !stored || stored === 'system'
           var dark =
-            stored === 'dark' || (stored !== 'light' && matchMedia('(prefers-color-scheme: dark)').matches)
+            stored === 'dark' || (followsSystem && matchMedia('(prefers-color-scheme: dark)').matches)
           document.documentElement.classList.add(dark ? 'dark' : 'light')
         } catch {
           document.documentElement.classList.add('light')
