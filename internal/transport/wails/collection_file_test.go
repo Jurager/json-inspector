@@ -104,52 +104,74 @@ func TestFileNameFor(t *testing.T) {
 	}
 }
 
-// Which format a file is read in is the file's answer: the formats are tried in order and the first
-// that reads it wins, so a window that only picked a file does not also have to name its kind. A
-// format the app cannot write, and a file none of them reads, are both refused with a reason.
+// What a dialog offers is the kind of file, not the shape inside it: JSON is JSON everywhere, and a
+// shape added inside it — another tool's export — must not add a second identical filter. A shape the
+// app cannot write, and a file none of them reads, are both refused with a reason.
 func TestFormats(t *testing.T) {
-	if len(readers()) == 0 || len(writers()) == 0 {
-		t.Fatal("the app knows no formats at all")
+	kinds := files()
+	if len(kinds) == 0 {
+		t.Fatal("the app knows no kinds of file at all")
 	}
+	shapes := 0
+	for _, kind := range kinds {
+		if len(kind.Readers) == 0 || len(kind.Writers) == 0 {
+			t.Errorf("%s reads %d shapes and writes %d, want both", kind.Name, len(kind.Readers), len(kind.Writers))
+		}
+		shapes += len(kind.Readers)
+	}
+	if shapes == 0 {
+		t.Fatal("the app knows no shapes at all")
+	}
+
 	first, err := chooseWriter("")
 	if err != nil {
 		t.Fatalf("chooseWriter with nothing named: %v", err)
 	}
-	if first.Label() != writers()[0].Label() {
+	if first.Label() != kinds[0].Writers[0].Label() {
 		t.Errorf("the default writer = %q, want the first one", first.Label())
 	}
-
 	if _, err := chooseWriter("Формат, которого нет"); !errors.Is(err, domain.ErrNotAllowed) {
-		t.Errorf("an unknown format = %v, want ErrNotAllowed", err)
+		t.Errorf("an unknown shape = %v, want ErrNotAllowed", err)
 	}
 
-	// One reader means the open dialog offers exactly it; the "all supported" entry would be a list
-	// of one.
+	// One kind means one filter; the "all supported" entry would be a list of one.
 	filters := importFilters()
-	if len(filters) != len(readers()) {
-		t.Errorf("filters = %+v, want one per format while there is one format", filters)
+	if len(filters) != len(kinds) {
+		t.Errorf("filters = %+v, want one per kind while there is one kind", filters)
 	}
-	if filters[0].DisplayName != readers()[0].Label() || filters[0].Pattern != readers()[0].Matches() {
-		t.Errorf("filter = %+v, want the reader's own", filters[0])
+	if filters[0].DisplayName != kinds[0].Name || filters[0].Pattern != kinds[0].Pattern {
+		t.Errorf("filter = %+v, want the kind's own", filters[0])
+	}
+
+	// The filter a save dialog offers is the kind the shape is written as, while the name it suggests
+	// carries the shape's own ending — the convention of the tool it is for.
+	exported := exportFilter(first)
+	if len(exported) != 1 || exported[0].Pattern != kinds[0].Pattern {
+		t.Errorf("export filter = %+v, want the kind's pattern", exported)
+	}
+	if suggested := fileNameFor("Коллекция", first.Extension()); !strings.HasSuffix(suggested, first.Extension()) {
+		t.Errorf("the suggested name %q does not end in %q", suggested, first.Extension())
 	}
 }
 
-// A file none of the formats reads says which were tried, so a user with an unsupported file is told
+// A file none of the shapes reads says which were tried, so a user with an unsupported file is told
 // what the app can read rather than that something went wrong.
-func TestReadCollectionNamesTheFormatsItTried(t *testing.T) {
+func TestReadCollectionNamesTheShapesItTried(t *testing.T) {
 	dir := t.TempDir()
-	alien := filepath.Join(dir, "openapi.yaml")
-	if err := os.WriteFile(alien, []byte("openapi: 3.0.0\n"), 0o644); err != nil {
+	alien := filepath.Join(dir, "openapi.json")
+	if err := os.WriteFile(alien, []byte(`{"openapi": "3.0.0"}`), 0o644); err != nil {
 		t.Fatalf("writing the file: %v", err)
 	}
 
 	_, err := readCollection(alien)
 	if !errors.Is(err, domain.ErrNotAllowed) {
-		t.Fatalf("a file none of the formats reads = %v, want ErrNotAllowed", err)
+		t.Fatalf("a file none of the shapes reads = %v, want ErrNotAllowed", err)
 	}
-	for _, reader := range readers() {
-		if !strings.Contains(err.Error(), reader.Label()) {
-			t.Errorf("the message %q does not name %s", err.Error(), reader.Label())
+	for _, kind := range files() {
+		for _, reader := range kind.Readers {
+			if !strings.Contains(err.Error(), reader.Label()) {
+				t.Errorf("the message %q does not name %s", err.Error(), reader.Label())
+			}
 		}
 	}
 }

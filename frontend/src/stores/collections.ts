@@ -58,10 +58,10 @@ export const useCollectionsStore = defineStore('collections', {
     // going on beside it does not land in this pane.
     mine: [] as string[],
 
-    // The formats a collection travels in — what an import can read and what an export can write.
-    // Go declares them; the window names none of them itself, so a format added there appears in a
-    // menu that already exists.
-    formats: { readers: [] as string[], writers: [] as string[] },
+    // What a collection travels in: the kinds of file it can be imported from, and the shapes it can
+    // be exported as. Go declares both; the window names neither itself, so a kind or a shape added
+    // there appears in a menu that already exists.
+    formats: { kinds: [] as string[], writers: [] as string[] },
 
     // The run: what the last one came to, and how far the one that is going has got.
     lastRun: null as CollectionRun | null,
@@ -166,7 +166,7 @@ export const useCollectionsStore = defineStore('collections', {
       // The wire marks a list as possibly null because Go can marshal a nil slice that way; the app
       // never means that, so it is settled here rather than at every use.
       const formats = await CollectionsService.Formats()
-      this.formats = { readers: formats.readers ?? [], writers: formats.writers ?? [] }
+      this.formats = { kinds: formats.kinds ?? [], writers: formats.writers ?? [] }
     },
 
     // Every change to the tree answers with the whole tree, so the mirror is replaced rather than
@@ -219,8 +219,8 @@ export const useCollectionsStore = defineStore('collections', {
     },
 
     // Export answers whether anything was written; a cancelled save dialog is not an error and the
-    // window says nothing about it. The format is the one the caller named, or the app's first —
-    // a window that has only ever known one of them passes nothing.
+    // window says nothing about it. The shape is the one the caller named, or the app's first — a
+    // window that has only ever known one of them passes nothing.
     async exportFile(id: string, format = ''): Promise<boolean> {
       return CollectionsService.ExportFile(id, format)
     },

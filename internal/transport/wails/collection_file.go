@@ -10,26 +10,26 @@ import (
 	"json-inspector/internal/domain"
 )
 
-// A collection travels as a file, and the formats it can travel in are listed in formats.go. Reading
-// and writing happens on this side of the boundary: a collection is a document, and the window has no
-// business holding one — it asks for an import, is told whether one happened, and draws the tree it
-// gets back.
+// A collection travels as a file, and the kinds of file and the shapes inside them are declared in
+// formats.go. Reading and writing happens on this side of the boundary: a collection is a document,
+// and the window has no business holding one — it asks for an import, is told whether one happened,
+// and draws the tree it gets back.
 
-// DocumentFormats is what the window draws its file dialogs from: the names it can offer for an
-// import and for an export. It names none of them itself, so a format added in Go appears in a menu
-// that already exists.
+// DocumentFormats is what the window draws its file dialogs from: the kinds of file it can open and
+// the shapes it can save a collection as. It names none of them itself, so a kind or a shape added in
+// Go appears in a menu that already exists.
 type DocumentFormats struct {
-	Readers []string `json:"readers"`
+	Kinds   []string `json:"kinds"`
 	Writers []string `json:"writers"`
 }
 
 func (s *CollectionsService) Formats(ctx context.Context) (DocumentFormats, error) {
-	formats := DocumentFormats{Readers: []string{}, Writers: []string{}}
-	for _, reader := range readers() {
-		formats.Readers = append(formats.Readers, reader.Label())
-	}
-	for _, w := range writers() {
-		formats.Writers = append(formats.Writers, w.Label())
+	formats := DocumentFormats{Kinds: []string{}, Writers: []string{}}
+	for _, kind := range files() {
+		formats.Kinds = append(formats.Kinds, kind.Name)
+		for _, w := range kind.Writers {
+			formats.Writers = append(formats.Writers, w.Label())
+		}
 	}
 	return formats, nil
 }
@@ -53,11 +53,11 @@ func (s *CollectionsService) ImportFile(ctx context.Context) ([]domain.Collectio
 }
 
 // ExportFile writes a collection — or one request, when the id names one — into a file the user
-// picks, in the format they named. It answers whether anything was written: a cancelled save dialog
-// is not an error, and the window says nothing about it.
+// picks, as the shape they named. It answers whether anything was written: a cancelled save dialog is
+// not an error, and the window says nothing about it.
 //
-// An empty format is the first one the app can write, which is what a window that has only ever
-// known about one of them passes.
+// An empty shape is the first one the app can write, which is what a window that has only ever known
+// about one of them passes.
 func (s *CollectionsService) ExportFile(ctx context.Context, id string, format string) (bool, error) {
 	chosen, err := chooseWriter(format)
 	if err != nil {
@@ -82,46 +82,48 @@ func (s *CollectionsService) ExportFile(ctx context.Context, id string, format s
 	return true, nil
 }
 
-// chooseWriter is the format an export goes out in: the one that was named, or the first when a
-// window that does not know the names asks for an export.
+// chooseWriter is the shape an export goes out in: the one that was named, or the first the app can
+// write when a window that does not know the names asks for an export.
 func chooseWriter(label string) (Writer, error) {
 	if label != "" {
 		return writer(label)
 	}
-	all := writers()
-	if len(all) == 0 {
-		return nil, fmt.Errorf("ни одного формата для экспорта: %w", domain.ErrNotAllowed)
+	for _, kind := range files() {
+		if len(kind.Writers) > 0 {
+			return kind.Writers[0], nil
+		}
 	}
-	return all[0], nil
+	return nil, fmt.Errorf("ни одного формата для экспорта: %w", domain.ErrNotAllowed)
 }
 
 // readCollection is the file half of an import, apart from the dialog that names the file: the bytes
-// on disk are a collection in one of the formats the app knows, or they are not.
+// on disk are a collection in one of the shapes the app knows, or they are not.
 //
-// The formats are tried in the order they are registered and the first that reads the file wins: the
-// file decides, so a user who picked one does not also have to name its kind. A file none of them
-// reads says which were tried and why each refused.
+// The shapes are tried in the order they are registered and the first that reads the file wins: the
+// file itself says what it is, so a user who picked one does not also have to name its shape. A file
+// none of them reads says which were tried and why each refused.
 func readCollection(path string) (domain.Collection, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
 		return domain.Collection{}, fmt.Errorf("файл %s: %w", path, err)
 	}
 
-	all := readers()
-	refusals := make([]string, 0, len(all))
-	for _, reader := range all {
-		imported, err := reader.Read(data)
-		if err == nil {
-			return imported, nil
+	refusals := []string{}
+	for _, kind := range files() {
+		for _, reader := range kind.Readers {
+			imported, err := reader.Read(data)
+			if err == nil {
+				return imported, nil
+			}
+			refusals = append(refusals, fmt.Sprintf("%s — %v", reader.Label(), errors.Unwrap(err)))
 		}
-		refusals = append(refusals, fmt.Sprintf("%s — %v", reader.Label(), errors.Unwrap(err)))
 	}
 	return domain.Collection{}, fmt.Errorf("файл %s не читается как коллекция: %s: %w",
 		path, strings.Join(refusals, "; "), domain.ErrNotAllowed)
 }
 
-// writeCollection is the file half of an export: a collection written where it was asked for, in the
-// format that was chosen.
+// writeCollection is the file half of an export: a collection written where it was asked for, as the
+// shape that was chosen.
 func writeCollection(path string, w Writer, name string, items []domain.CollectionNode) error {
 	data, err := w.Write(name, items)
 	if err != nil {

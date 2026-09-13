@@ -19,12 +19,12 @@ export interface CreatedNode {
 }
 
 /**
- * DocumentFormats is what the window draws its file dialogs from: the names it can offer for an
- * import and for an export. It names none of them itself, so a format added in Go appears in a menu
- * that already exists.
+ * DocumentFormats is what the window draws its file dialogs from: the kinds of file it can open and
+ * the shapes it can save a collection as. It names none of them itself, so a kind or a shape added in
+ * Go appears in a menu that already exists.
  */
 export interface DocumentFormats {
-    "readers": string[] | null;
+    "kinds": string[] | null;
     "writers": string[] | null;
 }
 
