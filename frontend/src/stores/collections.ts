@@ -239,6 +239,12 @@ export const useCollectionsStore = defineStore('collections', {
       this.applyTree((await CollectionsService.Rename(id, name)) ?? [])
     },
 
+    // A description written in the header is saved the way a rename is: the answer is the whole tree,
+    // and the tree is where the header reads the line back from.
+    async describe(id: string, description: string) {
+      this.applyTree((await CollectionsService.Describe(id, description)) ?? [])
+    },
+
     async duplicate(id: string) {
       this.applyTree((await CollectionsService.Duplicate(id)) ?? [])
     },

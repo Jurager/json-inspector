@@ -20,6 +20,10 @@ const copySuffix = " (копия)"
 // the same thing wherever it is typed.
 const maxNameLength = 120
 
+// maxDescriptionLength is what still reads as a description and not as a document pasted into a
+// header. It is generous: a few sentences about what a collection is for.
+const maxDescriptionLength = 500
+
 type UseCase struct {
 	store    Store
 	sender   Sender
@@ -177,6 +181,37 @@ func (u *UseCase) Rename(ctx context.Context, id string, name string) ([]domain.
 		return nil, err
 	}
 	node.Name = name
+	if err := u.store.SaveNode(ctx, node); err != nil {
+		return nil, err
+	}
+	return u.Tree(ctx)
+}
+
+// Describe is the other edit a tree row takes: what the level is for. A folder answers it too — a
+// collection's description is what the overview draws above its tabs, and a folder has the same line
+// in the same place — and both answer with the whole tree, because the tree is where the header reads
+// it from.
+func (u *UseCase) Describe(ctx context.Context, id string, description string) ([]domain.Collection, error) {
+	description, err := validDescription(description)
+	if err != nil {
+		return nil, err
+	}
+
+	if collection, ok, err := u.collection(ctx, id); err != nil {
+		return nil, err
+	} else if ok {
+		collection.Description = description
+		if err := u.store.SaveCollection(ctx, collection); err != nil {
+			return nil, err
+		}
+		return u.Tree(ctx)
+	}
+
+	node, err := u.store.Node(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	node.Description = description
 	if err := u.store.SaveNode(ctx, node); err != nil {
 		return nil, err
 	}
@@ -542,6 +577,16 @@ func validName(name string) (string, error) {
 		return "", fmt.Errorf("имя длиннее %d символов: %w", maxNameLength, domain.ErrNotAllowed)
 	}
 	return name, nil
+}
+
+// validDescription trims what was typed and keeps it within the ceiling. An empty description is a
+// real answer — the header shows a placeholder for it — so it is not refused the way an empty name is.
+func validDescription(description string) (string, error) {
+	description = strings.TrimSpace(description)
+	if len([]rune(description)) > maxDescriptionLength {
+		return "", fmt.Errorf("описание длиннее %d символов: %w", maxDescriptionLength, domain.ErrNotAllowed)
+	}
+	return description, nil
 }
 
 // clip keeps a name inside the ceiling. Duplicating at the limit is a thing a user does, and

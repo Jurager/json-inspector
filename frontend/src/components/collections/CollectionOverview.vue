@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, nextTick, ref, watch } from 'vue'
 import Icon from '../ui/Icon.vue'
 import { Button } from '../ui/button'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '../ui/tabs'
@@ -36,6 +36,57 @@ async function importCollection() {
 const title = computed(() => store.selected?.name ?? store.trail?.collection.name ?? '')
 const description = computed(() => store.selected?.description ?? store.trail?.collection.description ?? '')
 const requestTotal = computed(() => store.selectedRequestCount)
+
+// The description is edited where it is read: the line under the title is the field, because a
+// dialog for one line is a window for nothing. Empty is what the placeholder is drawn from, so the
+// row that opens on the title of a fresh collection is the same row that writes it a line.
+const editingDescription = ref(false)
+const descriptionDraft = ref('')
+const descriptionInput = ref<HTMLInputElement | null>(null)
+// What the write is about: the level the overview is drawing — a folder answers it as well as a
+// collection, and the tree row of either carries the id Go saved it under.
+const levelId = computed(() => store.selected?.id ?? store.trail?.collection.id ?? '')
+// The line the open field belongs to, and what it held when it opened. Both are caught at that
+// moment rather than read when the writing happens: clicking another row blurs the field, and a
+// write that read the selection then would file one level's line under the next.
+const descriptionLevel = ref('')
+const descriptionOpen = ref('')
+
+function editDescription() {
+  descriptionDraft.value = description.value
+  descriptionLevel.value = levelId.value
+  descriptionOpen.value = description.value
+  editingDescription.value = true
+  nextTick(() => {
+    descriptionInput.value?.focus()
+    descriptionInput.value?.select()
+  })
+}
+
+async function commitDescription() {
+  if (!editingDescription.value) return
+  // Escape unmounts the field, and the blur that follows would otherwise save the abandoned text.
+  editingDescription.value = false
+  const written = descriptionDraft.value.trim()
+  if (!descriptionLevel.value || written === descriptionOpen.value) return
+  await store.describe(descriptionLevel.value, written)
+}
+
+function onDescriptionKeydown(e: KeyboardEvent) {
+  e.stopPropagation()
+  if (e.key === 'Enter') {
+    e.preventDefault()
+    void commitDescription()
+  } else if (e.key === 'Escape') {
+    e.preventDefault()
+    editingDescription.value = false
+  }
+}
+
+// The field is drawn from the line the selection is showing, so a selection that moved hides it.
+watch(levelId, () => {
+  editingDescription.value = false
+})
 
 // The rows of the last run, each with the name and method the tree knows: a result keeps the node id
 // and not the node, so what the row is called now is the tree's answer.
@@ -107,7 +158,28 @@ function pluralRequests(n: number): string {
         <span class="count">{{ pluralRequests(requestTotal) }}</span>
       </div>
       <div class="head-line second">
-        <span class="description">{{ description }}</span>
+        <input
+          v-if="editingDescription"
+          ref="descriptionInput"
+          v-model="descriptionDraft"
+          class="description-input"
+          placeholder="Добавить описание"
+          spellcheck="false"
+          @keydown="onDescriptionKeydown"
+          @blur="commitDescription"
+        />
+        <span
+          v-else
+          class="description"
+          :class="{ placeholder: !description }"
+          role="button"
+          tabindex="0"
+          :title="description || 'Добавить описание'"
+          @click="editDescription"
+          @keydown.enter="editDescription"
+        >
+          {{ description || 'Добавить описание' }}
+        </span>
         <span v-if="store.lastRun" class="last-run">
           Последний прогон {{ startedAt(store.lastRun) }}
         </span>
@@ -240,8 +312,22 @@ function pluralRequests(n: number): string {
   @apply text-[11.5px] text-text-tertiary;
 }
 
+/* The line the header invites a description with, and the field it turns into: the same size, the
+   same place, so clicking the line does not move the header. */
 .description {
-  @apply text-[13px] text-text-secondary;
+  @apply flex-1 min-w-0 overflow-hidden text-ellipsis whitespace-nowrap text-[13px] text-text-secondary cursor-text;
+}
+
+.description.placeholder {
+  @apply text-text-tertiary;
+}
+
+.description-input {
+  @apply flex-1 min-w-0 p-0 border-none outline-none bg-transparent text-[13px] text-text-secondary;
+}
+
+.description-input::placeholder {
+  @apply text-text-tertiary;
 }
 
 .last-run {

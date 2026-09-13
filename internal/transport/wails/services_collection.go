@@ -83,6 +83,12 @@ func (s *CollectionsService) SaveDraft(ctx context.Context, collectionID string,
 	return CreatedNode{Node: node, Tree: tree}, nil
 }
 
+// Describe writes what a collection or a folder is for — the line the overview draws above its tabs.
+// Empty is an answer there: the header then shows the placeholder that invites one.
+func (s *CollectionsService) Describe(ctx context.Context, id string, description string) ([]domain.Collection, error) {
+	return s.collections.Describe(ctx, id, description)
+}
+
 func (s *CollectionsService) Rename(ctx context.Context, id string, name string) ([]domain.Collection, error) {
 	return s.collections.Rename(ctx, id, name)
 }

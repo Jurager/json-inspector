@@ -144,7 +144,7 @@ func (s *Store) Node(ctx context.Context, id string) (domain.CollectionNode, err
 // nodes reads every node of every collection, flat, in the order its tree draws them.
 func (s *Store) nodes(ctx context.Context) ([]domain.CollectionNode, error) {
 	rows, err := s.db.QueryContext(ctx,
-		`SELECT id, collection_id, parent_id, kind, name, position, method
+		`SELECT id, collection_id, parent_id, kind, name, position, method, description
 		   FROM collection_nodes ORDER BY collection_id, position, created_at`)
 	if err != nil {
 		return nil, fmt.Errorf("listing collection nodes: %w", err)
@@ -154,15 +154,20 @@ func (s *Store) nodes(ctx context.Context) ([]domain.CollectionNode, error) {
 	out := []domain.CollectionNode{}
 	for rows.Next() {
 		var (
-			node     domain.CollectionNode
-			parentID sql.NullString
-			method   sql.NullString
+			node        domain.CollectionNode
+			parentID    sql.NullString
+			method      sql.NullString
+			description sql.NullString
 		)
-		if err := rows.Scan(&node.ID, &node.CollectionID, &parentID, &node.Kind, &node.Name, &node.Position, &method); err != nil {
+		if err := rows.Scan(&node.ID, &node.CollectionID, &parentID, &node.Kind, &node.Name, &node.Position,
+			&method, &description); err != nil {
 			return nil, fmt.Errorf("listing collection nodes: %w", err)
 		}
 		node.ParentID = parentID.String
 		node.Method = method.String
+		// The description travels with the row: it is the line the overview draws under the title, and
+		// a folder has one of those too.
+		node.Description = description.String
 		out = append(out, node)
 	}
 	return out, rows.Err()

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -82,7 +83,7 @@ func (f *fakeStore) nest(collectionID string) []domain.CollectionNode {
 			row := node
 			row.Items = build(row.ID)
 			row.Params, row.Headers, row.Cookies, row.Body = nil, nil, nil, ""
-			row.Description, row.Auth, row.URL, row.Scripts = "", nil, "", nil
+			row.Auth, row.URL, row.Scripts = nil, "", nil
 			items = append(items, row)
 		}
 		return items
@@ -589,6 +590,52 @@ func TestRenameReachesBothKinds(t *testing.T) {
 	}
 	if only(t, tree).Items[0].Name != "Тоже" {
 		t.Errorf("node = %+v, want the name trimmed", only(t, tree).Items[0])
+	}
+}
+
+// What a level is for is written the same way both levels answer it, and an empty answer is a real
+// one: the header draws a placeholder for it rather than a gap.
+func TestDescribeReachesBothKinds(t *testing.T) {
+	uc, _ := newTestUseCase()
+	ctx := context.Background()
+
+	tree, _ := uc.CreateCollection(ctx, "Коллекция", "старое описание")
+	collectionID := only(t, tree).ID
+	_, tree, _ = uc.CreateNode(ctx, NewNode{CollectionID: collectionID, Kind: domain.NodeFolder, Name: "Папка"})
+	folderID := only(t, tree).Items[0].ID
+
+	tree, err := uc.Describe(ctx, collectionID, "  Эндпоинты каталога  ")
+	if err != nil {
+		t.Fatalf("Describe: %v", err)
+	}
+	if got := only(t, tree).Description; got != "Эндпоинты каталога" {
+		t.Errorf("description = %q, want it trimmed", got)
+	}
+
+	tree, err = uc.Describe(ctx, folderID, "Только админские")
+	if err != nil {
+		t.Fatalf("Describe: %v", err)
+	}
+	if got := only(t, tree).Items[0].Description; got != "Только админские" {
+		t.Errorf("folder description = %q, want what was written", got)
+	}
+
+	// Empty is allowed and means what it says — unlike a name, which cannot be empty.
+	tree, err = uc.Describe(ctx, collectionID, "   ")
+	if err != nil {
+		t.Fatalf("Describe(empty): %v", err)
+	}
+	if got := only(t, tree).Description; got != "" {
+		t.Errorf("description = %q, want it cleared", got)
+	}
+
+	// What is too long to be a description is refused, and the row keeps the one it had.
+	refused := strings.Repeat("я", maxDescriptionLength+1)
+	if _, err := uc.Describe(ctx, collectionID, refused); !errors.Is(err, domain.ErrNotAllowed) {
+		t.Errorf("a description of %d runes = %v, want ErrNotAllowed", len(refused), err)
+	}
+	if _, err := uc.Describe(ctx, "нет-такого", "что-то"); !errors.Is(err, domain.ErrNotFound) {
+		t.Errorf("describing nothing = %v, want ErrNotFound", err)
 	}
 }
 

@@ -37,6 +37,14 @@ export function Delete(id: string): $CancellablePromise<domain$0.Collection[] | 
     return $Call.ByID(1880484957, id);
 }
 
+/**
+ * Describe writes what a collection or a folder is for — the line the overview draws above its tabs.
+ * Empty is an answer there: the header then shows the placeholder that invites one.
+ */
+export function Describe(id: string, description: string): $CancellablePromise<domain$0.Collection[] | null> {
+    return $Call.ByID(4022716643, id, description);
+}
+
 export function Duplicate(id: string): $CancellablePromise<domain$0.Collection[] | null> {
     return $Call.ByID(1426855475, id);
 }
