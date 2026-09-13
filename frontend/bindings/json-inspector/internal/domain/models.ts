@@ -46,6 +46,65 @@ export enum BodySide {
 };
 
 /**
+ * Collection is a saved tree of requests with a name of its own. Folders and requests live inside it
+ * in one order, which is the order the tree draws them and the order a run walks them.
+ */
+export interface Collection {
+    "id": string;
+    "name": string;
+    "description"?: string;
+    "position": number;
+    "createdAt": number;
+    "updatedAt": number;
+    "items": CollectionNode[] | null;
+
+    /**
+     * Auth is what everything inside inherits unless it says otherwise. It is a pointer for the same
+     * reason a node's is: nil is "nothing here", and the walk stops at the first non-nil it meets.
+     */
+    "auth"?: Auth | null;
+}
+
+/**
+ * CollectionNode is one entry of a collection's tree. Folders and requests share the type because
+ * they share the tree: moving one is a parent and a position, not a different table.
+ * 
+ * The request's own fields are absent until the node is opened: a tree of two hundred nodes has no
+ * business carrying two hundred bodies, and the method is all a tree row draws.
+ * 
+ * Auth and Scripts are pointers for the reason the schema's NULL columns exist: nil means "not set
+ * here, take the parent's" and a value — even an empty one — means "this is the answer, stop
+ * looking". Without the difference a collection could not say "no auth for anything in here".
+ */
+export interface CollectionNode {
+    "id": string;
+    "parentId"?: string;
+    "collectionId": string;
+    "kind": NodeKind;
+    "name": string;
+    "position": number;
+
+    /**
+     * A request's own fields. `omitempty` where a zero value and an absent one mean the same thing.
+     */
+    "method"?: string;
+    "url"?: string;
+    "params"?: Row[] | null;
+    "headers"?: Row[] | null;
+    "body"?: string;
+    "cookies"?: CookieRow[] | null;
+    "auth"?: Auth | null;
+    "description"?: string;
+    "createdAt": number;
+    "updatedAt": number;
+
+    /**
+     * Items are a folder's children, in order. A request has none.
+     */
+    "items"?: CollectionNode[] | null;
+}
+
+/**
  * CookieRow is one row of the request-side jar the "Cookies" tab edits. Domain, path, expiry and
  * the flags are Set-Cookie attributes rather than parts of a request's own Cookie header; they are
  * kept so a draft can be restored from a record.
@@ -129,6 +188,19 @@ export interface HeaderPair {
     "name": string;
     "value": string;
 }
+
+/**
+ * NodeKind is what a node is: a folder holds other nodes, a request is the thing that gets sent.
+ */
+export enum NodeKind {
+    /**
+     * The Go zero value for the underlying type of the enum.
+     */
+    $zero = "",
+
+    NodeFolder = "folder",
+    NodeRequest = "request",
+};
 
 /**
  * Record is a summary plus everything the response pane shows. The summary is embedded rather than

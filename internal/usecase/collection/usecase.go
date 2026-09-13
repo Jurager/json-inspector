@@ -1,0 +1,408 @@
+// Package collection owns the saved requests: the tree they live in, what inherits from what, and
+// what happens when a whole collection is run.
+package collection
+
+import (
+	"context"
+	"fmt"
+	"strings"
+
+	"json-inspector/internal/domain"
+	"json-inspector/internal/platform"
+)
+
+// copySuffix marks a duplicate for what it is. It is the word the window shows, so it lives here
+// rather than in a view that would have to invent its own.
+const copySuffix = " (копия)"
+
+// maxNameLength is the same ceiling the environments screen uses, so a name that is too long means
+// the same thing wherever it is typed.
+const maxNameLength = 120
+
+type UseCase struct {
+	store Store
+	ids   platform.IDGen
+}
+
+func NewUseCase(store Store, ids platform.IDGen) *UseCase {
+	return &UseCase{store: store, ids: ids}
+}
+
+// Tree is every collection with its nodes, which is what the list draws and what a run walks.
+func (u *UseCase) Tree(ctx context.Context) ([]domain.Collection, error) {
+	return u.store.Collections(ctx)
+}
+
+// Node reads one node whole: everything opening a request needs, and the tree deliberately left out.
+func (u *UseCase) Node(ctx context.Context, id string) (domain.CollectionNode, error) {
+	return u.store.Node(ctx, id)
+}
+
+// CreateCollection adds an empty collection at the end of the list. The name is given rather than
+// invented: the window asks for it in the tree, in the row the user is looking at.
+func (u *UseCase) CreateCollection(ctx context.Context, name string, description string) ([]domain.Collection, error) {
+	name, err := validName(name)
+	if err != nil {
+		return nil, err
+	}
+
+	tree, err := u.store.Collections(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if err := u.store.SaveCollection(ctx, domain.Collection{
+		ID:          u.ids(),
+		Name:        name,
+		Description: strings.TrimSpace(description),
+		Position:    int64(len(tree)),
+		Items:       []domain.CollectionNode{},
+	}); err != nil {
+		return nil, err
+	}
+	return u.Tree(ctx)
+}
+
+// NewNode is what the tree asks for when a row is created: where it goes, what it is, and the one
+// thing a new request already knows about itself — a method, because that is what the row draws.
+type NewNode struct {
+	CollectionID string          `json:"collectionId"`
+	ParentID     string          `json:"parentId,omitempty"`
+	Kind         domain.NodeKind `json:"kind"`
+	Name         string          `json:"name"`
+	Method       string          `json:"method,omitempty"`
+}
+
+// CreateNode adds a folder or an empty request to the end of its group. An empty parent means the
+// node lives in the collection's own root.
+func (u *UseCase) CreateNode(ctx context.Context, in NewNode) ([]domain.Collection, error) {
+	name, err := validName(in.Name)
+	if err != nil {
+		return nil, err
+	}
+	if in.Kind != domain.NodeFolder && in.Kind != domain.NodeRequest {
+		return nil, fmt.Errorf("вид узла %q: %w", in.Kind, domain.ErrNotAllowed)
+	}
+	if _, ok, err := u.collection(ctx, in.CollectionID); err != nil {
+		return nil, err
+	} else if !ok {
+		return nil, fmt.Errorf("коллекция %s: %w", in.CollectionID, domain.ErrNotFound)
+	}
+	// A request can hold nothing, so only a folder is a place: without this a request dropped into
+	// another one would be a node the tree can never draw.
+	if in.ParentID != "" {
+		parent, err := u.store.Node(ctx, in.ParentID)
+		if err != nil {
+			return nil, err
+		}
+		if parent.Kind != domain.NodeFolder || parent.CollectionID != in.CollectionID {
+			return nil, fmt.Errorf("родитель %s: %w", in.ParentID, domain.ErrNotAllowed)
+		}
+	}
+
+	position, err := u.store.NextPosition(ctx, in.CollectionID, in.ParentID)
+	if err != nil {
+		return nil, err
+	}
+
+	node := domain.CollectionNode{
+		ID:           u.ids(),
+		CollectionID: in.CollectionID,
+		ParentID:     in.ParentID,
+		Kind:         in.Kind,
+		Name:         name,
+		Position:     position,
+	}
+	if in.Kind == domain.NodeRequest {
+		node.Method = defaultMethod(in.Method)
+		node.Params = []domain.Row{}
+		node.Headers = []domain.Row{}
+		node.Cookies = []domain.CookieRow{}
+	}
+	if err := u.store.SaveNode(ctx, node); err != nil {
+		return nil, err
+	}
+	return u.Tree(ctx)
+}
+
+// Rename is the one edit a tree row takes: the name. What a request is made of is edited in its own
+// card and saved from there, so both a collection and a node answer to the same gesture.
+func (u *UseCase) Rename(ctx context.Context, id string, name string) ([]domain.Collection, error) {
+	name, err := validName(name)
+	if err != nil {
+		return nil, err
+	}
+
+	collection, ok, err := u.collection(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	if ok {
+		collection.Name = name
+		if err := u.store.SaveCollection(ctx, collection); err != nil {
+			return nil, err
+		}
+		return u.Tree(ctx)
+	}
+
+	node, err := u.store.Node(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	node.Name = name
+	if err := u.store.SaveNode(ctx, node); err != nil {
+		return nil, err
+	}
+	return u.Tree(ctx)
+}
+
+// Duplicate copies a collection or a node into the same place, under a name that says what it is.
+// Ids are minted anew: the copy is a second thing, not the same thing twice.
+func (u *UseCase) Duplicate(ctx context.Context, id string) ([]domain.Collection, error) {
+	if collection, ok, err := u.collection(ctx, id); err != nil {
+		return nil, err
+	} else if ok {
+		return u.duplicateCollection(ctx, collection)
+	}
+
+	// The copy starts from the tree, not from Node: a node read on its own carries no children, and
+	// duplicating a folder from that would produce an empty one.
+	tree, err := u.store.Collections(ctx)
+	if err != nil {
+		return nil, err
+	}
+	node, ok := findNode(tree, id)
+	if !ok {
+		return nil, fmt.Errorf("узел %s: %w", id, domain.ErrNotFound)
+	}
+	position, err := u.store.NextPosition(ctx, node.CollectionID, node.ParentID)
+	if err != nil {
+		return nil, err
+	}
+
+	copied, err := u.copyNode(ctx, node, node.CollectionID, node.ParentID, node.Name+copySuffix, position)
+	if err != nil {
+		return nil, err
+	}
+	if err := u.saveTree(ctx, copied); err != nil {
+		return nil, err
+	}
+	return u.Tree(ctx)
+}
+
+// Delete removes a collection or a node. What was inside goes with it through the schema's cascade
+// — one statement, so a half-deleted tree is not a state that exists.
+func (u *UseCase) Delete(ctx context.Context, id string) ([]domain.Collection, error) {
+	if _, ok, err := u.collection(ctx, id); err != nil {
+		return nil, err
+	} else if ok {
+		if err := u.store.DeleteCollection(ctx, id); err != nil {
+			return nil, err
+		}
+		return u.Tree(ctx)
+	}
+
+	if _, err := u.store.Node(ctx, id); err != nil {
+		return nil, err
+	}
+	if err := u.store.DeleteNode(ctx, id); err != nil {
+		return nil, err
+	}
+	return u.Tree(ctx)
+}
+
+// SaveNode writes what the card was editing back into the tree. The node is re-read first: the
+// parts the card does not own — where it sits, what kind it is, when it was made — belong to the
+// tree and stay as they are.
+func (u *UseCase) SaveNode(ctx context.Context, edited domain.CollectionNode) ([]domain.Collection, error) {
+	stored, err := u.store.Node(ctx, edited.ID)
+	if err != nil {
+		return nil, err
+	}
+
+	stored.Name, err = validName(edited.Name)
+	if err != nil {
+		return nil, err
+	}
+	stored.Description = strings.TrimSpace(edited.Description)
+	if stored.Kind == domain.NodeRequest {
+		stored.Method = defaultMethod(edited.Method)
+		stored.URL = edited.URL
+		stored.Params = orEmptyRows(edited.Params)
+		stored.Headers = orEmptyRows(edited.Headers)
+		stored.Body = edited.Body
+		stored.Cookies = orEmptyCookies(edited.Cookies)
+		stored.Auth = edited.Auth
+	}
+	if err := u.store.SaveNode(ctx, stored); err != nil {
+		return nil, err
+	}
+	return u.Tree(ctx)
+}
+
+// duplicateCollection copies a whole collection into a new one at the end of the list. The tree is
+// read with its request fields left out, so every node is read again on the way in — a copy of a
+// request that lost its headers would be worse than no copy at all.
+func (u *UseCase) duplicateCollection(ctx context.Context, collection domain.Collection) ([]domain.Collection, error) {
+	tree, err := u.store.Collections(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	copied := domain.Collection{
+		ID:          u.ids(),
+		Name:        clip(collection.Name + copySuffix),
+		Description: collection.Description,
+		Position:    int64(len(tree)),
+		Items:       []domain.CollectionNode{},
+	}
+
+	roots := make([]domain.CollectionNode, 0, len(collection.Items))
+	for i, node := range collection.Items {
+		full, err := u.store.Node(ctx, node.ID)
+		if err != nil {
+			return nil, err
+		}
+		// A row in the tree knows its children only by shape; the copy needs the whole node.
+		full.Items = node.Items
+		child, err := u.copyNode(ctx, full, copied.ID, "", node.Name, int64(i))
+		if err != nil {
+			return nil, err
+		}
+		roots = append(roots, child)
+	}
+
+	if err := u.store.SaveCollection(ctx, copied); err != nil {
+		return nil, err
+	}
+	for _, root := range roots {
+		if err := u.saveTree(ctx, root); err != nil {
+			return nil, err
+		}
+	}
+	return u.Tree(ctx)
+}
+
+// copyNode builds the copy of a subtree in memory before any of it is written: a duplicate that
+// failed halfway would leave a folder with half its requests in it.
+func (u *UseCase) copyNode(ctx context.Context, node domain.CollectionNode, collectionID string, parentID string, name string, position int64) (domain.CollectionNode, error) {
+	copied := node
+	copied.ID = u.ids()
+	copied.CollectionID = collectionID
+	copied.ParentID = parentID
+	copied.Name = name
+	copied.Position = position
+	copied.Items = nil
+
+	for i, child := range node.Items {
+		full, err := u.store.Node(ctx, child.ID)
+		if err != nil {
+			return domain.CollectionNode{}, err
+		}
+		// A row in the tree knows its own children only by shape; the copy needs the whole node.
+		full.Items = child.Items
+		child, err := u.copyNode(ctx, full, collectionID, copied.ID, child.Name, int64(i))
+		if err != nil {
+			return domain.CollectionNode{}, err
+		}
+		copied.Items = append(copied.Items, child)
+	}
+	return copied, nil
+}
+
+// saveTree writes a copied subtree depth first: a child's parent has to exist before it does.
+func (u *UseCase) saveTree(ctx context.Context, node domain.CollectionNode) error {
+	children := node.Items
+	node.Items = nil
+	if err := u.store.SaveNode(ctx, node); err != nil {
+		return err
+	}
+	for _, child := range children {
+		if err := u.saveTree(ctx, child); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// findNode looks a node up in the tree, which is where its children are. The tree is small enough
+// to walk, and walking it is what says whether the id names a node at all.
+func findNode(tree []domain.Collection, id string) (domain.CollectionNode, bool) {
+	var walk func([]domain.CollectionNode) (domain.CollectionNode, bool)
+	walk = func(nodes []domain.CollectionNode) (domain.CollectionNode, bool) {
+		for _, node := range nodes {
+			if node.ID == id {
+				return node, true
+			}
+			if found, ok := walk(node.Items); ok {
+				return found, true
+			}
+		}
+		return domain.CollectionNode{}, false
+	}
+	for _, collection := range tree {
+		if found, ok := walk(collection.Items); ok {
+			return found, true
+		}
+	}
+	return domain.CollectionNode{}, false
+}
+
+// collection finds a collection by id and says whether it found one rather than failing: nodes are
+// addressed in the same id space, and a caller naming an id does not say which of the two it named.
+func (u *UseCase) collection(ctx context.Context, id string) (domain.Collection, bool, error) {
+	tree, err := u.store.Collections(ctx)
+	if err != nil {
+		return domain.Collection{}, false, err
+	}
+	for _, collection := range tree {
+		if collection.ID == id {
+			return collection, true, nil
+		}
+	}
+	return domain.Collection{}, false, nil
+}
+
+func validName(name string) (string, error) {
+	name = strings.TrimSpace(name)
+	if name == "" {
+		return "", fmt.Errorf("имя не может быть пустым: %w", domain.ErrNotAllowed)
+	}
+	if len([]rune(name)) > maxNameLength {
+		return "", fmt.Errorf("имя длиннее %d символов: %w", maxNameLength, domain.ErrNotAllowed)
+	}
+	return name, nil
+}
+
+// clip keeps a name inside the ceiling. Duplicating at the limit is a thing a user does, and
+// refusing it would be the app's problem, not theirs.
+func clip(name string) string {
+	runes := []rune(name)
+	if len(runes) <= maxNameLength {
+		return name
+	}
+	return string(runes[:maxNameLength])
+}
+
+// defaultMethod is what a request gets when the tree did not name one — the tree offers GET first,
+// and a method is never empty on a request that has been sent.
+func defaultMethod(method string) string {
+	method = strings.TrimSpace(strings.ToUpper(method))
+	if method == "" {
+		return "GET"
+	}
+	return method
+}
+
+func orEmptyRows(rows []domain.Row) []domain.Row {
+	if rows == nil {
+		return []domain.Row{}
+	}
+	return rows
+}
+
+func orEmptyCookies(cookies []domain.CookieRow) []domain.CookieRow {
+	if cookies == nil {
+		return []domain.CookieRow{}
+	}
+	return cookies
+}

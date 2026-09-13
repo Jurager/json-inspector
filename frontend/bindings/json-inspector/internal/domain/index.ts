@@ -4,6 +4,7 @@
 export {
     AuthType,
     BodySide,
+    NodeKind,
     RecordSource,
     Retention,
     RowKind,
@@ -14,6 +15,8 @@ export {
 export type {
     Auth,
     BodyRef,
+    Collection,
+    CollectionNode,
     CookieRow,
     Draft,
     EnvScope,

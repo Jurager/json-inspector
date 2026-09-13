@@ -5,6 +5,7 @@ package usecase
 import (
 	"go.uber.org/fx"
 
+	"json-inspector/internal/usecase/collection"
 	"json-inspector/internal/usecase/draft"
 	"json-inspector/internal/usecase/environment"
 	"json-inspector/internal/usecase/record"
@@ -12,6 +13,7 @@ import (
 )
 
 var Module = fx.Module("usecase",
+	collection.Module,
 	draft.Module,
 	environment.Module,
 	record.Module,

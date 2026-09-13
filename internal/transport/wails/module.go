@@ -11,6 +11,7 @@ import (
 	"json-inspector/internal/infra/httpx"
 	"json-inspector/internal/infra/sqlite"
 	"json-inspector/internal/platform"
+	"json-inspector/internal/usecase/collection"
 	"json-inspector/internal/usecase/draft"
 	"json-inspector/internal/usecase/environment"
 	"json-inspector/internal/usecase/record"
@@ -34,6 +35,7 @@ type ServicesIn struct {
 	Records      *RecordsService
 	Drafts       *DraftService
 	Environments *EnvironmentsService
+	Collections  *CollectionsService
 	Bridge       *BridgeService
 }
 
@@ -47,6 +49,7 @@ var Module = fx.Module("wails",
 		func(host *Host) settings.Notifier { return newBus(host) },
 		func(store *sqlite.Store) record.Store { return store },
 		func(store *sqlite.Store) draft.Store { return store },
+		func(store *sqlite.Store) collection.Store { return store },
 		func(engine *httpx.Engine) record.Executor { return engineExecutor{engine: engine} },
 		func(host *Host) record.Notifier { return newBus(host) },
 		func(uc *settings.UseCase) record.RetentionSource { return settingsRetention(uc) },
@@ -59,6 +62,7 @@ var Module = fx.Module("wails",
 		NewRecordsService,
 		NewDraftService,
 		NewEnvironmentsService,
+		NewCollectionsService,
 		NewBridgeService,
 		newCaptureIngest,
 		newApplication,
@@ -109,6 +113,7 @@ func setup(
 	recordsService := application.NewService(in.Records)
 	draftService := application.NewService(in.Drafts)
 	environments := application.NewService(in.Environments)
+	collections := application.NewService(in.Collections)
 	bridgeService := application.NewService(in.Bridge)
 
 	app.RegisterService(system)
@@ -120,6 +125,7 @@ func setup(
 	// reads StartupStatus and renders the failure instead of reaching for these.
 	if status.Ready() {
 		app.RegisterService(environments)
+		app.RegisterService(collections)
 		app.RegisterService(bridgeService)
 	}
 
