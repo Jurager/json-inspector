@@ -11,6 +11,7 @@ import {
   ContextMenuSeparator,
 } from '../ui/context-menu'
 import DeleteNodeDialog from './DeleteNodeDialog.vue'
+import { useListKeys } from '../../composables/useListKeys'
 import { useCollectionsStore } from '../../stores/collections'
 import { filterTree, requestCount } from '../../lib/collectionTree'
 import { useToast } from '../../composables/useToast'
@@ -124,6 +125,51 @@ async function pick(row: Row) {
   if (!(await leave())) return
   await store.select(row.id)
 }
+
+// The arrows of a tree: up and down walk the rows that are drawn, and left and right are the opening
+// and the closing — a closed row opens, an open one closes, and left on either steps out to what
+// holds it. That is the gesture the chevron makes with a mouse, on the key a file list has always
+// answered to.
+useListKeys({
+  ids: () => visible.value.map((row) => row.id),
+  current: () => store.selectedId,
+  move: (id) => {
+    const row = visible.value.find((r) => r.id === id)
+    if (row) void pick(row)
+  },
+  selected: '.tree-panel .row.active',
+  onSideKey: (key, id) => {
+    const rows = visible.value
+    const at = rows.findIndex((row) => row.id === id)
+    if (at < 0) return false
+    const row = rows[at]
+
+    if (key === 'ArrowRight') {
+      if (!row.expandable) return false
+      if (row.expanded) {
+        // Already open: what is inside it is the next row, drawn one level deeper.
+        const child = rows[at + 1]
+        if (child && child.depth > row.depth) void pick(child)
+        return true
+      }
+      store.toggleExpand(row.id)
+      return true
+    }
+
+    if (row.expandable && row.expanded) {
+      store.toggleExpand(row.id)
+      return true
+    }
+    // A request, or a row that is already closed: left goes out to the level that holds it.
+    for (let i = at - 1; i >= 0; i--) {
+      if (rows[i].depth < row.depth) {
+        void pick(rows[i])
+        break
+      }
+    }
+    return true
+  },
+})
 
 // ---- renaming ------------------------------------------------------------
 

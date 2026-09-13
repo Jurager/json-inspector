@@ -3,6 +3,7 @@ import { computed, ref, watch } from 'vue'
 import Icon from '../ui/Icon.vue'
 import { Button, IconButton } from '../ui/button'
 import PanelFilter from '../ui/PanelFilter.vue'
+import { useListKeys } from '../../composables/useListKeys'
 import { useRequestsStore } from '../../stores/requests'
 import { RecordSource, type Record } from '../../../bindings/json-inspector/internal/domain'
 import { statusBadgeClass } from '../../lib/format'
@@ -132,6 +133,24 @@ function isRecording(g: TabGroup): boolean {
 
 const collapsed = ref<Set<string>>(new Set())
 const brokenFavicons = ref<Set<string>>(new Set())
+
+// The rows the arrows walk: what is drawn, in the order it is drawn. A collapsed tab holds its
+// requests back, and a filtered-out one is not on screen to be walked to.
+const rowIds = computed(() => {
+  if (browser.value) {
+    return filteredGroups.value
+      .filter((g) => !collapsed.value.has(g.key))
+      .flatMap((g) => g.items.map((r) => r.id))
+  }
+  return manualGroups.value.flatMap((g) => g.items.map((r) => r.id))
+})
+
+useListKeys({
+  ids: () => rowIds.value,
+  current: () => activeId.value,
+  move: (id) => void select(id),
+  selected: '.history-panel .item.active',
+})
 
 function toggleGroup(key: string) {
   const next = new Set(collapsed.value)
