@@ -24,8 +24,8 @@ const store = useRequestsStore()
 const envStore = useEnvironmentsStore()
 const { availableUpdate } = useUpdates()
 
-// Without a database the rest of the window has nothing to show: the backend registers only the
-// system service in that case, so this is the one screen that can be honest about why.
+// Without a database every other call fails, and this is the one screen that can say why instead of
+// leaving a window full of empty panels.
 const startup = ref<StartupStatus | null>(null)
 const retrying = ref(false)
 
