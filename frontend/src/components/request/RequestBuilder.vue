@@ -281,17 +281,16 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onWindowKeydown))
         </Popover>
       </div>
 
-      <span ref="saveAnchor" class="save-anchor">
+      <span v-if="canSave" ref="saveAnchor" class="save-anchor">
         <button
           class="bookmark-btn"
-          :disabled="!canSave || !store.url.trim()"
-          :title="canSave ? 'Сохранить в коллекцию' : 'Запрос уже в коллекции'"
+          :disabled="!store.url.trim()"
+          title="Сохранить в коллекцию"
           @click="saveOpen = !saveOpen"
         >
           <Icon name="bookmark" :size="14" />
         </button>
         <SaveToCollectionSheet
-          v-if="canSave && saveAnchor"
           :open="saveOpen"
           :url="store.url"
           :default-name="saveDefaultName"

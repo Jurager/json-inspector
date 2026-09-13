@@ -35,19 +35,19 @@ function levelName(run: ScriptRun): string {
 const SCOPE_LABELS: Record<string, string> = { pre: 'Перед запросом', post: 'После ответа' }
 
 // A check that failed is what the tab is for: an ordinary run of a script with no checks says nothing
-// here, and the summary line above each script is what says it ran at all.
+// here, and the line above each script is what says it ran at all.
 function hasChecks(run: ScriptRun): boolean {
   return (run.tests ?? []).length > 0 || (run.logs ?? []).length > 0 || !run.ok || Boolean(run.error)
 }
 </script>
 
 <template>
-  <div class="tests">
+  <div class="script-runs">
     <div v-if="loading" class="empty"><span>Читаем отчёты…</span></div>
 
     <div v-else-if="runs.length === 0" class="empty">
       <span class="empty-title">Скриптов нет</span>
-      <span>Вокруг этого запроса ничего не выполняется. Скрипты задаются в шапке коллекции.</span>
+      <span>Вокруг этого запроса ничего не выполняется. Свои скрипты задаются в чипе «Скрипты».</span>
     </div>
 
     <ul v-else class="run-list">
@@ -98,7 +98,7 @@ function hasChecks(run: ScriptRun): boolean {
 <style scoped>
 @reference "../../style.css";
 
-.tests {
+.script-runs {
   @apply min-h-full flex flex-col bg-bg-panel;
 }
 

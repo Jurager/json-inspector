@@ -88,38 +88,40 @@ async function save() {
     </PopoverAnchor>
 
     <PopoverContent class="save-sheet" align="end" @open-auto-focus.prevent>
-      <div class="head">Сохранить запрос</div>
+      <div class="sheet-body">
+        <div class="head">Сохранить запрос</div>
 
-      <Input
-        ref="nameInput"
-        v-model="name"
-        size="sm"
-        placeholder="Имя запроса"
-        spellcheck="false"
-        @keydown.enter.prevent="save"
-        @keydown.escape.prevent="emit('update:open', false)"
-      />
+        <Input
+          ref="nameInput"
+          v-model="name"
+          size="sm"
+          placeholder="Имя запроса"
+          spellcheck="false"
+          @keydown.enter.prevent="save"
+          @keydown.escape.prevent="emit('update:open', false)"
+        />
 
-      <div class="list">
-        <button
-          v-for="place in places"
-          :key="place.id"
-          class="place"
-          :class="{ active: place.id === selected?.id }"
-          :style="{ paddingLeft: 8 + Math.min(place.depth, 2) * 16 + 'px' }"
-          @click="selected = place"
-        >
-          <Icon :name="place.depth === 0 ? 'folder' : 'chevron-right'" :size="12" class="place-icon" />
-          <span class="place-name">{{ place.name }}</span>
-        </button>
-        <div v-if="empty" class="no-places">Сначала создайте коллекцию</div>
-      </div>
+        <div class="list">
+          <button
+            v-for="place in places"
+            :key="place.id"
+            class="place"
+            :class="{ active: place.id === selected?.id }"
+            :style="{ paddingLeft: 10 + Math.min(place.depth, 2) * 18 + 'px' }"
+            @click="selected = place"
+          >
+            <Icon name="folder" :size="place.depth === 0 ? 12 : 11" class="place-icon" />
+            <span class="place-name">{{ place.name }}</span>
+          </button>
+          <div v-if="empty" class="no-places">Сначала создайте коллекцию</div>
+        </div>
 
-      <div class="actions">
-        <PopoverClose as-child>
-          <Button @click="emit('update:open', false)">Отмена</Button>
-        </PopoverClose>
-        <Button variant="primary" :disabled="!canSave || saving" @click="save">Сохранить</Button>
+        <div class="actions">
+          <PopoverClose as-child>
+            <Button @click="emit('update:open', false)">Отмена</Button>
+          </PopoverClose>
+          <Button variant="primary" :disabled="!canSave || saving" @click="save">Сохранить</Button>
+        </div>
       </div>
     </PopoverContent>
   </Popover>
@@ -133,21 +135,23 @@ async function save() {
   @apply block w-0 h-0;
 }
 
-.save-sheet {
-  @apply flex flex-col gap-2 p-3;
+/* The panel's own box. It is a box of this component's template and not the popover's root for the
+   reason the popover is portaled: this file's scope id never lands on that root. */
+.sheet-body {
+  @apply flex flex-col gap-2 p-2.5;
   width: 320px;
 }
 
 .head {
-  @apply text-[13px] font-semibold;
+  @apply text-[12px] font-semibold;
 }
 
 .list {
-  @apply flex flex-col max-h-[220px] overflow-y-auto -mx-1 px-1;
+  @apply flex flex-col gap-px max-h-[220px] overflow-y-auto p-[5px] rounded-[7px] border border-border;
 }
 
 .place {
-  @apply flex items-center gap-1.5 h-[28px] pr-2 rounded-md border-none bg-transparent text-text text-[12.5px] text-left cursor-pointer w-full;
+  @apply flex items-center gap-1.5 h-[28px] pr-2.5 rounded-[7px] border-none bg-transparent text-text text-[13px] text-left cursor-pointer w-full;
   font: inherit;
 }
 

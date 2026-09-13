@@ -22,7 +22,7 @@ import SchemaMap from '../json/SchemaMap.vue'
 import NodeInspector from '../json/NodeInspector.vue'
 import RequestCookiesTab from './RequestCookiesTab.vue'
 import TimingsTab from './TimingsTab.vue'
-import TestsTab from './TestsTab.vue'
+import ScriptsTab from './ScriptsTab.vue'
 import { RecordSource } from '../../../bindings/json-inspector/internal/domain'
 import { useRequestsStore } from '../../stores/requests'
 import { useCollectionsStore } from '../../stores/collections'
@@ -50,7 +50,7 @@ const hasHistory = computed(() => props.source !== 'collection')
 const { shortcut } = usePlatform()
 const envStore = useEnvironmentsStore()
 
-type Tab = 'body' | 'map' | 'raw' | 'headers' | 'cookies' | 'timings' | 'tests' | 'request'
+type Tab = 'body' | 'map' | 'raw' | 'headers' | 'cookies' | 'timings' | 'scripts' | 'request'
 const activeTab = ref<Tab>('body')
 
 const TAB_LABELS: Record<Tab, string> = {
@@ -60,7 +60,7 @@ const TAB_LABELS: Record<Tab, string> = {
   headers: 'Заголовки',
   cookies: 'Cookies',
   timings: 'Тайминги',
-  tests: 'Тесты',
+  scripts: 'Скрипты',
   request: 'Запрос',
 }
 
@@ -197,7 +197,7 @@ const availableTabs = computed<Tab[]>(() => {
   tabs.push('timings')
   // The scripts of a collection run around the requests this app sends, so a report only ever hangs
   // off a record of its own: a captured one has none, and the tab there would always be empty.
-  if (props.record.source === RecordSource.SourceManual) tabs.push('tests')
+  if (props.record.source === RecordSource.SourceManual) tabs.push('scripts')
   // A manual record's request is the one already open in the command line above this viewer —
   // the tab would only repeat it. A captured one has no command line, so there it stays.
   if (props.record.source === RecordSource.SourceBrowser) tabs.push('request')
@@ -485,9 +485,9 @@ async function copyAs(format: ExportFormat, { keepTokens = false } = {}) {
         </div>
       </TabsContent>
 
-      <TabsContent class="resp-tab" value="tests">
+      <TabsContent class="resp-tab" value="scripts">
         <div class="resp-content">
-          <TestsTab :record-id="record.id" />
+          <ScriptsTab :record-id="record.id" />
         </div>
       </TabsContent>
 
