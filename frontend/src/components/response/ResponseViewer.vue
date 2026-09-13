@@ -195,7 +195,9 @@ const availableTabs = computed<Tab[]>(() => {
   // and the browser-side workaround wasn't worth its cost), so the tab would always be empty.
   if (props.record.source === RecordSource.SourceManual) tabs.push('cookies')
   tabs.push('timings')
-  if (isJsonApiDoc.value) tabs.push('tests')
+  // The scripts of a collection run around the requests this app sends, so a report only ever hangs
+  // off a record of its own: a captured one has none, and the tab there would always be empty.
+  if (props.record.source === RecordSource.SourceManual) tabs.push('tests')
   // A manual record's request is the one already open in the command line above this viewer —
   // the tab would only repeat it. A captured one has no command line, so there it stays.
   if (props.record.source === RecordSource.SourceBrowser) tabs.push('request')
@@ -485,7 +487,7 @@ async function copyAs(format: ExportFormat, { keepTokens = false } = {}) {
 
       <TabsContent class="resp-tab" value="tests">
         <div class="resp-content">
-          <TestsTab />
+          <TestsTab :record-id="record.id" />
         </div>
       </TabsContent>
 

@@ -1,7 +1,9 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 import Icon from '../ui/Icon.vue'
 import { Button } from '../ui/button'
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '../ui/tabs'
+import CollectionScripts from './CollectionScripts.vue'
 import { useCollectionsStore } from '../../stores/collections'
 import { useToast } from '../../composables/useToast'
 import { requestCount } from '../../lib/collectionTree'
@@ -10,6 +12,10 @@ import type { CollectionNode } from '../../../bindings/json-inspector/internal/d
 
 const store = useCollectionsStore()
 const toast = useToast()
+
+// The header's two panes: what is inside the collection, and the code that runs around its requests.
+// Which one is open is the window's, not Go's — the code itself lives in the store, because it is Go's.
+const tab = ref<'requests' | 'scripts'>('requests')
 
 // What is being exported is what is selected: a folder exports its subtree, a collection everything
 // in it. Go reads the tree again — the rows the list carries have no bodies.
@@ -103,75 +109,90 @@ function pluralRequests(n: number): string {
           Последний прогон {{ startedAt(store.lastRun) }}
         </span>
       </div>
-    </div>
 
-    <div class="actions">
-      <Button v-if="!store.running" variant="primary" :disabled="requestTotal === 0" @click="run">
-        <Icon name="play" :size="13" /> Запустить коллекцию
-      </Button>
-      <Button v-else @click="store.stop">
-        <Icon name="stop" :size="13" /> Остановить
-      </Button>
+      <div class="actions">
+        <Button v-if="!store.running" variant="primary" :disabled="requestTotal === 0" @click="run">
+          <Icon name="play" :size="13" /> Запустить коллекцию
+        </Button>
+        <Button v-else @click="store.stop">
+          <Icon name="stop" :size="13" /> Остановить
+        </Button>
 
-      <Button :disabled="store.running !== null" @click="importCollection">
-        <Icon name="download" :size="13" /> Импорт
-      </Button>
-      <Button :disabled="store.running !== null || requestTotal === 0" @click="exportSelected">
-        <Icon name="upload" :size="13" /> Экспорт
-      </Button>
-    </div>
-
-    <div v-if="store.running" class="running">
-      Прогон: {{ store.running.done }} / {{ store.running.total || requestTotal }} ·
-      {{ store.running.name }}
-    </div>
-
-    <template v-if="store.lastRun">
-      <div class="summary">
-        <div class="cell">
-          <span class="cell-value">{{ rows.length }}</span>
-          <span class="cell-label">{{ plural(rows.length, ['запрос', 'запроса', 'запросов']) }}</span>
-        </div>
-        <div class="cell">
-          <span class="cell-value ok">{{ store.lastRun.passed }}</span>
-          <span class="cell-label">успешно</span>
-        </div>
-        <div class="cell">
-          <span class="cell-value bad">{{ store.lastRun.failed }}</span>
-          <span class="cell-label">{{ plural(store.lastRun.failed, ['ошибка', 'ошибки', 'ошибок']) }}</span>
-        </div>
-        <div class="cell">
-          <span class="cell-value">{{ formatMicros(store.lastRun.durationUs) }}</span>
-          <span class="cell-label">всего</span>
-        </div>
+        <Button :disabled="store.running !== null" @click="importCollection">
+          <Icon name="download" :size="13" /> Импорт
+        </Button>
+        <Button :disabled="store.running !== null || requestTotal === 0" @click="exportSelected">
+          <Icon name="upload" :size="13" /> Экспорт
+        </Button>
       </div>
-
-      <ul class="results">
-        <li
-          v-for="row in rows"
-          :key="row.nodeId"
-          class="result"
-          :class="{ failed: !row.ok }"
-          @click="store.select(row.nodeId)"
-        >
-          <span class="result-icon" :class="row.ok ? 'ok' : 'bad'">
-            <Icon :name="row.ok ? 'check' : 'xmark'" :size="12" :stroke-width="2.5" />
-          </span>
-          <span class="badge badge-method result-method">{{ row.method }}</span>
-          <span class="result-name" :title="row.error || row.name">{{ row.name }}</span>
-          <span v-if="row.status !== null" class="badge" :class="statusBadgeClass(row.status)">
-            {{ row.status }}
-          </span>
-          <span v-else class="result-error">{{ row.error }}</span>
-          <span class="result-time mono">{{ formatMicros(row.durationUs) }}</span>
-        </li>
-      </ul>
-    </template>
-
-    <div v-else-if="!store.running" class="idle">
-      <span class="idle-title">Ещё не запускали</span>
-      <span>Прогон отправит все запросы по очереди и покажет, что ответил каждый.</span>
     </div>
+
+    <Tabs v-model="tab" class="tabs-host">
+      <TabsList class="tabs">
+        <TabsTrigger class="tab" value="requests">Запросы</TabsTrigger>
+        <TabsTrigger class="tab" value="scripts">Скрипты</TabsTrigger>
+      </TabsList>
+
+      <div class="pane">
+        <TabsContent value="requests" class="pane-content">
+          <div v-if="store.running" class="running">
+            Прогон: {{ store.running.done }} / {{ store.running.total || requestTotal }} ·
+            {{ store.running.name }}
+          </div>
+
+          <template v-if="store.lastRun">
+            <div class="summary">
+              <div class="cell">
+                <span class="cell-value">{{ rows.length }}</span>
+                <span class="cell-label">{{ plural(rows.length, ['запрос', 'запроса', 'запросов']) }}</span>
+              </div>
+              <div class="cell">
+                <span class="cell-value ok">{{ store.lastRun.passed }}</span>
+                <span class="cell-label">успешно</span>
+              </div>
+              <div class="cell">
+                <span class="cell-value bad">{{ store.lastRun.failed }}</span>
+                <span class="cell-label">{{ plural(store.lastRun.failed, ['ошибка', 'ошибки', 'ошибок']) }}</span>
+              </div>
+              <div class="cell">
+                <span class="cell-value">{{ formatMicros(store.lastRun.durationUs) }}</span>
+                <span class="cell-label">всего</span>
+              </div>
+            </div>
+
+            <ul class="results">
+              <li
+                v-for="row in rows"
+                :key="row.nodeId"
+                class="result"
+                :class="{ failed: !row.ok }"
+                @click="store.select(row.nodeId)"
+              >
+                <span class="result-icon" :class="row.ok ? 'ok' : 'bad'">
+                  <Icon :name="row.ok ? 'check' : 'xmark'" :size="12" :stroke-width="2.5" />
+                </span>
+                <span class="badge badge-method result-method">{{ row.method }}</span>
+                <span class="result-name" :title="row.error || row.name">{{ row.name }}</span>
+                <span v-if="row.status !== null" class="badge" :class="statusBadgeClass(row.status)">
+                  {{ row.status }}
+                </span>
+                <span v-else class="result-error">{{ row.error }}</span>
+                <span class="result-time mono">{{ formatMicros(row.durationUs) }}</span>
+              </li>
+            </ul>
+          </template>
+
+          <div v-else-if="!store.running" class="idle">
+            <span class="idle-title">Ещё не запускали</span>
+            <span>Прогон отправит все запросы по очереди и покажет, что ответил каждый.</span>
+          </div>
+        </TabsContent>
+
+        <TabsContent value="scripts">
+          <CollectionScripts />
+        </TabsContent>
+      </div>
+    </Tabs>
   </div>
 </template>
 
@@ -179,11 +200,25 @@ function pluralRequests(n: number): string {
 @reference "../../style.css";
 
 .overview {
-  @apply flex-1 min-h-0 overflow-y-auto px-6 py-5;
+  @apply flex-1 min-h-0 flex flex-col;
 }
 
+/* The tabs run the width of the panel, so the padding that used to be here belongs to the two blocks
+   around them: what is above the tabs, and what each tab draws. */
 .head {
-  @apply flex flex-col gap-1;
+  @apply flex flex-col gap-1 px-6 pt-5 pb-4;
+}
+
+.tabs-host {
+  @apply flex-1 min-h-0 flex flex-col gap-0;
+}
+
+.pane {
+  @apply flex-1 min-h-0 overflow-y-auto;
+}
+
+.pane-content {
+  @apply px-6 py-5;
 }
 
 .head-line {

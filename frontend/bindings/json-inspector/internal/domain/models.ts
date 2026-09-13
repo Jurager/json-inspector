@@ -94,6 +94,12 @@ export interface CollectionNode {
     "body"?: string;
     "cookies"?: CookieRow[] | null;
     "auth"?: Auth | null;
+
+    /**
+     * Scripts are the code this request runs around itself. Nil means "not set here" and the levels
+     * above are what runs; empty means this level has nothing to add.
+     */
+    "scripts"?: Scripts | null;
     "description"?: string;
     "createdAt": number;
     "updatedAt": number;
@@ -141,6 +147,12 @@ export interface CollectionRunResult {
     "ok": boolean;
     "durationUs": number;
     "error"?: string;
+
+    /**
+     * Skipped is a request a pre-request script kept from going out. It is neither a pass nor a
+     * failure, which is why it is a flag of its own: the run counts it as neither.
+     */
+    "skipped"?: boolean;
 }
 
 /**
@@ -237,10 +249,6 @@ export interface Environment {
     "vars": Variable[] | null;
 }
 
-/**
- * HeaderPair is one header line. Headers travel as a sequence rather than a map because the wire
- * allows a name to repeat — two Set-Cookie lines are two cookies — and a map would keep one.
- */
 export interface HeaderPair {
     "name": string;
     "value": string;
@@ -306,6 +314,13 @@ export interface Record {
     "requestCookies"?: CookieRow[] | null;
     "requestBody"?: BodyRef | null;
     "responseBody"?: BodyRef | null;
+
+    /**
+     * Skipped is a request that never went out, because a pre-request script said so. There is no
+     * answer to fold in and nothing for history to keep — the flag is how whoever asked learns that
+     * the request was not sent rather than that it failed.
+     */
+    "skipped"?: boolean;
 }
 
 /**
@@ -365,6 +380,63 @@ export enum RowKind {
 };
 
 /**
+ * ScriptLog is one line a script printed. The level is the call it came from, so a warning does not
+ * have to be spelled out in the text.
+ */
+export interface ScriptLog {
+    "level": string;
+    "message": string;
+}
+
+/**
+ * ScriptRun is one execution of one script: what ran, whether it went through, what it printed and
+ * what it asserted. A run that failed is still a run — the failure is what the tab has to show.
+ */
+export interface ScriptRun {
+    "id": string;
+    "recordId"?: string;
+    "nodeId"?: string;
+    "scope": ScriptScope;
+    "ok": boolean;
+    "error"?: string;
+    "durationUs": number;
+    "createdAt": number;
+
+    /**
+     * SkipRequest is a pre-request script's answer that this request should not go out at all.
+     */
+    "skipRequest"?: boolean;
+    "logs": ScriptLog[] | null;
+    "tests": TestResult[] | null;
+}
+
+/**
+ * ScriptScope is when a script ran: before the request was sent, or after the answer came back.
+ */
+export enum ScriptScope {
+    /**
+     * The Go zero value for the underlying type of the enum.
+     */
+    $zero = "",
+
+    ScriptPre = "pre",
+    ScriptPost = "post",
+};
+
+/**
+ * Scripts is the code that runs around a request: before it goes out, and after it comes back.
+ * 
+ * On a node it is a pointer for the reason Auth is — nil means "not set here" and a value means
+ * "this is what this level says". It does not win by being closest, though: every level that has a
+ * script runs, outermost first, so a collection can count requests and a request can assert about its
+ * own response without either of them replacing the other.
+ */
+export interface Scripts {
+    "pre"?: string;
+    "post"?: string;
+}
+
+/**
  * Settings is everything the app remembers about how it is set up, in the order the screen shows
  * it. Defaults live in one place — the use case's — so a fresh database and a missing row agree.
  */
@@ -374,6 +446,17 @@ export interface Settings {
     "inspectorWidth": number;
     "sideWidth": number;
     "historyRetention": Retention;
+}
+
+/**
+ * TestResult is one assertion a script made. The name is the script's own — `pm.test('...')` — and a
+ * failure carries the reason beside it, because "не прошло" without why is not a report.
+ */
+export interface TestResult {
+    "name": string;
+    "passed": boolean;
+    "error"?: string;
+    "durationUs": number;
 }
 
 /**

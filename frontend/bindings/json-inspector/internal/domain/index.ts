@@ -9,6 +9,7 @@ export {
     RecordSource,
     Retention,
     RowKind,
+    ScriptScope,
     Theme,
     VariableKind
 } from "./models.js";
@@ -28,6 +29,10 @@ export type {
     HeaderPair,
     Record,
     Row,
+    ScriptLog,
+    ScriptRun,
+    Scripts,
     Settings,
+    TestResult,
     Variable
 } from "./models.js";

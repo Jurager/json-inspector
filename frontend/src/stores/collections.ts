@@ -13,15 +13,22 @@ import {
   type NodeKind,
   type Record,
   type Row,
+  type Scripts,
 } from '../../bindings/json-inspector/internal/domain'
 import { TextField, type Preview, type RowPatch, type Seed, type TextResult } from '../../bindings/json-inspector/internal/usecase/draft'
+import type { Level } from '../../bindings/json-inspector/internal/usecase/scripting'
 import type { NodeEditor } from '../../bindings/json-inspector/internal/transport/wails/models'
-import { CollectionsService, DraftService, RecordsService } from '../../bindings/json-inspector/internal/transport/wails'
+import {
+  CollectionsService,
+  DraftService,
+  RecordsService,
+  ScriptingService,
+} from '../../bindings/json-inspector/internal/transport/wails'
 
 // How long the window holds a text it is typing before handing it over — the same pause the command
 // line uses, and for the same reason: the draft is Go's, so every keystroke would otherwise be a
 // write on the other side of the boundary.
-const FLUSH_MS = 400
+export const FLUSH_MS = 400
 
 export type ChipName = 'params' | 'headers' | 'auth' | 'body'
 
@@ -61,6 +68,14 @@ export const useCollectionsStore = defineStore('collections', {
     // The run: what the last one came to, and how far the one that is going has got.
     lastRun: null as CollectionRun | null,
     running: null as { done: number; total: number; name: string } | null,
+
+    // The code the selected level runs of its own — null when it has none, which is a level that
+    // inherits — and everything that runs around it, outermost first. The id says which level the
+    // pair is about: the selection can move while the answer travels, and one level's code shown as
+    // another level's is worse than a box that is still empty.
+    scriptsFor: null as string | null,
+    scripts: null as Scripts | null,
+    chain: [] as Level[],
 
     // A collection made by a button that has no row to type in yet: the tree names it as soon as the
     // row exists, because a new collection is a name the user is about to give rather than one.
@@ -523,6 +538,45 @@ export const useCollectionsStore = defineStore('collections', {
       this.running = null
       if (run.collectionId !== this.collectionId || (run.nodeId ?? '') !== this.runNodeId) return
       this.lastRun = run
+    },
+
+    // ---- the code of a level ----------------------------------------------
+
+    // What the level runs itself and what runs around it. Both are read together because they are one
+    // answer: an empty editor is not empty code, it is the code above it.
+    async loadScripts(id: string | null) {
+      if (!id) return
+      const scripts = await ScriptingService.Scripts(id)
+      const chain = (await ScriptingService.Chain(id)) ?? []
+      this.scriptsFor = id
+      this.scripts = scripts
+      this.chain = chain
+    },
+
+    // A level adds code and never cancels it: what it has of its own runs after everything above it,
+    // so an editor that has been cleared means "нечего добавить" — the level goes back to inheriting.
+    async saveScripts(pre: string, post: string) {
+      const id = this.selectedId
+      if (!id) return
+      const written = pre.trim() || post.trim() ? { pre, post } : null
+      const saved = await ScriptingService.SaveScripts(id, written)
+      // A level that just gained or lost its code is a level that just entered or left the chain.
+      const chain = (await ScriptingService.Chain(id)) ?? []
+      this.scriptsFor = id
+      this.scripts = saved
+      this.chain = chain
+    },
+
+    // What the level would run for one half if its own editor stayed empty: the nearest code above
+    // it. It is what the editor shows greyed out, so an empty box is not a box that does nothing.
+    inheritedScript(scope: 'pre' | 'post'): { text: string; name: string } | null {
+      for (let i = this.chain.length - 1; i >= 0; i -= 1) {
+        const level = this.chain[i]
+        if (level.nodeId === this.selectedId) continue
+        const text = scope === 'pre' ? level.scripts?.pre : level.scripts?.post
+        if (text && text.trim()) return { text, name: level.name }
+      }
+      return null
     },
   },
 })
