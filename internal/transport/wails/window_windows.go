@@ -34,10 +34,7 @@ func retintWindow(window *application.WebviewWindow, dark bool) {
 	if hwnd == 0 {
 		return
 	}
+	// One call, not two: the backdrop re-tints when the window's own dark attribute changes, and
+	// re-applying the material on top of that repaints the window a second time — the glass blinks.
 	w32.SetTheme(hwnd, dark)
-	if glassShows() {
-		// The backdrop does not always re-read the attribute on its own; re-applying is what the
-		// platform documents as the way to change it.
-		w32.EnableTranslucency(hwnd, uint32(application.Acrylic))
-	}
 }

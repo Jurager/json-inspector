@@ -74,6 +74,16 @@ function paint(dark: boolean, wiping: boolean) {
   paintHooks.forEach((fn) => fn(wiping))
 }
 
+// A choice is taken, and the palette follows it. Choosing a theme that resolves to the palette
+// already on screen — «системная» while the system is dark and the app is dark — is not a change to
+// paint: the wipe would reveal one palette with itself, and that reads as a flicker over nothing.
+function repaint(next: Theme) {
+  const palette = isDark.value
+  theme.value = next
+  persist(next)
+  if (isDark.value !== palette) apply(isDark.value, true)
+}
+
 // A theme change is a diagonal wipe (see `.theme-wipe` in style.css): the document is
 // mutated inside the transition, so the old palette is snapshotted and the new one is
 // revealed over it instead of both changing at once.
@@ -121,9 +131,7 @@ systemPrefersDark.addEventListener('change', (e) => {
 Events.On('settings:theme', (ev) => {
   const next = (ev.data as { theme: Theme }).theme
   if (!next || next === theme.value) return
-  theme.value = next
-  persist(next)
-  apply(isDark.value, true)
+  repaint(next)
 })
 
 // At boot there is nothing to wipe from, and the stored choice replaces what the URL carried only
@@ -147,9 +155,7 @@ export function useTheme() {
     isDark,
     isSwitching,
     setTheme(next: Theme) {
-      theme.value = next
-      persist(next)
-      apply(isDark.value, true)
+      repaint(next)
       void saveTheme(next)
     },
   }

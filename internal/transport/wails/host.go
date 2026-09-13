@@ -48,6 +48,10 @@ type Host struct {
 	// The theme, as the window needs it before it exists: a query string on the window's URL, so the
 	// first paint is already in the right palette. Kept in step by whoever changes it.
 	theme atomic.Value
+	// applied is the theme the windows have already been tinted with. SetTheme runs both at startup
+	// and on every save, and a save that names the theme already in force is not a change: re-tinting
+	// the material for it repaints the window for nothing.
+	applied domain.Theme
 	// Events raised before the window can take them: the update check runs at startup and a
 	// deep link can arrive before the frontend has mounted, and both describe state the
 	// window has to be told about anyway. The latest of each wins — an earlier tab doesn't
@@ -69,14 +73,15 @@ func NewHost() *Host {
 // something the page can reach, so switching the palette has to be said twice.
 func (h *Host) SetTheme(theme domain.Theme) {
 	h.theme.Store(string(theme))
+	if theme == h.applied {
+		return
+	}
+	h.applied = theme
 	dark := theme == domain.ThemeDark || (theme == domain.ThemeSystem && systemIsDark())
+	// Only the window that shows the material: the About window is opaque, and re-tinting a window
+	// repaints it — which, over the wipe of the palette, reads as the glass blinking.
 	if main := h.MainWindow(); main != nil {
 		retintWindow(main, dark)
-	}
-	if about, ok := h.aboutWindow(); ok {
-		if window, ok := about.(*application.WebviewWindow); ok {
-			retintWindow(window, dark)
-		}
 	}
 }
 
