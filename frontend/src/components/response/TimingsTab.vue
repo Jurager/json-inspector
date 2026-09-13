@@ -28,7 +28,25 @@ const phases = computed<Phase[]>(() =>
     .map((phase) => ({ label: phase.label, us: phase.us }))
 )
 
-const maxUs = computed(() => Math.max(1, ...phases.value.map((p) => p.us)))
+// Every bar is measured against the whole request, because that is what the "Всего" bar above them
+// is: the phases are its parts, and a part drawn against the largest of the others claims to be all
+// of it. The phases add up to the total, so the bars do too.
+const totalUs = computed(() => Math.max(1, props.record.durationUs))
+
+function width(us: number): string {
+  return `${Math.min(100, (us / totalUs.value) * 100)}%`
+}
+
+// A request that reused a connection has no dial phases to show, and two rows where a breakdown was
+// expected read as missing data. Saying which of the two it is costs one line.
+const reused = computed(
+  () =>
+    props.record.source === 'manual' &&
+    props.record.dnsUs == null &&
+    props.record.connectUs == null &&
+    props.record.tlsUs == null &&
+    (props.record.waitUs != null || props.record.downloadUs != null)
+)
 </script>
 
 <template>
@@ -43,12 +61,15 @@ const maxUs = computed(() => Math.max(1, ...phases.value.map((p) => p.us)))
     <div v-for="p in phases" :key="p.label" class="timing-row">
       <span class="timing-label">{{ p.label }}</span>
       <div class="timing-track">
-        <div class="timing-fill" :style="{ width: (p.us / maxUs) * 100 + '%' }"></div>
+        <div class="timing-fill" :style="{ width: width(p.us) }"></div>
       </div>
       <span class="timing-value mono">{{ formatMicros(p.us) }}</span>
     </div>
     <div v-if="phases.length === 0" class="timing-note">
       Запрос не удалось засечь по фазам — ответа не было.
+    </div>
+    <div v-else-if="reused" class="timing-note">
+      Соединение переиспользовано: DNS, TCP и TLS не тратились.
     </div>
   </div>
 </template>
