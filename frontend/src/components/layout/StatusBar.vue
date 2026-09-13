@@ -12,19 +12,23 @@ import {
 import { tryParseJson } from '../../lib/json'
 import { formatBytes, formatVersion } from '../../lib/format'
 import { useEnvironmentsStore } from '../../stores/environments'
+import { useCollectionsStore } from '../../stores/collections'
 import type { Info as UpdateInfo } from '../../../bindings/json-inspector/internal/infra/updater'
 
 const props = defineProps<{ updateInfo: UpdateInfo | null }>()
 const emit = defineEmits<{ (e: 'open-update'): void }>()
 
 const store = useRequestsStore()
+const collections = useCollectionsStore()
 const envStore = useEnvironmentsStore()
 
 const environmentName = computed(() => envStore.activeEnvironment?.name ?? 'Без окружения')
 
-const missingCount = computed(() =>
-  store.activeView === 'request' ? store.missingVars.length : 0
-)
+const missingCount = computed(() => {
+  if (store.activeView === 'request') return store.missingVars.length
+  if (store.activeView === 'collections' && collections.cardOpen) return collections.missingVars.length
+  return 0
+})
 
 function plural(n: number, forms: [string, string, string]): string {
   const m10 = n % 10
@@ -41,6 +45,7 @@ const missingLabel = computed(
 const selectedRecord = computed(() => {
   if (store.activeView === 'request') return store.manualSelected
   if (store.activeView === 'browser') return store.browserSelected
+  if (store.activeView === 'collections') return collections.response
   return null
 })
 
@@ -92,6 +97,14 @@ const summary = computed(() => {
   return ct ? `${ct} · ${size}` : size
 })
 
+// The run of a collection is what the left side says while it lasts: it is the same slot the
+// environment and the capture state use, and no two views are on screen at once.
+const runLabel = computed(() => {
+  const run = collections.running
+  if (!run) return ''
+  return `Прогон: ${run.done} / ${run.total || collections.selectedRequestCount} · ${run.name}`
+})
+
 const capture = computed(() => store.capture)
 
 const captureLabel = computed(() => {
@@ -122,8 +135,35 @@ const captureDotClass = computed(() => {
       <span :class="captureDotClass"></span>
       <span>{{ captureLabel }}</span>
     </template>
+    <template v-else-if="store.activeView === 'collections'">
+      <template v-if="collections.running">
+        <span class="dot dot-orange"></span>
+        <span>{{ runLabel }}</span>
+      </template>
+      <template v-else-if="collections.selectedId">
+        <span class="crumbs">
+          <template v-for="(crumb, i) in collections.breadcrumbs" :key="crumb.id">
+            <span v-if="i > 0" class="crumb-sep">›</span>
+            <span :class="i === collections.breadcrumbs.length - 1 ? 'crumb-last' : ''">
+              {{ crumb.name }}
+            </span>
+          </template>
+        </span>
+        <template v-if="missingCount > 0">
+          <span class="divider"></span>
+          <span class="missing">{{ missingLabel }}</span>
+        </template>
+      </template>
+    </template>
 
     <span class="spacer"></span>
+
+    <template v-if="store.activeView === 'collections' && collections.dirty">
+      <span class="dot dot-orange"></span>
+      <span class="unsaved">Не сохранено</span>
+      <button class="save-link" @click="collections.saveNode()">Сохранить</button>
+      <span class="divider"></span>
+    </template>
 
     <button v-if="updateInfo" class="update-link" @click="emit('open-update')">
       Доступна версия {{ formatVersion(updateInfo.latest) }}
@@ -186,5 +226,31 @@ const captureDotClass = computed(() => {
 
 .summary {
   @apply whitespace-nowrap;
+}
+
+.crumbs {
+  @apply flex items-center gap-1.5 min-w-0 overflow-hidden;
+}
+
+.crumb-sep {
+  @apply text-text-tertiary;
+}
+
+/* The last crumb is what is open, so it reads as the title of the pane rather than as part of a path. */
+.crumb-last {
+  @apply text-text font-semibold overflow-hidden text-ellipsis whitespace-nowrap;
+}
+
+.unsaved {
+  @apply text-text-secondary;
+}
+
+.save-link {
+  @apply text-accent bg-transparent border-none cursor-pointer p-0 text-xs;
+  font: inherit;
+}
+
+.save-link:hover {
+  text-decoration: underline;
 }
 </style>

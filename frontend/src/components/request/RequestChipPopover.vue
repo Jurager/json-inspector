@@ -6,12 +6,16 @@ import { PopoverContent } from '../ui/popover'
 import { Button, IconButton } from '../ui/button'
 import { Checkbox } from '../ui/checkbox'
 import { useRequestsStore } from '../../stores/requests'
+import { useCollectionsStore } from '../../stores/collections'
+import type { RequestSource } from '../../lib/requestSource'
 import { parseTokens, tokenSegments } from '../../lib/vars'
 import { AuthType, RowKind, type Auth } from '../../../bindings/json-inspector/internal/domain'
 
-const props = defineProps<{ chip: 'params' | 'headers' | 'auth' | 'body' }>()
+const props = defineProps<{ chip: 'params' | 'headers' | 'auth' | 'body'; source?: RequestSource }>()
 
-const store = useRequestsStore()
+const requests = useRequestsStore()
+const collections = useCollectionsStore()
+const store: RequestSource = props.source ?? requests
 
 const title = computed(() => {
   switch (props.chip) {

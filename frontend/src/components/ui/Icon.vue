@@ -35,6 +35,10 @@ import {
   Monitor,
   Link,
   Bookmark,
+  Play,
+  Square,
+  Download,
+  Upload,
 } from 'lucide-vue-next'
 
 const props = defineProps<{ name: string; size?: number; strokeWidth?: number }>()
@@ -73,6 +77,10 @@ const ICONS: Record<string, Component> = {
   monitor: Monitor,
   link: Link,
   bookmark: Bookmark,
+  play: Play,
+  stop: Square,
+  download: Download,
+  upload: Upload,
 }
 
 const icon = computed(() => ICONS[props.name] ?? ArrowUpRight)

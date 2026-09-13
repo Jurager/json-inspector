@@ -2,11 +2,19 @@ import { onBeforeUnmount, onMounted } from 'vue'
 import { Events } from '@wailsio/runtime'
 import { RecordSource } from '../../bindings/json-inspector/internal/domain'
 import { useRequestsStore } from '../stores/requests'
+import { useCollectionsStore } from '../stores/collections'
 import { useToast } from './useToast'
 
 // What Go publishes about history and about the attempts that fill it. The payload types come from
 // the generated bindings, so a field renamed on that side is a compile error here.
-export function useRecordEvents(store: ReturnType<typeof useRequestsStore>) {
+//
+// An answer belongs to whoever asked: the records this app sends carry the id of the attempt that
+// produced them, and both panes keep the ids they started. A run's requests go through the same
+// path, and without that check every one of them would take over the command line's pane.
+export function useRecordEvents(
+  store: ReturnType<typeof useRequestsStore>,
+  collections: ReturnType<typeof useCollectionsStore>
+) {
   const offs: (() => void)[] = []
   const toast = useToast()
 
@@ -22,17 +30,33 @@ export function useRecordEvents(store: ReturnType<typeof useRequestsStore>) {
         store.addIngested(ev.data)
       }),
 
-      // The attempt the window started has come back, and it carries the record history keeps.
+      // The attempt a pane started has come back, and it carries the record history keeps.
       Events.On('request:finished', (ev) => {
-        void store.finishSend(ev.data.record)
+        const { id, record } = ev.data
+        if (store.mine.includes(id)) void store.finishSend(record)
+        else if (collections.mine.includes(id)) void collections.finishSend(record)
       }),
 
       // No record at all: this side failed before the request became history — a body the database
       // would not take, an engine that could not start. A request that never reached the server
       // still has a record, so there is nothing to show but the reason.
       Events.On('request:failed', (ev) => {
+        if (collections.mine.includes(ev.data.id)) {
+          collections.failSend()
+          toast.show(`Запрос не выполнен: ${ev.data.error}`, 'error')
+          return
+        }
         store.failSend()
         toast.show(`Запрос не выполнен: ${ev.data.error}`, 'error')
+      }),
+
+      // A run of a collection: one event per request it reaches, and the finished run with its
+      // counters — which is what the overview draws, and what the status bar counts.
+      Events.On('collection:run-progress', (ev) => {
+        collections.applyRunProgress(ev.data.done, ev.data.total)
+      }),
+      Events.On('collection:run-finished', (ev) => {
+        collections.applyRunFinished(ev.data)
       })
     )
   })

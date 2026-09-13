@@ -1,6 +1,7 @@
 import { onBeforeUnmount, onMounted } from 'vue'
 import { useEnvironmentsStore } from '../stores/environments'
 import { useRequestsStore } from '../stores/requests'
+import { useCollectionsStore } from '../stores/collections'
 import { useSettings } from './useSettings'
 
 const SAVE_DEBOUNCE_MS = 300
@@ -10,6 +11,7 @@ const SAVE_DEBOUNCE_MS = 300
 // on the way out.
 export function useSessionPersistence(
   store: ReturnType<typeof useRequestsStore>,
+  collections: ReturnType<typeof useCollectionsStore>,
   envStore: ReturnType<typeof useEnvironmentsStore>
 ) {
   const { settings, loadSettings, setLayout } = useSettings()
@@ -18,7 +20,12 @@ export function useSessionPersistence(
 
   // A window that is hidden or loses focus is a window the user has stopped typing in: whatever is
   // still in its buffers goes over now, before anything can close it.
-  const handOver = () => void store.flush()
+  // Both composers are handed over: a card with a half-typed address is as much the window's text as
+  // the command line's is, and a hidden window is a window the user stopped typing in.
+  const handOver = () => {
+    void store.flush()
+    void collections.flush()
+  }
 
   onMounted(() => {
     void loadSettings().then(() => {

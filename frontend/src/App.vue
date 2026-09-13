@@ -2,6 +2,7 @@
 import { onMounted, ref } from 'vue'
 import { useEnvironmentsStore } from './stores/environments'
 import { useRequestsStore } from './stores/requests'
+import { useCollectionsStore } from './stores/collections'
 import { useCaptureEvents } from './composables/useCaptureEvents'
 import { useRecordEvents } from './composables/useRecordEvents'
 import { useGlobalShortcuts } from './composables/useGlobalShortcuts'
@@ -15,12 +16,14 @@ import Rail from './components/layout/Rail.vue'
 import Workspace from './components/layout/Workspace.vue'
 import StatusBar from './components/layout/StatusBar.vue'
 import EnvironmentsSheet from './components/environments/EnvironmentsSheet.vue'
+import UnsavedChangesDialog from './components/collections/UnsavedChangesDialog.vue'
 import Toast from './components/ui/Toast.vue'
 import { Button } from './components/ui/button'
 
 // The shell: layout plus the composables that own app-wide behaviour. State reaches
 // components through the store or a composable, never through props from here.
 const store = useRequestsStore()
+const collections = useCollectionsStore()
 const envStore = useEnvironmentsStore()
 const { availableUpdate } = useUpdates()
 
@@ -49,9 +52,9 @@ function openAbout() {
   SystemService.ShowAbout()
 }
 
-useSessionPersistence(store, envStore)
+useSessionPersistence(store, collections, envStore)
 useCaptureEvents(store)
-useRecordEvents(store)
+useRecordEvents(store, collections)
 useGlobalShortcuts(store, envStore)
 
 // The sheet overlays the window with the command line still mounted underneath,
@@ -91,6 +94,10 @@ function closeSheet() {
   </div>
 
   <EnvironmentsSheet v-if="startup?.ready && envStore.sheetOpen" @close="closeSheet" />
+
+  <!-- One alert for the whole window: what asks to leave a card with unsaved edits is not always
+       the same view. -->
+  <UnsavedChangesDialog v-if="startup?.ready" />
 
   <Toast />
 </template>

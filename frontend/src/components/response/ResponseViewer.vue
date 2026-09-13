@@ -25,15 +25,28 @@ import TimingsTab from './TimingsTab.vue'
 import TestsTab from './TestsTab.vue'
 import { RecordSource } from '../../../bindings/json-inspector/internal/domain'
 import { useRequestsStore } from '../../stores/requests'
+import { useCollectionsStore } from '../../stores/collections'
 import { useEnvironmentsStore } from '../../stores/environments'
+import type { InspectorHost } from '../../lib/requestSource'
 import { copyToClipboard } from '../../lib/clipboard'
 import { exportRequest, type ExportFormat } from '../../lib/export'
 import { usePlatform } from '../../composables/usePlatform'
 import { focusUrlField } from '../../composables/urlFocus'
 
-const props = defineProps<{ record: RecordView }>()
+// Where this pane is drawn: beside the command line, beside a captured request, or inside a
+// collection card. The record is a prop either way — what changes is whose window state it is
+// (the inspector) and whether there is anywhere to navigate to.
+const props = withDefaults(
+  defineProps<{ record: RecordView; source?: 'request' | 'browser' | 'collection' }>(),
+  { source: 'request' }
+)
 
-const store = useRequestsStore()
+const requests = useRequestsStore()
+const collections = useCollectionsStore()
+const store: InspectorHost = props.source === 'collection' ? collections : requests
+
+// A card shows one response: there is no history behind it to walk and no command line to hand it to.
+const hasHistory = computed(() => props.source !== 'collection')
 const { shortcut } = usePlatform()
 const envStore = useEnvironmentsStore()
 
@@ -133,11 +146,11 @@ function openResourceInBody(key: string) {
 // Following a link is a plain GET with the headers that worked last time. The record it came from
 // is already masked, so the request and the copy history keeps are the same thing here.
 function follow(url: string) {
-  if (!url) return
+  if (!url || !hasHistory.value) return
   // Switch rails immediately so the user isn't left staring at the stale response.
-  store.activeView = 'request'
-  store.manualId = null
-  void store.sendSpec({ method: 'GET', url, headers: props.record.requestHeaders, body: '' })
+  requests.activeView = 'request'
+  requests.manualId = null
+  void requests.sendSpec({ method: 'GET', url, headers: props.record.requestHeaders, body: '' })
 }
 
 // The size Go stored, not the size of the text in hand: a body too large to travel with the record
@@ -194,9 +207,10 @@ const requestHeaderEntries = computed(() => props.record.requestHeaders)
 
 // "Назад" walks the record's own source list, not the combined one — going back from a
 // captured request must not silently reassign the *manual* selection instead.
-const sourceList = computed(() => store.records.filter((r) => r.source === props.record.source))
+const sourceList = computed(() => requests.records.filter((r) => r.source === props.record.source))
 
 const hasPrev = computed(() => {
+  if (!hasHistory.value) return false
   const idx = sourceList.value.findIndex((r) => r.id === props.record.id)
   return idx >= 0 && idx < sourceList.value.length - 1
 })
@@ -205,22 +219,22 @@ function goBack() {
   const idx = sourceList.value.findIndex((r) => r.id === props.record.id)
   if (idx >= 0 && idx < sourceList.value.length - 1) {
     const prev = sourceList.value[idx + 1]
-    if (prev.source === RecordSource.SourceBrowser) store.selectBrowser(prev.id)
-    else store.selectManual(prev.id)
+    if (prev.source === RecordSource.SourceBrowser) requests.selectBrowser(prev.id)
+    else requests.selectManual(prev.id)
   }
 }
 
 function openInRequest() {
   // The whole record becomes the request being composed, the jar it was sent with and all.
-  void store.replace({
+  void requests.replace({
     method: props.record.method,
     url: props.record.url,
     headers: props.record.requestHeaders,
     body: props.record.requestBody,
     cookies: props.record.requestCookies,
   })
-  store.setOpenChip(null)
-  store.activeView = 'request'
+  requests.setOpenChip(null)
+  requests.activeView = 'request'
   focusUrlField()
 }
 
@@ -407,7 +421,7 @@ async function copyAs(format: ExportFormat, { keepTokens = false } = {}) {
               <IconButton variant="outline" :disabled="!pagination.last || !pagination.next" hint="Последняя" @click="follow(pagination.last)"><Icon name="chevrons-right" :size="14" /></IconButton>
             </template>
             <span class="head-spacer"></span>
-            <Button v-if="record.source === 'browser'" size="sm" class="open-in-request" @click="openInRequest">Открыть в «Запросе»</Button>
+            <Button v-if="hasHistory && record.source === 'browser'" size="sm" class="open-in-request" @click="openInRequest">Открыть в «Запросе»</Button>
             <Button size="sm" @click="copyBody"><Icon v-if="bodyCopied" name="check" :size="12" /><span>{{ bodyCopied ? 'Скопировано' : 'Копировать' }}</span></Button>
             <Button size="sm" title="Инспектор узла (⌥I)" @click="toggleInspector">Инспектор <kbd class="keycap">⌥I</kbd></Button>
             <Button size="sm" @click="openBodySearch"><span>Поиск</span><kbd class="keycap">{{ searchShortcut }}</kbd></Button>
@@ -415,7 +429,7 @@ async function copyAs(format: ExportFormat, { keepTokens = false } = {}) {
         </div>
         <div v-else-if="record.source === 'browser'" class="toolbar">
           <span class="head-spacer"></span>
-          <Button size="sm" class="open-in-request" @click="openInRequest">Открыть в «Запросе»</Button>
+          <Button v-if="hasHistory" size="sm" class="open-in-request" @click="openInRequest">Открыть в «Запросе»</Button>
         </div>
         <div v-if="doc" class="resp-content">
           <JsonApiTree :doc="doc" :query="bodyQuery" :highlight-key="highlightKey" @select="highlightResource" @inspect="inspectNode" @fetch="follow" />

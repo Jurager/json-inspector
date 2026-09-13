@@ -59,6 +59,10 @@ export const useRequestsStore = defineStore('requests', {
     // The attempt the spinner belongs to. A request outlives the call that started it, so this is
     // the only handle on it until its record arrives.
     pendingId: null as string | null,
+    // The attempts this window started. An answer is adopted only if it answers one of them: a
+    // collection run sends through the same path, and its records belong in history, not in the
+    // command line's pane.
+    mine: [] as string[],
     capture: { connected: false, recording: false, tabs: 0 } as CaptureState,
 
     // ---- the draft -------------------------------------------------------
@@ -341,9 +345,16 @@ export const useRequestsStore = defineStore('requests', {
       await this.flush()
       this.loading = true
       const id = await RecordsService.Send(DRAFT)
+      this.claim(id)
       // The record can outrun the call that asked for it: if it has already arrived, the spinner is
       // off and putting the id back would leave the button waiting for what it just got.
       if (this.loading) this.pendingId = id
+    },
+
+    // The attempt becomes this pane's: the answer to it will be adopted, and an answer to anything
+    // else — a run's request — will not.
+    claim(id: string) {
+      this.mine = [id, ...this.mine].slice(0, 20)
     },
 
     // A request that is not the draft: following a link out of a response must not disturb what is
@@ -351,6 +362,7 @@ export const useRequestsStore = defineStore('requests', {
     async sendSpec(seed: Seed) {
       this.loading = true
       const id = await RecordsService.SendSpec(seed)
+      this.claim(id)
       if (this.loading) this.pendingId = id
     },
 

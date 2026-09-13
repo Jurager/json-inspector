@@ -2,6 +2,7 @@
 import { computed, ref, watch } from 'vue'
 import { RecordSource } from '../../../bindings/json-inspector/internal/domain'
 import { useRequestsStore } from '../../stores/requests'
+import { useCollectionsStore } from '../../stores/collections'
 import { useResizableWidth } from '../../composables/useResizableWidth'
 import { useSettings } from '../../composables/useSettings'
 import HistoryPanel from '../history/HistoryPanel.vue'
@@ -9,8 +10,12 @@ import RequestBuilder from '../request/RequestBuilder.vue'
 import ResponseViewer from '../response/ResponseViewer.vue'
 import CaptureBar from '../browser/CaptureBar.vue'
 import BrowserEmptyState from '../browser/BrowserEmptyState.vue'
+import CollectionTree from '../collections/CollectionTree.vue'
+import CollectionOverview from '../collections/CollectionOverview.vue'
+import CollectionsEmptyState from '../collections/CollectionsEmptyState.vue'
 
 const store = useRequestsStore()
+const collections = useCollectionsStore()
 const { settings, loadSettings, setLayout } = useSettings()
 
 // Where the user last left the list. The window paints its own default first; Go's answer replaces
@@ -29,22 +34,34 @@ watch(
 watch(sideWidth, (width) => setLayout({ sideWidth: width }))
 
 void loadSettings()
+void collections.load()
 
 const browserEmpty = computed(
   () =>
     store.activeView === 'browser' && !store.records.some((r) => r.source === RecordSource.SourceBrowser)
 )
+
+// Collections with nothing in them are not a list, so the panel is not drawn: the window shows the
+// onboarding on the whole width instead.
+const collectionsEmpty = computed(() => collections.tree.length === 0)
+
+const sidePanelShown = computed(() => {
+  if (store.activeView === 'collections') return !collectionsEmpty.value
+  return !browserEmpty.value
+})
 </script>
 
 <template>
   <main class="main">
     <div class="side-layout">
-      <div v-if="!browserEmpty && store.activeView !== 'collections'" class="side-panel" :style="{ width: sideWidth + 'px' }">
+      <div v-if="sidePanelShown" class="side-panel" :style="{ width: sideWidth + 'px' }">
+        <CollectionTree v-if="store.activeView === 'collections'" />
         <HistoryPanel
+          v-else
           :source-kind="store.activeView === 'request' ? RecordSource.SourceManual : RecordSource.SourceBrowser"
         />
       </div>
-      <div v-if="!browserEmpty && store.activeView !== 'collections'" class="resize-handle" @mousedown.prevent="startSideDrag"></div>
+      <div v-if="sidePanelShown" class="resize-handle" @mousedown.prevent="startSideDrag"></div>
       <div class="side-main">
         <template v-if="store.activeView === 'request'">
           <RequestBuilder />
@@ -59,13 +76,26 @@ const browserEmpty = computed(
         </template>
         <template v-else-if="store.activeView === 'browser'">
           <CaptureBar />
-          <ResponseViewer v-if="store.browserSelected" :record="store.browserSelected" />
+          <ResponseViewer v-if="store.browserSelected" :record="store.browserSelected" source="browser" />
           <BrowserEmptyState v-else />
         </template>
         <template v-else>
-          <div class="empty">
-            <span class="empty-title">Коллекции скоро</span>
-            <span>Здесь будут сохранённые запросы, сгруппированные в коллекции.</span>
+          <CollectionsEmptyState v-if="collectionsEmpty" />
+          <template v-else-if="collections.cardOpen">
+            <RequestBuilder source="collection" />
+            <ResponseViewer v-if="collections.response" :record="collections.response" source="collection" />
+            <div v-else-if="collections.loading" class="empty">
+              <span class="spinner spinner-lg"></span>
+            </div>
+            <div v-else class="empty">
+              <span class="empty-title">Отправьте запрос</span>
+              <span>Отправка не сохраняет правку — для этого «Сохранить» в статус-баре.</span>
+            </div>
+          </template>
+          <CollectionOverview v-else-if="collections.selectedId" />
+          <div v-else class="empty">
+            <span class="empty-title">Выберите запрос</span>
+            <span>Или папку — тогда можно запустить всё, что в ней.</span>
           </div>
         </template>
       </div>

@@ -12,7 +12,9 @@ import {
   DropdownMenuItem,
 } from '../ui/dropdown-menu'
 import { useRequestsStore } from '../../stores/requests'
+import { useCollectionsStore } from '../../stores/collections'
 import { useEnvironmentsStore } from '../../stores/environments'
+import type { RequestSource } from '../../lib/requestSource'
 import { usePlatform } from '../../composables/usePlatform'
 import { registerUrlField } from '../../composables/urlFocus'
 import { tokenSegments } from '../../lib/vars'
@@ -20,7 +22,14 @@ import { parseRequestCommand, type ParseErrorReason } from '../../lib/parseReque
 import type { ExportFormat } from '../../lib/export'
 import { useToast } from '../../composables/useToast'
 
-const store = useRequestsStore()
+// Which request this builder is composing: the command line's, or the card of a saved one. The two
+// stores answer the same shape, so nothing below this line has to know which it is.
+const props = withDefaults(defineProps<{ source?: 'request' | 'collection' }>(), { source: 'request' })
+
+const requests = useRequestsStore()
+const collections = useCollectionsStore()
+const store: RequestSource = props.source === 'collection' ? collections : requests
+
 const { shortcut } = usePlatform()
 const envStore = useEnvironmentsStore()
 const toast = useToast()
@@ -234,7 +243,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onWindowKeydown))
               Тело
             </button>
           </PopoverAnchor>
-          <RequestChipPopover v-if="displayedChip" :chip="displayedChip" />
+          <RequestChipPopover v-if="displayedChip" :chip="displayedChip" :source="store" />
         </Popover>
       </div>
 

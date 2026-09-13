@@ -3,6 +3,7 @@ import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import { RecordsService, SystemService } from '../../../bindings/json-inspector/internal/transport/wails'
 import { useEnvironmentsStore } from '../../stores/environments'
 import { useRequestsStore } from '../../stores/requests'
+import { useCollectionsStore } from '../../stores/collections'
 import { buildSampleRecord } from '../../lib/sample'
 import { usePlatform } from '../../composables/usePlatform'
 import Icon from '../ui/Icon.vue'
@@ -15,6 +16,7 @@ import {
 } from '../ui/dropdown-menu'
 
 const store = useRequestsStore()
+const collections = useCollectionsStore()
 const envStore = useEnvironmentsStore()
 const { customTitlebar, shortcut } = usePlatform()
 
@@ -76,7 +78,9 @@ function requestUpdateCheck() {
   SystemService.RequestUpdateCheck()
 }
 
-function selectSource(view: RailView) {
+async function selectSource(view: RailView) {
+  // A card with unsaved edits is not left quietly, whichever way the user leaves it.
+  if (view !== 'collections' && !(await collections.askUnsaved())) return
   if (view === 'browser') store.clearUnreadCaptures()
   store.activeView = view
 }

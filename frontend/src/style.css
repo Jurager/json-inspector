@@ -410,6 +410,11 @@ body {
   outline: none;
 }
 
+/* The one item that cannot be undone, in the colour the app uses for that everywhere. */
+.menu-item.danger {
+  @apply text-red;
+}
+
 .menu-separator {
   @apply h-px my-1 bg-border;
 }

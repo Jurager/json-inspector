@@ -20,6 +20,16 @@ export function formatMicros(us: number): string {
   return `${(us / 1_000_000).toFixed(2)} с`
 }
 
+// A Russian count: one, two-to-four, and everything else — with the teens, which are the exception
+// every one of these rules has.
+export function plural(n: number, forms: [string, string, string]): string {
+  const m10 = n % 10
+  const m100 = n % 100
+  if (m10 === 1 && m100 !== 11) return forms[0]
+  if (m10 >= 2 && m10 <= 4 && (m100 < 12 || m100 > 14)) return forms[1]
+  return forms[2]
+}
+
 // The three status bands the badges are coloured by, as a class name.
 export function statusBadgeClass(status: number): string {
   if (status >= 200 && status < 300) return 'badge-status-2xx'
