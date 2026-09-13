@@ -56,6 +56,6 @@ async function importCollection() {
 }
 
 .actions {
-  @apply mt-2;
+  @apply mt-2 flex items-center justify-center gap-2;
 }
 </style>

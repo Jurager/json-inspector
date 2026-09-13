@@ -164,7 +164,7 @@ body {
 }
 
 .titlebar-actions-flush {
-  @apply static translate-y-0 mr-1.5;
+  @apply static translate-y-0 mr-7;
 }
 
 .env-wrap {

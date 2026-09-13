@@ -12,14 +12,12 @@ const emit = defineEmits<{ (e: 'cancel'): void; (e: 'confirm'): void }>()
   <Dialog
     :open="open"
     title="Удалить вместе с содержимым?"
-    class="w-90 p-4.5"
+    class="w-110 p-4.5"
     @escape-key-down.prevent
     @update:open="emit('cancel')"
   >
     <div class="body">
-      В «<b>{{ name }}</b>» {{ count }}
-      {{ plural(count, ['запрос', 'запроса', 'запросов']) }} — они удалятся вместе с ним. Вернуть их
-      будет нечем.
+      В коллекции {{ count }} {{ plural(count, ['запрос', 'запроса', 'запросов']) }} — они удалятся вместе с ней.
     </div>
     <div class="actions">
       <Button @click="emit('cancel')">Отмена</Button>

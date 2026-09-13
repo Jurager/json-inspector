@@ -2,21 +2,20 @@ package platform
 
 import "github.com/google/uuid"
 
-// IDGen mints the ids that cross the IPC boundary and end up as primary keys.
+// IDGen generates ids for IPC and database records.
 type IDGen func() string
 
 func NewIDGen() IDGen {
 	return NewID
 }
 
-// NewID returns a uuid v7: time-ordered, so ids sort the way their rows were created and a
-// primary key stays a usable ordering key.
+// NewID returns a UUID v7, providing time-ordered ids.
 func NewID() string {
 	id, err := uuid.NewV7()
 	if err != nil {
-		// Only a broken randomness source lands here, and a v4 is a better answer than failing
-		// an insert over id shape.
+		// Fall back to UUID v4 if UUID v7 generation fails.
 		return uuid.NewString()
 	}
+
 	return id.String()
 }
