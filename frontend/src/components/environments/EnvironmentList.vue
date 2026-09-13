@@ -316,8 +316,9 @@ defineExpose({ cancelTop })
 @reference "../../style.css";
 
 .sheet-side {
-  @apply flex-none w-[232px] flex flex-col p-2 pb-0 border-r border-border;
-  background: var(--bg-inset);
+  @apply flex-none w-[232px] flex flex-col p-2 pb-0 border-r;
+  background: var(--glass-sheet-side);
+  border-color: var(--glass-overlay-border);
 }
 
 .side-label {

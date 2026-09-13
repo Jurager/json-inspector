@@ -19,9 +19,8 @@ const { message, kind } = useToast()
   transform: translateX(-50%);
   background: var(--glass-overlay);
   backdrop-filter: var(--blur-overlay);
-  -webkit-backdrop-filter: var(--blur-overlay);
   border: 1px solid var(--glass-overlay-border);
-  box-shadow: inset 0 1px 0 var(--glass-overlay-hairline), var(--shadow);
+  box-shadow: var(--glass-overlay-shadow);
 }
 
 .toast.error {

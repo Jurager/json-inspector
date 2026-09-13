@@ -73,21 +73,36 @@
      overlay are a translucent fill over a backdrop blur. The chrome sits on the app's own ground and
      over the desktop behind a translucent window, so it is the lighter of the two; an overlay sits
      over real content, where a light fill would let the text underneath collide with its own. */
-  --glass-chrome: rgba(255, 255, 255, 0.42);
-  --glass-chrome-hairline: rgba(255, 255, 255, 0.9);
-  --glass-overlay: rgba(255, 255, 255, 0.92);
-  --glass-overlay-hairline: rgba(255, 255, 255, 0.85);
-  --glass-overlay-border: rgba(255, 255, 255, 0.5);
-  /* saturate() is not decoration: without it a blur reads as grey haze rather than glass. */
-  --blur-chrome: blur(24px) saturate(220%);
-  --blur-overlay: blur(28px) saturate(200%);
+  --glass-chrome: rgba(255, 255, 255, 0.64);
+  --glass-chrome-border: rgba(0, 0, 0, 0.05);
+  --glass-overlay: rgba(255, 255, 255, 0.8);
+  --glass-overlay-border: rgba(0, 0, 0, 0.07);
+  /* The environments sheet is one acrylic leaf, not a glass strip over a white card: its two inner
+     strips are white veils on the same shade, so they never read as a separate opaque surface. */
+  --glass-sheet: rgba(246, 246, 248, 0.72);
+  --glass-sheet-head: rgba(255, 255, 255, 0.3);
+  --glass-sheet-side: rgba(255, 255, 255, 0.32);
+  /* Write backdrop-filter unprefixed and nowhere else. The bundler collapses a prefixed/unprefixed
+     pair into the -webkit- one alone, and current Chromium has dropped that name — the blur then
+     silently never renders, which is what made every surface here read as a flat fill. */
+  /* saturate() is not decoration: without it a blur reads as grey haze rather than glass. Past 180% it
+     oversaturates the colour behind and draws the seam it was meant to soften. */
+  --blur-chrome: blur(20px) saturate(160%);
+  --blur-overlay: blur(26px) saturate(180%);
+  --blur-sheet: blur(30px) saturate(180%);
+  /* Outside only. An inset highlight reads as a hard white seam where the material meets the opaque
+     content below it — the surfaces are separated by their hairline and by tone, not by a lit edge. */
+  --glass-overlay-shadow: 0 12px 32px rgba(0, 0, 0, 0.16);
+  --glass-sheet-shadow: 0 24px 60px rgba(0, 0, 0, 0.18);
 
   --tip-bg: #1d1d1f;
   --tip-text: #f5f5f7;
 }
 
 :root.dark {
-  --bg: #1e1e20;
+  /* The ground design-system.md names for the dark theme: the chrome and the content have to differ in
+     tone, or the material over the chrome has nothing to lift itself off. */
+  --bg: #1c1c1e;
   --bg-sidebar: #232326;
   --bg-panel: #2a2a2e;
   --bg-inset: #28282c;
@@ -95,8 +110,8 @@
   --bg-active: rgba(255, 255, 255, 0.1);
   --border: rgba(255, 255, 255, 0.1);
   --border-strong: rgba(255, 255, 255, 0.18);
-  --text: #f5f5f7;
-  --text-secondary: #a1a1a6;
+  --text: #f2f2f3;
+  --text-secondary: rgba(255, 255, 255, 0.55);
   --text-tertiary: #86868b;
   --accent: #0a84ff;
   --accent-soft: rgba(10, 132, 255, 0.3);
@@ -119,16 +134,19 @@
   --tok-null: #98989d;
   --shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
   --shadow-btn: 0 1px 2px rgba(0, 0, 0, 0.6);
-  /* The handoff draws the material for the light theme only. The dark chrome is derived from the app's
-     own dark pair: #232326 sits a step above the #1e1e20 canvas, which is what a 6% white veil over
-     that canvas gives — the same relationship the light theme has, where the glass lifts the chrome
-     towards white. The hairlines drop to a whisper: the light theme's 0.9 white edge glows on a dark
-     surface. */
-  --glass-chrome: rgba(255, 255, 255, 0.06);
-  --glass-chrome-hairline: rgba(255, 255, 255, 0.07);
-  --glass-overlay: rgba(42, 42, 46, 0.92);
-  --glass-overlay-hairline: rgba(255, 255, 255, 0.06);
-  --glass-overlay-border: rgba(255, 255, 255, 0.12);
+  /* A light theme tints the material towards white, a dark one towards black — the two are separate
+     sets, never one rgba(255,255,255,x) doing both. A white veil over dark content lightens the chrome
+     to grey: the window stops looking dark at all, which is the defect design-system.md records. The
+     hairline comes back the other way: on a dark surface the light theme's edge value glows. */
+  --glass-chrome: rgba(28, 28, 30, 0.62);
+  --glass-chrome-border: rgba(255, 255, 255, 0.08);
+  --glass-overlay: rgba(40, 40, 44, 0.82);
+  --glass-overlay-border: rgba(255, 255, 255, 0.1);
+  --glass-sheet: rgba(28, 28, 30, 0.72);
+  --glass-sheet-head: rgba(255, 255, 255, 0.06);
+  --glass-sheet-side: rgba(255, 255, 255, 0.07);
+  --glass-overlay-shadow: 0 16px 36px rgba(0, 0, 0, 0.5);
+  --glass-sheet-shadow: 0 24px 60px rgba(0, 0, 0, 0.6);
 
   --tip-bg: #3a3a3c;
   --tip-text: #f5f5f7;
@@ -168,11 +186,10 @@ html.window-translucent body {
    the app's ground and over the desktop behind a translucent window, which is why their fill is the
    light one — and why they carry a hairline instead of a shadow. */
 .titlebar {
-  @apply relative z-[100] h-13 flex-none flex items-center justify-center border-b border-border select-none;
+  @apply relative z-[100] h-13 flex-none flex items-center justify-center border-b select-none;
   background: var(--glass-chrome);
   backdrop-filter: var(--blur-chrome);
-  -webkit-backdrop-filter: var(--blur-chrome);
-  box-shadow: inset 0 1px 0 var(--glass-chrome-hairline);
+  border-color: var(--glass-chrome-border);
   --wails-draggable: drag;
 }
 
@@ -290,11 +307,10 @@ html.window-translucent body {
 }
 
 .sidebar {
-  @apply relative w-[89px] flex-none border-r border-border py-2 px-1.5 flex flex-col items-center gap-0.5;
+  @apply relative w-[89px] flex-none border-r py-2 px-1.5 flex flex-col items-center gap-0.5;
   background: var(--glass-chrome);
   backdrop-filter: var(--blur-chrome);
-  -webkit-backdrop-filter: var(--blur-chrome);
-  box-shadow: inset 0 1px 0 var(--glass-chrome-hairline);
+  border-color: var(--glass-chrome-border);
 }
 
 .rail-menu-wrap {
@@ -356,9 +372,8 @@ html.window-translucent body {
   @apply z-200 rounded-lg p-1 min-w-[200px];
   background: var(--glass-overlay);
   backdrop-filter: var(--blur-overlay);
-  -webkit-backdrop-filter: var(--blur-overlay);
   border: 1px solid var(--glass-overlay-border);
-  box-shadow: inset 0 1px 0 var(--glass-overlay-hairline), var(--shadow);
+  box-shadow: var(--glass-overlay-shadow);
   transform-origin: var(--reka-dropdown-menu-content-transform-origin);
   animation: panel-in 0.15s cubic-bezier(0.16, 1, 0.3, 1);
 }
@@ -372,9 +387,8 @@ html.window-translucent body {
   border-radius: 10px;
   background: var(--glass-overlay);
   backdrop-filter: var(--blur-overlay);
-  -webkit-backdrop-filter: var(--blur-overlay);
   border: 1px solid var(--glass-overlay-border);
-  box-shadow: inset 0 1px 0 var(--glass-overlay-hairline), 0 12px 32px rgba(0, 0, 0, 0.16);
+  box-shadow: var(--glass-overlay-shadow);
   transform-origin: var(--reka-popover-content-transform-origin);
   animation: panel-in 0.15s cubic-bezier(0.16, 1, 0.3, 1);
 }

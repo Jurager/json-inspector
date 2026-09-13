@@ -42,10 +42,9 @@ const emit = defineEmits<{ (e: 'update:open'): void }>()
   transform: translate(-50%, -50%);
   background: var(--glass-overlay);
   backdrop-filter: var(--blur-overlay);
-  -webkit-backdrop-filter: var(--blur-overlay);
   border: 1px solid var(--glass-overlay-border);
   border-radius: 12px;
-  box-shadow: inset 0 1px 0 var(--glass-overlay-hairline), var(--shadow);
+  box-shadow: var(--glass-overlay-shadow);
   animation: dialog-in 0.16s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
@@ -55,7 +54,6 @@ const emit = defineEmits<{ (e: 'update:open'): void }>()
 .dialog.system {
   background: var(--bg-panel);
   backdrop-filter: none;
-  -webkit-backdrop-filter: none;
   border: 1px solid var(--border);
   box-shadow: var(--shadow);
 }

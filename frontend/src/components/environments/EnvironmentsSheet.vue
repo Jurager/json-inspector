@@ -56,22 +56,20 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
   background: rgba(0, 0, 0, 0.25);
 }
 
+/* The whole sheet is one acrylic leaf — blurring only the toolbar left a glass strip lying on an
+   ordinary card. The strips inside it are veils of the same shade, not a fill of their own. */
 .sheet {
   @apply flex flex-col rounded-xl overflow-hidden w-[1040px] max-w-[95vw];
   max-height: calc(100vh - 72px);
-  background: var(--glass-overlay);
-  backdrop-filter: var(--blur-overlay);
-  -webkit-backdrop-filter: var(--blur-overlay);
-  box-shadow: inset 0 1px 0 var(--glass-overlay-hairline), 0 24px 60px rgba(0, 0, 0, 0.18),
-    0 0 0 1px var(--glass-overlay-border);
+  background: var(--glass-sheet);
+  backdrop-filter: var(--blur-sheet);
+  box-shadow: var(--glass-sheet-shadow), 0 0 0 1px var(--glass-overlay-border);
 }
 
-/* The sheet's own toolbar, in the lighter material: it is chrome inside the overlay. */
 .sheet-head {
-  @apply flex-none flex items-center gap-3 h-[46px] px-3.5 border-b border-border;
-  background: var(--glass-chrome);
-  backdrop-filter: var(--blur-chrome);
-  -webkit-backdrop-filter: var(--blur-chrome);
+  @apply flex-none flex items-center gap-3 h-[46px] px-3.5 border-b;
+  background: var(--glass-sheet-head);
+  border-color: var(--glass-overlay-border);
 }
 
 .sheet-title {
