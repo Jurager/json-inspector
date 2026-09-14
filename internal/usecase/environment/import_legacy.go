@@ -116,7 +116,12 @@ func parseLegacy(raw string) (*legacyState, error) {
 	return &state, nil
 }
 
+// writeLegacy restores the old localStorage payload. It lands in the default workspace and not in
+// whichever one happens to be on screen: the import is a one-time repair of what this installation
+// kept before environments moved into the database, and it must not follow the user around spaces.
 func (u *UseCase) writeLegacy(ctx context.Context, state legacyState, secrets SecretSource, report *ImportReport) error {
+	const workspace = domain.WorkspacePersonalID
+
 	for i, legacyEnv := range state.Environments {
 		env := domain.Environment{
 			ID:       firstNonEmpty(legacyEnv.ID, u.ids()),
@@ -125,7 +130,7 @@ func (u *UseCase) writeLegacy(ctx context.Context, state legacyState, secrets Se
 			Readonly: legacyEnv.Readonly,
 			Position: i + 1,
 		}
-		if err := u.store.SaveEnvironment(ctx, env); err != nil {
+		if err := u.store.SaveEnvironment(ctx, workspace, env); err != nil {
 			return err
 		}
 		report.Environments++
@@ -135,7 +140,7 @@ func (u *UseCase) writeLegacy(ctx context.Context, state legacyState, secrets Se
 			if err != nil {
 				return err
 			}
-			if err := u.store.SaveVariable(ctx, domain.EnvScope{Environment: env.ID}, v); err != nil {
+			if err := u.store.SaveVariable(ctx, workspace, domain.EnvScope{Environment: env.ID}, v); err != nil {
 				return err
 			}
 			report.Variables++
@@ -147,14 +152,14 @@ func (u *UseCase) writeLegacy(ctx context.Context, state legacyState, secrets Se
 		if err != nil {
 			return err
 		}
-		if err := u.store.SaveVariable(ctx, domain.EnvScope{}, v); err != nil {
+		if err := u.store.SaveVariable(ctx, workspace, domain.EnvScope{}, v); err != nil {
 			return err
 		}
 		report.Variables++
 	}
 
 	if state.ActiveID != "" {
-		if err := u.store.SetActiveEnvironment(ctx, state.ActiveID); err != nil {
+		if err := u.store.SetActiveEnvironment(ctx, workspace, state.ActiveID); err != nil {
 			return err
 		}
 	}

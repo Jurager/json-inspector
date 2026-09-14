@@ -8,6 +8,7 @@ import { useMessages } from '../../i18n'
 import { usePlatform } from '../../composables/usePlatform'
 import EnvironmentMenu from '../environments/EnvironmentMenu.vue'
 import ThemeSwitch from './ThemeSwitch.vue'
+import WorkspaceSwitcher from '../workspaces/WorkspaceSwitcher.vue'
 import Icon from '../ui/Icon.vue'
 import { Button } from '../ui/button'
 import logoUrl from '../../assets/logo.svg'
@@ -83,6 +84,12 @@ onBeforeUnmount(() => {
     </div>
     <span v-else class="titlebar-title">{{ appName }}</span>
 
+    <!-- Which workspace the window is showing, in the corner the mockup puts it: on macOS it stands
+         where the traffic lights end, and on a titlebar we draw ourselves it follows the app mark. -->
+    <div class="titlebar-workspace" :class="{ 'titlebar-workspace-mac': !customTitlebar }">
+      <WorkspaceSwitcher />
+    </div>
+
     <div v-if="customTitlebar" class="titlebar-spacer"></div>
 
     <div class="titlebar-actions" :class="{ 'titlebar-actions-flush': customTitlebar }">
@@ -132,6 +139,22 @@ onBeforeUnmount(() => {
 
 <style scoped>
 @reference "../../style.css";
+
+/* The switcher keeps its own corner. On macOS the title is centred and the traffic lights are drawn
+   over the bar by the system, so the pill is taken out of the row and pinned past them; on a
+   titlebar of our own the row is laid out from the left and the pill simply follows the app mark. */
+.titlebar-workspace {
+  @apply flex items-center;
+  --wails-draggable: no-drag;
+}
+
+/* macOS draws its own controls over this bar and the latest versions lay them out wider than they
+   used to: the last of the three ends 78px from the window's edge, so the pill starts 12px past it —
+   the same gap the mockup leaves between the lights and the switcher. */
+.titlebar-workspace-mac {
+  @apply absolute top-1/2 -translate-y-1/2;
+  left: 90px;
+}
 
 .btn.titlebar-search {
   color: var(--text-secondary);

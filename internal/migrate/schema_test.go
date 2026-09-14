@@ -15,6 +15,7 @@ import (
 // expectedTables is every table the app reads, including the runner's own ledger. A rename or a
 // dropped file shows up here rather than as a "no such table" at runtime.
 var expectedTables = []string{
+	"workspaces",
 	"environments", "variables",
 	"records", "record_bodies",
 	"collections", "collection_nodes",
@@ -32,8 +33,8 @@ func TestEmbeddedSchemaApplies(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Up(migrations.FS): %v", err)
 	}
-	if len(result.Applied) != 6 {
-		t.Errorf("applied %d migrations, want 6", len(result.Applied))
+	if len(result.Applied) != 7 {
+		t.Errorf("applied %d migrations, want 7", len(result.Applied))
 	}
 	if result.Skipped != 0 {
 		t.Errorf("skipped %d migrations on a fresh database, want 0", result.Skipped)
@@ -92,8 +93,8 @@ func TestEmbeddedSchemaEnforcesForeignKeys(t *testing.T) {
 	// Rejecting inserts and cascading deletes are different code paths, so the cascade is
 	// checked rather than inferred from the failure above.
 	if _, err := db.Exec(
-		`INSERT INTO records (id, source, method, url, started_at) VALUES (?, ?, ?, ?, ?)`,
-		"rec-1", "manual", "GET", "https://example.test/", 1); err != nil {
+		`INSERT INTO records (id, workspace_id, source, method, url, started_at) VALUES (?, ?, ?, ?, ?, ?)`,
+		"rec-1", "personal", "manual", "GET", "https://example.test/", 1); err != nil {
 		t.Fatalf("inserting a record: %v", err)
 	}
 	if _, err := db.Exec(
@@ -110,5 +111,80 @@ func TestEmbeddedSchemaEnforcesForeignKeys(t *testing.T) {
 	}
 	if bodies != 0 {
 		t.Errorf("%d bodies survived their record: ON DELETE CASCADE is not firing", bodies)
+	}
+}
+
+// A workspace is the row everything else hangs off, and deleting one is the operation that leans
+// on every cascade in the schema at once: history, collections with their nodes, environments with
+// their variables, the composer's draft. Each carries the workspace through a different parent, so
+// each is checked rather than assumed from the one that happens to be wired the same way.
+func TestEmbeddedSchemaCascadesAWorkspace(t *testing.T) {
+	db := testDB(t)
+
+	if _, err := Up(t.Context(), db, migrations.FS); err != nil {
+		t.Fatalf("Up(migrations.FS): %v", err)
+	}
+	if _, err := db.Exec(`PRAGMA foreign_keys = 1`); err != nil {
+		t.Fatalf("enabling foreign keys: %v", err)
+	}
+
+	const ws = "team-1"
+	if _, err := db.Exec(
+		`INSERT INTO workspaces (id, kind, position, created_at, updated_at) VALUES (?, ?, ?, ?, ?)`,
+		ws, "team", 1, 1, 1); err != nil {
+		t.Fatalf("inserting a workspace: %v", err)
+	}
+
+	seed := []struct {
+		what string
+		sql  string
+		args []any
+	}{
+		{"a record", `INSERT INTO records (id, workspace_id, source, method, url, started_at)
+			VALUES ('rec-2', ?, 'browser', 'GET', 'https://example.test/', 2)`, []any{ws}},
+		{"a record body", `INSERT INTO record_bodies (record_seq, side)
+			SELECT seq, 'response' FROM records WHERE id = 'rec-2'`, nil},
+		{"a script run", `INSERT INTO script_runs (id, workspace_id, scope, ok, created_at)
+			VALUES ('run-2', ?, 'pre', 1, 2)`, []any{ws}},
+		{"an environment", `INSERT INTO environments (id, workspace_id, name, position, created_at, updated_at)
+			VALUES ('env-2', ?, 'Stage', 0, 2, 2)`, []any{ws}},
+		{"a variable", `INSERT INTO variables (id, workspace_id, scope_kind, name, kind, position, created_at, updated_at)
+			VALUES ('var-2', ?, 'globals', 'host', 'text', 0, 2, 2)`, []any{ws}},
+		{"a collection", `INSERT INTO collections (id, workspace_id, name, position, created_at, updated_at)
+			VALUES ('col-2', ?, 'Team', 0, 2, 2)`, []any{ws}},
+		{"a node in it", `INSERT INTO collection_nodes (id, collection_id, name, position, created_at, updated_at)
+			VALUES ('node-2', 'col-2', 'List', 0, 2, 2)`, nil},
+		{"the draft", `INSERT INTO drafts (workspace_id, id, updated_at) VALUES (?, 'command-line', 2)`, []any{ws}},
+	}
+	for _, s := range seed {
+		if _, err := db.Exec(s.sql, s.args...); err != nil {
+			t.Fatalf("inserting %s: %v", s.what, err)
+		}
+	}
+
+	if _, err := db.Exec(`DELETE FROM workspaces WHERE id = ?`, ws); err != nil {
+		t.Fatalf("deleting the workspace: %v", err)
+	}
+
+	for _, table := range []string{
+		"records", "record_bodies", "script_runs", "environments",
+		"variables", "collections", "collection_nodes", "drafts",
+	} {
+		var rows int
+		if err := db.QueryRow(`SELECT count(*) FROM ` + table).Scan(&rows); err != nil {
+			t.Fatalf("counting %s: %v", table, err)
+		}
+		if rows != 0 {
+			t.Errorf("%d rows survived in %s: ON DELETE CASCADE is not firing", rows, table)
+		}
+	}
+
+	// The workspace the app starts with is not collateral: it was there before, and it is there after.
+	var kept int
+	if err := db.QueryRow(`SELECT count(*) FROM workspaces WHERE id = 'personal'`).Scan(&kept); err != nil {
+		t.Fatalf("counting workspaces: %v", err)
+	}
+	if kept != 1 {
+		t.Errorf("the default workspace is gone: %d rows", kept)
 	}
 }

@@ -2,6 +2,7 @@ import { onBeforeUnmount, onMounted } from 'vue'
 import { useEnvironmentsStore } from '../stores/environments'
 import { useRequestsStore } from '../stores/requests'
 import { useCollectionsStore } from '../stores/collections'
+import { useWorkspacesStore } from '../stores/workspaces'
 import { useSettings } from './useSettings'
 
 const SAVE_DEBOUNCE_MS = 300
@@ -28,6 +29,12 @@ export function useSessionPersistence(
   }
 
   onMounted(() => {
+    // Which workspace everything below belongs to is read first: the history and the tree are one
+    // workspace's, and the window has to know which one before it draws them. Not through the URL
+    // like the theme: nothing of the first frame depends on it, and a chip that arrives a moment
+    // later is not a window painted in the wrong colour.
+    void useWorkspacesStore().load()
+
     void loadSettings().then(() => {
       const stored = settings.value
       if (!stored) return

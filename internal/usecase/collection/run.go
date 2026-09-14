@@ -43,7 +43,16 @@ func (u *UseCase) Run(ctx context.Context, collectionID string, nodeID string) (
 		return "", domain.Refuse(domain.CodeRunInProgress, domain.ErrNotAllowed, nil)
 	}
 
-	tree, err := u.store.Collections(ctx)
+	// The workspace is read here and carried into the goroutine below as a value: a run outlives the
+	// call that started it, and asking again down there would file its results under whatever space
+	// the user had switched to by the time the last request came back.
+	workspace, err := u.scope.ActiveWorkspace(ctx)
+	if err != nil {
+		u.running.Store(false)
+		return "", err
+	}
+
+	tree, err := u.store.Collections(ctx, workspace)
 	if err != nil {
 		u.running.Store(false)
 		return "", err
@@ -82,7 +91,7 @@ func (u *UseCase) Run(ctx context.Context, collectionID string, nodeID string) (
 	}
 
 	u.stopped.Store(false)
-	go u.execute(run, requests)
+	go u.execute(workspace, run, requests)
 	return run.ID, nil
 }
 
@@ -108,7 +117,7 @@ func (u *UseCase) LastRun(ctx context.Context, collectionID string, nodeID strin
 
 // execute walks the requests and sends them one at a time. It runs on a context of its own: the
 // caller's ends when the frontend call returns, and a run outlives the call that started it.
-func (u *UseCase) execute(run domain.CollectionRun, requests []runnable) {
+func (u *UseCase) execute(workspace string, run domain.CollectionRun, requests []runnable) {
 	ctx := context.Background()
 	defer u.running.Store(false)
 

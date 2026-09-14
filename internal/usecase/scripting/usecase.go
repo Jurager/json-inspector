@@ -32,6 +32,7 @@ type UseCase struct {
 	tree   Tree
 	store  Store
 	vars   Variables
+	scope  Scope
 	ids    platform.IDGen
 
 	// The run's own scope, which is what `pm.variables` reads and writes. It lives here because it
@@ -42,8 +43,11 @@ type UseCase struct {
 	runs map[string]map[string]string
 }
 
-func NewUseCase(engine Engine, tree Tree, store Store, vars Variables, ids platform.IDGen) *UseCase {
-	return &UseCase{engine: engine, tree: tree, store: store, vars: vars, ids: ids, runs: map[string]map[string]string{}}
+func NewUseCase(engine Engine, tree Tree, store Store, vars Variables, scope Scope, ids platform.IDGen) *UseCase {
+	return &UseCase{
+		engine: engine, tree: tree, store: store, vars: vars, scope: scope, ids: ids,
+		runs: map[string]map[string]string{},
+	}
 }
 
 // Level is one step of a chain: a collection, a collection inside one, or a request, and what it runs.
@@ -58,18 +62,26 @@ type Level struct {
 // collection inside it on the way down, then the request's own. A level with nothing to run is not in
 // it: this is what runs, not the places it could have run from.
 func (u *UseCase) Chain(ctx context.Context, nodeID string) ([]Level, error) {
+	workspace, err := u.scope.ActiveWorkspace(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return u.chain(ctx, workspace, nodeID)
+}
+
+func (u *UseCase) chain(ctx context.Context, workspace, nodeID string) ([]Level, error) {
 	// An empty id is a request nothing was composed around: one that came out of a link in a response,
 	// or out of the browser. Nothing is above it because there is no it.
 	if nodeID == "" {
 		return []Level{}, nil
 	}
 
-	tree, err := u.tree.Collections(ctx)
+	tree, err := u.tree.Collections(ctx, workspace)
 	if err != nil {
 		return nil, err
 	}
 	for _, collection := range tree {
-		chain, ok, err := u.pathTo(ctx, collection, nodeID)
+		chain, ok, err := u.pathTo(ctx, workspace, collection, nodeID)
 		if err != nil {
 			return nil, err
 		}
@@ -84,7 +96,7 @@ func (u *UseCase) Chain(ctx context.Context, nodeID string) ([]Level, error) {
 	// An id nothing knows is the same answer: a request whose level is gone — a card open on a node
 	// deleted beside it — has nothing around it, and saying so is better than failing a send over code
 	// that no longer exists.
-	scripts, err := u.tree.Scripts(ctx, nodeID)
+	scripts, err := u.tree.Scripts(ctx, workspace, nodeID)
 	if errors.Is(err, domain.ErrNotFound) {
 		return []Level{}, nil
 	}
@@ -101,13 +113,21 @@ func (u *UseCase) Chain(ctx context.Context, nodeID string) ([]Level, error) {
 // the command line's. Nil is "not set here", which is a different answer from a script that is simply
 // empty.
 func (u *UseCase) Scripts(ctx context.Context, id string) (*domain.Scripts, error) {
-	return u.store.Scripts(ctx, id)
+	workspace, err := u.scope.ActiveWorkspace(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return u.store.Scripts(ctx, workspace, id)
 }
 
 // SaveScripts writes what a level has to say about the requests it runs around, and nil puts it back
 // to "not set here" — the state a level returns to when its code is taken off it.
 func (u *UseCase) SaveScripts(ctx context.Context, id string, scripts *domain.Scripts) error {
-	return u.store.SaveScripts(ctx, id, scripts)
+	workspace, err := u.scope.ActiveWorkspace(ctx)
+	if err != nil {
+		return err
+	}
+	return u.store.SaveScripts(ctx, workspace, id, scripts)
 }
 
 // Before runs the pre-request scripts of everything above a request and answers whether the request
@@ -118,8 +138,8 @@ func (u *UseCase) SaveScripts(ctx context.Context, id string, scripts *domain.Sc
 //
 // What they did goes back in the pass rather than into the store: a report hangs off the record it ran
 // around, and that record is written only after the request has been answered.
-func (u *UseCase) Before(ctx context.Context, pass *domain.ScriptPass) (bool, error) {
-	chain, err := u.Chain(ctx, pass.NodeID)
+func (u *UseCase) Before(ctx context.Context, workspace string, pass *domain.ScriptPass) (bool, error) {
+	chain, err := u.chain(ctx, workspace, pass.NodeID)
 	if err != nil {
 		return false, err
 	}
@@ -146,14 +166,14 @@ func (u *UseCase) Before(ctx context.Context, pass *domain.ScriptPass) (bool, er
 // is a record already. A report that cannot be written is lost — the alternative is a request that
 // failed after it had worked — and the ones behind it are lost with it, because a store that refuses
 // one will refuse the next.
-func (u *UseCase) After(ctx context.Context, pass domain.ScriptPass) {
+func (u *UseCase) After(ctx context.Context, workspace string, pass domain.ScriptPass) {
 	for _, report := range pass.Ran {
-		if err := u.store.SaveScriptRun(ctx, report); err != nil {
+		if err := u.store.SaveScriptRun(ctx, workspace, report); err != nil {
 			return
 		}
 	}
 
-	chain, err := u.Chain(ctx, pass.NodeID)
+	chain, err := u.chain(ctx, workspace, pass.NodeID)
 	if err != nil {
 		return
 	}
@@ -162,7 +182,8 @@ func (u *UseCase) After(ctx context.Context, pass domain.ScriptPass) {
 		if source == "" {
 			continue
 		}
-		if err := u.store.SaveScriptRun(ctx, u.script(ctx, pass, level, domain.ScriptPost, source)); err != nil {
+		if err := u.store.SaveScriptRun(ctx, workspace,
+			u.script(ctx, pass, level, domain.ScriptPost, source)); err != nil {
 			return
 		}
 	}
@@ -270,8 +291,8 @@ func (u *UseCase) setRunVariable(run string, name string, value string) {
 //
 // A collection that is the id itself is a chain of one: what it runs is its own code, and nothing is
 // above it because there is nothing above it.
-func (u *UseCase) pathTo(ctx context.Context, from domain.Collection, id string) ([]Level, bool, error) {
-	own, err := u.levelOf(ctx, from.ID, from.Name, KindCollection)
+func (u *UseCase) pathTo(ctx context.Context, workspace string, from domain.Collection, id string) ([]Level, bool, error) {
+	own, err := u.levelOf(ctx, workspace, from.ID, from.Name, KindCollection)
 	if err != nil {
 		return nil, false, err
 	}
@@ -281,7 +302,7 @@ func (u *UseCase) pathTo(ctx context.Context, from domain.Collection, id string)
 
 	for _, entry := range from.Level() {
 		if entry.Collection != nil {
-			below, ok, err := u.pathTo(ctx, *entry.Collection, id)
+			below, ok, err := u.pathTo(ctx, workspace, *entry.Collection, id)
 			if err != nil {
 				return nil, false, err
 			}
@@ -294,7 +315,7 @@ func (u *UseCase) pathTo(ctx context.Context, from domain.Collection, id string)
 			continue
 		}
 
-		last, err := u.levelOf(ctx, entry.Node.ID, entry.Node.Name, KindRequest)
+		last, err := u.levelOf(ctx, workspace, entry.Node.ID, entry.Node.Name, KindRequest)
 		if err != nil {
 			return nil, false, err
 		}
@@ -305,8 +326,8 @@ func (u *UseCase) pathTo(ctx context.Context, from domain.Collection, id string)
 
 // levelOf is one step of a chain, or nothing when the level has no code of its own to run: a level
 // that runs nothing is not a step, it is a collection on the way.
-func (u *UseCase) levelOf(ctx context.Context, id string, name string, kind string) (*Level, error) {
-	scripts, err := u.tree.Scripts(ctx, id)
+func (u *UseCase) levelOf(ctx context.Context, workspace, id string, name string, kind string) (*Level, error) {
+	scripts, err := u.tree.Scripts(ctx, workspace, id)
 	if err != nil {
 		return nil, err
 	}

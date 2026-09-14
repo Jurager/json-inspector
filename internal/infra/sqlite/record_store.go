@@ -13,7 +13,7 @@ import (
 
 // SaveRecord writes a record and both of its bodies in one transaction: a row whose body is missing
 // would open as an empty document, and a body with no row would be unreachable.
-func (s *Store) SaveRecord(ctx context.Context, rec domain.Record) error {
+func (s *Store) SaveRecord(ctx context.Context, workspaceID string, rec domain.Record) error {
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
 		return fmt.Errorf("saving record %s: %w", rec.ID, err)
@@ -35,13 +35,13 @@ func (s *Store) SaveRecord(ctx context.Context, rec domain.Record) error {
 
 	finishedAt := time.Now().UnixMilli()
 	res, err := tx.ExecContext(ctx,
-		`INSERT INTO records (id, source, method, url, status, status_text, content_type, error,
-		                      cancelled, duration_us, dns_us, connect_us, tls_us, wait_us, download_us,
-		                      request_bytes, response_bytes, request_headers_json,
+		`INSERT INTO records (id, workspace_id, source, method, url, status, status_text, content_type,
+		                      error, cancelled, duration_us, dns_us, connect_us, tls_us, wait_us,
+		                      download_us, request_bytes, response_bytes, request_headers_json,
 		                      response_headers_json, request_cookies_json, started_at, finished_at,
 		                      tab_id, tab_title, tab_url, favicon_url)
-		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-		rec.ID, string(rec.Source), rec.Method, rec.URL, rec.Status, rec.StatusText, rec.ContentType,
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		rec.ID, workspaceID, string(rec.Source), rec.Method, rec.URL, rec.Status, rec.StatusText, rec.ContentType,
 		rec.Error, boolToInt(rec.Cancelled), rec.DurationUs, rec.DNSUs, rec.ConnectUs, rec.TLSUs,
 		rec.WaitUs, rec.DownloadUs, rec.RequestBytes, rec.ResponseBytes,
 		string(requestHeaders), string(responseHeaders), string(cookies), rec.StartedAt, finishedAt,
@@ -85,11 +85,12 @@ func (s *Store) SaveRecord(ctx context.Context, rec domain.Record) error {
 // the bodies travels — the list is what the pane draws, and a moment later it is drawn for a record
 // the window has not selected yet, so a second call would be a second wait. Each body comes as its
 // size alone: the viewer knows what it is asking for before it asks.
-func (s *Store) Records(ctx context.Context, source domain.RecordSource, limit int) ([]domain.Record, error) {
-	scope, args := listScope(source, limit)
+func (s *Store) Records(ctx context.Context, workspaceID string, source domain.RecordSource, limit int) ([]domain.Record, error) {
+	scope, args := listScope(workspaceID, source, limit)
 
 	rows, err := s.db.QueryContext(ctx,
-		`SELECT seq, id, source, method, url, status, status_text, content_type, error, cancelled,
+		`SELECT seq, id, workspace_id, source, method, url, status, status_text, content_type, error,
+		        cancelled,
 		        duration_us, dns_us, connect_us, tls_us, wait_us, download_us,
 		        request_bytes, response_bytes, request_headers_json, response_headers_json,
 		        request_cookies_json, started_at, ifnull(tab_id, 0), ifnull(tab_title, ''),
@@ -111,11 +112,11 @@ func (s *Store) Records(ctx context.Context, source domain.RecordSource, limit i
 		)
 		// The phases come back as nullable columns: absent is a phase that did not happen, which is
 		// not the same thing as one that took no time.
-		if err := rows.Scan(&seq, &rec.ID, &rec.Source, &rec.Method, &rec.URL, &rec.Status, &rec.StatusText,
-			&rec.ContentType, &rec.Error, &cancelled, &rec.DurationUs, &rec.DNSUs, &rec.ConnectUs, &rec.TLSUs,
-			&rec.WaitUs, &rec.DownloadUs, &rec.RequestBytes, &rec.ResponseBytes, &requestHeaders,
-			&responseHeaders, &cookies, &rec.StartedAt, &rec.TabID, &rec.TabTitle, &rec.TabURL,
-			&rec.FavIconURL); err != nil {
+		if err := rows.Scan(&seq, &rec.ID, &rec.WorkspaceID, &rec.Source, &rec.Method, &rec.URL,
+			&rec.Status, &rec.StatusText, &rec.ContentType, &rec.Error, &cancelled, &rec.DurationUs,
+			&rec.DNSUs, &rec.ConnectUs, &rec.TLSUs, &rec.WaitUs, &rec.DownloadUs, &rec.RequestBytes,
+			&rec.ResponseBytes, &requestHeaders, &responseHeaders, &cookies, &rec.StartedAt,
+			&rec.TabID, &rec.TabTitle, &rec.TabURL, &rec.FavIconURL); err != nil {
 			return nil, fmt.Errorf("listing records: %w", err)
 		}
 		rec.Cancelled = cancelled != 0
@@ -151,17 +152,17 @@ func (s *Store) Record(ctx context.Context, id string) (domain.Record, error) {
 		requestHeaders, responseHeaders, cookies string
 	)
 	err := s.db.QueryRowContext(ctx,
-		`SELECT seq, id, source, method, url, status, status_text, content_type, error, cancelled,
-		        duration_us, dns_us, connect_us, tls_us, wait_us, download_us,
+		`SELECT seq, id, workspace_id, source, method, url, status, status_text, content_type, error,
+		        cancelled, duration_us, dns_us, connect_us, tls_us, wait_us, download_us,
 		        request_bytes, response_bytes, request_headers_json, response_headers_json,
 		        request_cookies_json, started_at, ifnull(tab_id, 0), ifnull(tab_title, ''),
 		        ifnull(tab_url, ''), ifnull(favicon_url, '')
 		   FROM records WHERE id = ?`, id).
-		Scan(&seq, &rec.ID, &rec.Source, &rec.Method, &rec.URL, &rec.Status, &rec.StatusText,
-			&rec.ContentType, &rec.Error, &cancelled, &rec.DurationUs, &rec.DNSUs, &rec.ConnectUs,
-			&rec.TLSUs, &rec.WaitUs, &rec.DownloadUs, &rec.RequestBytes, &rec.ResponseBytes,
-			&requestHeaders, &responseHeaders, &cookies, &rec.StartedAt, &rec.TabID, &rec.TabTitle,
-			&rec.TabURL, &rec.FavIconURL)
+		Scan(&seq, &rec.ID, &rec.WorkspaceID, &rec.Source, &rec.Method, &rec.URL, &rec.Status,
+			&rec.StatusText, &rec.ContentType, &rec.Error, &cancelled, &rec.DurationUs, &rec.DNSUs,
+			&rec.ConnectUs, &rec.TLSUs, &rec.WaitUs, &rec.DownloadUs, &rec.RequestBytes,
+			&rec.ResponseBytes, &requestHeaders, &responseHeaders, &cookies, &rec.StartedAt,
+			&rec.TabID, &rec.TabTitle, &rec.TabURL, &rec.FavIconURL)
 	if errors.Is(err, sql.ErrNoRows) {
 		return domain.Record{}, fmt.Errorf("record %s: %w", id, domain.ErrNotFound)
 	}
@@ -239,11 +240,11 @@ func (s *Store) attachBodyRefs(ctx context.Context, records []domain.Record, seq
 
 // listScope is the one definition of "the records the list shows". Both queries above have to agree
 // on it, or a body would arrive for a record that was never listed.
-func listScope(source domain.RecordSource, limit int) (string, []any) {
-	scope := ""
-	args := []any{}
+func listScope(workspaceID string, source domain.RecordSource, limit int) (string, []any) {
+	scope := ` WHERE workspace_id = ?`
+	args := []any{workspaceID}
 	if source != "" {
-		scope = ` WHERE source = ?`
+		scope += ` AND source = ?`
 		args = append(args, string(source))
 	}
 	// The sequence breaks ties: a burst of captures shares a millisecond, and history must not
@@ -294,14 +295,16 @@ func (s *Store) DeleteRecords(ctx context.Context, ids []string) error {
 	return nil
 }
 
-// Prune drops what the retention rules no longer keep and reports how many rows went. SQLite's
-// `LIMIT -1 OFFSET n` is the way to say "everything after the newest n".
-func (s *Store) Prune(ctx context.Context, opts domain.PruneOptions) (int, error) {
+// Prune drops what one workspace's retention rules no longer keep and reports how many rows went.
+// SQLite's `LIMIT -1 OFFSET n` is the way to say "everything after the newest n", and the count is
+// spent inside the workspace: a busy space must not eat the history of the quiet one beside it.
+func (s *Store) Prune(ctx context.Context, workspaceID string, opts domain.PruneOptions) (int, error) {
 	total := 0
 
 	if opts.MaxAge > 0 {
 		cutoff := time.Now().Add(-opts.MaxAge).UnixMilli()
-		res, err := s.db.ExecContext(ctx, `DELETE FROM records WHERE started_at < ?`, cutoff)
+		res, err := s.db.ExecContext(ctx,
+			`DELETE FROM records WHERE workspace_id = ? AND started_at < ?`, workspaceID, cutoff)
 		if err != nil {
 			return total, fmt.Errorf("pruning records older than %s: %w", opts.MaxAge, err)
 		}
@@ -312,8 +315,9 @@ func (s *Store) Prune(ctx context.Context, opts domain.PruneOptions) (int, error
 	if opts.MaxCount > 0 {
 		res, err := s.db.ExecContext(ctx,
 			`DELETE FROM records WHERE seq IN (
-			   SELECT seq FROM records ORDER BY started_at DESC, seq DESC LIMIT -1 OFFSET ?)`,
-			opts.MaxCount)
+			   SELECT seq FROM records WHERE workspace_id = ?
+			    ORDER BY started_at DESC, seq DESC LIMIT -1 OFFSET ?)`,
+			workspaceID, opts.MaxCount)
 		if err != nil {
 			return total, fmt.Errorf("pruning records beyond %d: %w", opts.MaxCount, err)
 		}

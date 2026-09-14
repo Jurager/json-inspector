@@ -23,6 +23,9 @@ import type * as record$0 from "../../../../../json-inspector/internal/usecase/r
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: Unused imports
 import type * as settings$0 from "../../../../../json-inspector/internal/usecase/settings/models.js";
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-ignore: Unused imports
+import type * as workspace$0 from "../../../../../json-inspector/internal/usecase/workspace/models.js";
 
 declare module "@wailsio/runtime" {
     namespace Events {
@@ -39,6 +42,7 @@ declare module "@wailsio/runtime" {
             "settings:theme": settings$0.ThemeChanged;
             "update-available": updater$0.Info | null;
             "update-check": void;
+            "workspace:changed": workspace$0.Changed;
         }
     }
 }

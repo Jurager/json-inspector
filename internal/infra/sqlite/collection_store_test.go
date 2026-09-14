@@ -36,12 +36,12 @@ func seedTree(t *testing.T, store *Store) {
 	ctx := context.Background()
 
 	bearer := &domain.Auth{Type: domain.AuthBearer, Token: "{{token}}"}
-	if err := store.SaveCollection(ctx, domain.Collection{
+	if err := store.SaveCollection(ctx, ws, domain.Collection{
 		ID: "col-1", Name: "Пользователи", Description: "тестовые", Position: 0, Auth: bearer,
 	}); err != nil {
 		t.Fatalf("SaveCollection: %v", err)
 	}
-	if err := store.SaveCollection(ctx, nested("f-1", "col-1", 0, "Админ")); err != nil {
+	if err := store.SaveCollection(ctx, ws, nested("f-1", "col-1", 0, "Админ")); err != nil {
 		t.Fatalf("SaveCollection nested: %v", err)
 	}
 	for _, node := range []domain.CollectionNode{
@@ -58,7 +58,7 @@ func TestCollectionsReadsTheTreeNested(t *testing.T) {
 	store := newMigratedStore(t)
 	seedTree(t, store)
 
-	tree, err := store.Collections(context.Background())
+	tree, err := store.Collections(context.Background(), ws)
 	if err != nil {
 		t.Fatalf("Collections: %v", err)
 	}
@@ -112,12 +112,12 @@ func TestCollectionsKeepsTheirOwnOrder(t *testing.T) {
 		{ID: "col-b", Name: "Вторая", Position: 1},
 		{ID: "col-a", Name: "Первая", Position: 0},
 	} {
-		if err := store.SaveCollection(ctx, c); err != nil {
+		if err := store.SaveCollection(ctx, ws, c); err != nil {
 			t.Fatalf("SaveCollection: %v", err)
 		}
 	}
 
-	tree, err := store.Collections(ctx)
+	tree, err := store.Collections(ctx, ws)
 	if err != nil {
 		t.Fatalf("Collections: %v", err)
 	}
@@ -131,14 +131,14 @@ func TestCollectionsDoNotMixNodes(t *testing.T) {
 	ctx := context.Background()
 	seedTree(t, store)
 
-	if err := store.SaveCollection(ctx, domain.Collection{ID: "col-2", Name: "Заказы", Position: 1}); err != nil {
+	if err := store.SaveCollection(ctx, ws, domain.Collection{ID: "col-2", Name: "Заказы", Position: 1}); err != nil {
 		t.Fatalf("SaveCollection: %v", err)
 	}
 	if err := store.SaveNode(ctx, request("r-3", "col-2", 0, "Заказы", "GET", "https://api.example.com/orders")); err != nil {
 		t.Fatalf("SaveNode: %v", err)
 	}
 
-	tree, err := store.Collections(ctx)
+	tree, err := store.Collections(ctx, ws)
 	if err != nil {
 		t.Fatalf("Collections: %v", err)
 	}
@@ -285,7 +285,7 @@ func TestSaveNodeUpdatesInPlace(t *testing.T) {
 		t.Errorf("node = %+v, want created_at and position untouched by an edit", after)
 	}
 
-	tree, err := store.Collections(ctx)
+	tree, err := store.Collections(ctx, ws)
 	if err != nil {
 		t.Fatalf("Collections: %v", err)
 	}
@@ -301,7 +301,7 @@ func TestNextPositionCountsTheWholeLevel(t *testing.T) {
 
 	// The nested collection sits at 0 and the request at 1, one sequence: the next row of that level
 	// is the third of them, whichever kind it is.
-	next, err := store.NextPosition(ctx, "col-1")
+	next, err := store.NextPosition(ctx, ws, "col-1")
 	if err != nil {
 		t.Fatalf("NextPosition: %v", err)
 	}
@@ -309,7 +309,7 @@ func TestNextPositionCountsTheWholeLevel(t *testing.T) {
 		t.Errorf("next at the top level = %d, want one past the last child", next)
 	}
 
-	next, err = store.NextPosition(ctx, "f-1")
+	next, err = store.NextPosition(ctx, ws, "f-1")
 	if err != nil {
 		t.Fatalf("NextPosition: %v", err)
 	}
@@ -317,7 +317,7 @@ func TestNextPositionCountsTheWholeLevel(t *testing.T) {
 		t.Errorf("next inside the nested collection = %d, want its own count", next)
 	}
 
-	next, err = store.NextPosition(ctx, "col-2")
+	next, err = store.NextPosition(ctx, ws, "col-2")
 	if err != nil {
 		t.Fatalf("NextPosition: %v", err)
 	}
@@ -326,7 +326,7 @@ func TestNextPositionCountsTheWholeLevel(t *testing.T) {
 	}
 
 	// The empty id is the top level: the collections that have no parent.
-	if next, err = store.NextPosition(ctx, ""); err != nil {
+	if next, err = store.NextPosition(ctx, ws, ""); err != nil {
 		t.Fatalf("NextPosition: %v", err)
 	} else if next != 1 {
 		t.Errorf("next among the top-level collections = %d, want one past them", next)
@@ -341,11 +341,11 @@ func TestNextPositionIsNotAMixOfTheTwoTables(t *testing.T) {
 	ctx := context.Background()
 	seedTree(t, store)
 
-	if err := store.SaveCollection(ctx, nested("f-2", "col-1", 5, "Второй")); err != nil {
+	if err := store.SaveCollection(ctx, ws, nested("f-2", "col-1", 5, "Второй")); err != nil {
 		t.Fatalf("SaveCollection: %v", err)
 	}
 
-	next, err := store.NextPosition(ctx, "col-1")
+	next, err := store.NextPosition(ctx, ws, "col-1")
 	if err != nil {
 		t.Fatalf("NextPosition: %v", err)
 	}
@@ -361,7 +361,7 @@ func TestDeleteTakesTheNestedTreeWithIt(t *testing.T) {
 
 	// A nested collection is a row of its own, so removing it is what takes its requests with it —
 	// through both cascades: the nesting one, and the collection the request belongs to.
-	if err := store.DeleteCollection(ctx, "f-1"); err != nil {
+	if err := store.DeleteCollection(ctx, ws, "f-1"); err != nil {
 		t.Fatalf("DeleteCollection: %v", err)
 	}
 	if _, err := store.Node(ctx, "r-1"); !errors.Is(err, domain.ErrNotFound) {
@@ -376,13 +376,13 @@ func TestDeleteTakesTheNestedTreeWithIt(t *testing.T) {
 		t.Errorf("node = %+v, want the request at the top untouched", node)
 	}
 
-	if err := store.DeleteCollection(ctx, "col-1"); err != nil {
+	if err := store.DeleteCollection(ctx, ws, "col-1"); err != nil {
 		t.Fatalf("DeleteCollection: %v", err)
 	}
 	if _, err := store.Node(ctx, "r-2"); !errors.Is(err, domain.ErrNotFound) {
 		t.Fatalf("a request of a deleted collection = %v, want it gone too", err)
 	}
-	tree, err := store.Collections(ctx)
+	tree, err := store.Collections(ctx, ws)
 	if err != nil {
 		t.Fatalf("Collections: %v", err)
 	}
@@ -398,7 +398,7 @@ func TestMoveNodeChangesItsCollection(t *testing.T) {
 	ctx := context.Background()
 	seedTree(t, store)
 
-	if err := store.MoveNode(ctx, "r-2", "f-1", 1); err != nil {
+	if err := store.MoveNode(ctx, ws, "r-2", "f-1", 1); err != nil {
 		t.Fatalf("MoveNode: %v", err)
 	}
 
@@ -410,7 +410,7 @@ func TestMoveNodeChangesItsCollection(t *testing.T) {
 		t.Errorf("moved = %+v, want it inside the nested collection, after the request there", moved)
 	}
 
-	tree, err := store.Collections(ctx)
+	tree, err := store.Collections(ctx, ws)
 	if err != nil {
 		t.Fatalf("Collections: %v", err)
 	}
@@ -441,11 +441,11 @@ func TestMoveNodePutsARowBetweenItsNeighbours(t *testing.T) {
 	}
 	// The level is now: f-1 (0), r-2 (1), r-3 (2), r-4 (3).
 
-	if err := store.MoveNode(ctx, "r-4", "col-1", 1); err != nil {
+	if err := store.MoveNode(ctx, ws, "r-4", "col-1", 1); err != nil {
 		t.Fatalf("MoveNode: %v", err)
 	}
 
-	tree, err := store.Collections(ctx)
+	tree, err := store.Collections(ctx, ws)
 	if err != nil {
 		t.Fatalf("Collections: %v", err)
 	}
@@ -470,15 +470,15 @@ func TestMoveCollectionNestsAndComesBack(t *testing.T) {
 	ctx := context.Background()
 	seedTree(t, store)
 
-	if err := store.SaveCollection(ctx, domain.Collection{ID: "col-2", Name: "Заказы", Position: 1}); err != nil {
+	if err := store.SaveCollection(ctx, ws, domain.Collection{ID: "col-2", Name: "Заказы", Position: 1}); err != nil {
 		t.Fatalf("SaveCollection: %v", err)
 	}
 
-	if err := store.MoveCollection(ctx, "col-2", "f-1", 0); err != nil {
+	if err := store.MoveCollection(ctx, ws, "col-2", "f-1", 0); err != nil {
 		t.Fatalf("MoveCollection: %v", err)
 	}
 
-	tree, err := store.Collections(ctx)
+	tree, err := store.Collections(ctx, ws)
 	if err != nil {
 		t.Fatalf("Collections: %v", err)
 	}
@@ -495,10 +495,10 @@ func TestMoveCollectionNestsAndComesBack(t *testing.T) {
 	}
 
 	// Back out at the top, at the dropped index: the level is where it was put, not appended.
-	if err := store.MoveCollection(ctx, "col-2", "", 0); err != nil {
+	if err := store.MoveCollection(ctx, ws, "col-2", "", 0); err != nil {
 		t.Fatalf("MoveCollection back out: %v", err)
 	}
-	tree, err = store.Collections(ctx)
+	tree, err = store.Collections(ctx, ws)
 	if err != nil {
 		t.Fatalf("Collections: %v", err)
 	}
@@ -570,7 +570,7 @@ func TestRunRoundTrip(t *testing.T) {
 
 	// The results hang off the run: dropping it takes them with it, so a deleted collection does not
 	// leave orphan rows behind.
-	if err := store.DeleteCollection(ctx, "col-1"); err != nil {
+	if err := store.DeleteCollection(ctx, ws, "col-1"); err != nil {
 		t.Fatalf("DeleteCollection: %v", err)
 	}
 	if _, found, err := store.LastRun(ctx, "col-1", "f-1"); err != nil || found {
@@ -617,17 +617,17 @@ func TestNodesSurviveACollectionRename(t *testing.T) {
 	ctx := context.Background()
 	seedTree(t, store)
 
-	tree, err := store.Collections(ctx)
+	tree, err := store.Collections(ctx, ws)
 	if err != nil {
 		t.Fatalf("Collections: %v", err)
 	}
 	collection := tree[0]
 	collection.Name = "Пользователи API"
-	if err := store.SaveCollection(ctx, collection); err != nil {
+	if err := store.SaveCollection(ctx, ws, collection); err != nil {
 		t.Fatalf("SaveCollection: %v", err)
 	}
 
-	tree, err = store.Collections(ctx)
+	tree, err = store.Collections(ctx, ws)
 	if err != nil {
 		t.Fatalf("Collections: %v", err)
 	}

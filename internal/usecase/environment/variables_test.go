@@ -71,7 +71,7 @@ func TestSetVariableAddsAndReplaces(t *testing.T) {
 
 	// Writing the same name again replaces it in place: two rows with one name in one scope is a
 	// scope that answers differently depending on the order it is read in.
-	before, err := store.EnvState(ctx)
+	before, err := store.EnvState(ctx, domain.WorkspacePersonalID)
 	if err != nil {
 		t.Fatalf("EnvState: %v", err)
 	}
@@ -80,7 +80,7 @@ func TestSetVariableAddsAndReplaces(t *testing.T) {
 	if err := u.SetVariable(ctx, domain.ScopeEnvironment, "page", "3"); err != nil {
 		t.Fatalf("SetVariable: %v", err)
 	}
-	after, err := store.EnvState(ctx)
+	after, err := store.EnvState(ctx, domain.WorkspacePersonalID)
 	if err != nil {
 		t.Fatalf("EnvState: %v", err)
 	}

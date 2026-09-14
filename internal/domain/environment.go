@@ -49,10 +49,6 @@ type EnvScope struct {
 	Environment string `json:"environment,omitempty"`
 }
 
-// SettingActiveEnvironment names the preference that holds the selected environment's id. The key
-// lives here so the store and the settings screen cannot disagree about its spelling.
-const SettingActiveEnvironment = "environments.activeId"
-
 // Resolution is what a `{{token}}` resolves to, with where it came from so the tooltip can say it.
 type Resolution struct {
 	Value  string       `json:"value,omitempty"`

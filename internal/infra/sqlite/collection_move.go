@@ -29,7 +29,7 @@ type child struct {
 
 // MoveNode puts a request at a place in a collection: the drop index counts the collection's own
 // requests and the collections inside it, in the order they are drawn.
-func (s *Store) MoveNode(ctx context.Context, id string, collectionID string, position int64) error {
+func (s *Store) MoveNode(ctx context.Context, workspaceID, id string, collectionID string, position int64) error {
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
 		return fmt.Errorf("moving node %s: %w", id, err)
@@ -52,11 +52,11 @@ func (s *Store) MoveNode(ctx context.Context, id string, collectionID string, po
 		return fmt.Errorf("moving node %s: %w", id, err)
 	}
 	if from != collectionID {
-		if err := s.renumber(ctx, tx, from, child{}, 0); err != nil {
+		if err := s.renumber(ctx, tx, workspaceID, from, child{}, 0); err != nil {
 			return err
 		}
 	}
-	if err := s.renumber(ctx, tx, collectionID, child{id: id}, position); err != nil {
+	if err := s.renumber(ctx, tx, workspaceID, collectionID, child{id: id}, position); err != nil {
 		return err
 	}
 
@@ -68,7 +68,7 @@ func (s *Store) MoveNode(ctx context.Context, id string, collectionID string, po
 
 // MoveCollection puts a collection inside another, or back at the top level when the parent is empty.
 // A collection is a row of its own, so where it sits is its parent and nothing else about it moves.
-func (s *Store) MoveCollection(ctx context.Context, id string, parentID string, position int64) error {
+func (s *Store) MoveCollection(ctx context.Context, workspaceID, id string, parentID string, position int64) error {
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
 		return fmt.Errorf("moving collection %s: %w", id, err)
@@ -90,11 +90,11 @@ func (s *Store) MoveCollection(ctx context.Context, id string, parentID string, 
 		return fmt.Errorf("moving collection %s: %w", id, err)
 	}
 	if from != parentID {
-		if err := s.renumber(ctx, tx, from, child{}, 0); err != nil {
+		if err := s.renumber(ctx, tx, workspaceID, from, child{}, 0); err != nil {
 			return err
 		}
 	}
-	if err := s.renumber(ctx, tx, parentID, child{id: id, isCollection: true}, position); err != nil {
+	if err := s.renumber(ctx, tx, workspaceID, parentID, child{id: id, isCollection: true}, position); err != nil {
 		return err
 	}
 
@@ -105,13 +105,16 @@ func (s *Store) MoveCollection(ctx context.Context, id string, parentID string, 
 }
 
 // level reads one level as it is drawn: the requests of a collection and the collections inside it,
-// in position order. The empty id is the top level.
-func level(ctx context.Context, tx *sql.Tx, collectionID string) ([]child, error) {
+// in position order. The empty id is the top level — and the top level is the workspace's own, which
+// is why the workspace is named here: without it, numbering one space's roots would rewrite the
+// positions of every other space's.
+func level(ctx context.Context, tx *sql.Tx, workspaceID, collectionID string) ([]child, error) {
 	rows, err := tx.QueryContext(ctx,
 		`SELECT id, 0 AS is_collection, position FROM collection_nodes WHERE collection_id = ?
 		  UNION ALL
-		 SELECT id, 1, position FROM collections WHERE ifnull(parent_id, '') = ?
-		  ORDER BY position, id`, collectionID, collectionID)
+		 SELECT id, 1, position FROM collections
+		  WHERE workspace_id = ? AND ifnull(parent_id, '') = ?
+		  ORDER BY position, id`, collectionID, workspaceID, collectionID)
 	if err != nil {
 		return nil, fmt.Errorf("reading the level of %s: %w", collectionID, err)
 	}
@@ -136,8 +139,8 @@ func level(ctx context.Context, tx *sql.Tx, collectionID string) ([]child, error
 // the row it just received already in it, which is what makes the index the window drew mean the same
 // thing on both sides. A zero moved id numbers the level as it stands, which is what the level a row
 // left behind needs.
-func (s *Store) renumber(ctx context.Context, tx *sql.Tx, collectionID string, moved child, at int64) error {
-	level, err := level(ctx, tx, collectionID)
+func (s *Store) renumber(ctx context.Context, tx *sql.Tx, workspaceID, collectionID string, moved child, at int64) error {
+	level, err := level(ctx, tx, workspaceID, collectionID)
 	if err != nil {
 		return err
 	}

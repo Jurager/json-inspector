@@ -16,19 +16,19 @@ func TestScriptsRoundTrip(t *testing.T) {
 	ctx := context.Background()
 	seedTree(t, store)
 
-	if scripts, err := store.Scripts(ctx, "col-1"); err != nil || scripts != nil {
+	if scripts, err := store.Scripts(ctx, ws, "col-1"); err != nil || scripts != nil {
 		t.Fatalf("a collection with no scripts = %+v, %v, want nothing", scripts, err)
 	}
 
 	written := &domain.Scripts{Pre: "pm.environment.set('started', Date.now());", Post: "pm.test('ok', () => pm.expect(pm.response.code).to.equal(200));"}
-	if err := store.SaveScripts(ctx, "col-1", written); err != nil {
+	if err := store.SaveScripts(ctx, ws, "col-1", written); err != nil {
 		t.Fatalf("SaveScripts: %v", err)
 	}
-	if err := store.SaveScripts(ctx, "r-1", &domain.Scripts{Post: "console.log('свой');"}); err != nil {
+	if err := store.SaveScripts(ctx, ws, "r-1", &domain.Scripts{Post: "console.log('свой');"}); err != nil {
 		t.Fatalf("SaveScripts: %v", err)
 	}
 
-	fromCollection, err := store.Scripts(ctx, "col-1")
+	fromCollection, err := store.Scripts(ctx, ws, "col-1")
 	if err != nil {
 		t.Fatalf("Scripts: %v", err)
 	}
@@ -36,7 +36,7 @@ func TestScriptsRoundTrip(t *testing.T) {
 		t.Errorf("collection scripts = %+v, want what was written", fromCollection)
 	}
 
-	fromNode, err := store.Scripts(ctx, "r-1")
+	fromNode, err := store.Scripts(ctx, ws, "r-1")
 	if err != nil {
 		t.Fatalf("Scripts: %v", err)
 	}
@@ -52,7 +52,7 @@ func TestScriptsRoundTrip(t *testing.T) {
 	if node.Scripts == nil || node.Scripts.Post != "console.log('свой');" {
 		t.Errorf("node = %+v, want its scripts with it", node.Scripts)
 	}
-	tree, err := store.Collections(ctx)
+	tree, err := store.Collections(ctx, ws)
 	if err != nil {
 		t.Fatalf("Collections: %v", err)
 	}
@@ -61,16 +61,16 @@ func TestScriptsRoundTrip(t *testing.T) {
 	}
 
 	// Cleared is NULL again, and that is a different thing from an empty script.
-	if err := store.SaveScripts(ctx, "col-1", nil); err != nil {
+	if err := store.SaveScripts(ctx, ws, "col-1", nil); err != nil {
 		t.Fatalf("SaveScripts(nil): %v", err)
 	}
-	if scripts, err := store.Scripts(ctx, "col-1"); err != nil || scripts != nil {
+	if scripts, err := store.Scripts(ctx, ws, "col-1"); err != nil || scripts != nil {
 		t.Errorf("cleared scripts = %+v, %v, want nothing", scripts, err)
 	}
-	if err := store.SaveScripts(ctx, "col-1", &domain.Scripts{}); err != nil {
+	if err := store.SaveScripts(ctx, ws, "col-1", &domain.Scripts{}); err != nil {
 		t.Fatalf("SaveScripts(empty): %v", err)
 	}
-	empty, err := store.Scripts(ctx, "col-1")
+	empty, err := store.Scripts(ctx, ws, "col-1")
 	if err != nil {
 		t.Fatalf("Scripts: %v", err)
 	}
@@ -80,16 +80,16 @@ func TestScriptsRoundTrip(t *testing.T) {
 
 	// The command line's request is a level too, and its code lives with the draft it is: nobody has to
 	// save a collection for the code around a request to exist.
-	if err := store.SaveDraft(ctx, domain.Draft{ID: domain.DraftCommandLine, Method: "GET"}); err != nil {
+	if err := store.SaveDraft(ctx, ws, domain.Draft{ID: domain.DraftCommandLine, Method: "GET"}); err != nil {
 		t.Fatalf("SaveDraft: %v", err)
 	}
-	if scripts, err := store.Scripts(ctx, string(domain.DraftCommandLine)); err != nil || scripts != nil {
+	if scripts, err := store.Scripts(ctx, ws, string(domain.DraftCommandLine)); err != nil || scripts != nil {
 		t.Errorf("a fresh draft's scripts = %+v, %v, want nothing", scripts, err)
 	}
-	if err := store.SaveScripts(ctx, string(domain.DraftCommandLine), &domain.Scripts{Pre: "console.log('черновик');"}); err != nil {
+	if err := store.SaveScripts(ctx, ws, string(domain.DraftCommandLine), &domain.Scripts{Pre: "console.log('черновик');"}); err != nil {
 		t.Fatalf("SaveScripts: %v", err)
 	}
-	fromDraft, err := store.Scripts(ctx, string(domain.DraftCommandLine))
+	fromDraft, err := store.Scripts(ctx, ws, string(domain.DraftCommandLine))
 	if err != nil {
 		t.Fatalf("Scripts: %v", err)
 	}
@@ -97,17 +97,17 @@ func TestScriptsRoundTrip(t *testing.T) {
 		t.Errorf("draft scripts = %+v, want what was written", fromDraft)
 	}
 	// Saving the draft itself — every keystroke in the command line does — leaves its code alone.
-	if err := store.SaveDraft(ctx, domain.Draft{ID: domain.DraftCommandLine, Method: "POST", URL: "https://api.example.com"}); err != nil {
+	if err := store.SaveDraft(ctx, ws, domain.Draft{ID: domain.DraftCommandLine, Method: "POST", URL: "https://api.example.com"}); err != nil {
 		t.Fatalf("SaveDraft: %v", err)
 	}
-	if scripts, err := store.Scripts(ctx, string(domain.DraftCommandLine)); err != nil || scripts == nil {
+	if scripts, err := store.Scripts(ctx, ws, string(domain.DraftCommandLine)); err != nil || scripts == nil {
 		t.Errorf("draft scripts after a save = %+v, %v, want them where they were", scripts, err)
 	}
 
-	if err := store.SaveScripts(ctx, "нет-такого", nil); !errors.Is(err, domain.ErrNotFound) {
+	if err := store.SaveScripts(ctx, ws, "нет-такого", nil); !errors.Is(err, domain.ErrNotFound) {
 		t.Errorf("scripts of a level that does not exist = %v, want ErrNotFound", err)
 	}
-	if _, err := store.Scripts(ctx, "нет-такого"); !errors.Is(err, domain.ErrNotFound) {
+	if _, err := store.Scripts(ctx, ws, "нет-такого"); !errors.Is(err, domain.ErrNotFound) {
 		t.Errorf("reading scripts of a level that does not exist = %v, want ErrNotFound", err)
 	}
 }
@@ -118,7 +118,7 @@ func TestScriptRunRoundTrip(t *testing.T) {
 	seedTree(t, store)
 
 	// A run hangs off a record, and the window names records by id.
-	if err := store.SaveRecord(ctx, domain.Record{
+	if err := store.SaveRecord(ctx, ws, domain.Record{
 		RecordSummary: domain.RecordSummary{ID: "rec-1", Source: domain.SourceManual, Method: "GET", URL: "https://api.example.com"},
 	}); err != nil {
 		t.Fatalf("SaveRecord: %v", err)
@@ -141,7 +141,7 @@ func TestScriptRunRoundTrip(t *testing.T) {
 			Tests: []domain.TestResult{{Name: "статус 200", Passed: false, Error: "получен 404", DurationUs: 5}},
 		},
 	} {
-		if err := store.SaveScriptRun(ctx, run); err != nil {
+		if err := store.SaveScriptRun(ctx, ws, run); err != nil {
 			t.Fatalf("SaveScriptRun: %v", err)
 		}
 	}
@@ -169,7 +169,7 @@ func TestScriptRunRoundTrip(t *testing.T) {
 	// Saving the same run again replaces what it said rather than adding to it.
 	again := runs[0]
 	again.Logs = []domain.ScriptLog{{Level: "log", Message: "одна строка"}}
-	if err := store.SaveScriptRun(ctx, again); err != nil {
+	if err := store.SaveScriptRun(ctx, ws, again); err != nil {
 		t.Fatalf("SaveScriptRun: %v", err)
 	}
 	runs, err = store.ScriptRuns(ctx, "rec-1")

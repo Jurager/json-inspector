@@ -29,16 +29,16 @@ func TestDraftRoundTrip(t *testing.T) {
 	store := newMigratedStore(t)
 	ctx := context.Background()
 
-	if _, err := store.Draft(ctx, domain.DraftCommandLine); !errors.Is(err, domain.ErrNotFound) {
+	if _, err := store.Draft(ctx, ws, domain.DraftCommandLine); !errors.Is(err, domain.ErrNotFound) {
 		t.Fatalf("a draft that was never saved = %v, want ErrNotFound", err)
 	}
 
 	saved := sampleDraft()
-	if err := store.SaveDraft(ctx, saved); err != nil {
+	if err := store.SaveDraft(ctx, ws, saved); err != nil {
 		t.Fatalf("SaveDraft: %v", err)
 	}
 
-	got, err := store.Draft(ctx, domain.DraftCommandLine)
+	got, err := store.Draft(ctx, ws, domain.DraftCommandLine)
 	if err != nil {
 		t.Fatalf("Draft: %v", err)
 	}
@@ -71,11 +71,11 @@ func TestDraftRoundTripKeepsTheBodyFormat(t *testing.T) {
 		{ID: "f1", Name: "title", Value: "Кофемолка", Enabled: true},
 		{ID: "f2", Name: "photo", Src: `C:\pics\logo.png`, File: true, Enabled: false},
 	}
-	if err := store.SaveDraft(ctx, saved); err != nil {
+	if err := store.SaveDraft(ctx, ws, saved); err != nil {
 		t.Fatalf("SaveDraft: %v", err)
 	}
 
-	got, err := store.Draft(ctx, domain.DraftCommandLine)
+	got, err := store.Draft(ctx, ws, domain.DraftCommandLine)
 	if err != nil {
 		t.Fatalf("Draft: %v", err)
 	}
@@ -104,7 +104,7 @@ func TestABodyKindThatWasNeverWrittenReadsAsRaw(t *testing.T) {
 	store := newMigratedStore(t)
 	ctx := context.Background()
 
-	if err := store.SaveDraft(ctx, sampleDraft()); err != nil {
+	if err := store.SaveDraft(ctx, ws, sampleDraft()); err != nil {
 		t.Fatalf("SaveDraft: %v", err)
 	}
 	// Writing the column the way an older version of this app left it: empty, or the word it
@@ -114,7 +114,7 @@ func TestABodyKindThatWasNeverWrittenReadsAsRaw(t *testing.T) {
 			`UPDATE drafts SET body_kind = ?, form_json = '[]' WHERE id = ?`, written, domain.DraftCommandLine); err != nil {
 			t.Fatalf("updating the fixture: %v", err)
 		}
-		got, err := store.Draft(ctx, domain.DraftCommandLine)
+		got, err := store.Draft(ctx, ws, domain.DraftCommandLine)
 		if err != nil {
 			t.Fatalf("Draft: %v", err)
 		}
@@ -132,7 +132,7 @@ func TestSaveDraftReplacesTheOneBefore(t *testing.T) {
 	store := newMigratedStore(t)
 	ctx := context.Background()
 
-	if err := store.SaveDraft(ctx, sampleDraft()); err != nil {
+	if err := store.SaveDraft(ctx, ws, sampleDraft()); err != nil {
 		t.Fatalf("SaveDraft: %v", err)
 	}
 
@@ -140,11 +140,11 @@ func TestSaveDraftReplacesTheOneBefore(t *testing.T) {
 	next.Revision = 4
 	next.Method = "DELETE"
 	next.Params = nil
-	if err := store.SaveDraft(ctx, next); err != nil {
+	if err := store.SaveDraft(ctx, ws, next); err != nil {
 		t.Fatalf("SaveDraft: %v", err)
 	}
 
-	got, err := store.Draft(ctx, domain.DraftCommandLine)
+	got, err := store.Draft(ctx, ws, domain.DraftCommandLine)
 	if err != nil {
 		t.Fatalf("Draft: %v", err)
 	}

@@ -4,9 +4,11 @@
 -- releases, and is always read whole at startup — a column per setting would mean a migration
 -- for every preference added.
 --
--- drafts is deliberately a single row's worth of shape (id is a fixed key, revision bumps on
--- each save): the composer's state has to outlive a window reload, and revision lets a stale
--- frontend detect that it is about to overwrite newer state.
+-- drafts is deliberately a single row's worth of shape per workspace (id is a fixed key, revision
+-- bumps on each save): the composer's state has to outlive a window reload, and revision lets a
+-- stale frontend detect that it is about to overwrite newer state. The key is (workspace_id, id)
+-- and not id alone, because the fixed key is the same word in every workspace — 'command-line' is
+-- one row per space, and a half-typed request does not follow the user into another one.
 --
 -- scripts_json on a draft is there because the command line can carry scripts of its own around
 -- the send, and a request nobody has saved owns neither a collection nor a node to hang them on.
@@ -23,7 +25,8 @@ CREATE TABLE settings (
 );
 
 CREATE TABLE drafts (
-  id TEXT PRIMARY KEY,
+  workspace_id TEXT NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
+  id TEXT NOT NULL,
   revision INTEGER NOT NULL DEFAULT 0,
   method TEXT NOT NULL DEFAULT 'GET',
   url TEXT NOT NULL DEFAULT '',
@@ -36,5 +39,6 @@ CREATE TABLE drafts (
   body_file TEXT NOT NULL DEFAULT '',
   cookies_json TEXT NOT NULL DEFAULT '[]',
   scripts_json TEXT,
-  updated_at INTEGER NOT NULL
+  updated_at INTEGER NOT NULL,
+  PRIMARY KEY (workspace_id, id)
 );

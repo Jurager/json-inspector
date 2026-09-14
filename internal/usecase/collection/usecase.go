@@ -26,6 +26,7 @@ const maxDescriptionLength = 500
 
 type UseCase struct {
 	store    Store
+	scope    Scope
 	sender   Sender
 	notifier Notifier
 	ids      platform.IDGen
@@ -36,13 +37,17 @@ type UseCase struct {
 	stopped atomic.Bool
 }
 
-func NewUseCase(store Store, sender Sender, notifier Notifier, ids platform.IDGen) *UseCase {
-	return &UseCase{store: store, sender: sender, notifier: notifier, ids: ids}
+func NewUseCase(store Store, scope Scope, sender Sender, notifier Notifier, ids platform.IDGen) *UseCase {
+	return &UseCase{store: store, scope: scope, sender: sender, notifier: notifier, ids: ids}
 }
 
 // Tree is every collection with its nodes, which is what the list draws and what a run walks.
 func (u *UseCase) Tree(ctx context.Context) ([]domain.Collection, error) {
-	return u.store.Collections(ctx)
+	workspace, err := u.scope.ActiveWorkspace(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return u.store.Collections(ctx, workspace)
 }
 
 // Node reads one node whole: everything opening a request needs, and the tree deliberately left out.
@@ -58,11 +63,16 @@ func (u *UseCase) CreateCollection(ctx context.Context, name string, description
 		return nil, err
 	}
 
-	position, err := u.store.NextPosition(ctx, "")
+	workspace, err := u.scope.ActiveWorkspace(ctx)
 	if err != nil {
 		return nil, err
 	}
-	if err := u.store.SaveCollection(ctx, domain.Collection{
+
+	position, err := u.store.NextPosition(ctx, workspace, "")
+	if err != nil {
+		return nil, err
+	}
+	if err := u.store.SaveCollection(ctx, workspace, domain.Collection{
 		ID:          u.ids(),
 		Name:        name,
 		Description: strings.TrimSpace(description),
@@ -104,13 +114,17 @@ func (u *UseCase) CreateNode(ctx context.Context, in NewNode) (domain.Collection
 	if err != nil {
 		return domain.CollectionNode{}, nil, err
 	}
-	if _, ok, err := u.collection(ctx, in.CollectionID); err != nil {
+	workspace, err := u.scope.ActiveWorkspace(ctx)
+	if err != nil {
+		return domain.CollectionNode{}, nil, err
+	}
+	if _, ok, err := u.collection(ctx, workspace, in.CollectionID); err != nil {
 		return domain.CollectionNode{}, nil, err
 	} else if !ok {
 		return domain.CollectionNode{}, nil, fmt.Errorf("collection %s: %w", in.CollectionID, domain.ErrNotFound)
 	}
 
-	position, err := u.store.NextPosition(ctx, in.CollectionID)
+	position, err := u.store.NextPosition(ctx, workspace, in.CollectionID)
 	if err != nil {
 		return domain.CollectionNode{}, nil, err
 	}
@@ -134,7 +148,7 @@ func (u *UseCase) CreateNode(ctx context.Context, in NewNode) (domain.Collection
 	if err := u.store.SaveNode(ctx, node); err != nil {
 		return domain.CollectionNode{}, nil, err
 	}
-	tree, err := u.Tree(ctx)
+	tree, err := u.store.Collections(ctx, workspace)
 	if err != nil {
 		return domain.CollectionNode{}, nil, err
 	}
@@ -145,19 +159,23 @@ func (u *UseCase) CreateNode(ctx context.Context, in NewNode) (domain.Collection
 // position counts the level the way the tree draws it — a collection's requests and the collections
 // inside it are one list — so the window can name the row it was dropped after.
 func (u *UseCase) MoveNode(ctx context.Context, id string, collectionID string, position int64) ([]domain.Collection, error) {
+	workspace, err := u.scope.ActiveWorkspace(ctx)
+	if err != nil {
+		return nil, err
+	}
 	if _, err := u.store.Node(ctx, id); err != nil {
 		return nil, err
 	}
-	if _, ok, err := u.collection(ctx, collectionID); err != nil {
+	if _, ok, err := u.collection(ctx, workspace, collectionID); err != nil {
 		return nil, err
 	} else if !ok {
 		return nil, fmt.Errorf("collection %s: %w", collectionID, domain.ErrNotFound)
 	}
 
-	if err := u.store.MoveNode(ctx, id, collectionID, position); err != nil {
+	if err := u.store.MoveNode(ctx, workspace, id, collectionID, position); err != nil {
 		return nil, err
 	}
-	return u.Tree(ctx)
+	return u.store.Collections(ctx, workspace)
 }
 
 // MoveCollection puts a collection inside another, or back at the top level when the parent is empty.
@@ -165,7 +183,11 @@ func (u *UseCase) MoveNode(ctx context.Context, id string, collectionID string, 
 // A collection dropped into itself or into one of its own children is refused rather than stored: the
 // tree would be a ring, and a ring is a tree nothing can be drawn from.
 func (u *UseCase) MoveCollection(ctx context.Context, id string, parentID string, position int64) ([]domain.Collection, error) {
-	tree, err := u.store.Collections(ctx)
+	workspace, err := u.scope.ActiveWorkspace(ctx)
+	if err != nil {
+		return nil, err
+	}
+	tree, err := u.store.Collections(ctx, workspace)
 	if err != nil {
 		return nil, err
 	}
@@ -182,10 +204,10 @@ func (u *UseCase) MoveCollection(ctx context.Context, id string, parentID string
 		}
 	}
 
-	if err := u.store.MoveCollection(ctx, id, parentID, position); err != nil {
+	if err := u.store.MoveCollection(ctx, workspace, id, parentID, position); err != nil {
 		return nil, err
 	}
-	return u.Tree(ctx)
+	return u.store.Collections(ctx, workspace)
 }
 
 // Rename is the one edit a tree row takes: the name. What a request is made of is edited in its own
@@ -196,16 +218,20 @@ func (u *UseCase) Rename(ctx context.Context, id string, name string) ([]domain.
 		return nil, err
 	}
 
-	collection, ok, err := u.collection(ctx, id)
+	workspace, err := u.scope.ActiveWorkspace(ctx)
+	if err != nil {
+		return nil, err
+	}
+	collection, ok, err := u.collection(ctx, workspace, id)
 	if err != nil {
 		return nil, err
 	}
 	if ok {
 		collection.Name = name
-		if err := u.store.SaveCollection(ctx, collection); err != nil {
+		if err := u.store.SaveCollection(ctx, workspace, collection); err != nil {
 			return nil, err
 		}
-		return u.Tree(ctx)
+		return u.store.Collections(ctx, workspace)
 	}
 
 	node, err := u.store.Node(ctx, id)
@@ -216,7 +242,7 @@ func (u *UseCase) Rename(ctx context.Context, id string, name string) ([]domain.
 	if err := u.store.SaveNode(ctx, node); err != nil {
 		return nil, err
 	}
-	return u.Tree(ctx)
+	return u.store.Collections(ctx, workspace)
 }
 
 // Describe is the other edit a tree row takes: what the level is for. A folder answers it too — a
@@ -229,14 +255,18 @@ func (u *UseCase) Describe(ctx context.Context, id string, description string) (
 		return nil, err
 	}
 
-	if collection, ok, err := u.collection(ctx, id); err != nil {
+	workspace, err := u.scope.ActiveWorkspace(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if collection, ok, err := u.collection(ctx, workspace, id); err != nil {
 		return nil, err
 	} else if ok {
 		collection.Description = description
-		if err := u.store.SaveCollection(ctx, collection); err != nil {
+		if err := u.store.SaveCollection(ctx, workspace, collection); err != nil {
 			return nil, err
 		}
-		return u.Tree(ctx)
+		return u.store.Collections(ctx, workspace)
 	}
 
 	node, err := u.store.Node(ctx, id)
@@ -247,7 +277,7 @@ func (u *UseCase) Describe(ctx context.Context, id string, description string) (
 	if err := u.store.SaveNode(ctx, node); err != nil {
 		return nil, err
 	}
-	return u.Tree(ctx)
+	return u.store.Collections(ctx, workspace)
 }
 
 // SaveAuth writes what a level authorizes its requests with — the collection's own tab, or a
@@ -257,14 +287,18 @@ func (u *UseCase) Describe(ctx context.Context, id string, description string) (
 func (u *UseCase) SaveAuth(ctx context.Context, id string, auth domain.Auth) ([]domain.Collection, error) {
 	saved := authOrNil(auth)
 
-	if collection, ok, err := u.collection(ctx, id); err != nil {
+	workspace, err := u.scope.ActiveWorkspace(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if collection, ok, err := u.collection(ctx, workspace, id); err != nil {
 		return nil, err
 	} else if ok {
 		collection.Auth = saved
-		if err := u.store.SaveCollection(ctx, collection); err != nil {
+		if err := u.store.SaveCollection(ctx, workspace, collection); err != nil {
 			return nil, err
 		}
-		return u.Tree(ctx)
+		return u.store.Collections(ctx, workspace)
 	}
 
 	node, err := u.store.Node(ctx, id)
@@ -275,7 +309,7 @@ func (u *UseCase) SaveAuth(ctx context.Context, id string, auth domain.Auth) ([]
 	if err := u.store.SaveNode(ctx, node); err != nil {
 		return nil, err
 	}
-	return u.Tree(ctx)
+	return u.store.Collections(ctx, workspace)
 }
 
 // AuthFor is what a request inherits: the answer of the nearest level above it that gave one, or
@@ -283,7 +317,11 @@ func (u *UseCase) SaveAuth(ctx context.Context, id string, auth domain.Auth) ([]
 // is in none either — neither is a failure, because "there is nothing above this request" is what
 // the answer is, not that the question was wrong.
 func (u *UseCase) AuthFor(ctx context.Context, id domain.DraftID) (*domain.Auth, error) {
-	tree, err := u.store.Collections(ctx)
+	workspace, err := u.scope.ActiveWorkspace(ctx)
+	if err != nil {
+		return nil, err
+	}
+	tree, err := u.store.Collections(ctx, workspace)
 	if err != nil {
 		return nil, err
 	}
@@ -343,15 +381,19 @@ func actionable(auth *domain.Auth) domain.Auth {
 // Duplicate copies a collection or a node into the same place, under a name that says what it is.
 // Ids are minted anew: the copy is a second thing, not the same thing twice.
 func (u *UseCase) Duplicate(ctx context.Context, id string, suffix string) ([]domain.Collection, error) {
-	if collection, ok, err := u.collection(ctx, id); err != nil {
+	workspace, err := u.scope.ActiveWorkspace(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if collection, ok, err := u.collection(ctx, workspace, id); err != nil {
 		return nil, err
 	} else if ok {
-		return u.duplicateCollection(ctx, collection, suffix)
+		return u.duplicateCollection(ctx, workspace, collection, suffix)
 	}
 
 	// The copy starts from the tree row and reads the request whole on the way: a copy is the request
 	// and not just its name.
-	tree, err := u.store.Collections(ctx)
+	tree, err := u.store.Collections(ctx, workspace)
 	if err != nil {
 		return nil, err
 	}
@@ -359,7 +401,7 @@ func (u *UseCase) Duplicate(ctx context.Context, id string, suffix string) ([]do
 	if !ok {
 		return nil, fmt.Errorf("node %s: %w", id, domain.ErrNotFound)
 	}
-	position, err := u.store.NextPosition(ctx, node.CollectionID)
+	position, err := u.store.NextPosition(ctx, workspace, node.CollectionID)
 	if err != nil {
 		return nil, err
 	}
@@ -371,19 +413,23 @@ func (u *UseCase) Duplicate(ctx context.Context, id string, suffix string) ([]do
 	if err := u.store.SaveNode(ctx, copied); err != nil {
 		return nil, err
 	}
-	return u.Tree(ctx)
+	return u.store.Collections(ctx, workspace)
 }
 
 // Delete removes a collection or a node. What was inside goes with it through the schema's cascade
 // — one statement, so a half-deleted tree is not a state that exists.
 func (u *UseCase) Delete(ctx context.Context, id string) ([]domain.Collection, error) {
-	if _, ok, err := u.collection(ctx, id); err != nil {
+	workspace, err := u.scope.ActiveWorkspace(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if _, ok, err := u.collection(ctx, workspace, id); err != nil {
 		return nil, err
 	} else if ok {
-		if err := u.store.DeleteCollection(ctx, id); err != nil {
+		if err := u.store.DeleteCollection(ctx, workspace, id); err != nil {
 			return nil, err
 		}
-		return u.Tree(ctx)
+		return u.store.Collections(ctx, workspace)
 	}
 
 	if _, err := u.store.Node(ctx, id); err != nil {
@@ -392,7 +438,7 @@ func (u *UseCase) Delete(ctx context.Context, id string) ([]domain.Collection, e
 	if err := u.store.DeleteNode(ctx, id); err != nil {
 		return nil, err
 	}
-	return u.Tree(ctx)
+	return u.store.Collections(ctx, workspace)
 }
 
 // Import writes a collection that was made elsewhere — a Postman file — into the tree, at the end of
@@ -403,7 +449,11 @@ func (u *UseCase) Import(ctx context.Context, collection domain.Collection) ([]d
 	if err != nil {
 		return nil, err
 	}
-	position, err := u.store.NextPosition(ctx, "")
+	workspace, err := u.scope.ActiveWorkspace(ctx)
+	if err != nil {
+		return nil, err
+	}
+	position, err := u.store.NextPosition(ctx, workspace, "")
 	if err != nil {
 		return nil, err
 	}
@@ -419,7 +469,7 @@ func (u *UseCase) Import(ctx context.Context, collection domain.Collection) ([]d
 	// The whole subtree is built before any of it is written: an import that failed halfway would
 	// leave a collection with half a file in it.
 	pending := u.adopt(imported, collection.Items, collection.Children)
-	return u.saveTree(ctx, pending)
+	return u.saveTree(ctx, workspace, pending)
 }
 
 // adopt gives an imported subtree what a file does not write: ids, and where it lives. Everything
@@ -464,7 +514,11 @@ func (u *UseCase) adopt(collection domain.Collection, items []domain.CollectionN
 // an export writes down. The tree the window draws carries the method and nothing else — a list of
 // two hundred rows has no business carrying two hundred bodies — so an export reads them again.
 func (u *UseCase) Full(ctx context.Context, id string) (domain.Collection, error) {
-	collection, ok, err := u.collection(ctx, id)
+	workspace, err := u.scope.ActiveWorkspace(ctx)
+	if err != nil {
+		return domain.Collection{}, err
+	}
+	collection, ok, err := u.collection(ctx, workspace, id)
 	if err != nil {
 		return domain.Collection{}, err
 	}
@@ -538,14 +592,18 @@ func (u *UseCase) SaveNode(ctx context.Context, edited domain.CollectionNode) ([
 	if err := u.store.SaveNode(ctx, stored); err != nil {
 		return nil, err
 	}
-	return u.Tree(ctx)
+	workspace, err := u.scope.ActiveWorkspace(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return u.store.Collections(ctx, workspace)
 }
 
 // duplicateCollection copies a whole collection into a new one beside it, what is inside it included.
 // The tree is read with its request fields left out, so every request is read again on the way in — a
 // copy that lost its headers would be worse than no copy at all.
-func (u *UseCase) duplicateCollection(ctx context.Context, collection domain.Collection, suffix string) ([]domain.Collection, error) {
-	position, err := u.store.NextPosition(ctx, collection.ParentID)
+func (u *UseCase) duplicateCollection(ctx context.Context, workspace string, collection domain.Collection, suffix string) ([]domain.Collection, error) {
+	position, err := u.store.NextPosition(ctx, workspace, collection.ParentID)
 	if err != nil {
 		return nil, err
 	}
@@ -555,7 +613,7 @@ func (u *UseCase) duplicateCollection(ctx context.Context, collection domain.Col
 	if err != nil {
 		return nil, err
 	}
-	return u.saveTree(ctx, copied)
+	return u.saveTree(ctx, workspace, copied)
 }
 
 // copyCollection builds the copy of a whole collection in memory before any of it is written: a
@@ -685,16 +743,16 @@ type pendingLevel struct {
 
 // saveTree writes built levels parents first: a row's parent has to exist before it does. The list
 // comes pre-order, so the order it is given in is the order it writes in.
-func (u *UseCase) saveTree(ctx context.Context, pending []pendingLevel) ([]domain.Collection, error) {
+func (u *UseCase) saveTree(ctx context.Context, workspace string, pending []pendingLevel) ([]domain.Collection, error) {
 	for _, level := range pending {
-		if err := u.store.SaveCollection(ctx, level.collection); err != nil {
+		if err := u.store.SaveCollection(ctx, workspace, level.collection); err != nil {
 			return nil, err
 		}
 		if level.from != "" {
-			if scripts, err := u.store.Scripts(ctx, level.from); err != nil {
+			if scripts, err := u.store.Scripts(ctx, workspace, level.from); err != nil {
 				return nil, err
 			} else if scripts != nil {
-				if err := u.store.SaveScripts(ctx, level.collection.ID, scripts); err != nil {
+				if err := u.store.SaveScripts(ctx, workspace, level.collection.ID, scripts); err != nil {
 					return nil, err
 				}
 			}
@@ -705,7 +763,7 @@ func (u *UseCase) saveTree(ctx context.Context, pending []pendingLevel) ([]domai
 			}
 		}
 	}
-	return u.Tree(ctx)
+	return u.store.Collections(ctx, workspace)
 }
 
 // findNode looks a request up in the tree, collections inside collections included: the tree is small
@@ -726,8 +784,8 @@ func findNode(tree []domain.Collection, id string) (domain.CollectionNode, bool)
 
 // collection finds a collection by id and says whether it found one rather than failing: nodes are
 // addressed in the same id space, and a caller naming an id does not say which of the two it named.
-func (u *UseCase) collection(ctx context.Context, id string) (domain.Collection, bool, error) {
-	tree, err := u.store.Collections(ctx)
+func (u *UseCase) collection(ctx context.Context, workspace, id string) (domain.Collection, bool, error) {
+	tree, err := u.store.Collections(ctx, workspace)
 	if err != nil {
 		return domain.Collection{}, false, err
 	}

@@ -134,6 +134,8 @@ export enum Code {
     CodeUnknownLanguage = "unknownLanguage",
     CodeUnknownListSide = "unknownListSide",
     CodeUnknownRetention = "unknownRetention",
+    CodePersonalWorkspace = "personalWorkspace",
+    CodeWorkspaceMissing = "workspaceMissing",
 };
 
 /**
@@ -425,6 +427,13 @@ export enum ListSide {
  */
 export interface Record {
     "id": string;
+
+    /**
+     * WorkspaceID is the space the record was made in. The list is one workspace's, so the window
+     * needs it to tell a record that belongs on the screen from one that arrived from the extension
+     * just after a switch — reading a record back is by id, and an id alone cannot say that.
+     */
+    "workspaceId"?: string;
     "source": RecordSource;
     "method": string;
     "url": string;
@@ -662,3 +671,53 @@ export enum VariableKind {
     VariableText = "text",
     VariableSecret = "secret",
 };
+
+/**
+ * Workspace is the container everything the user makes belongs to: the history, the collections,
+ * the environments and the draft the composer is holding. Which one is being shown is the window's
+ * own pointer (SettingActiveWorkspace); what a workspace holds never mixes with another.
+ * 
+ * Color is the palette's own word — "blue", "purple" — and not a value: the tint of an avatar is
+ * the interface's business, and it is drawn from a token in the one place that knows the tokens.
+ * A word the window does not know is drawn in the default tint rather than refused, because no
+ * behaviour depends on it.
+ * 
+ * Personal is derived from the id where the row is read, and never written back: it is the one
+ * workspace the app cannot do without, and the window draws that rule — the delete is not offered
+ * on it. Saying it here rather than letting the window compare against a word of its own keeps the
+ * spelling of that id in one place, which is the one that also refuses the call.
+ */
+export interface Workspace {
+    "id": string;
+    "name": string;
+    "kind": WorkspaceKind;
+    "color": string;
+    "personal": boolean;
+    "createdAt": number;
+    "updatedAt": number;
+}
+
+/**
+ * WorkspaceKind is what a space is for: the one a single person keeps, or the one a team shares.
+ * The kind is a property of the row rather than a second table because everything a team adds —
+ * members, invitations, roles — hangs off the same workspace the personal one is.
+ */
+export enum WorkspaceKind {
+    /**
+     * The Go zero value for the underlying type of the enum.
+     */
+    $zero = "",
+
+    WorkspacePersonal = "personal",
+    WorkspaceTeam = "team",
+};
+
+/**
+ * WorkspaceState is every workspace and the pointer to the one on screen — what the switcher draws
+ * and what every change to the set answers with. The shape follows EnvState, and for the same
+ * reason: the list and the choice are read together and are never interesting apart.
+ */
+export interface WorkspaceState {
+    "workspaces": Workspace[] | null;
+    "activeId": string;
+}

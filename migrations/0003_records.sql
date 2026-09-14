@@ -4,6 +4,11 @@
 -- across imports, so the list can sort on it cheaply, while id remains the identifier the
 -- frontend and the extension protocol already speak.
 --
+-- A record belongs to one workspace, which is what makes "switch workspace" a swap of the list
+-- rather than a filter someone has to remember to apply. The id stays unique across the whole
+-- database: a body is read by the record's own id, and neither the window nor the protocol has a
+-- workspace to hand to that lookup.
+--
 -- Every timing is in microseconds, because a millisecond was the wrong unit for a warm connection:
 -- on a reused one DNS, connect and TLS do not happen at all, and even the body of a small response
 -- arrives in less than a millisecond — in whole milliseconds each of those read as 0, and the
@@ -17,6 +22,7 @@
 CREATE TABLE records (
   seq INTEGER PRIMARY KEY AUTOINCREMENT,
   id TEXT NOT NULL UNIQUE,
+  workspace_id TEXT NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
   source TEXT NOT NULL CHECK (source IN ('manual','browser')),
   method TEXT NOT NULL,
   url TEXT NOT NULL,
@@ -45,9 +51,11 @@ CREATE TABLE records (
   favicon_url TEXT
 );
 
-CREATE INDEX records_recent ON records(started_at DESC, seq DESC);
-CREATE INDEX records_source ON records(source, started_at DESC);
-CREATE INDEX records_tab ON records(tab_id, started_at DESC);
+-- Each of them leads with the workspace: every list the app draws is one workspace's history, and
+-- the count limit is spent inside it rather than across everything the database has ever seen.
+CREATE INDEX records_recent ON records(workspace_id, started_at DESC, seq DESC);
+CREATE INDEX records_source ON records(workspace_id, source, started_at DESC);
+CREATE INDEX records_tab ON records(workspace_id, tab_id, started_at DESC);
 CREATE INDEX records_url ON records(url);
 
 -- Bodies sit in their own WITHOUT ROWID table keyed by (record_seq, side) so that listing

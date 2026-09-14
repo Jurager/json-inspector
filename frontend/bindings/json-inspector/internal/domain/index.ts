@@ -14,7 +14,8 @@ export {
     RowKind,
     ScriptScope,
     Theme,
-    VariableKind
+    VariableKind,
+    WorkspaceKind
 } from "./models.js";
 
 export type {
@@ -40,5 +41,7 @@ export type {
     Scripts,
     Settings,
     TestResult,
-    Variable
+    Variable,
+    Workspace,
+    WorkspaceState
 } from "./models.js";

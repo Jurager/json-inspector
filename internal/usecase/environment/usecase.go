@@ -19,17 +19,30 @@ const maxNameLength = 40
 
 type UseCase struct {
 	store Store
+	scope Scope
 	ids   platform.IDGen
 }
 
-func NewUseCase(store Store, ids platform.IDGen) *UseCase {
-	return &UseCase{store: store, ids: ids}
+func NewUseCase(store Store, scope Scope, ids platform.IDGen) *UseCase {
+	return &UseCase{store: store, scope: scope, ids: ids}
 }
 
 // Snapshot is the whole screen. Secret values are withheld: a variable that has one says so, and
 // Reveal is what shows it.
+//
+// The workspace is resolved once, at the door, and carried as a value from there on: an operation
+// that read the pointer again halfway through would write half of itself into the workspace the
+// user has just switched away from.
 func (u *UseCase) Snapshot(ctx context.Context) (domain.EnvState, error) {
-	state, err := u.store.EnvState(ctx)
+	workspace, err := u.scope.ActiveWorkspace(ctx)
+	if err != nil {
+		return domain.EnvState{}, err
+	}
+	return u.snapshot(ctx, workspace)
+}
+
+func (u *UseCase) snapshot(ctx context.Context, workspace string) (domain.EnvState, error) {
+	state, err := u.store.EnvState(ctx, workspace)
 	if err != nil {
 		return domain.EnvState{}, err
 	}
@@ -46,6 +59,11 @@ type Patch struct {
 // Create adds an environment at the end of the list. It becomes the active one: a new environment
 // is being set up, and editing the variables of one you are not in is how mistakes happen.
 func (u *UseCase) Create(ctx context.Context, name string) (domain.EnvState, error) {
+	workspace, err := u.scope.ActiveWorkspace(ctx)
+	if err != nil {
+		return domain.EnvState{}, err
+	}
+
 	name = strings.TrimSpace(name)
 	if name == "" {
 		return domain.EnvState{}, domain.Refuse(domain.CodeNameEmpty, domain.ErrNotAllowed, nil)
@@ -55,7 +73,7 @@ func (u *UseCase) Create(ctx context.Context, name string) (domain.EnvState, err
 			domain.Args{"max": strconv.Itoa(maxNameLength)})
 	}
 
-	current, err := u.store.EnvState(ctx)
+	current, err := u.store.EnvState(ctx, workspace)
 	if err != nil {
 		return domain.EnvState{}, err
 	}
@@ -67,19 +85,24 @@ func (u *UseCase) Create(ctx context.Context, name string) (domain.EnvState, err
 		}
 	}
 	env := domain.Environment{ID: u.ids(), Name: name, Position: position}
-	if err := u.store.SaveEnvironment(ctx, env); err != nil {
+	if err := u.store.SaveEnvironment(ctx, workspace, env); err != nil {
 		return domain.EnvState{}, err
 	}
-	if err := u.store.SetActiveEnvironment(ctx, env.ID); err != nil {
+	if err := u.store.SetActiveEnvironment(ctx, workspace, env.ID); err != nil {
 		return domain.EnvState{}, err
 	}
-	return u.Snapshot(ctx)
+	return u.snapshot(ctx, workspace)
 }
 
 // Update applies a patch. The readonly flag is what the design calls "Prod": it locks the
 // variables until the user unlocks them for this session.
 func (u *UseCase) Update(ctx context.Context, id string, patch Patch) (domain.EnvState, error) {
-	state, err := u.store.EnvState(ctx)
+	workspace, err := u.scope.ActiveWorkspace(ctx)
+	if err != nil {
+		return domain.EnvState{}, err
+	}
+
+	state, err := u.store.EnvState(ctx, workspace)
 	if err != nil {
 		return domain.EnvState{}, err
 	}
@@ -104,38 +127,47 @@ func (u *UseCase) Update(ctx context.Context, id string, patch Patch) (domain.En
 
 	// Vars are written by their own calls; SaveEnvironment only needs the environment itself.
 	env.Vars = nil
-	if err := u.store.SaveEnvironment(ctx, env); err != nil {
+	if err := u.store.SaveEnvironment(ctx, workspace, env); err != nil {
 		return domain.EnvState{}, err
 	}
-	return u.Snapshot(ctx)
+	return u.snapshot(ctx, workspace)
 }
 
 // Delete removes an environment and everything in it. If it was the active one, the selection
 // falls back to no environment rather than to a sibling: resolving against an environment the user
 // did not choose would be worse than resolving against nothing.
 func (u *UseCase) Delete(ctx context.Context, id string) (domain.EnvState, error) {
-	state, err := u.store.EnvState(ctx)
+	workspace, err := u.scope.ActiveWorkspace(ctx)
+	if err != nil {
+		return domain.EnvState{}, err
+	}
+
+	state, err := u.store.EnvState(ctx, workspace)
 	if err != nil {
 		return domain.EnvState{}, err
 	}
 	if _, ok := findEnvironment(state, id); !ok {
 		return domain.EnvState{}, fmt.Errorf("environment %s: %w", id, domain.ErrNotFound)
 	}
-	if err := u.store.DeleteEnvironment(ctx, id); err != nil {
+	if err := u.store.DeleteEnvironment(ctx, workspace, id); err != nil {
 		return domain.EnvState{}, err
 	}
 	if state.ActiveID == id {
-		if err := u.store.SetActiveEnvironment(ctx, ""); err != nil {
+		if err := u.store.SetActiveEnvironment(ctx, workspace, ""); err != nil {
 			return domain.EnvState{}, err
 		}
 	}
-	return u.Snapshot(ctx)
+	return u.snapshot(ctx, workspace)
 }
 
 // Activate selects the environment the request preview resolves against.
 func (u *UseCase) Activate(ctx context.Context, id string) (domain.EnvState, error) {
+	workspace, err := u.scope.ActiveWorkspace(ctx)
+	if err != nil {
+		return domain.EnvState{}, err
+	}
 	if id != "" {
-		state, err := u.store.EnvState(ctx)
+		state, err := u.store.EnvState(ctx, workspace)
 		if err != nil {
 			return domain.EnvState{}, err
 		}
@@ -143,10 +175,10 @@ func (u *UseCase) Activate(ctx context.Context, id string) (domain.EnvState, err
 			return domain.EnvState{}, fmt.Errorf("environment %s: %w", id, domain.ErrNotFound)
 		}
 	}
-	if err := u.store.SetActiveEnvironment(ctx, id); err != nil {
+	if err := u.store.SetActiveEnvironment(ctx, workspace, id); err != nil {
 		return domain.EnvState{}, err
 	}
-	return u.Snapshot(ctx)
+	return u.snapshot(ctx, workspace)
 }
 
 // VariableDraft is a variable on its way in: the sheet's "add row" leaves it empty, the .env
@@ -159,7 +191,12 @@ type VariableDraft struct {
 
 // AddVariable appends a variable to a scope.
 func (u *UseCase) AddVariable(ctx context.Context, scope domain.EnvScope, draft VariableDraft) (domain.EnvState, error) {
-	state, err := u.store.EnvState(ctx)
+	workspace, err := u.scope.ActiveWorkspace(ctx)
+	if err != nil {
+		return domain.EnvState{}, err
+	}
+
+	state, err := u.store.EnvState(ctx, workspace)
 	if err != nil {
 		return domain.EnvState{}, err
 	}
@@ -184,26 +221,31 @@ func (u *UseCase) AddVariable(ctx context.Context, scope domain.EnvScope, draft 
 		Enabled:  true,
 		Position: position,
 	}
-	if err := u.store.SaveVariable(ctx, scope, v); err != nil {
+	if err := u.store.SaveVariable(ctx, workspace, scope, v); err != nil {
 		return domain.EnvState{}, err
 	}
-	return u.Snapshot(ctx)
+	return u.snapshot(ctx, workspace)
 }
 
-// EnsureDefaults gives a fresh database the one environment the app has always started with, so a
-// new install has somewhere to type a base URL instead of an empty screen. It only ever acts on an
-// empty state: as soon as anything exists, the user's own setup is the answer.
+// EnsureDefaults gives a workspace the one environment the app has always started with, so a space
+// the user has just made has somewhere to type a base URL instead of an empty screen. It only ever
+// acts on an empty state: as soon as anything exists, the user's own setup is the answer.
 func (u *UseCase) EnsureDefaults(ctx context.Context) (domain.EnvState, error) {
-	state, err := u.store.EnvState(ctx)
+	workspace, err := u.scope.ActiveWorkspace(ctx)
+	if err != nil {
+		return domain.EnvState{}, err
+	}
+
+	state, err := u.store.EnvState(ctx, workspace)
 	if err != nil {
 		return domain.EnvState{}, err
 	}
 	if len(state.Environments) > 0 || len(state.Globals) > 0 {
-		return u.Snapshot(ctx)
+		return u.snapshot(ctx, workspace)
 	}
 
 	env := domain.Environment{ID: u.ids(), Name: "Local · dev", Position: 1}
-	if err := u.store.SaveEnvironment(ctx, env); err != nil {
+	if err := u.store.SaveEnvironment(ctx, workspace, env); err != nil {
 		return domain.EnvState{}, err
 	}
 	baseURL := domain.Variable{
@@ -215,13 +257,13 @@ func (u *UseCase) EnsureDefaults(ctx context.Context) (domain.EnvState, error) {
 		// One-based to match the environment above: positions are ordered, not indexed.
 		Position: 1,
 	}
-	if err := u.store.SaveVariable(ctx, domain.EnvScope{Environment: env.ID}, baseURL); err != nil {
+	if err := u.store.SaveVariable(ctx, workspace, domain.EnvScope{Environment: env.ID}, baseURL); err != nil {
 		return domain.EnvState{}, err
 	}
-	if err := u.store.SetActiveEnvironment(ctx, env.ID); err != nil {
+	if err := u.store.SetActiveEnvironment(ctx, workspace, env.ID); err != nil {
 		return domain.EnvState{}, err
 	}
-	return u.Snapshot(ctx)
+	return u.snapshot(ctx, workspace)
 }
 
 // VariablePatch edits one variable. SetValue is what keeps a secret's value when only its name or
@@ -236,7 +278,12 @@ type VariablePatch struct {
 }
 
 func (u *UseCase) UpdateVariable(ctx context.Context, scope domain.EnvScope, patch VariablePatch) (domain.EnvState, error) {
-	state, err := u.store.EnvState(ctx)
+	workspace, err := u.scope.ActiveWorkspace(ctx)
+	if err != nil {
+		return domain.EnvState{}, err
+	}
+
+	state, err := u.store.EnvState(ctx, workspace)
 	if err != nil {
 		return domain.EnvState{}, err
 	}
@@ -267,30 +314,40 @@ func (u *UseCase) UpdateVariable(ctx context.Context, scope domain.EnvScope, pat
 		Enabled:  patch.Enabled,
 		Position: existing.Position,
 	}
-	if err := u.store.SaveVariable(ctx, scope, updated); err != nil {
+	if err := u.store.SaveVariable(ctx, workspace, scope, updated); err != nil {
 		return domain.EnvState{}, err
 	}
-	return u.Snapshot(ctx)
+	return u.snapshot(ctx, workspace)
 }
 
 func (u *UseCase) RemoveVariable(ctx context.Context, scope domain.EnvScope, id string) (domain.EnvState, error) {
-	state, err := u.store.EnvState(ctx)
+	workspace, err := u.scope.ActiveWorkspace(ctx)
+	if err != nil {
+		return domain.EnvState{}, err
+	}
+
+	state, err := u.store.EnvState(ctx, workspace)
 	if err != nil {
 		return domain.EnvState{}, err
 	}
 	if _, ok := findVariable(state, scope, id); !ok {
 		return domain.EnvState{}, fmt.Errorf("variable %s: %w", id, domain.ErrNotFound)
 	}
-	if err := u.store.DeleteVariable(ctx, id); err != nil {
+	if err := u.store.DeleteVariable(ctx, workspace, id); err != nil {
 		return domain.EnvState{}, err
 	}
-	return u.Snapshot(ctx)
+	return u.snapshot(ctx, workspace)
 }
 
 // ImportEntries merges a parsed .env file into a scope: a name that is already there is replaced,
 // one that is not is appended. It is the same rule the import dialog offers, without the question.
 func (u *UseCase) ImportEntries(ctx context.Context, scope domain.EnvScope, entries []dotenv.Entry) (domain.EnvState, error) {
-	state, err := u.store.EnvState(ctx)
+	workspace, err := u.scope.ActiveWorkspace(ctx)
+	if err != nil {
+		return domain.EnvState{}, err
+	}
+
+	state, err := u.store.EnvState(ctx, workspace)
 	if err != nil {
 		return domain.EnvState{}, err
 	}
@@ -326,17 +383,21 @@ func (u *UseCase) ImportEntries(ctx context.Context, scope domain.EnvScope, entr
 			}
 			position++
 		}
-		if err := u.store.SaveVariable(ctx, scope, v); err != nil {
+		if err := u.store.SaveVariable(ctx, workspace, scope, v); err != nil {
 			return domain.EnvState{}, err
 		}
 	}
-	return u.Snapshot(ctx)
+	return u.snapshot(ctx, workspace)
 }
 
 // Reveal is the deliberate "show me" behind the sheet's eye button, and the only way a secret's
 // value leaves the database.
 func (u *UseCase) Reveal(ctx context.Context, id string) (string, error) {
-	return u.store.VariableValue(ctx, id)
+	workspace, err := u.scope.ActiveWorkspace(ctx)
+	if err != nil {
+		return "", err
+	}
+	return u.store.VariableValue(ctx, workspace, id)
 }
 
 func findEnvironment(state domain.EnvState, id string) (domain.Environment, bool) {

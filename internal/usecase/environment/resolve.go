@@ -57,7 +57,11 @@ func (u *UseCase) Missing(ctx context.Context, texts []string) ([]string, error)
 // revealSecrets decides whether a secret's value travels with the answer. Only the send path asks
 // for it; everything else gets the kind and the fact that a value exists.
 func (u *UseCase) resolver(ctx context.Context, revealSecrets bool) (vars.Resolver, error) {
-	state, err := u.store.EnvState(ctx)
+	workspace, err := u.scope.ActiveWorkspace(ctx)
+	if err != nil {
+		return nil, err
+	}
+	state, err := u.store.EnvState(ctx, workspace)
 	if err != nil {
 		return nil, err
 	}

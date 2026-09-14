@@ -14,10 +14,10 @@ import (
 // Collections reads every collection with its tree. Requests and nested collections come in flat and
 // are placed here rather than in the window: the order they are drawn in is the order this table
 // keeps, and a tree assembled in two places is a tree that can disagree with itself.
-func (s *Store) Collections(ctx context.Context) ([]domain.Collection, error) {
+func (s *Store) Collections(ctx context.Context, workspaceID string) ([]domain.Collection, error) {
 	rows, err := s.db.QueryContext(ctx,
 		`SELECT id, name, description, position, created_at, updated_at, auth_json, ifnull(parent_id, '')
-		   FROM collections ORDER BY position, created_at`)
+		   FROM collections WHERE workspace_id = ? ORDER BY position, created_at`, workspaceID)
 	if err != nil {
 		return nil, fmt.Errorf("listing collections: %w", err)
 	}
@@ -53,7 +53,7 @@ func (s *Store) Collections(ctx context.Context) ([]domain.Collection, error) {
 		return flat, nil
 	}
 
-	nodes, err := s.nodes(ctx)
+	nodes, err := s.nodes(ctx, workspaceID)
 	if err != nil {
 		return nil, err
 	}
@@ -175,10 +175,12 @@ func readAuth(raw sql.NullString, into **domain.Auth, what string) error {
 }
 
 // nodes reads every request of every collection, flat, in the order the trees draw them.
-func (s *Store) nodes(ctx context.Context) ([]domain.CollectionNode, error) {
+func (s *Store) nodes(ctx context.Context, workspaceID string) ([]domain.CollectionNode, error) {
 	rows, err := s.db.QueryContext(ctx,
 		`SELECT id, collection_id, name, position, method, description, auth_json
-		   FROM collection_nodes ORDER BY collection_id, position, created_at`)
+		   FROM collection_nodes
+		  WHERE collection_id IN (SELECT id FROM collections WHERE workspace_id = ?)
+		  ORDER BY collection_id, position, created_at`, workspaceID)
 	if err != nil {
 		return nil, fmt.Errorf("listing collection nodes: %w", err)
 	}
@@ -214,7 +216,7 @@ func (s *Store) nodes(ctx context.Context) ([]domain.CollectionNode, error) {
 //
 // Where it sits is written by the insert and left alone by the update, the way a node's collection is:
 // a rename or a new auth saves the row it read, and moving is a gesture of its own.
-func (s *Store) SaveCollection(ctx context.Context, c domain.Collection) error {
+func (s *Store) SaveCollection(ctx context.Context, workspaceID string, c domain.Collection) error {
 	auth, err := encodeAuth(c.Auth)
 	if err != nil {
 		return fmt.Errorf("saving collection %s: %w", c.ID, err)
@@ -222,14 +224,14 @@ func (s *Store) SaveCollection(ctx context.Context, c domain.Collection) error {
 
 	now := time.Now().UnixMilli()
 	if _, err := s.db.ExecContext(ctx,
-		`INSERT INTO collections (id, name, description, position, parent_id, auth_json, created_at,
-		                          updated_at)
-		 VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+		`INSERT INTO collections (id, workspace_id, name, description, position, parent_id, auth_json,
+		                          created_at, updated_at)
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
 		 ON CONFLICT(id) DO UPDATE SET
 		   name = excluded.name, description = excluded.description,
 		   position = excluded.position, auth_json = excluded.auth_json,
 		   updated_at = excluded.updated_at`,
-		c.ID, c.Name, c.Description, c.Position, nullIfEmpty(c.ParentID), auth, now, now); err != nil {
+		c.ID, workspaceID, c.Name, c.Description, c.Position, nullIfEmpty(c.ParentID), auth, now, now); err != nil {
 		return fmt.Errorf("saving collection %s: %w", c.ID, err)
 	}
 	return nil
@@ -302,8 +304,9 @@ func (s *Store) SaveNode(ctx context.Context, node domain.CollectionNode) error 
 }
 
 // DeleteCollection removes a collection and, through the cascade, its whole tree.
-func (s *Store) DeleteCollection(ctx context.Context, id string) error {
-	if _, err := s.db.ExecContext(ctx, `DELETE FROM collections WHERE id = ?`, id); err != nil {
+func (s *Store) DeleteCollection(ctx context.Context, workspaceID, id string) error {
+	if _, err := s.db.ExecContext(ctx,
+		`DELETE FROM collections WHERE workspace_id = ? AND id = ?`, workspaceID, id); err != nil {
 		return fmt.Errorf("deleting collection %s: %w", id, err)
 	}
 	return nil
@@ -409,14 +412,15 @@ func (s *Store) LastRun(ctx context.Context, collectionID string, nodeID string)
 // A level's requests and the collections inside it are numbered in one sequence, so both tables are
 // asked and the larger answer wins; a new collection then lands after the request it follows rather
 // than at the end of a group of its own.
-func (s *Store) NextPosition(ctx context.Context, collectionID string) (int64, error) {
+func (s *Store) NextPosition(ctx context.Context, workspaceID, collectionID string) (int64, error) {
 	var next int64
 	err := s.db.QueryRowContext(ctx,
 		`SELECT ifnull(max(position), -1) + 1 FROM (
 		   SELECT position FROM collection_nodes WHERE collection_id = ?
 		    UNION ALL
-		   SELECT position FROM collections WHERE ifnull(parent_id, '') = ?)`,
-		collectionID, collectionID).Scan(&next)
+		   SELECT position FROM collections
+		    WHERE workspace_id = ? AND ifnull(parent_id, '') = ?)`,
+		collectionID, workspaceID, collectionID).Scan(&next)
 	if err != nil {
 		return 0, fmt.Errorf("reading the next position in %s: %w", collectionID, err)
 	}

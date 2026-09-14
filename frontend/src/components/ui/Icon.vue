@@ -43,6 +43,7 @@ import {
   CodeXml,
   Contrast,
   Globe,
+  User,
   createLucideIcon,
 } from 'lucide-vue-next'
 
@@ -161,6 +162,7 @@ const ICONS: Record<string, Component> = {
   upload: Upload,
   contrast: Contrast,
   globe: Globe,
+  user: User,
 }
 
 // `filled` asks for the solid version of a glyph, and only the two above have one: a name without a

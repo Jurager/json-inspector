@@ -20,6 +20,7 @@ import (
 	"json-inspector/internal/usecase/record"
 	"json-inspector/internal/usecase/scripting"
 	"json-inspector/internal/usecase/settings"
+	"json-inspector/internal/usecase/workspace"
 )
 
 // Assets is what only main can embed: the built frontend and the window icon. go:embed reaches
@@ -42,6 +43,7 @@ type ServicesIn struct {
 	Collections  *CollectionsService
 	Scripting    *ScriptingService
 	Bridge       *BridgeService
+	Workspaces   *WorkspaceService
 }
 
 var Module = fx.Module("wails",
@@ -68,6 +70,17 @@ var Module = fx.Module("wails",
 		func(store *sqlite.Store) scripting.Tree { return store },
 		func(store *sqlite.Store) scripting.Store { return store },
 		func(uc *environment.UseCase) scripting.Variables { return uc },
+
+		// Every feature that keeps something per space asks the same question of the same adapter:
+		// which workspace is on screen. It is one port per feature and one implementation here, which
+		// is what keeps the features from having to know about each other.
+		func(store *sqlite.Store) workspace.Store { return store },
+		func(host *Host) workspace.Notifier { return newBus(host) },
+		func(store *sqlite.Store) record.Scope { return store },
+		func(store *sqlite.Store) collection.Scope { return store },
+		func(store *sqlite.Store) environment.Scope { return store },
+		func(store *sqlite.Store) draft.Scope { return store },
+		func(store *sqlite.Store) scripting.Scope { return store },
 		// The scripts around a request are asked by the feature that sends it, and they are told what
 		// to run by the feature that keeps them. Neither knows the other; this is the pair.
 		func(scripts *scripting.UseCase) record.Screener { return scripts },
@@ -83,6 +96,7 @@ var Module = fx.Module("wails",
 		NewCollectionsService,
 		NewScriptingService,
 		NewBridgeService,
+		NewWorkspaceService,
 		newCaptureIngest,
 		newApplication,
 	),
@@ -150,6 +164,7 @@ func setup(
 	collections := application.NewService(in.Collections)
 	scripting := application.NewService(in.Scripting)
 	bridgeService := application.NewService(in.Bridge)
+	workspaces := application.NewService(in.Workspaces)
 
 	app.RegisterService(system)
 	app.RegisterService(settingsService)
@@ -163,6 +178,7 @@ func setup(
 		app.RegisterService(collections)
 		app.RegisterService(scripting)
 		app.RegisterService(bridgeService)
+		app.RegisterService(workspaces)
 	}
 
 	// The window is translucent: what the chrome and the overlays paint is a glass material, and the

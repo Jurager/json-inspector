@@ -53,11 +53,11 @@ func TestRecordRoundTrip(t *testing.T) {
 
 	saved := sampleRecord("rec-1", domain.SourceManual)
 	saved.ResponseBytes = 11
-	if err := store.SaveRecord(ctx, saved); err != nil {
+	if err := store.SaveRecord(ctx, ws, saved); err != nil {
 		t.Fatalf("SaveRecord: %v", err)
 	}
 
-	list, err := store.Records(ctx, domain.SourceManual, 0)
+	list, err := store.Records(ctx, ws, domain.SourceManual, 0)
 	if err != nil {
 		t.Fatalf("Records: %v", err)
 	}
@@ -118,11 +118,11 @@ func TestBodyIsReadBackWhole(t *testing.T) {
 	rec.ResponseBody = &domain.BodyRef{Inline: big, Size: int64(len(big))}
 	// Nothing was sent, so the request side is unreachable — which the last check uses.
 	rec.RequestBody = nil
-	if err := store.SaveRecord(ctx, rec); err != nil {
+	if err := store.SaveRecord(ctx, ws, rec); err != nil {
 		t.Fatalf("SaveRecord: %v", err)
 	}
 
-	list, err := store.Records(ctx, "", 0)
+	list, err := store.Records(ctx, ws, "", 0)
 	if err != nil {
 		t.Fatalf("Records: %v", err)
 	}
@@ -151,7 +151,7 @@ func TestRecordReadsOneByID(t *testing.T) {
 	store := newMigratedStore(t)
 	ctx := context.Background()
 
-	if err := store.SaveRecord(ctx, domain.Record{
+	if err := store.SaveRecord(ctx, ws, domain.Record{
 		RecordSummary: domain.RecordSummary{
 			ID: "rec-1", Source: domain.SourceManual, Method: "GET", URL: "https://api.example.com/users",
 			Status: 200, StatusText: "200 OK",
@@ -198,12 +198,12 @@ func TestRecordsFilterAndOrder(t *testing.T) {
 	}{{"m-1", domain.SourceManual}, {"b-1", domain.SourceBrowser}, {"m-2", domain.SourceManual}} {
 		rec := sampleRecord(spec.id, spec.source)
 		rec.StartedAt = int64(1000 + i)
-		if err := store.SaveRecord(ctx, rec); err != nil {
+		if err := store.SaveRecord(ctx, ws, rec); err != nil {
 			t.Fatalf("SaveRecord: %v", err)
 		}
 	}
 
-	manual, err := store.Records(ctx, domain.SourceManual, 0)
+	manual, err := store.Records(ctx, ws, domain.SourceManual, 0)
 	if err != nil {
 		t.Fatalf("Records: %v", err)
 	}
@@ -211,7 +211,7 @@ func TestRecordsFilterAndOrder(t *testing.T) {
 		t.Errorf("manual records = %v, want newest first", ids(manual))
 	}
 
-	browser, err := store.Records(ctx, domain.SourceBrowser, 0)
+	browser, err := store.Records(ctx, ws, domain.SourceBrowser, 0)
 	if err != nil {
 		t.Fatalf("Records: %v", err)
 	}
@@ -220,7 +220,7 @@ func TestRecordsFilterAndOrder(t *testing.T) {
 	}
 
 	// A limit keeps the newest, which is what the list asks for.
-	limited, err := store.Records(ctx, "", 2)
+	limited, err := store.Records(ctx, ws, "", 2)
 	if err != nil {
 		t.Fatalf("Records: %v", err)
 	}
@@ -237,11 +237,11 @@ func TestAbsentPhasesStayAbsent(t *testing.T) {
 
 	rec := sampleRecord("rec-nodial", domain.SourceManual)
 	rec.DNSUs, rec.ConnectUs, rec.TLSUs = nil, nil, nil
-	if err := store.SaveRecord(ctx, rec); err != nil {
+	if err := store.SaveRecord(ctx, ws, rec); err != nil {
 		t.Fatalf("SaveRecord: %v", err)
 	}
 
-	list, err := store.Records(ctx, "", 0)
+	list, err := store.Records(ctx, ws, "", 0)
 	if err != nil {
 		t.Fatalf("Records: %v", err)
 	}
@@ -259,10 +259,10 @@ func TestDuplicateRecordIDIsAConflict(t *testing.T) {
 	store := newMigratedStore(t)
 	ctx := context.Background()
 
-	if err := store.SaveRecord(ctx, sampleRecord("rec-1", domain.SourceManual)); err != nil {
+	if err := store.SaveRecord(ctx, ws, sampleRecord("rec-1", domain.SourceManual)); err != nil {
 		t.Fatalf("SaveRecord: %v", err)
 	}
-	err := store.SaveRecord(ctx, sampleRecord("rec-1", domain.SourceManual))
+	err := store.SaveRecord(ctx, ws, sampleRecord("rec-1", domain.SourceManual))
 	if !errors.Is(err, domain.ErrConflict) {
 		t.Errorf("second save = %v, want domain.ErrConflict", err)
 	}
@@ -272,10 +272,10 @@ func TestDeleteRecordsTakesTheirBodies(t *testing.T) {
 	store := newMigratedStore(t)
 	ctx := context.Background()
 
-	if err := store.SaveRecord(ctx, sampleRecord("rec-1", domain.SourceManual)); err != nil {
+	if err := store.SaveRecord(ctx, ws, sampleRecord("rec-1", domain.SourceManual)); err != nil {
 		t.Fatalf("SaveRecord: %v", err)
 	}
-	if err := store.SaveRecord(ctx, sampleRecord("rec-2", domain.SourceBrowser)); err != nil {
+	if err := store.SaveRecord(ctx, ws, sampleRecord("rec-2", domain.SourceBrowser)); err != nil {
 		t.Fatalf("SaveRecord: %v", err)
 	}
 
@@ -287,7 +287,7 @@ func TestDeleteRecordsTakesTheirBodies(t *testing.T) {
 	if _, err := store.ReadBody(ctx, "rec-1", domain.SideResponse); !errors.Is(err, domain.ErrNotFound) {
 		t.Errorf("the body outlived its record: %v", err)
 	}
-	list, _ := store.Records(ctx, "", 0)
+	list, _ := store.Records(ctx, ws, "", 0)
 	if len(list) != 1 || list[0].ID != "rec-2" {
 		t.Errorf("records = %v, want only the survivor", ids(list))
 	}
@@ -303,33 +303,79 @@ func TestPruneByCountAndAge(t *testing.T) {
 		// The ages are nudged past the whole days on purpose: the record the age window is meant to
 		// drop would otherwise sit exactly on the boundary, and the test would race the clock.
 		rec.StartedAt = now.Add(-time.Duration(i)*24*time.Hour - 90*time.Minute).UnixMilli()
-		if err := store.SaveRecord(ctx, rec); err != nil {
+		if err := store.SaveRecord(ctx, ws, rec); err != nil {
 			t.Fatalf("SaveRecord: %v", err)
 		}
 	}
 
-	removed, err := store.Prune(ctx, domain.PruneOptions{MaxCount: 3})
+	removed, err := store.Prune(ctx, ws, domain.PruneOptions{MaxCount: 3})
 	if err != nil {
 		t.Fatalf("Prune: %v", err)
 	}
 	if removed != 2 {
 		t.Errorf("pruned %d by count, want 2", removed)
 	}
-	list, _ := store.Records(ctx, "", 0)
+	list, _ := store.Records(ctx, ws, "", 0)
 	if len(list) != 3 {
 		t.Fatalf("records = %d, want the newest three", len(list))
 	}
 
-	removed, err = store.Prune(ctx, domain.PruneOptions{MaxAge: 48 * time.Hour})
+	removed, err = store.Prune(ctx, ws, domain.PruneOptions{MaxAge: 48 * time.Hour})
 	if err != nil {
 		t.Fatalf("Prune by age: %v", err)
 	}
 	if removed != 1 {
 		t.Errorf("pruned %d by age, want the one older than two days", removed)
 	}
-	list, _ = store.Records(ctx, "", 0)
+	list, _ = store.Records(ctx, ws, "", 0)
 	if len(list) != 2 {
 		t.Errorf("records = %d, want two left", len(list))
+	}
+}
+
+// The count a retention rule holds to is spent inside the space it is applied to. Both spaces below
+// hold the same three old records, and the prune of one has to leave the other exactly as it was —
+// otherwise a busy space would eat the history of the quiet one beside it.
+func TestPruneTakesOnlyItsOwnWorkspace(t *testing.T) {
+	store := newMigratedStore(t)
+	ctx := context.Background()
+	seedTeam(t, store)
+
+	for _, id := range []string{"a", "b", "c"} {
+		mine := sampleRecord("rec-mine-"+id, domain.SourceManual)
+		mine.StartedAt = time.Now().Add(-time.Hour).UnixMilli()
+		if err := store.SaveRecord(ctx, ws, mine); err != nil {
+			t.Fatalf("SaveRecord: %v", err)
+		}
+		theirs := sampleRecord("rec-team-"+id, domain.SourceManual)
+		theirs.StartedAt = time.Now().Add(-time.Hour).UnixMilli()
+		if err := store.SaveRecord(ctx, team, theirs); err != nil {
+			t.Fatalf("SaveRecord(%s): %v", team, err)
+		}
+	}
+
+	removed, err := store.Prune(ctx, ws, domain.PruneOptions{MaxCount: 1})
+	if err != nil {
+		t.Fatalf("Prune: %v", err)
+	}
+	if removed != 2 {
+		t.Errorf("pruned %d, want the two the personal space was over the count by", removed)
+	}
+
+	list, err := store.Records(ctx, ws, "", 10)
+	if err != nil {
+		t.Fatalf("Records: %v", err)
+	}
+	if len(list) != 1 {
+		t.Errorf("the personal space holds %d record(s), want the one it was cut down to", len(list))
+	}
+
+	theirs, err := store.Records(ctx, team, "", 10)
+	if err != nil {
+		t.Fatalf("Records(%s): %v", team, err)
+	}
+	if len(theirs) != 3 {
+		t.Errorf("the space beside it holds %d record(s), want all three untouched", len(theirs))
 	}
 }
 

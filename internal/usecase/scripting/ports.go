@@ -16,19 +16,26 @@ type Engine interface {
 // runs. Both are read as the collection feature reads them, which is why the store satisfies this
 // port unchanged.
 type Tree interface {
-	Collections(ctx context.Context) ([]domain.Collection, error)
-	Scripts(ctx context.Context, id string) (*domain.Scripts, error)
+	Collections(ctx context.Context, workspaceID string) ([]domain.Collection, error)
+	Scripts(ctx context.Context, workspaceID, id string) (*domain.Scripts, error)
 }
 
 // Store is where the reports go, and where the level's own code is read and written. Reports hang off
 // the record of the request they ran around, which is what the response viewer asks by; a level's code
 // is addressed by its id, and which table that id names is not the editor's business.
 type Store interface {
-	Scripts(ctx context.Context, id string) (*domain.Scripts, error)
-	SaveScripts(ctx context.Context, id string, scripts *domain.Scripts) error
+	Scripts(ctx context.Context, workspaceID, id string) (*domain.Scripts, error)
+	SaveScripts(ctx context.Context, workspaceID, id string, scripts *domain.Scripts) error
 
-	SaveScriptRun(ctx context.Context, run domain.ScriptRun) error
+	SaveScriptRun(ctx context.Context, workspaceID string, run domain.ScriptRun) error
 	ScriptRuns(ctx context.Context, recordID string) ([]domain.ScriptRun, error)
+}
+
+// Scope answers which workspace the window is showing. It is a port of this feature's own rather
+// than a call into the workspace use case: features never import each other, and this one only
+// needs the name of the space it is working in.
+type Scope interface {
+	ActiveWorkspace(ctx context.Context) (string, error)
 }
 
 // Variables is what a script writes and reads outside its own run: the environment this app is

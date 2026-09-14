@@ -34,6 +34,22 @@ func (f *fakeEngine) sources() []string {
 	return out
 }
 
+// fakeScope answers with the workspace the test is working in. The fakes below keep one tree and one
+// set of reports and ignore the id: what is being tested here is the use case, and the split between
+// workspaces is the SQL's own test.
+type fakeScope struct{ id string }
+
+func (f fakeScope) ActiveWorkspace(context.Context) (string, error) {
+	if f.id == "" {
+		return domain.WorkspacePersonalID, nil
+	}
+	return f.id, nil
+}
+
+// ws is the workspace the tests below hand to Before and After — the one the app is born with, since
+// none of them is about a second space.
+const ws = domain.WorkspacePersonalID
+
 // fakeTree is the tree without a database: one list of collections and what each level runs. A level
 // nobody put anything in answers nothing, the way the NULL column does. It shares the scripts map with
 // the store, which is what the database does: one row, read through two ports.
@@ -42,11 +58,11 @@ type fakeTree struct {
 	scripts     map[string]*domain.Scripts
 }
 
-func (f *fakeTree) Collections(context.Context) ([]domain.Collection, error) {
+func (f *fakeTree) Collections(context.Context, string) ([]domain.Collection, error) {
 	return f.collections, nil
 }
 
-func (f *fakeTree) Scripts(_ context.Context, id string) (*domain.Scripts, error) {
+func (f *fakeTree) Scripts(_ context.Context, _ string, id string) (*domain.Scripts, error) {
 	if !f.knows(id) {
 		return nil, domain.ErrNotFound
 	}
@@ -116,7 +132,7 @@ type fakeStore struct {
 	fail bool
 }
 
-func (f *fakeStore) Scripts(_ context.Context, id string) (*domain.Scripts, error) {
+func (f *fakeStore) Scripts(_ context.Context, _ string, id string) (*domain.Scripts, error) {
 	if f.fail {
 		return nil, errors.New("база недоступна")
 	}
@@ -126,7 +142,7 @@ func (f *fakeStore) Scripts(_ context.Context, id string) (*domain.Scripts, erro
 	return f.scripts[id], nil
 }
 
-func (f *fakeStore) SaveScripts(_ context.Context, id string, scripts *domain.Scripts) error {
+func (f *fakeStore) SaveScripts(_ context.Context, _ string, id string, scripts *domain.Scripts) error {
 	if f.fail {
 		return errors.New("база недоступна")
 	}
@@ -135,7 +151,7 @@ func (f *fakeStore) SaveScripts(_ context.Context, id string, scripts *domain.Sc
 	return nil
 }
 
-func (f *fakeStore) SaveScriptRun(_ context.Context, run domain.ScriptRun) error {
+func (f *fakeStore) SaveScriptRun(_ context.Context, _ string, run domain.ScriptRun) error {
 	if f.fail {
 		return errors.New("база недоступна")
 	}
@@ -228,7 +244,7 @@ func newTest() (*UseCase, *fakeEngine, *fakeTree, *fakeStore, *fakeVariables) {
 	// lives, and in the database that is the same row.
 	store := &fakeStore{scripts: tree.scripts, known: knownLevels(tree)}
 	vars := newFakeVariables()
-	uc := NewUseCase(engine, tree, store, vars, platform.NewIDGen())
+	uc := NewUseCase(engine, tree, store, vars, fakeScope{}, platform.NewIDGen())
 	return uc, engine, tree, store, vars
 }
 
@@ -333,7 +349,7 @@ func TestBeforeRunsEveryPreScriptInOrder(t *testing.T) {
 	uc, engine, _, store, _ := newTest()
 
 	asked := pass("r-1")
-	skip, err := uc.Before(context.Background(), &asked)
+	skip, err := uc.Before(context.Background(), ws, &asked)
 	if err != nil {
 		t.Fatalf("Before: %v", err)
 	}
@@ -371,7 +387,7 @@ func TestWhatAScriptChangesTheNextOneSees(t *testing.T) {
 	}
 
 	asked := pass("r-1")
-	if _, err := uc.Before(context.Background(), &asked); err != nil {
+	if _, err := uc.Before(context.Background(), ws, &asked); err != nil {
 		t.Fatalf("Before: %v", err)
 	}
 
@@ -390,7 +406,7 @@ func TestAPreRequestScriptCanCallTheRequestOff(t *testing.T) {
 	}
 
 	asked := pass("r-1")
-	skip, err := uc.Before(context.Background(), &asked)
+	skip, err := uc.Before(context.Background(), ws, &asked)
 	if err != nil {
 		t.Fatalf("Before: %v", err)
 	}
@@ -413,7 +429,7 @@ func TestAPostResponseScriptCannotCallTheRequestOff(t *testing.T) {
 
 	after := pass("r-1")
 	after.Response = &domain.Response{Status: 200}
-	uc.After(context.Background(), after)
+	uc.After(context.Background(), ws, after)
 
 	// After answers with nothing at all, so the flag has nowhere to go — what it must not do is
 	// reach the caller, and the caller is the thing that is not here.
@@ -432,7 +448,7 @@ func TestAfterRunsThePostScriptsAndKeepsTheReports(t *testing.T) {
 
 	after := pass("r-1")
 	after.Response = &domain.Response{Status: 200, Body: `{"data":[]}`}
-	uc.After(context.Background(), after)
+	uc.After(context.Background(), ws, after)
 
 	// The collection and the one inside it have post scripts; the request's own has none.
 	if len(engine.ran) != 1 || engine.ran[0].Source != "console.log('после коллекции');" {
@@ -466,11 +482,11 @@ func TestAStoreThatCannotKeepReportsDoesNotFailTheRequest(t *testing.T) {
 	store.fail = true
 
 	asked := pass("r-1")
-	if _, err := uc.Before(context.Background(), &asked); err != nil {
+	if _, err := uc.Before(context.Background(), ws, &asked); err != nil {
 		t.Fatalf("Before: %v", err)
 	}
 	asked.Response = &domain.Response{Status: 200}
-	uc.After(context.Background(), asked)
+	uc.After(context.Background(), ws, asked)
 }
 
 // A level's code is the level's own: what a collection inside another runs is not what the one around
@@ -531,11 +547,11 @@ func TestTheCommandLineIsAChainOfItsOwn(t *testing.T) {
 	}
 
 	asked := pass(commandLine)
-	if _, err := uc.Before(ctx, &asked); err != nil {
+	if _, err := uc.Before(ctx, ws, &asked); err != nil {
 		t.Fatalf("Before: %v", err)
 	}
 	asked.Response = &domain.Response{Status: 200}
-	uc.After(ctx, asked)
+	uc.After(ctx, ws, asked)
 
 	if got := engine.sources(); !equal(got, []string{"console.log('перед');", "console.log('после');"}) {
 		t.Errorf("scripts that ran = %q, want the draft's own two", got)
@@ -567,7 +583,7 @@ func TestTheRunScopeBelongsToTheRun(t *testing.T) {
 		return domain.ScriptRun{Scope: in.Scope, OK: true}
 	}
 	first := pass("r-1")
-	if _, err := uc.Before(ctx, &first); err != nil {
+	if _, err := uc.Before(ctx, ws, &first); err != nil {
 		t.Fatalf("Before: %v", err)
 	}
 	if seen != "2" {
@@ -584,7 +600,7 @@ func TestTheRunScopeBelongsToTheRun(t *testing.T) {
 		}
 		return domain.ScriptRun{Scope: in.Scope, OK: true}
 	}
-	if _, err := uc.Before(ctx, &other); err != nil {
+	if _, err := uc.Before(ctx, ws, &other); err != nil {
 		t.Fatalf("Before: %v", err)
 	}
 	if found {
@@ -628,7 +644,7 @@ func TestReadingAVariableLooksThroughTheScopes(t *testing.T) {
 	}
 
 	first := pass("r-1")
-	if _, err := uc.Before(context.Background(), &first); err != nil {
+	if _, err := uc.Before(context.Background(), ws, &first); err != nil {
 		t.Fatalf("Before: %v", err)
 	}
 	if asked["base"] != "https://api.example.com" {
@@ -660,7 +676,7 @@ func TestWritingAVariableGoesWhereTheScopeSays(t *testing.T) {
 	}
 
 	asked := pass("r-1")
-	if _, err := uc.Before(context.Background(), &asked); err != nil {
+	if _, err := uc.Before(context.Background(), ws, &asked); err != nil {
 		t.Fatalf("Before: %v", err)
 	}
 	if len(vars.writes) != 2 {
@@ -691,7 +707,7 @@ func TestAScopeThatRefusesAWriteSaysSo(t *testing.T) {
 	}
 
 	asked := pass("r-1")
-	if _, err := uc.Before(context.Background(), &asked); err != nil {
+	if _, err := uc.Before(context.Background(), ws, &asked); err != nil {
 		t.Fatalf("Before: %v", err)
 	}
 	if refused == nil || !strings.Contains(refused.Error(), "только для чтения") {
@@ -711,11 +727,11 @@ func TestAFailedScriptDoesNotStopTheChain(t *testing.T) {
 	}
 
 	asked := pass("r-1")
-	if _, err := uc.Before(context.Background(), &asked); err != nil {
+	if _, err := uc.Before(context.Background(), ws, &asked); err != nil {
 		t.Fatalf("Before: %v", err)
 	}
 	asked.Response = &domain.Response{Status: 200}
-	uc.After(context.Background(), asked)
+	uc.After(context.Background(), ws, asked)
 
 	// The three pre-request scripts of the chain and the collection's post-response one: the failure
 	// stopped neither the levels below it nor the second half.

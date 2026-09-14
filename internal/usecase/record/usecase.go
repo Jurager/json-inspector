@@ -29,6 +29,7 @@ const pruneEvery = 20
 
 type UseCase struct {
 	store     Store
+	scope     Scope
 	executor  Executor
 	notifier  Notifier
 	retention RetentionSource
@@ -41,6 +42,7 @@ type UseCase struct {
 
 func NewUseCase(
 	store Store,
+	scope Scope,
 	executor Executor,
 	notifier Notifier,
 	retention RetentionSource,
@@ -49,7 +51,7 @@ func NewUseCase(
 	ids platform.IDGen,
 ) *UseCase {
 	return &UseCase{
-		store: store, executor: executor, notifier: notifier, retention: retention,
+		store: store, scope: scope, executor: executor, notifier: notifier, retention: retention,
 		screen: screen, mask: mask, ids: ids,
 	}
 }
@@ -106,6 +108,14 @@ type SendInput struct {
 // the call that started it, because it can be cancelled and because a slow endpoint must not hold
 // the window's promise open.
 func (u *UseCase) Send(ctx context.Context, in SendInput) (string, error) {
+	// The workspace is read here and carried into the goroutine as a value: the attempt outlives
+	// this call, and asking again down there would write the answer into whatever space the user
+	// had switched to by the time it arrived.
+	workspace, err := u.scope.ActiveWorkspace(ctx)
+	if err != nil {
+		return "", err
+	}
+
 	id := u.ids()
 	started := time.Now().UnixMilli()
 	in.Run = runScope(in.Run, id)
@@ -113,7 +123,7 @@ func (u *UseCase) Send(ctx context.Context, in SendInput) (string, error) {
 	// The attempt runs on its own context: the caller's ends when the frontend call returns, and a
 	// request must not be cancelled by the act of asking for it.
 	go func() {
-		rec, err := u.attempt(context.Background(), id, started, in)
+		rec, err := u.attempt(context.Background(), workspace, id, started, in)
 		if err != nil {
 			u.notifier.Publish(TopicRequestFailed, RequestFailed{
 				ID:      id,
@@ -138,9 +148,14 @@ func (u *UseCase) Send(ctx context.Context, in SendInput) (string, error) {
 // attempt comes back saying so rather than as an error — it was stopped on purpose, and that is an
 // answer.
 func (u *UseCase) SendAndWait(ctx context.Context, in SendInput) (domain.Record, error) {
+	workspace, err := u.scope.ActiveWorkspace(ctx)
+	if err != nil {
+		return domain.Record{}, err
+	}
+
 	id := u.ids()
 	in.Run = runScope(in.Run, id)
-	rec, err := u.attempt(ctx, id, time.Now().UnixMilli(), in)
+	rec, err := u.attempt(ctx, workspace, id, time.Now().UnixMilli(), in)
 	if err != nil {
 		return domain.Record{}, err
 	}
@@ -155,7 +170,7 @@ func (u *UseCase) SendAndWait(ctx context.Context, in SendInput) (domain.Record,
 // a record, and saved. It answers with the record, with a cancelled attempt, or with why there is
 // none — a transport failure is the engine's to report inside the response, so an error here is this
 // side failing.
-func (u *UseCase) attempt(ctx context.Context, id string, started int64, in SendInput) (domain.Record, error) {
+func (u *UseCase) attempt(ctx context.Context, workspace, id string, started int64, in SendInput) (domain.Record, error) {
 	pass := domain.ScriptPass{
 		Run:      in.Run,
 		RecordID: id,
@@ -170,7 +185,7 @@ func (u *UseCase) attempt(ctx context.Context, id string, started int64, in Send
 	}
 
 	if u.screen != nil {
-		skip, err := u.screen.Before(ctx, &pass)
+		skip, err := u.screen.Before(ctx, workspace, &pass)
 		if err != nil {
 			return domain.Record{}, err
 		}
@@ -205,8 +220,8 @@ func (u *UseCase) attempt(ctx context.Context, id string, started int64, in Send
 		return domain.Record{Cancelled: true}, nil
 	}
 
-	rec := u.recordFrom(id, started, in, pass, u.masked(ctx, in, pass.Request), resp)
-	if err := u.save(ctx, rec); err != nil {
+	rec := u.recordFrom(id, workspace, started, in, pass, u.masked(ctx, in, pass.Request), resp)
+	if err := u.save(ctx, workspace, rec); err != nil {
 		return domain.Record{}, err
 	}
 
@@ -214,7 +229,7 @@ func (u *UseCase) attempt(ctx context.Context, id string, started int64, in Send
 	// off that record, and the reports of the first half are carried in the pass for the same reason.
 	if u.screen != nil {
 		pass.Response = resp
-		u.screen.After(ctx, pass)
+		u.screen.After(ctx, workspace, pass)
 	}
 	return rec, nil
 }
@@ -268,6 +283,7 @@ func (u *UseCase) Cancel(id string) bool {
 // shown, on one side, and what came back on the other.
 func (u *UseCase) recordFrom(
 	id string,
+	workspace string,
 	started int64,
 	in SendInput,
 	pass domain.ScriptPass,
@@ -277,6 +293,7 @@ func (u *UseCase) recordFrom(
 	return domain.Record{
 		RecordSummary: domain.RecordSummary{
 			ID:          id,
+			WorkspaceID: workspace,
 			Source:      domain.SourceManual,
 			Method:      pass.Request.Method,
 			URL:         masked.URL,
@@ -333,6 +350,11 @@ type IngestInput struct {
 // the window receives — not the extension's own shape — so there is one type to draw and one id to
 // select, whether a record came from this app or from the browser.
 func (u *UseCase) Ingest(ctx context.Context, in IngestInput) (domain.Record, error) {
+	workspace, err := u.scope.ActiveWorkspace(ctx)
+	if err != nil {
+		return domain.Record{}, err
+	}
+
 	started := in.StartedAt
 	if started == 0 {
 		started = time.Now().UnixMilli()
@@ -346,6 +368,7 @@ func (u *UseCase) Ingest(ctx context.Context, in IngestInput) (domain.Record, er
 	rec := domain.Record{
 		RecordSummary: domain.RecordSummary{
 			ID:          u.ids(),
+			WorkspaceID: workspace,
 			Source:      source,
 			Method:      in.Method,
 			URL:         in.URL,
@@ -371,7 +394,7 @@ func (u *UseCase) Ingest(ctx context.Context, in IngestInput) (domain.Record, er
 		DownloadUs: millisToMicros(in.DownloadMs),
 	}
 
-	if err := u.save(ctx, rec); err != nil {
+	if err := u.save(ctx, workspace, rec); err != nil {
 		return domain.Record{}, err
 	}
 	u.notifier.Publish(TopicRecordAdded, rec)
@@ -382,10 +405,14 @@ func (u *UseCase) Ingest(ctx context.Context, in IngestInput) (domain.Record, er
 // source is empty. Everything but the body text comes with them, so switching between two records
 // costs nothing until a body is actually opened.
 func (u *UseCase) List(ctx context.Context, source domain.RecordSource, limit int) ([]domain.Record, error) {
+	workspace, err := u.scope.ActiveWorkspace(ctx)
+	if err != nil {
+		return nil, err
+	}
 	if limit <= 0 {
 		limit = KeepCount
 	}
-	return u.store.Records(ctx, source, limit)
+	return u.store.Records(ctx, workspace, source, limit)
 }
 
 // Record is one record by id — what a run's row opens: the run knows which record it produced, and the
@@ -404,9 +431,18 @@ func (u *UseCase) Clear(ctx context.Context, ids []string) error {
 	return u.store.DeleteRecords(ctx, ids)
 }
 
-// Prune applies the retention rules: the count that has always applied, and the age window the
-// settings screen offers on top of it.
+// Prune applies the retention rules to the workspace on screen: the count that has always applied,
+// and the age window the settings screen offers on top of it. The rules are per workspace, so a
+// space nobody has opened in a month keeps what it holds until it is opened again.
 func (u *UseCase) Prune(ctx context.Context) (int, error) {
+	workspace, err := u.scope.ActiveWorkspace(ctx)
+	if err != nil {
+		return 0, err
+	}
+	return u.prune(ctx, workspace)
+}
+
+func (u *UseCase) prune(ctx context.Context, workspace string) (int, error) {
 	opts := domain.PruneOptions{MaxCount: KeepCount}
 	if u.retention != nil {
 		retention, err := u.retention.Retention(ctx)
@@ -415,14 +451,14 @@ func (u *UseCase) Prune(ctx context.Context) (int, error) {
 		}
 		opts.MaxAge = ageOf(retention)
 	}
-	return u.store.Prune(ctx, opts)
+	return u.store.Prune(ctx, workspace, opts)
 }
 
 // save writes a record and, every so often, looks at what the retention rules would drop. Counting
 // saves rather than running a timer means an idle app does no work, and a busy one cannot grow past
 // the window between two prunes by more than a batch.
-func (u *UseCase) save(ctx context.Context, rec domain.Record) error {
-	if err := u.store.SaveRecord(ctx, rec); err != nil {
+func (u *UseCase) save(ctx context.Context, workspace string, rec domain.Record) error {
+	if err := u.store.SaveRecord(ctx, workspace, rec); err != nil {
 		return err
 	}
 
@@ -431,7 +467,7 @@ func (u *UseCase) save(ctx context.Context, rec domain.Record) error {
 		return nil
 	}
 	u.sincePrune = 0
-	if _, err := u.Prune(ctx); err != nil {
+	if _, err := u.prune(ctx, workspace); err != nil {
 		// Retention that fails is retention the next batch tries again; the record itself is safe.
 		return fmt.Errorf("applying retention: %w", err)
 	}

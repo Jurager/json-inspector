@@ -6,8 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"time"
-
-	"json-inspector/internal/domain"
 )
 
 // Settings returns every stored preference. The set is small and read whole at startup, which is
@@ -53,16 +51,6 @@ func (s *Store) SaveSetting(ctx context.Context, key, value string) error {
 	return nil
 }
 
-// ActiveEnvironment is the id of the environment the request preview resolves against; empty means
-// none is selected.
-func (s *Store) ActiveEnvironment(ctx context.Context) (string, error) {
-	value, ok, err := s.Setting(ctx, domain.SettingActiveEnvironment)
-	if err != nil || !ok {
-		return "", err
-	}
-	return value, nil
-}
-
-func (s *Store) SetActiveEnvironment(ctx context.Context, id string) error {
-	return s.SaveSetting(ctx, domain.SettingActiveEnvironment, id)
-}
+// Which environment a request resolves against is not here: it belongs to a workspace, so it is a
+// column of that row (see workspace_store.go). A second copy in this table would be a second answer
+// to the same question the moment there are two workspaces.

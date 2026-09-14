@@ -97,11 +97,11 @@ func TestMoveNodeLandsWhereTheIndexPoints(t *testing.T) {
 	}
 	// The level is f-1 (0), r-2 (1), r-3 (2). The request stands first among the requests and is
 	// dropped after the one behind it: the index counts the row that is moving.
-	if err := store.MoveNode(ctx, "r-2", "col-1", 3); err != nil {
+	if err := store.MoveNode(ctx, ws, "r-2", "col-1", 3); err != nil {
 		t.Fatalf("MoveNode: %v", err)
 	}
 
-	tree, err := store.Collections(ctx)
+	tree, err := store.Collections(ctx, ws)
 	if err != nil {
 		t.Fatalf("Collections: %v", err)
 	}

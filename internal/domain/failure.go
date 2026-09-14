@@ -43,6 +43,8 @@ const (
 	CodeUnknownLanguage    Code = "unknownLanguage"
 	CodeUnknownListSide    Code = "unknownListSide"
 	CodeUnknownRetention   Code = "unknownRetention"
+	CodePersonalWorkspace  Code = "personalWorkspace"
+	CodeWorkspaceMissing   Code = "workspaceMissing"
 )
 
 // Args are the values a code's sentence interpolates. They are strings because that is what a message

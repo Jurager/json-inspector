@@ -32,7 +32,19 @@ func newFakeStore() *fakeStore {
 	return &fakeStore{vars: map[string]fakeVar{}, imports: map[string]string{}}
 }
 
-func (f *fakeStore) EnvState(context.Context) (domain.EnvState, error) {
+// fakeScope answers with the workspace the test is working in. The store below keeps one flat
+// state and ignores the id: what is being tested here is the use case, and the split between
+// workspaces is the SQL's own test.
+type fakeScope struct{ id string }
+
+func (f fakeScope) ActiveWorkspace(context.Context) (string, error) {
+	if f.id == "" {
+		return domain.WorkspacePersonalID, nil
+	}
+	return f.id, nil
+}
+
+func (f *fakeStore) EnvState(context.Context, string) (domain.EnvState, error) {
 	state := domain.EnvState{Environments: []domain.Environment{}, Globals: []domain.Variable{}, ActiveID: f.active}
 	for _, env := range f.envs {
 		copied := env
@@ -66,7 +78,7 @@ func sortedVars(vars map[string]fakeVar) []fakeVar {
 	return out
 }
 
-func (f *fakeStore) SaveEnvironment(_ context.Context, env domain.Environment) error {
+func (f *fakeStore) SaveEnvironment(_ context.Context, _ string, env domain.Environment) error {
 	for i := range f.envs {
 		if f.envs[i].ID == env.ID {
 			f.envs[i] = env
@@ -77,7 +89,7 @@ func (f *fakeStore) SaveEnvironment(_ context.Context, env domain.Environment) e
 	return nil
 }
 
-func (f *fakeStore) DeleteEnvironment(_ context.Context, id string) error {
+func (f *fakeStore) DeleteEnvironment(_ context.Context, _ string, id string) error {
 	kept := f.envs[:0]
 	for _, env := range f.envs {
 		if env.ID != id {
@@ -93,17 +105,17 @@ func (f *fakeStore) DeleteEnvironment(_ context.Context, id string) error {
 	return nil
 }
 
-func (f *fakeStore) SaveVariable(_ context.Context, scope domain.EnvScope, v domain.Variable) error {
+func (f *fakeStore) SaveVariable(_ context.Context, _ string, scope domain.EnvScope, v domain.Variable) error {
 	f.vars[v.ID] = fakeVar{scope: scope, v: v}
 	return nil
 }
 
-func (f *fakeStore) DeleteVariable(_ context.Context, id string) error {
+func (f *fakeStore) DeleteVariable(_ context.Context, _ string, id string) error {
 	delete(f.vars, id)
 	return nil
 }
 
-func (f *fakeStore) VariableValue(_ context.Context, id string) (string, error) {
+func (f *fakeStore) VariableValue(_ context.Context, _ string, id string) (string, error) {
 	entry, ok := f.vars[id]
 	if !ok {
 		return "", domain.ErrNotFound
@@ -111,7 +123,7 @@ func (f *fakeStore) VariableValue(_ context.Context, id string) (string, error) 
 	return entry.v.Value, nil
 }
 
-func (f *fakeStore) SetActiveEnvironment(_ context.Context, id string) error {
+func (f *fakeStore) SetActiveEnvironment(_ context.Context, _ string, id string) error {
 	f.active = id
 	return nil
 }
@@ -133,7 +145,7 @@ func newUseCase(t *testing.T) (*UseCase, *fakeStore) {
 	t.Helper()
 	store := newFakeStore()
 	ids := platform.NewIDGen()
-	return NewUseCase(store, ids), store
+	return NewUseCase(store, fakeScope{}, ids), store
 }
 
 func seed(t *testing.T, u *UseCase, name string) (domain.EnvState, domain.Environment) {

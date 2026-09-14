@@ -67,6 +67,18 @@ export const useEnvironmentsStore = defineStore('environments', {
       this.envState = await EnvironmentsService.Snapshot()
     },
 
+    // What a workspace switch leaves behind: every environment on screen belongs to the space being
+    // left, and so does the unlock the user gave one of them for this session. A revealed secret is
+    // dropped for the same reason — it is a value of a variable that is no longer there.
+    forget() {
+      this.envState = null
+      this.unlockedEnvIds = []
+      this.revealed = {}
+      this.editedEnvId = null
+      this.sheetFocus = null
+      this.importReport = null
+    },
+
     // The old build kept environments in localStorage and their secrets in the OS keychain; both
     // move into the database on the first launch of this one. The raw string goes over as it is —
     // reading that shape is Go's job — and the key is dropped only once the import is through.

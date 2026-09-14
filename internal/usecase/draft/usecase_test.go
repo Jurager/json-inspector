@@ -17,14 +17,26 @@ type fakeStore struct {
 	failSave error
 }
 
-func (f *fakeStore) Draft(_ context.Context, id domain.DraftID) (domain.Draft, error) {
+// fakeScope answers with the workspace the test is working in. The store below keeps one draft and
+// ignores the id: what is being tested here is the use case, and the split between workspaces is
+// the SQL's own test.
+type fakeScope struct{ id string }
+
+func (f fakeScope) ActiveWorkspace(context.Context) (string, error) {
+	if f.id == "" {
+		return domain.WorkspacePersonalID, nil
+	}
+	return f.id, nil
+}
+
+func (f *fakeStore) Draft(_ context.Context, _ string, id domain.DraftID) (domain.Draft, error) {
 	if !f.has {
 		return domain.Draft{}, domain.ErrNotFound
 	}
 	return f.saved, nil
 }
 
-func (f *fakeStore) SaveDraft(_ context.Context, draft domain.Draft) error {
+func (f *fakeStore) SaveDraft(_ context.Context, _ string, draft domain.Draft) error {
 	if f.failSave != nil {
 		return f.failSave
 	}
@@ -120,7 +132,7 @@ func newUseCaseWithFiles() (*UseCase, *fakeStore, *fakeFiles) {
 		"/tmp/logo.png":  "PNGDATA",
 		"/tmp/notes.txt": "hello",
 	}}
-	return NewUseCase(store, variables, sources, platform.NewIDGen()), store, sources
+	return NewUseCase(store, fakeScope{}, variables, sources, platform.NewIDGen()), store, sources
 }
 
 func loaded(t *testing.T) (*UseCase, *fakeStore) {

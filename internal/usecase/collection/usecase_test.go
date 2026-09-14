@@ -69,7 +69,23 @@ func (f *fakeStore) buryCollection(id string) {
 	}
 }
 
-func (f *fakeStore) Collections(context.Context) ([]domain.Collection, error) {
+// fakeScope answers with the workspace the test is working in. The store below keeps one tree and
+// ignores the id: what is being tested here is the use case, and the split between workspaces is the
+// SQL's own test.
+type fakeScope struct{ id string }
+
+// ws is the workspace the tests below call the store in directly — the one the app is born with,
+// since none of them is about a second space.
+const ws = domain.WorkspacePersonalID
+
+func (f fakeScope) ActiveWorkspace(context.Context) (string, error) {
+	if f.id == "" {
+		return domain.WorkspacePersonalID, nil
+	}
+	return f.id, nil
+}
+
+func (f *fakeStore) Collections(context.Context, string) ([]domain.Collection, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 
@@ -134,7 +150,7 @@ func (f *fakeStore) Node(_ context.Context, id string) (domain.CollectionNode, e
 	return domain.CollectionNode{}, domain.ErrNotFound
 }
 
-func (f *fakeStore) SaveCollection(_ context.Context, collection domain.Collection) error {
+func (f *fakeStore) SaveCollection(_ context.Context, _ string, collection domain.Collection) error {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 
@@ -166,7 +182,7 @@ func (f *fakeStore) SaveNode(_ context.Context, node domain.CollectionNode) erro
 	return nil
 }
 
-func (f *fakeStore) DeleteCollection(_ context.Context, id string) error {
+func (f *fakeStore) DeleteCollection(_ context.Context, _ string, id string) error {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 
@@ -186,7 +202,7 @@ func (f *fakeStore) DeleteNode(_ context.Context, id string) error {
 // space — and an id that names neither is not found. A node keeps its scripts on itself, the way the
 // row does; a collection's live beside the tree, because the struct the list draws has no field for
 // them. A level with nothing of its own answers nothing, which is not the same as an empty script.
-func (f *fakeStore) Scripts(_ context.Context, id string) (*domain.Scripts, error) {
+func (f *fakeStore) Scripts(_ context.Context, _ string, id string) (*domain.Scripts, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 
@@ -206,7 +222,7 @@ func (f *fakeStore) Scripts(_ context.Context, id string) (*domain.Scripts, erro
 	return nil, domain.ErrNotFound
 }
 
-func (f *fakeStore) SaveScripts(_ context.Context, id string, scripts *domain.Scripts) error {
+func (f *fakeStore) SaveScripts(_ context.Context, _ string, id string, scripts *domain.Scripts) error {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 
@@ -230,7 +246,7 @@ func (f *fakeStore) SaveScripts(_ context.Context, id string, scripts *domain.Sc
 
 // NextPosition is one past the last child of a level, requests and nested collections counted
 // together: they share one number line, which is what makes them one list on screen.
-func (f *fakeStore) NextPosition(_ context.Context, collectionID string) (int64, error) {
+func (f *fakeStore) NextPosition(_ context.Context, _ string, collectionID string) (int64, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 
@@ -255,7 +271,7 @@ func (f *fakeStore) NextPosition(_ context.Context, collectionID string) (int64,
 
 // MoveNode and MoveCollection are the store's own two moves: the row changes where it lives, and both
 // the level it left and the level it joined are numbered again with it in place.
-func (f *fakeStore) MoveNode(_ context.Context, id string, collectionID string, position int64) error {
+func (f *fakeStore) MoveNode(_ context.Context, _ string, id string, collectionID string, position int64) error {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 
@@ -272,7 +288,7 @@ func (f *fakeStore) MoveNode(_ context.Context, id string, collectionID string, 
 	return domain.ErrNotFound
 }
 
-func (f *fakeStore) MoveCollection(_ context.Context, id string, parentID string, position int64) error {
+func (f *fakeStore) MoveCollection(_ context.Context, _ string, id string, parentID string, position int64) error {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 
@@ -553,7 +569,7 @@ func newTestRun() (*UseCase, *fakeStore, *fakeSender, *fakeNotifier) {
 	store := newFakeStore()
 	sender := newFakeSender()
 	notifier := newFakeNotifier()
-	return NewUseCase(store, sender, notifier, platform.NewIDGen()), store, sender, notifier
+	return NewUseCase(store, fakeScope{}, sender, notifier, platform.NewIDGen()), store, sender, notifier
 }
 
 func only(t *testing.T, tree []domain.Collection) domain.Collection {
@@ -904,7 +920,7 @@ func TestDuplicateCopiesTheRequestItself(t *testing.T) {
 	}
 
 	// A copy runs the same code the original did: its scripts come with it, the way its rows do.
-	if err := store.SaveScripts(ctx, requestID, &domain.Scripts{Post: "console.log('свой');"}); err != nil {
+	if err := store.SaveScripts(ctx, ws, requestID, &domain.Scripts{Post: "console.log('свой');"}); err != nil {
 		t.Fatalf("SaveScripts: %v", err)
 	}
 
@@ -954,7 +970,7 @@ func TestSavingARequestKeepsItsScripts(t *testing.T) {
 	_, tree, _ = uc.CreateNode(ctx, NewNode{CollectionID: collectionID, Name: "Запрос"})
 	requestID := only(t, tree).Items[0].ID
 
-	if err := store.SaveScripts(ctx, requestID, &domain.Scripts{Post: "console.log('свой');"}); err != nil {
+	if err := store.SaveScripts(ctx, ws, requestID, &domain.Scripts{Post: "console.log('свой');"}); err != nil {
 		t.Fatalf("SaveScripts: %v", err)
 	}
 	if _, err := uc.SaveNode(ctx, domain.CollectionNode{
@@ -981,7 +997,7 @@ func TestDuplicateCopiesTheCollectionScripts(t *testing.T) {
 
 	tree, _ := uc.CreateCollection(ctx, "Коллекция", "")
 	collectionID := only(t, tree).ID
-	if err := store.SaveScripts(ctx, collectionID, &domain.Scripts{Pre: "console.log('пошли');"}); err != nil {
+	if err := store.SaveScripts(ctx, ws, collectionID, &domain.Scripts{Pre: "console.log('пошли');"}); err != nil {
 		t.Fatalf("SaveScripts: %v", err)
 	}
 
@@ -989,14 +1005,14 @@ func TestDuplicateCopiesTheCollectionScripts(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Duplicate: %v", err)
 	}
-	copied, err := store.Scripts(ctx, tree[1].ID)
+	copied, err := store.Scripts(ctx, ws, tree[1].ID)
 	if err != nil {
 		t.Fatalf("Scripts: %v", err)
 	}
 	if copied == nil || copied.Pre != "console.log('пошли');" {
 		t.Errorf("copied scripts = %+v, want the original's", copied)
 	}
-	if original, err := store.Scripts(ctx, collectionID); err != nil || original == nil {
+	if original, err := store.Scripts(ctx, ws, collectionID); err != nil || original == nil {
 		t.Errorf("the original's scripts = %+v, %v, want them where they were", original, err)
 	}
 }

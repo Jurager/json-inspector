@@ -13,7 +13,7 @@ import (
 
 // Draft reads one draft. A database that has never seen it answers ErrNotFound, which is how the
 // draft feature knows to start on a fresh one rather than on an empty request.
-func (s *Store) Draft(ctx context.Context, id domain.DraftID) (domain.Draft, error) {
+func (s *Store) Draft(ctx context.Context, workspaceID string, id domain.DraftID) (domain.Draft, error) {
 	var (
 		draft                                domain.Draft
 		params, headers, auth, cookies, form string
@@ -22,7 +22,7 @@ func (s *Store) Draft(ctx context.Context, id domain.DraftID) (domain.Draft, err
 	err := s.db.QueryRowContext(ctx,
 		`SELECT id, revision, method, url, params_json, headers_json, auth_json, body, body_kind,
 		        form_json, body_file, cookies_json
-		   FROM drafts WHERE id = ?`, id).
+		   FROM drafts WHERE workspace_id = ? AND id = ?`, workspaceID, id).
 		Scan(&draft.ID, &draft.Revision, &draft.Method, &draft.URL, &params, &headers, &auth,
 			&draft.Body, &bodyKind, &form, &draft.BodyFile, &cookies)
 	if errors.Is(err, sql.ErrNoRows) {
@@ -54,7 +54,7 @@ func (s *Store) Draft(ctx context.Context, id domain.DraftID) (domain.Draft, err
 
 // SaveDraft writes a draft whole: it is one row's worth of state, and a partial write of it would
 // be a request composed of two different moments.
-func (s *Store) SaveDraft(ctx context.Context, draft domain.Draft) error {
+func (s *Store) SaveDraft(ctx context.Context, workspaceID string, draft domain.Draft) error {
 	params, err := json.Marshal(orEmptyRows(draft.Params))
 	if err != nil {
 		return fmt.Errorf("saving draft %s: %w", draft.ID, err)
@@ -77,19 +77,19 @@ func (s *Store) SaveDraft(ctx context.Context, draft domain.Draft) error {
 	}
 
 	_, err = s.db.ExecContext(ctx,
-		`INSERT INTO drafts (id, revision, method, url, params_json, headers_json, auth_json, body,
-		                     body_kind, form_json, body_file, cookies_json, updated_at)
-		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-		 ON CONFLICT(id) DO UPDATE SET
+		`INSERT INTO drafts (workspace_id, id, revision, method, url, params_json, headers_json,
+		                     auth_json, body, body_kind, form_json, body_file, cookies_json, updated_at)
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		 ON CONFLICT(workspace_id, id) DO UPDATE SET
 		   revision = excluded.revision, method = excluded.method, url = excluded.url,
 		   params_json = excluded.params_json, headers_json = excluded.headers_json,
 		   auth_json = excluded.auth_json, body = excluded.body,
 		   body_kind = excluded.body_kind, form_json = excluded.form_json,
 		   body_file = excluded.body_file,
 		   cookies_json = excluded.cookies_json, updated_at = excluded.updated_at`,
-		draft.ID, draft.Revision, draft.Method, draft.URL, string(params), string(headers),
-		string(auth), draft.Body, string(domain.KindOf(draft.BodyKind)), string(form),
-		draft.BodyFile, string(cookies), time.Now().UnixMilli())
+		workspaceID, draft.ID, draft.Revision, draft.Method, draft.URL, string(params),
+		string(headers), string(auth), draft.Body, string(domain.KindOf(draft.BodyKind)),
+		string(form), draft.BodyFile, string(cookies), time.Now().UnixMilli())
 	if err != nil {
 		return fmt.Errorf("saving draft %s: %w", draft.ID, err)
 	}

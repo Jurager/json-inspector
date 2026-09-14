@@ -9,6 +9,7 @@ import * as RecordsService from "./recordsservice.js";
 import * as ScriptingService from "./scriptingservice.js";
 import * as SettingsService from "./settingsservice.js";
 import * as SystemService from "./systemservice.js";
+import * as WorkspaceService from "./workspaceservice.js";
 export {
     BridgeService,
     CollectionsService,
@@ -17,7 +18,8 @@ export {
     RecordsService,
     ScriptingService,
     SettingsService,
-    SystemService
+    SystemService,
+    WorkspaceService
 };
 
 export type {

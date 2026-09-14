@@ -16,7 +16,11 @@ import (
 // needs the token, and this value goes into the sandbox and nowhere else — not into the window, not
 // into a log of ours. A script that prints it prints it itself, which is its own business.
 func (u *UseCase) Variable(ctx context.Context, scope domain.VarScope, name string) (string, bool, error) {
-	state, err := u.store.EnvState(ctx)
+	workspace, err := u.scope.ActiveWorkspace(ctx)
+	if err != nil {
+		return "", false, err
+	}
+	state, err := u.store.EnvState(ctx, workspace)
 	if err != nil {
 		return "", false, err
 	}
@@ -48,7 +52,12 @@ func (u *UseCase) SetVariable(ctx context.Context, scope domain.VarScope, name s
 		return fmt.Errorf("variable name %q: %w", name, domain.ErrNotAllowed)
 	}
 
-	state, err := u.store.EnvState(ctx)
+	workspace, err := u.scope.ActiveWorkspace(ctx)
+	if err != nil {
+		return err
+	}
+
+	state, err := u.store.EnvState(ctx, workspace)
 	if err != nil {
 		return err
 	}
@@ -67,14 +76,14 @@ func (u *UseCase) SetVariable(ctx context.Context, scope domain.VarScope, name s
 
 	if existing, ok := existing(scopeVariables(state, where), name); ok {
 		existing.Value = value
-		return u.store.SaveVariable(ctx, where, existing)
+		return u.store.SaveVariable(ctx, workspace, where, existing)
 	}
 
 	position, err := nextVariablePosition(state, where)
 	if err != nil {
 		return err
 	}
-	return u.store.SaveVariable(ctx, where, domain.Variable{
+	return u.store.SaveVariable(ctx, workspace, where, domain.Variable{
 		ID:       u.ids(),
 		Name:     name,
 		Value:    value,

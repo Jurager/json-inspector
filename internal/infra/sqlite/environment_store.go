@@ -11,13 +11,14 @@ import (
 	"json-inspector/internal/domain"
 )
 
-// EnvState reads the environments, the globals and which one is active. Globals are `variables`
-// rows with no scope, so one pair of queries fills the whole screen.
-func (s *Store) EnvState(ctx context.Context) (domain.EnvState, error) {
+// EnvState reads one workspace's environments, its globals and which one is active. Globals are
+// `variables` rows with no scope, so one pair of queries fills the whole screen.
+func (s *Store) EnvState(ctx context.Context, workspaceID string) (domain.EnvState, error) {
 	state := domain.EnvState{Environments: []domain.Environment{}, Globals: []domain.Variable{}}
 
 	rows, err := s.db.QueryContext(ctx,
-		`SELECT id, name, coalesce(color, ''), readonly, position FROM environments ORDER BY position, name`)
+		`SELECT id, name, coalesce(color, ''), readonly, position FROM environments
+		  WHERE workspace_id = ? ORDER BY position, name`, workspaceID)
 	if err != nil {
 		return state, fmt.Errorf("reading environments: %w", err)
 	}
@@ -36,7 +37,7 @@ func (s *Store) EnvState(ctx context.Context) (domain.EnvState, error) {
 		return state, fmt.Errorf("reading environments: %w", err)
 	}
 
-	vars, err := s.variables(ctx)
+	vars, err := s.variables(ctx, workspaceID)
 	if err != nil {
 		return state, err
 	}
@@ -53,7 +54,7 @@ func (s *Store) EnvState(ctx context.Context) (domain.EnvState, error) {
 		}
 	}
 
-	active, err := s.ActiveEnvironment(ctx)
+	active, err := s.activeEnvironment(ctx, workspaceID)
 	if err != nil {
 		return state, err
 	}
@@ -68,10 +69,10 @@ type scopedVariable struct {
 	variable domain.Variable
 }
 
-func (s *Store) variables(ctx context.Context) ([]scopedVariable, error) {
+func (s *Store) variables(ctx context.Context, workspaceID string) ([]scopedVariable, error) {
 	rows, err := s.db.QueryContext(ctx,
 		`SELECT id, ifnull(scope_id, ''), name, value, kind, enabled, position
-		   FROM variables ORDER BY position, name`)
+		   FROM variables WHERE workspace_id = ? ORDER BY position, name`, workspaceID)
 	if err != nil {
 		return nil, fmt.Errorf("reading variables: %w", err)
 	}
@@ -95,15 +96,15 @@ func (s *Store) variables(ctx context.Context) ([]scopedVariable, error) {
 }
 
 // SaveEnvironment writes an environment through, keeping its position.
-func (s *Store) SaveEnvironment(ctx context.Context, env domain.Environment) error {
+func (s *Store) SaveEnvironment(ctx context.Context, workspaceID string, env domain.Environment) error {
 	now := time.Now().UnixMilli()
 	_, err := s.db.ExecContext(ctx,
-		`INSERT INTO environments (id, name, color, readonly, position, created_at, updated_at)
-		 VALUES (?, ?, ?, ?, ?, ?, ?)
+		`INSERT INTO environments (id, workspace_id, name, color, readonly, position, created_at, updated_at)
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?)
 		 ON CONFLICT(id) DO UPDATE SET
 		   name = excluded.name, color = excluded.color, readonly = excluded.readonly,
 		   position = excluded.position, updated_at = excluded.updated_at`,
-		env.ID, env.Name, nullIfEmpty(env.Color), boolToInt(env.Readonly), env.Position, now, now)
+		env.ID, workspaceID, env.Name, nullIfEmpty(env.Color), boolToInt(env.Readonly), env.Position, now, now)
 	if err != nil {
 		return fmt.Errorf("saving environment %s: %w", env.ID, err)
 	}
@@ -113,7 +114,7 @@ func (s *Store) SaveEnvironment(ctx context.Context, env domain.Environment) err
 // DeleteEnvironment removes the environment and its variables in one transaction. The variables
 // have no foreign key to lean on — scope_id is a plain column, so that globals can share the table
 // — which is why this is not a single statement.
-func (s *Store) DeleteEnvironment(ctx context.Context, id string) error {
+func (s *Store) DeleteEnvironment(ctx context.Context, workspaceID, id string) error {
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
 		return fmt.Errorf("deleting environment %s: %w", id, err)
@@ -121,10 +122,12 @@ func (s *Store) DeleteEnvironment(ctx context.Context, id string) error {
 	defer func() { _ = tx.Rollback() }()
 
 	if _, err := tx.ExecContext(ctx,
-		`DELETE FROM variables WHERE scope_kind = 'environment' AND scope_id = ?`, id); err != nil {
+		`DELETE FROM variables WHERE workspace_id = ? AND scope_kind = 'environment' AND scope_id = ?`,
+		workspaceID, id); err != nil {
 		return fmt.Errorf("deleting variables of %s: %w", id, err)
 	}
-	if _, err := tx.ExecContext(ctx, `DELETE FROM environments WHERE id = ?`, id); err != nil {
+	if _, err := tx.ExecContext(ctx,
+		`DELETE FROM environments WHERE workspace_id = ? AND id = ?`, workspaceID, id); err != nil {
 		return fmt.Errorf("deleting environment %s: %w", id, err)
 	}
 	if err := tx.Commit(); err != nil {
@@ -136,7 +139,7 @@ func (s *Store) DeleteEnvironment(ctx context.Context, id string) error {
 // SaveVariable writes a variable into an environment or into the globals. A name that already
 // exists in the same scope is refused by the unique index and reported as a conflict, not as a
 // database error.
-func (s *Store) SaveVariable(ctx context.Context, scope domain.EnvScope, v domain.Variable) error {
+func (s *Store) SaveVariable(ctx context.Context, workspaceID string, scope domain.EnvScope, v domain.Variable) error {
 	kind, scopeID := "globals", any(nil)
 	if scope.Environment != "" {
 		kind, scopeID = "environment", scope.Environment
@@ -144,13 +147,14 @@ func (s *Store) SaveVariable(ctx context.Context, scope domain.EnvScope, v domai
 
 	now := time.Now().UnixMilli()
 	_, err := s.db.ExecContext(ctx,
-		`INSERT INTO variables (id, scope_kind, scope_id, name, value, kind, enabled, position,
-		                        created_at, updated_at)
-		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		`INSERT INTO variables (id, workspace_id, scope_kind, scope_id, name, value, kind, enabled,
+		                        position, created_at, updated_at)
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 		 ON CONFLICT(id) DO UPDATE SET
 		   name = excluded.name, value = excluded.value, kind = excluded.kind,
 		   enabled = excluded.enabled, position = excluded.position, updated_at = excluded.updated_at`,
-		v.ID, kind, scopeID, v.Name, v.Value, string(v.Kind), boolToInt(v.Enabled), v.Position, now, now)
+		v.ID, workspaceID, kind, scopeID, v.Name, v.Value, string(v.Kind), boolToInt(v.Enabled),
+		v.Position, now, now)
 	if err != nil {
 		if isUniqueViolation(err) {
 			return fmt.Errorf("variable %q: %w", v.Name, domain.ErrConflict)
@@ -160,8 +164,9 @@ func (s *Store) SaveVariable(ctx context.Context, scope domain.EnvScope, v domai
 	return nil
 }
 
-func (s *Store) DeleteVariable(ctx context.Context, id string) error {
-	if _, err := s.db.ExecContext(ctx, `DELETE FROM variables WHERE id = ?`, id); err != nil {
+func (s *Store) DeleteVariable(ctx context.Context, workspaceID, id string) error {
+	if _, err := s.db.ExecContext(ctx,
+		`DELETE FROM variables WHERE workspace_id = ? AND id = ?`, workspaceID, id); err != nil {
 		return fmt.Errorf("deleting variable %s: %w", id, err)
 	}
 	return nil
@@ -169,9 +174,10 @@ func (s *Store) DeleteVariable(ctx context.Context, id string) error {
 
 // VariableValue reads one variable's value, which is what the reveal button and the send path ask
 // for; a snapshot never carries a secret's value.
-func (s *Store) VariableValue(ctx context.Context, id string) (string, error) {
+func (s *Store) VariableValue(ctx context.Context, workspaceID, id string) (string, error) {
 	var value string
-	err := s.db.QueryRowContext(ctx, `SELECT value FROM variables WHERE id = ?`, id).Scan(&value)
+	err := s.db.QueryRowContext(ctx,
+		`SELECT value FROM variables WHERE workspace_id = ? AND id = ?`, workspaceID, id).Scan(&value)
 	if errors.Is(err, sql.ErrNoRows) {
 		return "", domain.ErrNotFound
 	}

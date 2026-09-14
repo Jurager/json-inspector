@@ -11,6 +11,7 @@ import (
 	"json-inspector/internal/usecase/record"
 	"json-inspector/internal/usecase/scripting"
 	"json-inspector/internal/usecase/settings"
+	"json-inspector/internal/usecase/workspace"
 )
 
 var Module = fx.Module("usecase",
@@ -20,4 +21,5 @@ var Module = fx.Module("usecase",
 	record.Module,
 	scripting.Module,
 	settings.Module,
+	workspace.Module,
 )

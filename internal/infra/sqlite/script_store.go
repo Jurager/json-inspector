@@ -29,14 +29,19 @@ func encodeScripts(scripts *domain.Scripts) (sql.NullString, error) {
 // Scripts reads what is set on a level — a collection, a node, or the draft the command line is
 // composing — and nothing when nothing is set there: the editor shows the difference between "take
 // the parent's" and "nothing to run here".
-func (s *Store) Scripts(ctx context.Context, id string) (*domain.Scripts, error) {
+//
+// The workspace is named because one of the three tables needs it: the command line's draft is the
+// same fixed key in every workspace, so without it this query would read a level of the wrong space
+// — whichever row the plan happened to reach first.
+func (s *Store) Scripts(ctx context.Context, workspaceID, id string) (*domain.Scripts, error) {
 	var raw sql.NullString
 	// Three tables and one id space: a level is a collection, a node of one, or the draft the command
 	// line is composing, and whoever asks knows the id and not the table.
 	err := s.db.QueryRowContext(ctx,
 		`SELECT scripts_json FROM collections WHERE id = ?
 		 UNION ALL SELECT scripts_json FROM collection_nodes WHERE id = ?
-		 UNION ALL SELECT scripts_json FROM drafts WHERE id = ?`, id, id, id).Scan(&raw)
+		 UNION ALL SELECT scripts_json FROM drafts WHERE workspace_id = ? AND id = ?`,
+		id, id, workspaceID, id).Scan(&raw)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, fmt.Errorf("level %s: %w", id, domain.ErrNotFound)
 	}
@@ -56,15 +61,27 @@ func (s *Store) Scripts(ctx context.Context, id string) (*domain.Scripts, error)
 // SaveScripts writes what is set on a level. NULL stays NULL: a level with no code of its own is a
 // level that inherits, and writing an empty object there would turn "take the parents" into "nothing
 // to run" — the two the column exists to tell apart.
-func (s *Store) SaveScripts(ctx context.Context, id string, scripts *domain.Scripts) error {
+func (s *Store) SaveScripts(ctx context.Context, workspaceID, id string, scripts *domain.Scripts) error {
 	encoded, err := encodeScripts(scripts)
 	if err != nil {
 		return err
 	}
-	for _, table := range []string{"collections", "collection_nodes", "drafts"} {
+	// The draft is the one of the three whose id is the same word in every workspace, so it is the
+	// one that has to say which workspace it means: without it, saving the command line's code would
+	// write it into every workspace's command line.
+	levels := []struct {
+		table string
+		where string
+		args  []any
+	}{
+		{"collections", `id = ?`, []any{id}},
+		{"collection_nodes", `id = ?`, []any{id}},
+		{"drafts", `workspace_id = ? AND id = ?`, []any{workspaceID, id}},
+	}
+	for _, level := range levels {
 		result, err := s.db.ExecContext(ctx,
-			`UPDATE `+table+` SET scripts_json = ?, updated_at = ? WHERE id = ?`,
-			encoded, time.Now().UnixMilli(), id)
+			`UPDATE `+level.table+` SET scripts_json = ?, updated_at = ? WHERE `+level.where,
+			append([]any{encoded, time.Now().UnixMilli()}, level.args...)...)
 		if err != nil {
 			return fmt.Errorf("saving the scripts of %s: %w", id, err)
 		}
@@ -82,7 +99,7 @@ func (s *Store) SaveScripts(ctx context.Context, id string, scripts *domain.Scri
 // SaveScriptRun writes one execution of one script with everything it printed and asserted. It is one
 // transaction because it is one report: a run whose lines were only half written would lie about what
 // happened, and the tab draws exactly this.
-func (s *Store) SaveScriptRun(ctx context.Context, run domain.ScriptRun) error {
+func (s *Store) SaveScriptRun(ctx context.Context, workspaceID string, run domain.ScriptRun) error {
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
 		return fmt.Errorf("saving run %s: %w", run.ID, err)
@@ -93,11 +110,12 @@ func (s *Store) SaveScriptRun(ctx context.Context, run domain.ScriptRun) error {
 	// row the body tables hang off. A record that does not exist leaves the run without one rather
 	// than failing the write.
 	if _, err := tx.ExecContext(ctx,
-		`INSERT INTO script_runs (id, record_seq, node_id, scope, ok, error, duration_us, created_at)
-		 VALUES (?, (SELECT seq FROM records WHERE id = ?), ?, ?, ?, ?, ?, ?)
+		`INSERT INTO script_runs (id, workspace_id, record_seq, node_id, scope, ok, error, duration_us,
+		                         created_at)
+		 VALUES (?, ?, (SELECT seq FROM records WHERE id = ?), ?, ?, ?, ?, ?, ?)
 		 ON CONFLICT(id) DO UPDATE SET
 		   ok = excluded.ok, error = excluded.error, duration_us = excluded.duration_us`,
-		run.ID, run.RecordID, run.NodeID, string(run.Scope), run.OK, run.Error,
+		run.ID, workspaceID, run.RecordID, run.NodeID, string(run.Scope), run.OK, run.Error,
 		run.DurationUs, run.CreatedAt); err != nil {
 		return fmt.Errorf("saving run %s: %w", run.ID, err)
 	}

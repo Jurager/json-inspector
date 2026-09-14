@@ -11,6 +11,18 @@ import (
 	"json-inspector/internal/platform"
 )
 
+// fakeScope answers which workspace the window is showing. The store below keeps one history and
+// ignores the id, but records every one it was called with: the id the scope answers with has to be
+// the id the store is asked in, and that is what scoped is for.
+type fakeScope struct{ id string }
+
+func (f fakeScope) ActiveWorkspace(context.Context) (string, error) {
+	if f.id == "" {
+		return domain.WorkspacePersonalID, nil
+	}
+	return f.id, nil
+}
+
 type fakeStore struct {
 	saved    []domain.Record
 	bodies   map[string]string
@@ -18,13 +30,16 @@ type fakeStore struct {
 	listed   []int
 	saveFail error
 	imports  map[string]string
+	// scoped is every workspace this store was addressed in, in call order.
+	scoped []string
 }
 
 func newFakeStore() *fakeStore {
 	return &fakeStore{bodies: map[string]string{}, imports: map[string]string{}}
 }
 
-func (f *fakeStore) SaveRecord(_ context.Context, rec domain.Record) error {
+func (f *fakeStore) SaveRecord(_ context.Context, workspaceID string, rec domain.Record) error {
+	f.scoped = append(f.scoped, workspaceID)
 	if f.saveFail != nil {
 		return f.saveFail
 	}
@@ -50,7 +65,8 @@ func (f *fakeStore) Record(_ context.Context, id string) (domain.Record, error) 
 	return domain.Record{}, domain.ErrNotFound
 }
 
-func (f *fakeStore) Records(_ context.Context, source domain.RecordSource, limit int) ([]domain.Record, error) {
+func (f *fakeStore) Records(_ context.Context, workspaceID string, source domain.RecordSource, limit int) ([]domain.Record, error) {
+	f.scoped = append(f.scoped, workspaceID)
 	f.listed = append(f.listed, limit)
 	out := []domain.Record{}
 	for _, rec := range f.saved {
@@ -88,7 +104,8 @@ func (f *fakeStore) DeleteRecords(_ context.Context, ids []string) error {
 	return nil
 }
 
-func (f *fakeStore) Prune(_ context.Context, opts domain.PruneOptions) (int, error) {
+func (f *fakeStore) Prune(_ context.Context, workspaceID string, opts domain.PruneOptions) (int, error) {
+	f.scoped = append(f.scoped, workspaceID)
 	f.pruned = append(f.pruned, opts)
 	return 0, nil
 }
@@ -179,7 +196,7 @@ type fakeScreen struct {
 	savedAtAfter  int
 }
 
-func (f *fakeScreen) Before(_ context.Context, pass *domain.ScriptPass) (bool, error) {
+func (f *fakeScreen) Before(_ context.Context, _ string, pass *domain.ScriptPass) (bool, error) {
 	if f.records != nil {
 		f.savedAtBefore = len(f.records.saved)
 	}
@@ -193,7 +210,7 @@ func (f *fakeScreen) Before(_ context.Context, pass *domain.ScriptPass) (bool, e
 	return f.skip, nil
 }
 
-func (f *fakeScreen) After(_ context.Context, pass domain.ScriptPass) {
+func (f *fakeScreen) After(_ context.Context, _ string, pass domain.ScriptPass) {
 	if f.records != nil {
 		f.savedAtAfter = len(f.records.saved)
 	}
@@ -223,6 +240,12 @@ func newUseCase() (*UseCase, *fakeStore, *fakeExecutor, *fakeNotifier) {
 }
 
 func newScriptedUseCase(screen Screener, mask Masker) (*UseCase, *fakeStore, *fakeExecutor, *fakeNotifier) {
+	return newScopedUseCase(fakeScope{}, screen, mask)
+}
+
+// newScopedUseCase is newScriptedUseCase with the workspace the scope answers with named by the
+// caller, which is what the test that checks the id travels needs.
+func newScopedUseCase(scope Scope, screen Screener, mask Masker) (*UseCase, *fakeStore, *fakeExecutor, *fakeNotifier) {
 	store := newFakeStore()
 	micros := func(us int64) *int64 { return &us }
 	executor := &fakeExecutor{response: domain.Response{
@@ -233,7 +256,7 @@ func newScriptedUseCase(screen Screener, mask Masker) (*UseCase, *fakeStore, *fa
 	retention := RetentionSourceFunc(func(context.Context) (domain.Retention, error) {
 		return domain.RetainWeek, nil
 	})
-	return NewUseCase(store, executor, notifier, retention, screen, mask, platform.NewIDGen()), store, executor, notifier
+	return NewUseCase(store, scope, executor, notifier, retention, screen, mask, platform.NewIDGen()), store, executor, notifier
 }
 
 func input() SendInput {
@@ -597,7 +620,7 @@ func TestPruneRunsEverySoManySaves(t *testing.T) {
 
 	for i := 0; i < pruneEvery-1; i++ {
 		rec := domain.Record{RecordSummary: domain.RecordSummary{ID: "rec-" + string(rune('a'+i))}}
-		if err := uc.save(ctx, rec); err != nil {
+		if err := uc.save(ctx, domain.WorkspacePersonalID, rec); err != nil {
 			t.Fatalf("save: %v", err)
 		}
 	}
@@ -605,7 +628,7 @@ func TestPruneRunsEverySoManySaves(t *testing.T) {
 		t.Errorf("pruned %d times before the batch was full", len(store.pruned))
 	}
 
-	if err := uc.save(ctx, domain.Record{RecordSummary: domain.RecordSummary{ID: "rec-last"}}); err != nil {
+	if err := uc.save(ctx, domain.WorkspacePersonalID, domain.Record{RecordSummary: domain.RecordSummary{ID: "rec-last"}}); err != nil {
 		t.Fatalf("save: %v", err)
 	}
 	if len(store.pruned) != 1 {
@@ -735,5 +758,34 @@ Content-Disposition: form-data; name="token"
 	}
 	if mask.asked != 0 {
 		t.Errorf("the mask was asked %d times, want none — nothing changed", mask.asked)
+	}
+}
+
+// A workspace is what the whole app is scoped to, and this feature resolves it once at the door: the
+// id the scope answers with has to be the id the store is asked in, because a record written under a
+// re-read pointer could land in a space the request never happened in.
+func TestTheWorkspaceOnScreenReachesTheStore(t *testing.T) {
+	const workspace = "team-1"
+	uc, store, _, _ := newScopedUseCase(fakeScope{id: workspace}, nil, nil)
+	ctx := context.Background()
+
+	if _, err := uc.List(ctx, "", 0); err != nil {
+		t.Fatalf("List: %v", err)
+	}
+	if _, err := uc.Ingest(ctx, IngestInput{Method: "GET", URL: "https://api.example.com"}); err != nil {
+		t.Fatalf("Ingest: %v", err)
+	}
+	if _, err := uc.SendAndWait(ctx, input()); err != nil {
+		t.Fatalf("SendAndWait: %v", err)
+	}
+
+	// One call per method above, and every one of them in the workspace the scope named.
+	if len(store.scoped) != 3 {
+		t.Fatalf("the store was addressed %d time(s), want one per call: %v", len(store.scoped), store.scoped)
+	}
+	for i, got := range store.scoped {
+		if got != workspace {
+			t.Errorf("call %d was made in %q, want the workspace the scope named (%q)", i, got, workspace)
+		}
 	}
 }

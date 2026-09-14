@@ -224,6 +224,24 @@ export const useCollectionsStore = defineStore('collections', {
       this.applyTree((await CollectionsService.Tree()) ?? [])
     },
 
+    // What a workspace switch leaves behind. The tree arrives next and replaces what is drawn; what
+    // has to go now is everything that names something of the workspace being left — a selected node,
+    // a card open on it, a run of a collection that is not in the tree any more.
+    forget() {
+      this.tree = []
+      this.selectedId = null
+      this.expanded = {}
+      this.editor = null
+      this.dirty = false
+      this.record = null
+      this.bodies = {}
+      this.lastRun = null
+      this.running = null
+      this.pendingId = null
+      this.loading = false
+      this.filter = ''
+    },
+
     // Every change to the tree answers with the whole tree, so the mirror is replaced rather than
     // patched: the order rows are drawn in is Go's, and a splice here would be a second opinion.
     applyTree(tree: Collection[]) {

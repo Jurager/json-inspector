@@ -1,5 +1,8 @@
 -- Collections and the requests inside them.
 --
+-- A collection is the workspace's: the tree the panel draws is one workspace's tree, and a node
+-- inherits its place from the collection it sits in, so only the collection carries the workspace.
+--
 -- A folder is a collection with a parent, and there is no second entity for it: the only thing
 -- that used to distinguish the two was that a collection had no parent, so the tree understood
 -- exactly one level of them. parent_id makes that level a property of the row instead of the
@@ -22,6 +25,7 @@
 
 CREATE TABLE collections (
   id TEXT PRIMARY KEY,
+  workspace_id TEXT NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
   name TEXT NOT NULL,
   description TEXT NOT NULL DEFAULT '',
   parent_id TEXT REFERENCES collections(id) ON DELETE CASCADE,
@@ -54,3 +58,6 @@ CREATE TABLE collection_nodes (
 );
 
 CREATE INDEX collection_nodes_tree ON collection_nodes(collection_id, position);
+-- The tree is drawn one workspace at a time, and the level a row is dropped into is a level of
+-- that workspace: without this, renumbering after a move would rewrite its neighbours' positions.
+CREATE INDEX collections_workspace ON collections(workspace_id, ifnull(parent_id,''), position);

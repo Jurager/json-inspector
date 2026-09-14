@@ -24,6 +24,11 @@
 
 CREATE TABLE script_runs (
   id TEXT PRIMARY KEY,
+  -- The workspace is carried here and not only inherited through the record: a run whose record
+  -- never existed — a pre-request script that stopped the request, an attempt that failed before
+  -- there was an answer — has no record_seq to hang off, and would otherwise outlive the deletion
+  -- of the workspace it happened in.
+  workspace_id TEXT NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
   record_seq INTEGER REFERENCES records(seq) ON DELETE CASCADE,
   collection_run_id TEXT,
   node_id TEXT,
@@ -35,6 +40,7 @@ CREATE TABLE script_runs (
 );
 
 CREATE INDEX script_runs_record ON script_runs(record_seq);
+CREATE INDEX script_runs_workspace ON script_runs(workspace_id, created_at);
 
 CREATE TABLE script_logs (
   run_id TEXT NOT NULL REFERENCES script_runs(id) ON DELETE CASCADE,

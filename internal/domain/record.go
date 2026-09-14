@@ -63,7 +63,11 @@ type PruneOptions struct {
 // RecordSummary is a record without the parts only the detail pane needs — what a list row draws.
 // The list reads the most rows, so it gets the least data.
 type RecordSummary struct {
-	ID          string       `json:"id"`
+	ID string `json:"id"`
+	// WorkspaceID is the space the record was made in. The list is one workspace's, so the window
+	// needs it to tell a record that belongs on the screen from one that arrived from the extension
+	// just after a switch — reading a record back is by id, and an id alone cannot say that.
+	WorkspaceID string       `json:"workspaceId,omitempty"`
 	Source      RecordSource `json:"source"`
 	Method      string       `json:"method"`
 	URL         string       `json:"url"`

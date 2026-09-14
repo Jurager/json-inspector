@@ -3,10 +3,12 @@ import { computed, onMounted, ref } from 'vue'
 import { useEnvironmentsStore } from './stores/environments'
 import { useRequestsStore } from './stores/requests'
 import { useCollectionsStore } from './stores/collections'
+import { useWorkspacesStore } from './stores/workspaces'
 import { useCaptureEvents } from './composables/useCaptureEvents'
 import { useRecordEvents } from './composables/useRecordEvents'
 import { useGlobalShortcuts } from './composables/useGlobalShortcuts'
 import { useSessionPersistence } from './composables/useSessionPersistence'
+import { useWorkspaceEvents } from './composables/useWorkspaceEvents'
 import { useUpdates } from './composables/useUpdates'
 import { focusUrlField } from './composables/urlFocus'
 import { SystemService } from '../bindings/json-inspector/internal/transport/wails'
@@ -17,6 +19,8 @@ import Rail from './components/layout/Rail.vue'
 import Workspace from './components/layout/Workspace.vue'
 import StatusBar from './components/layout/StatusBar.vue'
 import EnvironmentsSheet from './components/environments/EnvironmentsSheet.vue'
+import WorkspaceCreateDialog from './components/workspaces/WorkspaceCreateDialog.vue'
+import WorkspaceSettingsDialog from './components/workspaces/WorkspaceSettingsDialog.vue'
 import UnsavedChangesDialog from './components/collections/UnsavedChangesDialog.vue'
 import Toast from './components/ui/Toast.vue'
 import { Button } from './components/ui/button'
@@ -28,6 +32,7 @@ const { t, te } = useMessages()
 const store = useRequestsStore()
 const collections = useCollectionsStore()
 const envStore = useEnvironmentsStore()
+const workspaces = useWorkspacesStore()
 const { availableUpdate } = useUpdates()
 
 // Without a database every other call fails, and this is the one screen that can say why instead of
@@ -65,6 +70,7 @@ function openAbout() {
 }
 
 useSessionPersistence(store, collections, envStore)
+useWorkspaceEvents()
 useCaptureEvents(store)
 useRecordEvents(store, collections)
 useGlobalShortcuts(store, envStore)
@@ -106,6 +112,19 @@ function closeSheet() {
   </div>
 
   <EnvironmentsSheet v-if="startup?.ready && envStore.sheetOpen" @close="closeSheet" />
+
+  <!-- The two workspace cards float over the window, as the mockup draws them: same fields, same
+       segment and same destructive link as the sheets the app already has. -->
+  <WorkspaceCreateDialog
+    v-if="startup?.ready"
+    :open="workspaces.createOpen"
+    @close="workspaces.closeCards()"
+  />
+  <WorkspaceSettingsDialog
+    v-if="startup?.ready"
+    :open="workspaces.settingsOpen"
+    @close="workspaces.closeCards()"
+  />
 
   <!-- One alert for the whole window: what asks to leave a card with unsaved edits is not always
        the same view. -->

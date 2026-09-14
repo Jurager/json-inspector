@@ -11,6 +11,10 @@ import (
 	"json-inspector/migrations"
 )
 
+// ws is the workspace these tests work in — the one the schema seeds, since none of them is about a
+// second space.
+const ws = domain.WorkspacePersonalID
+
 // newMigratedStore is a store on a migrated database in a temporary directory: the environment
 // tables only exist after the migrations, so anything reading them needs this.
 func newMigratedStore(t *testing.T) *Store {
@@ -36,33 +40,33 @@ func TestEnvStateRoundTrip(t *testing.T) {
 	ctx := context.Background()
 
 	env := domain.Environment{ID: "env-1", Name: "Local", Color: "green", Position: 1}
-	if err := store.SaveEnvironment(ctx, env); err != nil {
+	if err := store.SaveEnvironment(ctx, ws, env); err != nil {
 		t.Fatalf("SaveEnvironment: %v", err)
 	}
-	if err := store.SaveEnvironment(ctx, domain.Environment{ID: "env-2", Name: "Prod", Readonly: true, Position: 2}); err != nil {
+	if err := store.SaveEnvironment(ctx, ws, domain.Environment{ID: "env-2", Name: "Prod", Readonly: true, Position: 2}); err != nil {
 		t.Fatalf("SaveEnvironment: %v", err)
 	}
 
-	if err := store.SaveVariable(ctx, domain.EnvScope{Environment: "env-1"}, domain.Variable{
+	if err := store.SaveVariable(ctx, ws, domain.EnvScope{Environment: "env-1"}, domain.Variable{
 		ID: "v1", Name: "base_url", Value: "https://api.example.com", Kind: domain.VariableText, Enabled: true, Position: 1,
 	}); err != nil {
 		t.Fatalf("SaveVariable: %v", err)
 	}
-	if err := store.SaveVariable(ctx, domain.EnvScope{Environment: "env-1"}, domain.Variable{
+	if err := store.SaveVariable(ctx, ws, domain.EnvScope{Environment: "env-1"}, domain.Variable{
 		ID: "v2", Name: "token", Value: "s3cret", Kind: domain.VariableSecret, Enabled: true, Position: 2,
 	}); err != nil {
 		t.Fatalf("SaveVariable: %v", err)
 	}
-	if err := store.SaveVariable(ctx, domain.EnvScope{}, domain.Variable{
+	if err := store.SaveVariable(ctx, ws, domain.EnvScope{}, domain.Variable{
 		ID: "g1", Name: "page_size", Value: "10", Kind: domain.VariableText, Enabled: true, Position: 1,
 	}); err != nil {
 		t.Fatalf("SaveVariable (globals): %v", err)
 	}
-	if err := store.SetActiveEnvironment(ctx, "env-1"); err != nil {
+	if err := store.SetActiveEnvironment(ctx, ws, "env-1"); err != nil {
 		t.Fatalf("SetActiveEnvironment: %v", err)
 	}
 
-	state, err := store.EnvState(ctx)
+	state, err := store.EnvState(ctx, ws)
 	if err != nil {
 		t.Fatalf("EnvState: %v", err)
 	}
@@ -97,13 +101,13 @@ func TestVariablesMigrateBetweenScopes(t *testing.T) {
 	// The same name may exist in an environment and in the globals: that is how an override works.
 	for _, scope := range []domain.EnvScope{{Environment: "env-1"}, {}} {
 		v := domain.Variable{ID: "v-" + scope.Environment, Name: "token", Value: "x", Kind: domain.VariableText, Enabled: true}
-		if err := store.SaveVariable(ctx, scope, v); err != nil {
+		if err := store.SaveVariable(ctx, ws, scope, v); err != nil {
 			t.Fatalf("SaveVariable in %q: %v", scope.Environment, err)
 		}
 	}
 
 	// And a second one under the same scope is a conflict rather than a database error.
-	err := store.SaveVariable(ctx, domain.EnvScope{Environment: "env-1"}, domain.Variable{
+	err := store.SaveVariable(ctx, ws, domain.EnvScope{Environment: "env-1"}, domain.Variable{
 		ID: "other", Name: "token", Kind: domain.VariableText, Enabled: true,
 	})
 	if !errors.Is(err, domain.ErrConflict) {
@@ -111,12 +115,12 @@ func TestVariablesMigrateBetweenScopes(t *testing.T) {
 	}
 
 	// The same variable, renamed, keeps its row: an update is not a conflict with itself.
-	if err := store.SaveVariable(ctx, domain.EnvScope{Environment: "env-1"}, domain.Variable{
+	if err := store.SaveVariable(ctx, ws, domain.EnvScope{Environment: "env-1"}, domain.Variable{
 		ID: "v-env-1", Name: "api_token", Kind: domain.VariableSecret, Value: "s", Enabled: true,
 	}); err != nil {
 		t.Errorf("renaming a variable failed: %v", err)
 	}
-	if value, err := store.VariableValue(ctx, "v-env-1"); err != nil || value != "s" {
+	if value, err := store.VariableValue(ctx, ws, "v-env-1"); err != nil || value != "s" {
 		t.Errorf("after the rename: value = %q, err = %v; want the row updated in place", value, err)
 	}
 }
@@ -125,25 +129,25 @@ func TestDeleteEnvironmentTakesItsVariables(t *testing.T) {
 	store := newMigratedStore(t)
 	ctx := context.Background()
 
-	if err := store.SaveEnvironment(ctx, domain.Environment{ID: "env-1", Name: "Local"}); err != nil {
+	if err := store.SaveEnvironment(ctx, ws, domain.Environment{ID: "env-1", Name: "Local"}); err != nil {
 		t.Fatalf("SaveEnvironment: %v", err)
 	}
-	if err := store.SaveVariable(ctx, domain.EnvScope{Environment: "env-1"}, domain.Variable{
+	if err := store.SaveVariable(ctx, ws, domain.EnvScope{Environment: "env-1"}, domain.Variable{
 		ID: "v1", Name: "base_url", Kind: domain.VariableText, Enabled: true,
 	}); err != nil {
 		t.Fatalf("SaveVariable: %v", err)
 	}
-	if err := store.SaveVariable(ctx, domain.EnvScope{}, domain.Variable{
+	if err := store.SaveVariable(ctx, ws, domain.EnvScope{}, domain.Variable{
 		ID: "g1", Name: "page_size", Kind: domain.VariableText, Enabled: true,
 	}); err != nil {
 		t.Fatalf("SaveVariable (globals): %v", err)
 	}
 
-	if err := store.DeleteEnvironment(ctx, "env-1"); err != nil {
+	if err := store.DeleteEnvironment(ctx, ws, "env-1"); err != nil {
 		t.Fatalf("DeleteEnvironment: %v", err)
 	}
 
-	state, err := store.EnvState(ctx)
+	state, err := store.EnvState(ctx, ws)
 	if err != nil {
 		t.Fatalf("EnvState: %v", err)
 	}
@@ -153,7 +157,7 @@ func TestDeleteEnvironmentTakesItsVariables(t *testing.T) {
 	if len(state.Globals) != 1 {
 		t.Errorf("globals = %v, want the global to survive the environment", state.Globals)
 	}
-	if _, err := store.VariableValue(ctx, "v1"); !errors.Is(err, domain.ErrNotFound) {
+	if _, err := store.VariableValue(ctx, ws, "v1"); !errors.Is(err, domain.ErrNotFound) {
 		t.Errorf("the environment's variable outlived it: %v", err)
 	}
 }
@@ -162,17 +166,17 @@ func TestVariableValueAndMissing(t *testing.T) {
 	store := newMigratedStore(t)
 	ctx := context.Background()
 
-	if err := store.SaveVariable(ctx, domain.EnvScope{}, domain.Variable{
+	if err := store.SaveVariable(ctx, ws, domain.EnvScope{}, domain.Variable{
 		ID: "v1", Name: "token", Value: "s3cret", Kind: domain.VariableSecret, Enabled: true,
 	}); err != nil {
 		t.Fatalf("SaveVariable: %v", err)
 	}
 
-	value, err := store.VariableValue(ctx, "v1")
+	value, err := store.VariableValue(ctx, ws, "v1")
 	if err != nil || value != "s3cret" {
 		t.Errorf("VariableValue = %q, %v; want the stored value", value, err)
 	}
-	if _, err := store.VariableValue(ctx, "nope"); !errors.Is(err, domain.ErrNotFound) {
+	if _, err := store.VariableValue(ctx, ws, "nope"); !errors.Is(err, domain.ErrNotFound) {
 		t.Errorf("unknown id = %v, want domain.ErrNotFound", err)
 	}
 }
@@ -181,7 +185,7 @@ func TestSettingsRoundTrip(t *testing.T) {
 	store := newMigratedStore(t)
 	ctx := context.Background()
 
-	if _, ok, err := store.Setting(ctx, domain.SettingActiveEnvironment); err != nil || ok {
+	if _, ok, err := store.Setting(ctx, domain.SettingActiveWorkspace); err != nil || ok {
 		t.Errorf("Setting on an empty table = ok:%v err:%v, want absent", ok, err)
 	}
 	if err := store.SaveSetting(ctx, "theme", "dark"); err != nil {

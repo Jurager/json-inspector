@@ -5,7 +5,6 @@ package draft
 import (
 	"context"
 	"errors"
-	"fmt"
 	"strings"
 	"sync"
 
@@ -19,23 +18,58 @@ import (
 // They live in memory because a keystroke is a call, and only the command line's is written down:
 // that draft is a document the window opens on, while a card's draft is a proposal — saving it into
 // the collection is a separate gesture, and until it is made, the request belongs to the window.
+// draftKey names a draft. The workspace is part of the address because the command line's draft is
+// the same fixed id in every workspace: without it, switching spaces would open the request the
+// other one was composing.
+type draftKey struct {
+	workspace string
+	id        domain.DraftID
+}
+
 type UseCase struct {
 	mu     sync.Mutex
 	store  Store
+	scope  Scope
 	vars   VariableSource
 	files  FileSource
 	ids    platform.IDGen
-	drafts map[domain.DraftID]domain.Draft
+	drafts map[draftKey]domain.Draft
 }
 
-func NewUseCase(store Store, vars VariableSource, files FileSource, ids platform.IDGen) *UseCase {
+func NewUseCase(store Store, scope Scope, vars VariableSource, files FileSource, ids platform.IDGen) *UseCase {
 	return &UseCase{
 		store:  store,
+		scope:  scope,
 		vars:   vars,
 		files:  files,
 		ids:    ids,
-		drafts: map[domain.DraftID]domain.Draft{},
+		drafts: map[draftKey]domain.Draft{},
 	}
+}
+
+// current reads a draft, from memory or from the store on the first look. A workspace the window has
+// not been in yet has nothing in memory, and that is a miss rather than an error: the command line
+// of a space nobody has composed in starts as the fresh one.
+func (u *UseCase) current(ctx context.Context, key draftKey) (domain.Draft, error) {
+	u.mu.Lock()
+	cached, ok := u.drafts[key]
+	u.mu.Unlock()
+	if ok {
+		return cached, nil
+	}
+
+	stored, err := u.store.Draft(ctx, key.workspace, key.id)
+	switch {
+	case errors.Is(err, domain.ErrNotFound) && key.id == domain.DraftCommandLine:
+		stored = u.fresh()
+	case err != nil:
+		return domain.Draft{}, err
+	}
+
+	u.mu.Lock()
+	u.drafts[key] = stored
+	u.mu.Unlock()
+	return stored, nil
 }
 
 // TextField names one of the two texts the window owns while they are being typed in. Everything
@@ -111,7 +145,11 @@ type Seed struct {
 // Load reads the draft the last run left behind, and gives a window that has none the one this app
 // has always started with.
 func (u *UseCase) Load(ctx context.Context) error {
-	stored, err := u.store.Draft(ctx, domain.DraftCommandLine)
+	workspace, err := u.scope.ActiveWorkspace(ctx)
+	if err != nil {
+		return err
+	}
+	stored, err := u.store.Draft(ctx, workspace, domain.DraftCommandLine)
 	if errors.Is(err, domain.ErrNotFound) {
 		stored = u.fresh()
 	} else if err != nil {
@@ -120,7 +158,7 @@ func (u *UseCase) Load(ctx context.Context) error {
 
 	u.mu.Lock()
 	defer u.mu.Unlock()
-	u.drafts[domain.DraftCommandLine] = stored
+	u.drafts[draftKey{workspace: workspace, id: domain.DraftCommandLine}] = stored
 	return nil
 }
 
@@ -144,13 +182,18 @@ func (u *UseCase) Open(ctx context.Context, d domain.Draft) (State, error) {
 	// unsaved" out of it — a draft that has just been opened is the saved request, not an edit of it.
 	d.Revision = 0
 
+	workspace, err := u.scope.ActiveWorkspace(ctx)
+	if err != nil {
+		return State{}, err
+	}
+
 	u.mu.Lock()
-	for id := range u.drafts {
-		if id != domain.DraftCommandLine {
-			delete(u.drafts, id)
+	for key := range u.drafts {
+		if key.workspace == workspace && key.id != domain.DraftCommandLine {
+			delete(u.drafts, key)
 		}
 	}
-	u.drafts[d.ID] = d
+	u.drafts[draftKey{workspace: workspace, id: d.ID}] = d
 	u.mu.Unlock()
 
 	return u.stateOf(ctx, d)
@@ -159,14 +202,11 @@ func (u *UseCase) Open(ctx context.Context, d domain.Draft) (State, error) {
 // Current is the draft itself, without the preview: what the side that turns it back into a saved
 // request needs. Reading costs nothing — no revision moves and nothing is written.
 func (u *UseCase) Current(ctx context.Context, id domain.DraftID) (domain.Draft, error) {
-	u.mu.Lock()
-	defer u.mu.Unlock()
-
-	draft, ok := u.drafts[id]
-	if !ok {
-		return domain.Draft{}, fmt.Errorf("draft %s: %w", id, domain.ErrNotFound)
+	workspace, err := u.scope.ActiveWorkspace(ctx)
+	if err != nil {
+		return domain.Draft{}, err
 	}
-	return draft, nil
+	return u.current(ctx, draftKey{workspace: workspace, id: id})
 }
 
 // Snapshot is the draft as it stands: what the window opens on, preview and all. Reading costs
@@ -419,12 +459,15 @@ func (u *UseCase) Prepare(ctx context.Context, seed Seed) (Prepared, error) {
 // Only the command line's draft is written down: it is what the window opens on, while a card's
 // draft becomes a saved request through its own gesture and nothing else.
 func (u *UseCase) change(ctx context.Context, id domain.DraftID, edit func(*domain.Draft) error) (domain.Draft, error) {
-	u.mu.Lock()
-	defer u.mu.Unlock()
+	workspace, err := u.scope.ActiveWorkspace(ctx)
+	if err != nil {
+		return domain.Draft{}, err
+	}
+	key := draftKey{workspace: workspace, id: id}
 
-	current, ok := u.drafts[id]
-	if !ok {
-		return domain.Draft{}, fmt.Errorf("draft %s: %w", id, domain.ErrNotFound)
+	current, err := u.current(ctx, key)
+	if err != nil {
+		return domain.Draft{}, err
 	}
 
 	edited := current
@@ -434,11 +477,14 @@ func (u *UseCase) change(ctx context.Context, id domain.DraftID, edit func(*doma
 	edited.Revision++
 
 	if id == domain.DraftCommandLine {
-		if err := u.store.SaveDraft(ctx, edited); err != nil {
+		if err := u.store.SaveDraft(ctx, workspace, edited); err != nil {
 			return domain.Draft{}, err
 		}
 	}
-	u.drafts[id] = edited
+
+	u.mu.Lock()
+	u.drafts[key] = edited
+	u.mu.Unlock()
 	return edited, nil
 }
 

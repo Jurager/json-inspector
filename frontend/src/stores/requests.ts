@@ -27,6 +27,7 @@ import type { Level } from '../../bindings/json-inspector/internal/usecase/scrip
 import type { ChipName } from '../lib/requestSource'
 import { DraftService, RecordsService, ScriptingService } from '../../bindings/json-inspector/internal/transport/wails'
 import { useEnvironmentsStore } from './environments'
+import { useWorkspacesStore } from './workspaces'
 import { focusUrlField } from '../composables/urlFocus'
 
 // The draft this store edits: the one the command line composes. A collection card has a draft of
@@ -55,6 +56,9 @@ type AuthType = Auth['type']
 export const useRequestsStore = defineStore('requests', {
   state: () => ({
     // ---- history ---------------------------------------------------------
+    // The history of one workspace, and which one it is a history of. The list is per space, so a row
+    // that says it belongs somewhere else is a row the window has switched away from.
+    workspaceId: '' as string,
     records: [] as Record[],
     // An index signature rather than Record<>: the domain type of the same name would win.
     bodies: {} as { [id: string]: RecordBodies },
@@ -101,6 +105,16 @@ export const useRequestsStore = defineStore('requests', {
     inspector: { open: false, path: null as string | null, width: 300 },
   }),
   getters: {
+    // Whether a record belongs in the list being drawn. The extension keeps capturing while the user
+    // switches, and an attempt sent from one space can come back after the window has moved to
+    // another — reading a record is by id, and an id says nothing about where it belongs. Until both
+    // sides know the workspace (the first frames, before anything is loaded) a row is taken as it
+    // comes: the list itself came from Go already scoped.
+    accepts(state) {
+      return (record: Record) =>
+        !state.workspaceId || !record.workspaceId || record.workspaceId === state.workspaceId
+    },
+
     // The draft, read the way the command line reads it: a text that is being typed is the window's,
     // everything else is Go's.
     url(state): string {
@@ -331,7 +345,23 @@ export const useRequestsStore = defineStore('requests', {
     // ---- history, from Go ------------------------------------------------
 
     async load() {
+      // Which workspace this list is about is asked from the store that owns the pointer, so the two
+      // cannot disagree: a switch reloads the list and renames what it is a list of, in one call.
+      this.workspaceId = useWorkspacesStore().activeId
       this.records = (await RecordsService.List(RecordSource.$zero, 0)) ?? []
+    },
+
+    // What a switch leaves behind: nothing on screen is about the workspace being entered, and a body
+    // read for a record of the old one must not be handed to a record of the new one.
+    forget() {
+      this.records = []
+      this.bodies = {}
+      this.manualId = null
+      this.browserId = null
+      this.unreadCount = 0
+      this.mine = []
+      this.pendingId = null
+      this.loading = false
     },
 
     // The old build kept history in localStorage; it moves into the database on the first launch of
@@ -351,6 +381,7 @@ export const useRequestsStore = defineStore('requests', {
     // A record arriving from Go — one this app sent, the browser did, or the sample is. It lands at
     // the top, and a record already in the list is replaced rather than added twice.
     prepend(record: Record) {
+      if (!this.accepts(record)) return
       this.records = [record, ...this.records.filter((r) => r.id !== record.id)]
     },
 

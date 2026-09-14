@@ -11,6 +11,7 @@ import (
 	"json-inspector/internal/usecase/collection"
 	"json-inspector/internal/usecase/record"
 	"json-inspector/internal/usecase/settings"
+	"json-inspector/internal/usecase/workspace"
 )
 
 // Event names, declared once here. Each is registered with the payload type it carries, which is
@@ -35,6 +36,8 @@ func init() {
 	// window is written in the same language.
 	application.RegisterEvent[settings.ThemeChanged](settings.TopicThemeChanged)
 	application.RegisterEvent[settings.LanguageChanged](settings.TopicLanguageChanged)
+	// Which workspace is on screen moved: every window draws around the same one.
+	application.RegisterEvent[workspace.Changed](workspace.TopicChanged)
 
 	// History and the attempts that fill it. A record is the same type the list draws — and the same
 	// event, whether it came from a request this app sent or from the browser.
