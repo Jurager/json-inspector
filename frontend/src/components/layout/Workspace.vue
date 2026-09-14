@@ -6,6 +6,7 @@ import { useCollectionsStore } from '../../stores/collections'
 import { useResizableWidth } from '../../composables/useResizableWidth'
 import { useSettings } from '../../composables/useSettings'
 import { useMessages } from '../../i18n'
+import Icon from '../ui/Icon.vue'
 import HistoryPanel from '../history/HistoryPanel.vue'
 import RequestBuilder from '../request/RequestBuilder.vue'
 import ResponseViewer from '../response/ResponseViewer.vue'
@@ -85,8 +86,11 @@ const sidePanelShown = computed(() => {
             <span class="spinner spinner-lg"></span>
           </div>
           <div v-else class="empty">
-            <span class="empty-title">{{ t('workspace.sendRequest') }}</span>
-            <span>{{ t('workspace.orLoadSample') }}</span>
+            <Icon name="arrow-up-right" :size="32" :stroke-width="1.6" class="empty-icon" />
+            <div class="empty-text">
+              <span class="empty-title">{{ t('workspace.sendRequest') }}</span>
+              <span class="empty-hint">{{ t('workspace.orLoadSample') }}</span>
+            </div>
           </div>
         </template>
         <template v-else-if="store.activeView === 'browser'">
@@ -102,8 +106,11 @@ const sidePanelShown = computed(() => {
               <span class="spinner spinner-lg"></span>
             </div>
             <div v-else class="empty">
-              <span class="empty-title">{{ t('workspace.sendRequest') }}</span>
-              <span>{{ t('workspace.sendDoesNotSave') }}</span>
+              <Icon name="arrow-up-right" :size="32" :stroke-width="1.6" class="empty-icon" />
+              <div class="empty-text">
+                <span class="empty-title">{{ t('workspace.sendRequest') }}</span>
+                <span class="empty-hint">{{ t('workspace.sendDoesNotSave') }}</span>
+              </div>
             </div>
           </template>
           <CollectionOverview v-else-if="collections.selectedId" />

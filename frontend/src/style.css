@@ -742,13 +742,32 @@ button {
   font-family: var(--mono);
 }
 
-/* ---- Empty state ---- */
+/* ---- Empty state ----
+   A pane nobody has put anything in yet: a linear glyph, a title and a hint under it. The drawing is
+   what says the screen is waiting rather than broken, and the title stays at full strength — a grey
+   one reads as a failure that has already happened. */
 .empty {
-  @apply flex-1 flex flex-col items-center justify-center text-text-tertiary gap-2;
+  @apply flex-1 flex flex-col items-center justify-center text-text-tertiary;
+  gap: 12px;
+}
+
+/* The glyph names the screen and the words say what to do, so the drawing stays a step behind them:
+   a tone lighter than the faintest line under it, in either theme. */
+.empty-icon {
+  color: color-mix(in srgb, var(--text-tertiary) 60%, transparent);
+}
+
+.empty-text {
+  @apply flex flex-col items-center;
+  gap: 4px;
 }
 
 .empty-title {
-  @apply text-[15px] font-semibold text-text-secondary;
+  @apply text-[14px] font-semibold text-text;
+}
+
+.empty-hint {
+  @apply text-[12.5px] text-center;
 }
 
 /* ---- JSON:API tree ---- */

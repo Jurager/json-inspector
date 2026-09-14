@@ -13,6 +13,7 @@ import {
   X,
   Check,
   CircleDot,
+  Clock,
   ChevronsLeft,
   ChevronsRight,
   Menu,
@@ -119,6 +120,7 @@ const PANEL_HIDDEN = createLucideIcon('panel-hidden', [
 
 const ICONS: Record<string, Component> = {
   'arrow-up-right': ArrowUpRight,
+  clock: Clock,
   record: CircleDot,
   'arrow-down': ArrowDown,
   'chevron-left': ChevronLeft,

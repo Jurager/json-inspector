@@ -219,8 +219,11 @@ watch(() => [store.focusTabId, store.records.length, props.sourceKind] as const,
     </div>
 
     <div v-if="records.length === 0 && !browser" class="empty">
-      <span class="empty-title">{{ t('history.nothingYet') }}</span>
-      <span class="empty-hint">{{ emptyHint }}</span>
+      <Icon name="clock" :size="30" :stroke-width="1.6" class="empty-icon" />
+      <div class="empty-text">
+        <span class="empty-title">{{ t('history.nothingYet') }}</span>
+        <span class="empty-hint">{{ emptyHint }}</span>
+      </div>
     </div>
 
     <div v-else-if="records.length > 0 && isEmptyFiltered" class="no-results">{{ t('common.nothingFound') }}</div>
@@ -333,16 +336,14 @@ watch(() => [store.focusTabId, store.records.length, props.sourceKind] as const,
   @apply pt-4 px-4 pb-[58px] text-center text-text-tertiary text-xs;
 }
 
+/* The block itself is the window's empty state (style.css); a panel only adds the padding and the
+   centred text its own width asks for. */
 .empty {
-  @apply flex-1 flex flex-col items-center justify-center gap-2 p-4 text-center;
-}
-
-.empty-title {
-  @apply text-[15px] font-semibold text-text-secondary;
+  @apply p-4 text-center;
 }
 
 .empty-hint {
-  @apply text-xs text-text-tertiary max-w-[220px];
+  @apply max-w-[220px];
 }
 
 .list {
