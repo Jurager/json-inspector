@@ -254,7 +254,12 @@ async function toggleCapture() {
 .status-bar {
   @apply relative flex-none flex items-center gap-2.5 h-[var(--statusbar-height)] px-3.5 text-xs;
   border-top: 1px solid var(--glass-chrome-border);
-  background: var(--glass-chrome);
+  /* The bottom strip mirrors the top one: the colour comes up from the window's edge and is gone by
+     the time the bar ends. */
+  background-image:
+    linear-gradient(var(--glass-chrome), var(--glass-chrome)),
+    linear-gradient(0deg, var(--tint-near) 0%, var(--tint-far) 100%);
+  transition: background-image 0.35s ease;
   backdrop-filter: var(--blur-chrome);
   color: var(--text-secondary);
 }

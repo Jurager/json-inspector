@@ -17,7 +17,7 @@ const store = useWorkspacesStore()
 const { t } = useMessages()
 
 const name = ref('')
-const color = ref<string>(WORKSPACE_COLORS[0])
+const color = ref<string>('')
 const failure = ref('')
 
 // A card that opens is a card that starts over: the name of the workspace that was just made is not
@@ -27,7 +27,7 @@ watch(
   (open) => {
     if (!open) return
     name.value = ''
-    color.value = WORKSPACE_COLORS[0]
+    color.value = ''
     failure.value = ''
   }
 )
@@ -77,7 +77,7 @@ async function submit() {
           class="swatch"
           :class="{ chosen: color === tint }"
           :style="{ background: tintOf(tint), '--tint': tintOf(tint) }"
-          @click="color = tint"
+          @click="color = color === tint ? '' : tint"
         ></button>
       </div>
     </div>

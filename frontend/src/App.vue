@@ -9,6 +9,7 @@ import { useRecordEvents } from './composables/useRecordEvents'
 import { useGlobalShortcuts } from './composables/useGlobalShortcuts'
 import { useSessionPersistence } from './composables/useSessionPersistence'
 import { useWorkspaceEvents } from './composables/useWorkspaceEvents'
+import { useWorkspaceTint } from './composables/useWorkspaceTint'
 import { useUpdates } from './composables/useUpdates'
 import { focusUrlField } from './composables/urlFocus'
 import { SystemService } from '../bindings/json-inspector/internal/transport/wails'
@@ -71,6 +72,7 @@ function openAbout() {
 
 useSessionPersistence(store, collections, envStore)
 useWorkspaceEvents()
+useWorkspaceTint()
 useCaptureEvents(store)
 useRecordEvents(store, collections)
 useGlobalShortcuts(store, envStore)

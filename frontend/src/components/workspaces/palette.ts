@@ -9,10 +9,18 @@ const TINTS: Record<string, string> = {
   grey: 'var(--text-tertiary)',
 }
 
-// The order the swatches are offered in, and the colour a workspace gets when it was made before
-// anyone chose one.
+// The order the swatches are offered in.
 export const WORKSPACE_COLORS = ['blue', 'purple', 'green', 'orange', 'grey'] as const
 
+// A workspace nobody has dressed wears no colour, and that is a state rather than a missing value:
+// the avatar goes the neutral grey the mockup draws the personal space in, and the window's glass
+// stays the tone it has always had. Every other word is the palette's.
 export function tintOf(color: string): string {
-  return TINTS[color] ?? TINTS.blue
+  return TINTS[color] ?? TINTS.grey
+}
+
+// hasTint says whether the window's glass should take the workspace's colour at all. Empty is the
+// answer for the default workspace and for anything made before the colour was asked for.
+export function hasTint(color: string): boolean {
+  return color in TINTS
 }

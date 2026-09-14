@@ -14,6 +14,10 @@
 -- whoever created it first. An empty name is drawn from the catalogue; a named one is drawn as it
 -- was typed.
 --
+-- color is empty too, and empty means "no colour chosen" rather than "grey": a workspace nobody has
+-- dressed looks like the app always has, and the window's glass takes a tint only once somebody
+-- picks one.
+--
 -- active_environment_id has no foreign key on purpose: environments point at workspaces and a
 -- reference back would be a cycle, and the column is a pointer into what the workspace holds, not a
 -- second owner of it. The use case keeps it honest, the way `variables.scope_id` is kept honest.
@@ -33,4 +37,4 @@ CREATE TABLE workspaces (
 );
 
 INSERT INTO workspaces (id, name, kind, color, active_environment_id, position, created_at, updated_at)
-VALUES ('personal', '', 'personal', 'blue', '', 0, 0, 0);
+VALUES ('personal', '', 'personal', '', '', 0, 0, 0);

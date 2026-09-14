@@ -31,9 +31,12 @@ const workspace = computed(() => store.edited)
 watch(
   () => [props.open, workspace.value?.id, workspace.value?.name, workspace.value?.color],
   () => {
+    // A card that opens starts from the workspace and from nothing else: a colour left over from the
+    // last time it was open is not a colour anybody chose just now.
+    store.stopTrying()
     if (!props.open || !workspace.value) return
     name.value = workspace.value.name
-    color.value = workspace.value.color || WORKSPACE_COLORS[0]
+    color.value = workspace.value.color
     failure.value = ''
     confirming.value = false
   },
@@ -48,6 +51,22 @@ async function save() {
     failure.value = describeFailure(err)
     return
   }
+  // The colour is the workspace's now, so there is nothing left to try on: the tint follows the
+  // saved value from here.
+  store.stopTrying()
+  emit('close')
+}
+
+// What choosing a colour does before it is saved: the window wears it. The window is the only place
+// the choice can be judged — a swatch says what the colour is, not what a room of it looks like — and
+// a card closed without saving takes it back off.
+function tryColor(tint: string) {
+  color.value = color.value === tint ? '' : tint
+  if (workspace.value?.id === store.activeId) store.tryColor(color.value)
+}
+
+function close() {
+  store.stopTrying()
   emit('close')
 }
 
@@ -55,12 +74,12 @@ async function remove() {
   if (!workspace.value) return
   await store.remove(workspace.value.id)
   confirming.value = false
-  emit('close')
+  close()
 }
 </script>
 
 <template>
-  <Dialog :open="open" class="w-[380px] p-4.5" @escape-key-down.prevent @update:open="emit('close')">
+  <Dialog :open="open" class="w-[380px] p-4.5" @escape-key-down.prevent @update:open="close">
     <div class="card-title">{{ t('workspaces.settingsTitle') }}</div>
 
     <template v-if="workspace">
@@ -96,7 +115,7 @@ async function remove() {
             class="swatch"
             :class="{ chosen: color === tint }"
             :style="{ background: tintOf(tint), '--tint': tintOf(tint) }"
-            @click="color = tint"
+            @click="tryColor(tint)"
           ></button>
         </div>
       </div>

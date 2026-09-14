@@ -15,6 +15,10 @@ export const useWorkspacesStore = defineStore('workspaces', {
     createOpen: false,
     settingsOpen: false,
     settingsId: null as string | null,
+    // A colour the settings card is trying on: the window wears it while the choice is being made,
+    // and goes back to what the workspace actually is when the card closes without saving. Null is
+    // "nothing is being tried on", which is not the same as a workspace with no colour.
+    preview: null as string | null,
   }),
 
   getters: {
@@ -57,6 +61,16 @@ export const useWorkspacesStore = defineStore('workspaces', {
 
     async remove(id: string) {
       this.state = await WorkspaceService.Delete(id)
+    },
+
+    // tryColor and stopTrying are the preview of a colour that has not been saved yet: the window is
+    // the place the choice is judged in, so it has to show it before it is made.
+    tryColor(color: string | null) {
+      this.preview = color
+    },
+
+    stopTrying() {
+      this.preview = null
     },
 
     openCreate() {
