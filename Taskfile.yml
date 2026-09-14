@@ -172,6 +172,10 @@ tasks:
       - 'go build {{.BUILD_FLAGS}} -o "{{.OUTPUT}}"'
     vars:
       OUTPUT: '{{.OUTPUT | default .APP_PATH}}'
+      # The tag is what turns the webview transparent so the window's vibrancy can be seen
+      # (window_darwin_glass.go). It has to share one -tags with production: a second -tags flag would
+      # replace the first and take production with it.
+      BUILD_FLAGS: '{{if eq .DEV "true"}}-buildvcs=false -gcflags=all="-l" -tags private_mac_apis{{else}}-tags production,private_mac_apis -trimpath -buildvcs=false -ldflags="{{.LDFLAGS}}"{{end}}'
     env:
       GOOS: darwin
       CGO_ENABLED: 1

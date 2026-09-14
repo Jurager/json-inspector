@@ -114,7 +114,12 @@ const sidePanelShown = computed(() => {
 }
 
 .side-panel {
-  @apply flex-none min-w-0;
+  /* The width is the one the user dragged, and it is a preference rather than a right: a window too
+     narrow for it takes the panel down to the floor the handle itself stops at, and gives it back
+     when there is room again. Without this the request bar absorbs the whole shortage. */
+  @apply min-w-0;
+  flex: 0 1 auto;
+  min-width: 220px;
 }
 
 .resize-handle {

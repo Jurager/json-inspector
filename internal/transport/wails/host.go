@@ -61,10 +61,11 @@ type Host struct {
 	theme atomic.Value
 	// The language, for the same reason and by the same route: the first frame is already written.
 	language atomic.Value
-	// What the window has already been tinted with: which way it is dark, and whether it has been told
-	// at all. Both are read and written from the request that saved the choice, and from startup.
-	tinted      atomic.Bool
-	appliedDark atomic.Bool
+	// What the material behind the window has already been tinted with — the palette, as the platform
+	// spells it — and whether it has been told at all. Both are read and written from the request that
+	// saved the choice, and from startup.
+	tinted            atomic.Bool
+	appliedAppearance atomic.Value
 	// Events raised before the window can take them: the update check runs at startup and a
 	// deep link can arrive before the frontend has mounted, and both describe state the
 	// window has to be told about anyway. The latest of each wins — an earlier tab doesn't
@@ -118,12 +119,13 @@ func (h *Host) ApplyMenu(labels MenuLabels) {
 // choice from its URL, and the one already there is re-tinted by it — the material behind a window
 // is not something the page can reach, so the palette has to be said twice.
 //
-// The tint is Windows' own attribute, and moving it repaints the window's frame and shadow as well,
-// a little later than the call. That is why the frontend tells its window first: the repaint then
-// lands while the palette is changing rather than after it.
+// The tint is the platform's own: on Windows moving it repaints the window's frame and shadow as
+// well, a little later than the call, and macOS takes the repaint on its main thread. That is why the
+// frontend tells its window first: the repaint then lands while the palette is changing rather than
+// after it.
 func (h *Host) SetTheme(theme domain.Theme) {
 	h.theme.Store(string(theme))
-	h.tint(theme == domain.ThemeDark || (theme == domain.ThemeSystem && systemIsDark()))
+	h.tint(theme)
 }
 
 // SystemThemeChanged is the system's own switch, which matters only while the app follows it. The
@@ -133,21 +135,26 @@ func (h *Host) SystemThemeChanged() {
 	if theme, _ := h.theme.Load().(string); theme != string(domain.ThemeSystem) {
 		return
 	}
-	h.tint(systemIsDark())
+	// The choice stays "system" and the platform resolves it — a material that can follow the system
+	// itself is left to do so, one that cannot is moved here.
+	h.tint(domain.ThemeSystem)
 }
 
 // tint moves the material behind the window that is already there to the palette a theme resolves to.
-func (h *Host) tint(dark bool) {
-	if h.tinted.Load() && dark == h.appliedDark.Load() {
-		// A different choice that resolves to the palette already in force — «системная» under a dark
-		// system while the app is dark — must not repaint the window: there is nothing to re-tint.
-		return
+func (h *Host) tint(theme domain.Theme) {
+	appearance := appearanceFor(theme)
+	if h.tinted.Load() {
+		if applied, _ := h.appliedAppearance.Load().(string); applied == string(appearance) {
+			// A different choice that resolves to the palette already in force — «системная» under a dark
+			// system while the app is dark — must not repaint the window: there is nothing to re-tint.
+			return
+		}
 	}
 	h.tinted.Store(true)
-	h.appliedDark.Store(dark)
+	h.appliedAppearance.Store(string(appearance))
 	// Only the window that shows the material: the About window is opaque.
 	if main := h.MainWindow(); main != nil {
-		retintWindow(main, dark)
+		retintWindow(main, appearance)
 	}
 }
 
@@ -475,17 +482,20 @@ func glassWindowsBackdrop() application.BackdropType {
 	return application.Acrylic
 }
 
-// glassMacBackdrop is the macOS side of the same material: the frosted one rather than Liquid Glass,
-// which needs macOS 26 and would make the app look like a different product. It is inert until the
-// build carries `private_mac_apis` — see glassShows.
+// glassMacBackdrop is the macOS side of the same material. The frosted one — the legacy vibrancy
+// material, which Wails falls back to — is what this asked for until it was measured on macOS 26:
+// there it frosts nothing, passing the desktop through so sharply that the chrome reads as a plain
+// translucent sheet. The system's own glass is the one that blurs, and Wails asks for it first and
+// falls back to the legacy material where it does not exist, so one value covers both. It takes
+// effect in a build carrying `private_mac_apis`, which is what makes the webview transparent.
 func glassMacBackdrop() application.MacBackdrop {
-	return application.MacBackdropTranslucent
+	return application.MacBackdropLiquidGlass
 }
 
 // windowTheme is the appearance the native material is tinted by. It is set once, when the window is
-// created — this version of Wails has no runtime setter — and the stored theme is read before the
-// window exists, so the two agree at startup. A theme switched while the app runs reaches the
-// material on the next launch; the CSS half of the material switches at once.
+// created — a window cannot be born with a material tinted by a choice nobody has made yet, and the
+// stored theme is read before the window exists, so the two agree at startup. A theme switched
+// while the app runs is moved by tint instead.
 func windowTheme(theme domain.Theme) application.Theme {
 	switch theme {
 	case domain.ThemeDark:

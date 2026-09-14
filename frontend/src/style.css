@@ -73,10 +73,16 @@
      overlay are a translucent fill over a backdrop blur. The chrome sits on the app's own ground and
      over the desktop behind a translucent window, so it is the lighter of the two; an overlay sits
      over real content, where a light fill would let the text underneath collide with its own.
-     The chrome's density is set by measurement, not by the handoff's 0.64: at that weight the desktop
-     decides the tone, so the chrome drifts with the wallpaper and lands up to 45 levels away from the
-     content it meets. Here the wallpaper is only a tint and the seam stays a surface boundary. */
-  --glass-chrome: rgba(255, 255, 255, 0.88);
+     One weight, the handoff's: the surfaces that meet at the window's corners — the titlebar and the
+     rail — meet at the same tone only if there is a single value, and the desktop behind is the
+     material's to show, not the fill's to fight. Where the chrome meets the opaque content, the
+     surfaces are separated by the hairline and by tone, as the handoff draws them. */
+  --glass-chrome: rgba(255, 255, 255, 0.64);
+  /* What the chrome measures, in one place: a strip that changed size would otherwise leave its
+     neighbours measuring against the wrong surface. */
+  --rail-width: 89px;
+  --titlebar-height: 52px;
+  --statusbar-height: 28px;
   --glass-chrome-border: rgba(0, 0, 0, 0.05);
   --glass-overlay: rgba(255, 255, 255, 0.8);
   --glass-overlay-border: rgba(0, 0, 0, 0.07);
@@ -144,7 +150,7 @@
      sets, never one rgba(255,255,255,x) doing both. A white veil over dark content lightens the chrome
      to grey: the window stops looking dark at all, which is the defect design-system.md records. The
      hairline comes back the other way: on a dark surface the light theme's edge value glows. */
-  --glass-chrome: rgba(28, 28, 30, 0.85);
+  --glass-chrome: rgba(28, 28, 30, 0.62);
   --glass-chrome-border: rgba(255, 255, 255, 0.08);
   --glass-overlay: rgba(40, 40, 44, 0.82);
   --glass-overlay-border: rgba(255, 255, 255, 0.1);
@@ -192,12 +198,13 @@ html.window-translucent body {
    the app's ground and over the desktop behind a translucent window, which is why their fill is the
    light one — and why they carry a hairline instead of a shadow. */
 .titlebar {
-  @apply relative z-[100] h-13 flex-none flex items-center justify-center border-b select-none;
+  @apply relative z-[100] h-[var(--titlebar-height)] flex-none flex items-center justify-center border-b select-none;
   background: var(--glass-chrome);
   backdrop-filter: var(--blur-chrome);
   border-color: var(--glass-chrome-border);
   --wails-draggable: drag;
 }
+
 
 .titlebar-title {
   @apply text-[13px] font-semibold text-text-secondary tracking-wide;
@@ -313,11 +320,12 @@ html.window-translucent body {
 }
 
 .sidebar {
-  @apply relative w-[89px] flex-none border-r py-2 px-1.5 flex flex-col items-center gap-0.5;
+  @apply relative w-[var(--rail-width)] flex-none border-r py-2 px-1.5 flex flex-col items-center gap-0.5;
   background: var(--glass-chrome);
   backdrop-filter: var(--blur-chrome);
   border-color: var(--glass-chrome-border);
 }
+
 
 .rail-menu-wrap {
   @apply relative w-full pb-1.5 mb-1.5 flex justify-center;

@@ -349,7 +349,12 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onWindowKeydown))
 }
 
 .url-field {
-  @apply flex-1 flex items-stretch rounded-lg border border-border bg-bg-inset h-8;
+  /* The field is what gives way first when the window narrows, and its floor is where the URL stays
+     readable. Without a basis a flex item refuses to shrink past its own content, and the row pushes
+     the chips and the send button off the right edge — which is what a narrow window used to do. */
+  @apply flex items-stretch rounded-lg border border-border bg-bg-inset h-8 overflow-hidden;
+  flex: 1 1 260px;
+  min-width: 140px;
   transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
 
@@ -391,7 +396,10 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onWindowKeydown))
 }
 
 .url-text {
-  @apply relative flex-1 min-w-0 flex items-stretch;
+  /* The address keeps a floor of its own: it is the one thing in this row that cannot be guessed from
+     anything else, so when the window is too narrow the chip strip gives way before it does. */
+  @apply relative flex-1 flex items-stretch;
+  min-width: 120px;
 }
 
 .url-input {

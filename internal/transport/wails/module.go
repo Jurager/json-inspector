@@ -194,6 +194,10 @@ func setup(
 	host.SetMainWindow(mainWin)
 
 	mainWin.OnWindowEvent(events.Common.WindowRuntimeReady, func(*application.WindowEvent) {
+		// The window that shows the material behind it has to let it through — on a platform with no
+		// material this is nothing. It waits for this event because the call reaches the window through
+		// the main thread, and before the app runs there is no main thread to reach it on.
+		prepareGlassWindow(mainWin, theme)
 		host.MarkReady()
 	})
 	app.Event.OnApplicationEvent(events.Common.ApplicationLaunchedWithUrl, func(e *application.ApplicationEvent) {

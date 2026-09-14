@@ -4,8 +4,15 @@
 -- across imports, so the list can sort on it cheaply, while id remains the identifier the
 -- frontend and the extension protocol already speak.
 --
--- Every timing column is NOT NULL DEFAULT 0 with has_timing as the separate flag, because
--- "never measured" and "measured as zero" are different facts about a capture.
+-- Every timing is in microseconds, because a millisecond was the wrong unit for a warm connection:
+-- on a reused one DNS, connect and TLS do not happen at all, and even the body of a small response
+-- arrives in less than a millisecond — in whole milliseconds each of those read as 0, and the
+-- timings tab showed a live total above a row of zeros that looked like a failed measurement.
+--
+-- Nullable is what "this did not happen" means: nothing was dialled because the connection was
+-- already there, or nothing came back at all. Zero means a phase was measured and took no
+-- measurable time, which is a different fact about the capture. That is why duration_us is
+-- NOT NULL — every request takes some time — while the phases beside it are.
 
 CREATE TABLE records (
   seq INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -18,13 +25,12 @@ CREATE TABLE records (
   content_type TEXT NOT NULL DEFAULT '',
   error TEXT NOT NULL DEFAULT '',
   cancelled INTEGER NOT NULL DEFAULT 0,
-  duration_ms INTEGER NOT NULL DEFAULT 0,
-  dns_ms INTEGER NOT NULL DEFAULT 0,
-  connect_ms INTEGER NOT NULL DEFAULT 0,
-  tls_ms INTEGER NOT NULL DEFAULT 0,
-  wait_ms INTEGER NOT NULL DEFAULT 0,
-  download_ms INTEGER NOT NULL DEFAULT 0,
-  has_timing INTEGER NOT NULL DEFAULT 0,
+  duration_us INTEGER NOT NULL DEFAULT 0,
+  dns_us INTEGER,
+  connect_us INTEGER,
+  tls_us INTEGER,
+  wait_us INTEGER,
+  download_us INTEGER,
   request_bytes INTEGER NOT NULL DEFAULT 0,
   response_bytes INTEGER NOT NULL DEFAULT 0,
   request_headers_json TEXT NOT NULL DEFAULT '[]',

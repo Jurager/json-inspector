@@ -185,12 +185,13 @@ const captureDotClass = computed(() => {
 
 /* The third chrome surface: the same glass as the titlebar and the rail. */
 .status-bar {
-  @apply flex-none flex items-center gap-2.5 h-7 px-3.5 text-xs;
+  @apply relative flex-none flex items-center gap-2.5 h-[var(--statusbar-height)] px-3.5 text-xs;
   border-top: 1px solid var(--glass-chrome-border);
   background: var(--glass-chrome);
   backdrop-filter: var(--blur-chrome);
   color: var(--text-secondary);
 }
+
 
 .spacer {
   @apply flex-1;

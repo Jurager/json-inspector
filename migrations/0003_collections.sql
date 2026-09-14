@@ -1,15 +1,30 @@
--- Collections and the request tree inside them.
+-- Collections and the requests inside them.
 --
--- Folders and requests share one table so that moving a node is a parent_id/position update
--- rather than a delete-and-reinsert across two tables; the kind column carries the CHECK that
--- keeps the request-only columns (method, url, body) meaningful.
+-- A folder is a collection with a parent, and there is no second entity for it: the only thing
+-- that used to distinguish the two was that a collection had no parent, so the tree understood
+-- exactly one level of them. parent_id makes that level a property of the row instead of the
+-- shape of the schema, and a node inside a collection is a request — folders are collections, so
+-- nothing else needs a place in the node table.
 --
--- parent_id is the cascade path that deletes a folder's whole subtree in one statement.
+-- A request keeps no parent of its own: it lives directly in the collection it belongs to (or in
+-- a folder, which is one), so its place is collection_id plus position, moving it is one update,
+-- and the cascade takes a folder's whole subtree with it.
+--
+-- auth_json and scripts_json are NULL on both tables, and NULL means "not set here": a request
+-- with no auth of its own inherits from the nearest level above that answers, which is the same
+-- reading the variable scopes use. An empty string would be a level that answered "nothing".
+--
+-- body_kind names one of five formats — json, xml, raw, form-data, binary; form_json is the grid
+-- form-data is written in, and body_file the one path a binary body is read from. Columns rather
+-- than a single blob because every other structured field here is a column too (params_json,
+-- headers_json, cookies_json, auth_json, scripts_json), and one blob would be the only place
+-- where the DDL hides its own contents.
 
 CREATE TABLE collections (
   id TEXT PRIMARY KEY,
   name TEXT NOT NULL,
   description TEXT NOT NULL DEFAULT '',
+  parent_id TEXT REFERENCES collections(id) ON DELETE CASCADE,
   auth_json TEXT,
   scripts_json TEXT,
   position INTEGER NOT NULL,
@@ -20,8 +35,6 @@ CREATE TABLE collections (
 CREATE TABLE collection_nodes (
   id TEXT PRIMARY KEY,
   collection_id TEXT NOT NULL REFERENCES collections(id) ON DELETE CASCADE,
-  parent_id TEXT REFERENCES collection_nodes(id) ON DELETE CASCADE,
-  kind TEXT NOT NULL CHECK (kind IN ('folder','request')),
   name TEXT NOT NULL,
   position INTEGER NOT NULL,
   description TEXT,
@@ -34,8 +47,10 @@ CREATE TABLE collection_nodes (
   body TEXT,
   body_kind TEXT,
   cookies_json TEXT,
+  form_json TEXT,
+  body_file TEXT,
   created_at INTEGER NOT NULL,
   updated_at INTEGER NOT NULL
 );
 
-CREATE INDEX collection_nodes_tree ON collection_nodes(collection_id, parent_id, position);
+CREATE INDEX collection_nodes_tree ON collection_nodes(collection_id, position);
