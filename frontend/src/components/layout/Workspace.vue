@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
-import { RecordSource } from '../../../bindings/json-inspector/internal/domain'
+import { ListSide, RecordSource } from '../../../bindings/json-inspector/internal/domain'
 import { useRequestsStore } from '../../stores/requests'
 import { useCollectionsStore } from '../../stores/collections'
 import { useResizableWidth } from '../../composables/useResizableWidth'
@@ -9,7 +9,6 @@ import { useMessages } from '../../i18n'
 import HistoryPanel from '../history/HistoryPanel.vue'
 import RequestBuilder from '../request/RequestBuilder.vue'
 import ResponseViewer from '../response/ResponseViewer.vue'
-import CaptureBar from '../browser/CaptureBar.vue'
 import BrowserEmptyState from '../browser/BrowserEmptyState.vue'
 import CollectionTree from '../collections/CollectionTree.vue'
 import CollectionOverview from '../collections/CollectionOverview.vue'
@@ -24,7 +23,16 @@ const { settings, loadSettings, setLayout } = useSettings()
 // Where the user last left the list. The window paints its own default first; Go's answer replaces
 // it as soon as it arrives, which keeps the panel from jumping on a slow start.
 const sideWidth = ref(settings.value?.sideWidth ?? 288)
-const { startDrag: startSideDrag } = useResizableWidth(sideWidth, { min: 220, max: 560, side: 'left' })
+
+// Which edge the list sits on, and whether it is drawn at all — see sidePanelShown below. The handle
+// reads it per drag, so a panel moved to the other edge drags the right way without being rebuilt.
+const listSide = computed(() => settings.value?.listSide ?? ListSide.ListSideLeft)
+const panelOnRight = computed(() => listSide.value === ListSide.ListSideRight)
+const { startDrag: startSideDrag } = useResizableWidth(sideWidth, {
+  min: 220,
+  max: 560,
+  side: () => (panelOnRight.value ? 'right' : 'left'),
+})
 
 watch(
   () => settings.value?.sideWidth,
@@ -48,7 +56,11 @@ const browserEmpty = computed(
 // onboarding on the whole width instead.
 const collectionsEmpty = computed(() => collections.tree.length === 0)
 
+// The panel is drawn only when there is something to list in it and the user has not put it away.
+// The two are different answers to different questions: an empty list is not shown whatever the
+// side says, and the side is still remembered for the list that is coming.
 const sidePanelShown = computed(() => {
+  if (listSide.value === ListSide.ListSideHidden) return false
   if (store.activeView === 'collections') return !collectionsEmpty.value
   return !browserEmpty.value
 })
@@ -56,7 +68,7 @@ const sidePanelShown = computed(() => {
 
 <template>
   <main class="main">
-    <div class="side-layout">
+    <div class="side-layout" :class="{ 'panel-right': panelOnRight }">
       <div v-if="sidePanelShown" class="side-panel" :style="{ width: sideWidth + 'px' }">
         <CollectionTree v-if="store.activeView === 'collections'" />
         <HistoryPanel
@@ -78,7 +90,6 @@ const sidePanelShown = computed(() => {
           </div>
         </template>
         <template v-else-if="store.activeView === 'browser'">
-          <CaptureBar />
           <ResponseViewer v-if="store.browserSelected" :record="store.browserSelected" source="browser" />
           <BrowserEmptyState v-else />
         </template>
@@ -117,7 +128,7 @@ const sidePanelShown = computed(() => {
   /* The width is the one the user dragged, and it is a preference rather than a right: a window too
      narrow for it takes the panel down to the floor the handle itself stops at, and gives it back
      when there is room again. Without this the request bar absorbs the whole shortage. */
-  @apply min-w-0;
+  @apply min-w-0 border-r border-border;
   flex: 0 1 auto;
   min-width: 220px;
 }
@@ -126,6 +137,20 @@ const sidePanelShown = computed(() => {
   @apply flex-none w-[5px] -ml-[5px] relative z-1 bg-transparent;
   cursor: col-resize;
   transition: background 0.15s ease;
+}
+
+/* The panel is a sibling of the content, not a wrapper around it, so moving it to the other edge is
+   an order change and a border swap — the content is never torn down and built again. The handle
+   follows the panel: it rides on the panel's inner edge, overlapping it by its own width. */
+.side-layout.panel-right .side-panel {
+  @apply border-r-0 border-l;
+  order: 2;
+}
+
+.side-layout.panel-right .resize-handle {
+  order: 1;
+  margin-left: 0;
+  margin-right: -5px;
 }
 
 .resize-handle:hover {

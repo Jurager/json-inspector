@@ -11,10 +11,15 @@ export function useCaptureEvents(store: ReturnType<typeof useRequestsStore>) {
     // v3 handlers receive a WailsEvent envelope; the payload is on .data.
     offs.push(
       Events.On('capture-state', (ev) => {
-        store.setCaptureState({ connected: true, recording: ev.data.recording, tabs: ev.data.tabs })
+        store.setCaptureState({
+          connected: true,
+          recording: ev.data.recording,
+          paused: ev.data.paused,
+          tabs: ev.data.tabs,
+        })
       }),
       Events.On('capture-disconnected', () => {
-        store.setCaptureState({ connected: false, recording: false, tabs: 0 })
+        store.setCaptureState({ connected: false, recording: false, paused: false, tabs: 0 })
       }),
       // Subscribed here, not in the browser list (which isn't always mounted): the link
       // must switch the rail even when nothing has been captured yet.

@@ -14,6 +14,11 @@ import { formatBytes, formatMicros, formatNumber, useMessages } from '../../i18n
 import { formatVersion } from '../../lib/format'
 import { useEnvironmentsStore } from '../../stores/environments'
 import { useCollectionsStore } from '../../stores/collections'
+import { useSettings } from '../../composables/useSettings'
+import { BridgeService } from '../../../bindings/json-inspector/internal/transport/wails'
+import Icon from '../ui/Icon.vue'
+import { IconButton } from '../ui/button'
+import { ListSide } from '../../../bindings/json-inspector/internal/domain'
 import type { Info as UpdateInfo } from '../../../bindings/json-inspector/internal/infra/updater'
 
 const props = defineProps<{ updateInfo: UpdateInfo | null }>()
@@ -24,6 +29,17 @@ const { t } = useMessages()
 const store = useRequestsStore()
 const collections = useCollectionsStore()
 const envStore = useEnvironmentsStore()
+const { settings, setLayout } = useSettings()
+
+// Where the list panel will be, which is not the same question as whether it is on screen: an empty
+// list is not drawn at all, and these three still say where it goes when there is something in it.
+const PANEL_SIDES: { side: ListSide; icon: string; hint: string }[] = [
+  { side: ListSide.ListSideLeft, icon: 'panel-left', hint: 'status.listLeft' },
+  { side: ListSide.ListSideRight, icon: 'panel-right', hint: 'status.listRight' },
+  { side: ListSide.ListSideHidden, icon: 'panel-hidden', hint: 'status.listHidden' },
+]
+
+const listSide = computed<ListSide>(() => settings.value?.listSide ?? ListSide.ListSideLeft)
 
 const environmentName = computed(() => envStore.activeEnvironment?.name ?? t('titlebar.noEnvironment'))
 
@@ -112,6 +128,15 @@ const runOutcome = computed(() => {
 
 const capture = computed(() => store.capture)
 
+// Whether anything already stands to the right of the spacer, and so whether the three buttons need
+// a rule in front of them: they are the last thing in the bar and the only thing that can be there
+// on its own.
+const rightSide = computed(
+  () =>
+    Boolean(summary.value || runOutcome.value || props.updateInfo) ||
+    (store.activeView === 'collections' && collections.dirty)
+)
+
 const captureLabel = computed(() => {
   const c = capture.value
   if (c.recording) return t('status.captureRecording', { tabs: t('counts.tabs', c.tabs) })
@@ -125,6 +150,14 @@ const captureDotClass = computed(() => {
   if (c.connected) return 'dot dot-grey'
   return 'dot dot-orange'
 })
+
+// The one fact the bar cannot read off the extension's other fields: a paused capture and a
+// connected extension with no tab under it both record nothing. So it asks, and the extension
+// answers with its own state.
+async function toggleCapture() {
+  if (capture.value.paused) await BridgeService.ResumeCapture()
+  else await BridgeService.PauseCapture()
+}
 </script>
 
 <template>
@@ -139,6 +172,22 @@ const captureDotClass = computed(() => {
     <template v-else-if="store.activeView === 'browser'">
       <span :class="captureDotClass"></span>
       <span>{{ captureLabel }}</span>
+      <!-- Nothing to hold down while the extension is away, so the switch is not there to hold. -->
+      <template v-if="capture.recording || capture.paused">
+        <span class="divider"></span>
+        <IconButton
+          size="md"
+          :hint="capture.paused ? t('status.resumeCapture') : t('status.pauseCapture')"
+          @click="toggleCapture"
+        >
+          <Icon
+            :name="capture.paused ? 'play' : 'pause'"
+            :size="15"
+            filled
+            :class="{ paused: capture.paused }"
+          />
+        </IconButton>
+      </template>
     </template>
     <template v-else-if="store.activeView === 'collections'">
       <template v-if="collections.running">
@@ -177,6 +226,24 @@ const captureDotClass = computed(() => {
 
     <span v-if="runOutcome" class="summary">{{ runOutcome }}</span>
     <span v-else-if="summary" class="summary">{{ summary }}</span>
+
+    <!-- The list panel's place, in every section and whether or not the panel is drawn: a list with
+         nothing in it is not shown at all, and the choice made here is kept for it. -->
+    <span v-if="rightSide" class="divider"></span>
+    <IconButton
+      v-for="side in PANEL_SIDES"
+      :key="side.side"
+      size="sm"
+      :hint="t(side.hint)"
+      @click="setLayout({ listSide: side.side })"
+    >
+      <Icon
+        :name="side.icon"
+        :size="12"
+        :stroke-width="1.6"
+        :class="{ current: listSide === side.side }"
+      />
+    </IconButton>
   </div>
 </template>
 
@@ -236,6 +303,19 @@ const captureDotClass = computed(() => {
 
 .summary {
   @apply whitespace-nowrap;
+}
+
+/* The switch is the only place capture is held, so while it is held the button says so in the
+   colour the paused state carries everywhere else in the window. */
+.status-bar .paused {
+  color: var(--orange);
+}
+
+/* The three positions are drawn alike, and the one in force is at full strength: the trio reads as
+   a switch with a handle rather than as three commands. The colour goes on the glyph, where it is a
+   property of the element itself and not an inheritance the button's own variant can overrule. */
+.status-bar .current {
+  @apply text-text;
 }
 
 .crumbs {

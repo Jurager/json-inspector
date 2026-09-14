@@ -46,6 +46,9 @@ func (u *UseCase) Snapshot(ctx context.Context) (domain.Settings, error) {
 	}
 	out.InspectorWidth = width(stored[domain.SettingInspectorWidth], out.InspectorWidth)
 	out.SideWidth = width(stored[domain.SettingSideWidth], out.SideWidth)
+	if side := domain.ListSide(stored[domain.SettingListSide]); side.Valid() {
+		out.ListSide = side
+	}
 	if retention := domain.Retention(stored[domain.SettingHistoryRetention]); retention.Valid() {
 		out.HistoryRetention = retention
 	}
@@ -112,9 +115,10 @@ type LanguageChanged struct {
 
 // LayoutPatch is a partial update of the panel geometry: a nil field is left as it is.
 type LayoutPatch struct {
-	InspectorOpen  *bool `json:"inspectorOpen,omitempty"`
-	InspectorWidth *int  `json:"inspectorWidth,omitempty"`
-	SideWidth      *int  `json:"sideWidth,omitempty"`
+	InspectorOpen  *bool            `json:"inspectorOpen,omitempty"`
+	InspectorWidth *int             `json:"inspectorWidth,omitempty"`
+	SideWidth      *int             `json:"sideWidth,omitempty"`
+	ListSide       *domain.ListSide `json:"listSide,omitempty"`
 }
 
 // SetLayout remembers where the user put the panels. This is written often — every drag — so it
@@ -132,6 +136,17 @@ func (u *UseCase) SetLayout(ctx context.Context, patch LayoutPatch) (domain.Sett
 	}
 	if patch.SideWidth != nil {
 		if err := u.save(ctx, domain.SettingSideWidth, strconv.Itoa(clamp(*patch.SideWidth))); err != nil {
+			return domain.Settings{}, err
+		}
+	}
+	// The side is an enum, not a measurement: there is nothing to clamp, and a value the window
+	// cannot lay out is a bug worth naming rather than a preference worth keeping.
+	if patch.ListSide != nil {
+		if !patch.ListSide.Valid() {
+			return domain.Settings{}, domain.Refuse(domain.CodeUnknownListSide, domain.ErrNotAllowed,
+				domain.Args{"side": string(*patch.ListSide)})
+		}
+		if err := u.save(ctx, domain.SettingListSide, string(*patch.ListSide)); err != nil {
 			return domain.Settings{}, err
 		}
 	}

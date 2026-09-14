@@ -7,6 +7,7 @@ const (
 	SettingInspectorOpen    = "ui.inspectorOpen"
 	SettingInspectorWidth   = "ui.inspectorWidth"
 	SettingSideWidth        = "ui.sideWidth"
+	SettingListSide         = "ui.listSide"
 	SettingHistoryRetention = "history.retention"
 )
 
@@ -54,6 +55,22 @@ func (r Retention) Valid() bool {
 	return r == RetainWeek || r == RetainMonth || r == RetainForever
 }
 
+// ListSide is where the list panel lives: the same panel, told to sit at either edge of the work
+// area, or to stay out of it. Hiding is a choice of the user's rather than the absence of one — a
+// window whose list is put away was arranged that way, and is not a window that never had a list.
+type ListSide string
+
+const (
+	ListSideLeft   ListSide = "left"
+	ListSideRight  ListSide = "right"
+	ListSideHidden ListSide = "hidden"
+)
+
+// Valid reports whether a stored or supplied side is one the window can lay out.
+func (s ListSide) Valid() bool {
+	return s == ListSideLeft || s == ListSideRight || s == ListSideHidden
+}
+
 // Settings is everything the app remembers about how it is set up, in the order the screen shows
 // it. Defaults live in one place — the use case's — so a fresh database and a missing row agree.
 type Settings struct {
@@ -62,12 +79,13 @@ type Settings struct {
 	InspectorOpen    bool      `json:"inspectorOpen"`
 	InspectorWidth   int       `json:"inspectorWidth"`
 	SideWidth        int       `json:"sideWidth"`
+	ListSide         ListSide  `json:"listSide"`
 	HistoryRetention Retention `json:"historyRetention"`
 }
 
 // DefaultSettings is what the app runs with before anyone has changed anything: the theme and the
-// language follow the system, the inspector is closed at its design width, and history is kept as it
-// always was.
+// language follow the system, the inspector is closed at its design width, the list sits on the
+// left where the design draws it, and history is kept as it always was.
 func DefaultSettings() Settings {
 	return Settings{
 		Theme:            ThemeSystem,
@@ -75,6 +93,7 @@ func DefaultSettings() Settings {
 		InspectorOpen:    false,
 		InspectorWidth:   DefaultInspectorWidth,
 		SideWidth:        DefaultSideWidth,
+		ListSide:         ListSideLeft,
 		HistoryRetention: RetainForever,
 	}
 }

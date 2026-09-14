@@ -320,19 +320,25 @@ html.window-translucent body {
 }
 
 .sidebar {
-  @apply relative w-[var(--rail-width)] flex-none border-r py-2 px-1.5 flex flex-col items-center gap-0.5;
+  @apply relative w-[var(--rail-width)] flex-none border-r flex flex-col items-center;
   background: var(--glass-chrome);
   backdrop-filter: var(--blur-chrome);
   border-color: var(--glass-chrome-border);
 }
 
-
-.rail-menu-wrap {
-  @apply relative w-full pb-1.5 mb-1.5 flex justify-center;
+/* The rail's own inset belongs to its body, not to the rail: the header and the footer are strips of
+   the rail itself, flush with its edges, and their hairlines are drawn on the same lines as the
+   panel's header and the panel's filter — one line across the window, not three at three heights. */
+.rail-body {
+  @apply flex-1 min-h-0 w-full flex flex-col items-center gap-0.5 p-1.5;
 }
 
-.rail-divider {
-  @apply w-[26px] h-px flex-none mb-1.5 bg-border;
+.rail-head {
+  @apply flex-none h-10 w-full flex items-center justify-center border-b border-border;
+}
+
+.rail-footer {
+  @apply flex-none h-10 w-full flex items-center justify-center border-t border-border;
 }
 
 .rail-marker {

@@ -214,34 +214,37 @@
 
       <div style="flex: 1; min-height: 0; display: flex;">
 
-        <div style="width: 76px; flex: none; background: rgba(255,255,255,0.64); backdrop-filter: blur(20px) saturate(160%); -webkit-backdrop-filter: blur(20px) saturate(160%); border-right: 1px solid rgba(0,0,0,0.05); display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 8px 6px; position: relative;">
-          <button style="width: 32px; height: 32px; border: none; border-radius: 8px; background: transparent; color: #6e6e73; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; margin-bottom: 6px;" style-hover="background: rgba(0,0,0,0.06); color: #1d1d1f;">
-            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M4 6h16"></path><path d="M4 12h16"></path><path d="M4 18h16"></path></svg>
-          </button>
-          <div style="width: 26px; height: 1px; background: rgba(0,0,0,0.12); margin-bottom: 6px;"></div>
-          <button style="width: 100%; padding: 8px 0 6px; border: none; border-radius: 9px; background: rgba(0,122,255,0.14); color: #007aff; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 4px; position: relative;">
-            <span style="position: absolute; left: -6px; top: 5px; bottom: 5px; width: 3px; border-radius: 0 3px 3px 0; background: #007aff;"></span>
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17 17 7"></path><path d="M7 7h10v10"></path></svg>
-            <span style="font-size: 10px; font-weight: 600; letter-spacing: 0.01em; line-height: 1;">Запрос</span>
-          </button>
-          <button style="width: 100%; padding: 8px 0 6px; border: none; border-radius: 9px; background: transparent; color: #6e6e73; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 4px; position: relative;" style-hover="background: rgba(0,0,0,0.06); color: #1d1d1f;">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="12" cy="12" r="9"></circle><circle cx="12" cy="12" r="1.4"></circle></svg>
-            <span style="font-size: 10px; font-weight: 600; letter-spacing: 0.01em; line-height: 1;">Браузер</span>
-            <span style="position: absolute; top: 3px; right: 10px; min-width: 15px; height: 15px; padding: 0 4px; border-radius: 999px; background: #ff3b30; color: #fff; font-size: 9.5px; font-weight: 700; display: inline-flex; align-items: center; justify-content: center; box-shadow: 0 0 0 2px #ececef;">3</span>
-          </button>
-          <button style="width: 100%; padding: 8px 0 6px; border: none; border-radius: 9px; background: transparent; color: #6e6e73; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 4px;" style-hover="background: rgba(0,0,0,0.06); color: #1d1d1f;">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"></path></svg>
-            <span style="font-size: 10px; font-weight: 600; letter-spacing: 0.01em; line-height: 1;">Коллекции</span>
-          </button>
-          <div style="flex: 1;"></div>
-          <button style="width: 32px; height: 32px; border: none; border-radius: 999px; background: transparent; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; position: relative; margin-bottom: 4px;" style-hover="background: rgba(0,0,0,0.06);" title="Аккаунт · ucell.dev@itl.digital">
-            <span style="width: 24px; height: 24px; border-radius: 999px; background: rgba(0,122,255,0.16); color: #007aff; font-size: 10px; font-weight: 700; display: inline-flex; align-items: center; justify-content: center;">UD</span>
-            <span style="position: absolute; bottom: 2px; right: 2px; width: 8px; height: 8px; border-radius: 999px; background: #34c759; box-shadow: 0 0 0 2px #ececef;"></span>
-          </button>
-          <div style="width: 26px; height: 1px; background: rgba(0,0,0,0.12); margin-bottom: 6px;"></div>
-          <button style="width: 32px; height: 32px; border: none; border-radius: 8px; background: transparent; color: #86868b; cursor: pointer; display: inline-flex; align-items: center; justify-content: center;" style-hover="background: rgba(0,0,0,0.06); color: #1d1d1f;" title="Настройки">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M20 7h-9"></path><path d="M14 17H5"></path><circle cx="17" cy="17" r="3"></circle><circle cx="7" cy="7" r="3"></circle></svg>
-          </button>
+        <div style="width: 76px; flex: none; background: rgba(255,255,255,0.64); backdrop-filter: blur(20px) saturate(160%); -webkit-backdrop-filter: blur(20px) saturate(160%); border-right: 1px solid rgba(0,0,0,0.05); display: flex; flex-direction: column; min-height: 0; position: relative;">
+          <div style="flex: 1; min-height: 0; display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 8px 6px;">
+            <button style="width: 32px; height: 32px; border: none; border-radius: 8px; background: transparent; color: #6e6e73; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; margin-bottom: 6px;" style-hover="background: rgba(0,0,0,0.06); color: #1d1d1f;">
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M4 6h16"></path><path d="M4 12h16"></path><path d="M4 18h16"></path></svg>
+            </button>
+            <div style="width: 26px; height: 1px; background: rgba(0,0,0,0.12); margin-bottom: 6px;"></div>
+            <button style="width: 100%; padding: 8px 0 6px; border: none; border-radius: 9px; background: rgba(0,122,255,0.14); color: #007aff; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 4px; position: relative;">
+              <span style="position: absolute; left: -6px; top: 5px; bottom: 5px; width: 3px; border-radius: 0 3px 3px 0; background: #007aff;"></span>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17 17 7"></path><path d="M7 7h10v10"></path></svg>
+              <span style="font-size: 10px; font-weight: 600; letter-spacing: 0.01em; line-height: 1;">Запрос</span>
+            </button>
+            <button style="width: 100%; padding: 8px 0 6px; border: none; border-radius: 9px; background: transparent; color: #6e6e73; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 4px; position: relative;" style-hover="background: rgba(0,0,0,0.06); color: #1d1d1f;">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="12" cy="12" r="9"></circle><circle cx="12" cy="12" r="1.4"></circle></svg>
+              <span style="font-size: 10px; font-weight: 600; letter-spacing: 0.01em; line-height: 1;">Браузер</span>
+              <span style="position: absolute; top: 3px; right: 10px; min-width: 15px; height: 15px; padding: 0 4px; border-radius: 999px; background: #ff3b30; color: #fff; font-size: 9.5px; font-weight: 700; display: inline-flex; align-items: center; justify-content: center; box-shadow: 0 0 0 2px #ececef;">3</span>
+            </button>
+            <button style="width: 100%; padding: 8px 0 6px; border: none; border-radius: 9px; background: transparent; color: #6e6e73; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 4px;" style-hover="background: rgba(0,0,0,0.06); color: #1d1d1f;">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"></path></svg>
+              <span style="font-size: 10px; font-weight: 600; letter-spacing: 0.01em; line-height: 1;">Коллекции</span>
+            </button>
+            <div style="flex: 1;"></div>
+            <button style="width: 32px; height: 32px; border: none; border-radius: 999px; background: transparent; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; position: relative; margin-bottom: 4px;" style-hover="background: rgba(0,0,0,0.06);" title="Аккаунт · ucell.dev@itl.digital">
+              <span style="width: 24px; height: 24px; border-radius: 999px; background: rgba(0,122,255,0.16); color: #007aff; font-size: 10px; font-weight: 700; display: inline-flex; align-items: center; justify-content: center;">UD</span>
+              <span style="position: absolute; bottom: 2px; right: 2px; width: 8px; height: 8px; border-radius: 999px; background: #34c759; box-shadow: 0 0 0 2px #ececef;"></span>
+            </button>
+          </div>
+          <div style="flex: none; height: 40px; display: flex; align-items: center; justify-content: center; border-top: 1px solid rgba(0,0,0,0.08);">
+            <button style="width: 32px; height: 32px; border: none; border-radius: 8px; background: transparent; color: #86868b; cursor: pointer; display: inline-flex; align-items: center; justify-content: center;" style-hover="background: rgba(0,0,0,0.06); color: #1d1d1f;" title="Настройки">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M20 7h-9"></path><path d="M14 17H5"></path><circle cx="17" cy="17" r="3"></circle><circle cx="7" cy="7" r="3"></circle></svg>
+            </button>
+          </div>
           <sc-if value="{{ zones }}">
             <span style="position: absolute; top: 6px; right: -9px; width: 18px; height: 18px; border-radius: 999px; background: #007aff; color: #fff; font-size: 10px; font-weight: 700; display: inline-flex; align-items: center; justify-content: center; z-index: 5;">2</span>
           </sc-if>
@@ -254,12 +257,10 @@
           </div>
           <div style="flex: 1; min-height: 0; overflow: hidden; display: flex; flex-direction: column; position: relative;">
             <div style="position: absolute; left: 0; right: 0; bottom: 0; z-index: 4; pointer-events: none;">
-              <div style="height: 26px; background: linear-gradient(to bottom, rgba(255,255,255,0) 0%, rgba(255,255,255,0.03) 10%, rgba(255,255,255,0.1) 20%, rgba(255,255,255,0.22) 30%, rgba(255,255,255,0.35) 40%, rgba(255,255,255,0.5) 50%, rgba(255,255,255,0.65) 60%, rgba(255,255,255,0.5) 70%, rgba(255,255,255,0.9) 80%, rgba(255,255,255,0.97) 90%, #fff 100%);"></div>
-              <div style="padding: 0 8px 8px; background: #fff;">
-                <div style="pointer-events: auto; display: flex; align-items: center; gap: 6px; height: 28px; padding: 0 9px; border-radius: 7px; background: rgba(0,0,0,0.045); color: #86868b; backdrop-filter: blur(12px);">
-                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="11" cy="11" r="8"></circle><path d="m21 21-4.3-4.3"></path></svg>
-                  <span style="font-size: 12px;">Фильтр по ссылке, методу, статусу…</span>
-                </div>
+              <div style="height: 18px; background: linear-gradient(to bottom, rgba(255,255,255,0), #fff);"></div>
+              <div style="pointer-events: auto; height: 40px; display: flex; align-items: center; gap: 6px; padding: 0 14px; background: #fff; border-top: 1px solid rgba(0,0,0,0.08); color: #86868b;">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="11" cy="11" r="8"></circle><path d="m21 21-4.3-4.3"></path></svg>
+                <span style="font-size: 12px;">Фильтр по ссылке, методу, статусу…</span>
               </div>
             </div>
             <div style="padding: 6px 14px 4px; font-family: ui-monospace, 'Cascadia Code', 'SF Mono', Consolas, Menlo, monospace; font-size: 11px; letter-spacing: 0.07em; text-transform: uppercase; color: #86868b;">Сегодня</div>
@@ -816,33 +817,36 @@
 
       <div style="flex: 1; min-height: 0; display: flex;">
 
-        <div style="width: 76px; flex: none; background: rgba(255,255,255,0.64); backdrop-filter: blur(20px) saturate(160%); -webkit-backdrop-filter: blur(20px) saturate(160%); border-right: 1px solid rgba(0,0,0,0.05); display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 8px 6px; position: relative;">
-          <button style="width: 32px; height: 32px; border: none; border-radius: 8px; background: transparent; color: #6e6e73; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; margin-bottom: 6px;" style-hover="background: rgba(0,0,0,0.06); color: #1d1d1f;">
-            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M4 6h16"></path><path d="M4 12h16"></path><path d="M4 18h16"></path></svg>
-          </button>
-          <div style="width: 26px; height: 1px; background: rgba(0,0,0,0.12); margin-bottom: 6px;"></div>
-          <button style="width: 100%; padding: 8px 0 6px; border: none; border-radius: 9px; background: transparent; color: #6e6e73; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 4px;" style-hover="background: rgba(0,0,0,0.06); color: #1d1d1f;">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17 17 7"></path><path d="M7 7h10v10"></path></svg>
-            <span style="font-size: 10px; font-weight: 600; letter-spacing: 0.01em; line-height: 1;">Запрос</span>
-          </button>
-          <button style="width: 100%; padding: 8px 0 6px; border: none; border-radius: 9px; background: rgba(0,122,255,0.14); color: #007aff; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 4px; position: relative;">
-            <span style="position: absolute; left: -6px; top: 5px; bottom: 5px; width: 3px; border-radius: 0 3px 3px 0; background: #007aff;"></span>
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="12" cy="12" r="9"></circle><circle cx="12" cy="12" r="1.4"></circle></svg>
-            <span style="font-size: 10px; font-weight: 600; letter-spacing: 0.01em; line-height: 1;">Браузер</span>
-          </button>
-          <button style="width: 100%; padding: 8px 0 6px; border: none; border-radius: 9px; background: transparent; color: #6e6e73; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 4px;" style-hover="background: rgba(0,0,0,0.06); color: #1d1d1f;">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"></path></svg>
-            <span style="font-size: 10px; font-weight: 600; letter-spacing: 0.01em; line-height: 1;">Коллекции</span>
-          </button>
-          <div style="flex: 1;"></div>
-          <button style="width: 32px; height: 32px; border: none; border-radius: 999px; background: transparent; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; position: relative; margin-bottom: 4px;" style-hover="background: rgba(0,0,0,0.06);" title="Аккаунт · ucell.dev@itl.digital">
-            <span style="width: 24px; height: 24px; border-radius: 999px; background: rgba(0,122,255,0.16); color: #007aff; font-size: 10px; font-weight: 700; display: inline-flex; align-items: center; justify-content: center;">UD</span>
-            <span style="position: absolute; bottom: 2px; right: 2px; width: 8px; height: 8px; border-radius: 999px; background: #34c759; box-shadow: 0 0 0 2px #ececef;"></span>
-          </button>
-          <div style="width: 26px; height: 1px; background: rgba(0,0,0,0.12); margin-bottom: 6px;"></div>
-          <button style="width: 32px; height: 32px; border: none; border-radius: 8px; background: transparent; color: #86868b; cursor: pointer; display: inline-flex; align-items: center; justify-content: center;" style-hover="background: rgba(0,0,0,0.06); color: #1d1d1f;" title="Настройки">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M20 7h-9"></path><path d="M14 17H5"></path><circle cx="17" cy="17" r="3"></circle><circle cx="7" cy="7" r="3"></circle></svg>
-          </button>
+        <div style="width: 76px; flex: none; background: rgba(255,255,255,0.64); backdrop-filter: blur(20px) saturate(160%); -webkit-backdrop-filter: blur(20px) saturate(160%); border-right: 1px solid rgba(0,0,0,0.05); display: flex; flex-direction: column; min-height: 0; position: relative;">
+          <div style="flex: 1; min-height: 0; display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 8px 6px;">
+            <button style="width: 32px; height: 32px; border: none; border-radius: 8px; background: transparent; color: #6e6e73; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; margin-bottom: 6px;" style-hover="background: rgba(0,0,0,0.06); color: #1d1d1f;">
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M4 6h16"></path><path d="M4 12h16"></path><path d="M4 18h16"></path></svg>
+            </button>
+            <div style="width: 26px; height: 1px; background: rgba(0,0,0,0.12); margin-bottom: 6px;"></div>
+            <button style="width: 100%; padding: 8px 0 6px; border: none; border-radius: 9px; background: transparent; color: #6e6e73; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 4px;" style-hover="background: rgba(0,0,0,0.06); color: #1d1d1f;">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17 17 7"></path><path d="M7 7h10v10"></path></svg>
+              <span style="font-size: 10px; font-weight: 600; letter-spacing: 0.01em; line-height: 1;">Запрос</span>
+            </button>
+            <button style="width: 100%; padding: 8px 0 6px; border: none; border-radius: 9px; background: rgba(0,122,255,0.14); color: #007aff; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 4px; position: relative;">
+              <span style="position: absolute; left: -6px; top: 5px; bottom: 5px; width: 3px; border-radius: 0 3px 3px 0; background: #007aff;"></span>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="12" cy="12" r="9"></circle><circle cx="12" cy="12" r="1.4"></circle></svg>
+              <span style="font-size: 10px; font-weight: 600; letter-spacing: 0.01em; line-height: 1;">Браузер</span>
+            </button>
+            <button style="width: 100%; padding: 8px 0 6px; border: none; border-radius: 9px; background: transparent; color: #6e6e73; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 4px;" style-hover="background: rgba(0,0,0,0.06); color: #1d1d1f;">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"></path></svg>
+              <span style="font-size: 10px; font-weight: 600; letter-spacing: 0.01em; line-height: 1;">Коллекции</span>
+            </button>
+            <div style="flex: 1;"></div>
+            <button style="width: 32px; height: 32px; border: none; border-radius: 999px; background: transparent; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; position: relative; margin-bottom: 4px;" style-hover="background: rgba(0,0,0,0.06);" title="Аккаунт · ucell.dev@itl.digital">
+              <span style="width: 24px; height: 24px; border-radius: 999px; background: rgba(0,122,255,0.16); color: #007aff; font-size: 10px; font-weight: 700; display: inline-flex; align-items: center; justify-content: center;">UD</span>
+              <span style="position: absolute; bottom: 2px; right: 2px; width: 8px; height: 8px; border-radius: 999px; background: #34c759; box-shadow: 0 0 0 2px #ececef;"></span>
+            </button>
+          </div>
+          <div style="flex: none; height: 40px; display: flex; align-items: center; justify-content: center; border-top: 1px solid rgba(0,0,0,0.08);">
+            <button style="width: 32px; height: 32px; border: none; border-radius: 8px; background: transparent; color: #86868b; cursor: pointer; display: inline-flex; align-items: center; justify-content: center;" style-hover="background: rgba(0,0,0,0.06); color: #1d1d1f;" title="Настройки">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M20 7h-9"></path><path d="M14 17H5"></path><circle cx="17" cy="17" r="3"></circle><circle cx="7" cy="7" r="3"></circle></svg>
+            </button>
+          </div>
         </div>
 
         <div style="width: 288px; flex: none; background: #fff; border-right: 1px solid rgba(0,0,0,0.1); display: flex; flex-direction: column; min-height: 0;">
@@ -852,12 +856,10 @@
           </div>
           <div style="flex: 1; min-height: 0; overflow: hidden; display: flex; flex-direction: column; position: relative;">
             <div style="position: absolute; left: 0; right: 0; bottom: 0; z-index: 4; pointer-events: none;">
-              <div style="height: 26px; background: linear-gradient(to bottom, rgba(255,255,255,0) 0%, rgba(255,255,255,0.03) 10%, rgba(255,255,255,0.1) 20%, rgba(255,255,255,0.22) 30%, rgba(255,255,255,0.35) 40%, rgba(255,255,255,0.5) 50%, rgba(255,255,255,0.65) 60%, rgba(255,255,255,0.5) 70%, rgba(255,255,255,0.9) 80%, rgba(255,255,255,0.97) 90%, #fff 100%);"></div>
-              <div style="padding: 0 8px 8px; background: #fff;">
-                <div style="pointer-events: auto; display: flex; align-items: center; gap: 6px; height: 28px; padding: 0 9px; border-radius: 7px; background: rgba(0,0,0,0.045); color: #86868b; backdrop-filter: blur(12px);">
-                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="11" cy="11" r="8"></circle><path d="m21 21-4.3-4.3"></path></svg>
-                  <span style="font-size: 12px;">Фильтр по ссылке, методу, статусу…</span>
-                </div>
+              <div style="height: 18px; background: linear-gradient(to bottom, rgba(255,255,255,0), #fff);"></div>
+              <div style="pointer-events: auto; height: 40px; display: flex; align-items: center; gap: 6px; padding: 0 14px; background: #fff; border-top: 1px solid rgba(0,0,0,0.08); color: #86868b;">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="11" cy="11" r="8"></circle><path d="m21 21-4.3-4.3"></path></svg>
+                <span style="font-size: 12px;">Фильтр по ссылке, методу, статусу…</span>
               </div>
             </div>
 
@@ -901,12 +903,6 @@
 
         <div style="flex: 1; min-width: 0; display: flex; flex-direction: column; background: #fff;">
 
-          <div style="flex: none; height: 38px; display: flex; align-items: center; gap: 10px; padding: 0 16px; border-bottom: 1px solid rgba(0,0,0,0.1); background: #f2f2f7;">
-            <span style="font-size: 11.5px; color: #6e6e73; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">Источник: вкладка «Столы для гостиной — Ucell»</span>
-            <div style="flex: 1;"></div>
-            <span style="font-size: 11.5px; color: #86868b;">Только чтение — запросы уже выполнены</span>
-            <button style="height: 24px; padding: 0 9px; border-radius: 6px; border: 1px solid rgba(0,0,0,0.16); background: #fff; color: #1d1d1f; font: inherit; font-size: 11.5px; cursor: pointer;" style-hover="background: rgba(0,0,0,0.05);">Приостановить перехват</button>
-          </div>
 
           <div style="position: relative; z-index: 6; flex: none; min-height: 44px; display: flex; align-items: center; gap: 10px; padding: 8px 16px; border-bottom: 1px solid rgba(0,0,0,0.1); background: #fff;">
             <button style="flex: none; width: 24px; height: 24px; border-radius: 6px; border: 1px solid rgba(0,0,0,0.16); background: #fff; color: #6e6e73; cursor: pointer; display: inline-flex; align-items: center; justify-content: center;" style-hover="background: rgba(0,0,0,0.05); color: #1d1d1f;">
@@ -915,14 +911,14 @@
             <span style="flex: none; font-family: ui-monospace, 'Cascadia Code', 'SF Mono', Consolas, Menlo, monospace; font-size: 11px; font-weight: 600; color: #1e8e3e; padding: 2px 7px; border-radius: 5px; background: rgba(52,199,89,0.16);">GET</span>
             <span style="flex: none; padding: 1px 7px; border-radius: 4px; background: rgba(52,199,89,0.14); color: #1e8e3e; font-size: 11px; font-weight: 600;">200</span>
             <span style="flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: ui-monospace, 'Cascadia Code', 'SF Mono', Consolas, Menlo, monospace; font-size: 12.5px; color: #1d1d1f;">api.retail.itl.systems/v1/products</span>
+            <div style="flex: 1;"></div>
             <button onClick="{{ toggleBParams }}" style="flex: none; height: 22px; padding: 0 8px; border-radius: 6px; border: 1px solid rgba(0,0,0,0.28); background: #f2f2f7; color: #1d1d1f; font: inherit; font-size: 11px; cursor: pointer; display: inline-flex; align-items: center; gap: 4px;" style-hover="border-color: rgba(0,0,0,0.28); color: #1d1d1f;">
               <span>Параметры</span><span style="font-family: ui-monospace, 'Cascadia Code', 'SF Mono', Consolas, Menlo, monospace; font-weight: 600; color: #007aff;">6</span>
             </button>
-            <div style="flex: 1;"></div>
             <span style="flex: none; font-size: 11.5px; color: #86868b; font-variant-numeric: tabular-nums;">742 мс · 35,1 КБ</span>
 
             <sc-if value="{{ bparamsOpen }}" hint-placeholder-val="{{ true }}">
-              <div style="position: absolute; top: 46px; left: 96px; width: 560px; background: rgba(255,255,255,0.8); backdrop-filter: blur(26px) saturate(180%); -webkit-backdrop-filter: blur(26px) saturate(180%); border: 1px solid rgba(0,0,0,0.07); border-radius: 10px; box-shadow: inset 0 1px 0 rgba(255,255,255,0.85), 0 12px 32px rgba(0,0,0,0.16); padding: 10px; z-index: 20;">
+              <div style="position: absolute; top: 46px; right: 16px; width: 560px; background: rgba(255,255,255,0.8); backdrop-filter: blur(26px) saturate(180%); -webkit-backdrop-filter: blur(26px) saturate(180%); border: 1px solid rgba(0,0,0,0.07); border-radius: 10px; box-shadow: inset 0 1px 0 rgba(255,255,255,0.85), 0 12px 32px rgba(0,0,0,0.16); padding: 10px; z-index: 20;">
                 <div style="display: flex; align-items: center; gap: 8px; padding: 2px 4px 8px;">
                   <span style="font-size: 12px; font-weight: 600;">Параметры запроса</span>
                   <span style="font-family: ui-monospace, 'Cascadia Code', 'SF Mono', Consolas, Menlo, monospace; font-size: 11px; color: #86868b;">6</span>
@@ -1074,11 +1070,32 @@
         </div>
       </div>
 
-      <div style="height: 28px; flex: none; background: rgba(255,255,255,0.64); backdrop-filter: blur(20px) saturate(160%); -webkit-backdrop-filter: blur(20px) saturate(160%); border-top: 1px solid rgba(0,0,0,0.05); display: flex; align-items: center; gap: 10px; padding: 0 14px;">
-        <span style="width: 7px; height: 7px; border-radius: 999px; background: #ff3b30;"></span>
+<div style="height: 28px; flex: none; background: rgba(255,255,255,0.64); backdrop-filter: blur(20px) saturate(160%); -webkit-backdrop-filter: blur(20px) saturate(160%); border-top: 1px solid rgba(0,0,0,0.05); display: flex; align-items: center; gap: 6px; padding: 0 8px 0 14px;">
+        <span style="width: 7px; height: 7px; border-radius: 999px; background: #ff3b30; flex: none;"></span>
         <span style="font-size: 11.5px; color: #6e6e73;">Запись · Chrome · 2 вкладки под перехватом</span>
+        <span style="width: 1px; height: 14px; background: rgba(0,0,0,0.1); margin: 0 4px; flex: none;"></span>
+<sc-if value="{{ capturePaused }}" hint-placeholder-val="{{ false }}">
+          <button onClick="{{ toggleCapturePaused }}" style="width: 24px; height: 24px; border: none; border-radius: 6px; background: transparent; color: #ff9500; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; flex: none;" style-hover="background: rgba(0,0,0,0.08);" title="Возобновить перехват">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor" stroke="none"><path d="M7 5v14l12-7Z"></path></svg>
+          </button>
+        </sc-if>
+        <sc-if value="{{ captureActive }}" hint-placeholder-val="{{ true }}">
+          <button onClick="{{ toggleCapturePaused }}" style="width: 24px; height: 24px; border: none; border-radius: 6px; background: transparent; color: #86868b; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; flex: none;" style-hover="background: rgba(0,0,0,0.08); color: #1d1d1f;" title="Приостановить перехват">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor" stroke="none"><rect x="6" y="5" width="4" height="14" rx="1"></rect><rect x="14" y="5" width="4" height="14" rx="1"></rect></svg>
+          </button>
+        </sc-if>
         <div style="flex: 1;"></div>
         <span style="font-size: 11.5px; color: #6e6e73;">JSON:API 1.0 · 6 + 94 ресурса</span>
+        <span style="width: 1px; height: 14px; background: rgba(0,0,0,0.1); margin: 0 4px; flex: none;"></span>
+        <button style="width: 20px; height: 20px; border: none; border-radius: 5px; background: transparent; color: #86868b; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; flex: none;" style-hover="background: rgba(0,0,0,0.08); color: #1d1d1f;" title="Показать список слева">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"></rect><rect x="3" y="4" width="7" height="16" rx="1" fill="currentColor" fill-opacity="0.35" stroke="none"></rect></svg>
+        </button>
+        <button style="width: 20px; height: 20px; border: none; border-radius: 5px; background: transparent; color: #86868b; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; flex: none;" style-hover="background: rgba(0,0,0,0.08); color: #1d1d1f;" title="Показать список справа">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"></rect><rect x="14" y="4" width="7" height="16" rx="1" fill="currentColor" fill-opacity="0.35" stroke="none"></rect></svg>
+        </button>
+        <button style="width: 20px; height: 20px; border: none; border-radius: 5px; background: transparent; color: #86868b; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; flex: none;" style-hover="background: rgba(0,0,0,0.08); color: #1d1d1f;" title="Скрыть список">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" stroke-linecap="round"><rect x="3" y="4" width="18" height="16" rx="2"></rect><path d="M4 5l16 14"></path></svg>
+        </button>
       </div>
     </div>
 
@@ -1149,9 +1166,19 @@
         </div>
       </div>
       </div>
-      <div style="height: 28px; flex: none; background: rgba(255,255,255,0.64); backdrop-filter: blur(20px) saturate(160%); -webkit-backdrop-filter: blur(20px) saturate(160%); border-top: 1px solid rgba(0,0,0,0.05); display: flex; align-items: center; gap: 10px; padding: 0 14px;">
+      <div style="height: 28px; flex: none; background: rgba(255,255,255,0.64); backdrop-filter: blur(20px) saturate(160%); -webkit-backdrop-filter: blur(20px) saturate(160%); border-top: 1px solid rgba(0,0,0,0.05); display: flex; align-items: center; gap: 10px; padding: 0 8px 0 14px;">
         <span style="width: 7px; height: 7px; border-radius: 999px; background: #ff9500;"></span>
         <span style="font-size: 11.5px; color: #6e6e73;">Перехват не запущен · ожидание расширения</span>
+        <div style="flex: 1;"></div>
+        <button style="width: 20px; height: 20px; border: none; border-radius: 5px; background: transparent; color: #86868b; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; flex: none;" style-hover="background: rgba(0,0,0,0.08); color: #1d1d1f;" title="Показать список слева">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"></rect><rect x="3" y="4" width="7" height="16" rx="1" fill="currentColor" fill-opacity="0.35" stroke="none"></rect></svg>
+        </button>
+        <button style="width: 20px; height: 20px; border: none; border-radius: 5px; background: transparent; color: #86868b; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; flex: none;" style-hover="background: rgba(0,0,0,0.08); color: #1d1d1f;" title="Показать список справа">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"></rect><rect x="14" y="4" width="7" height="16" rx="1" fill="currentColor" fill-opacity="0.35" stroke="none"></rect></svg>
+        </button>
+        <button style="width: 20px; height: 20px; border: none; border-radius: 5px; background: transparent; color: #86868b; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; flex: none;" style-hover="background: rgba(0,0,0,0.08); color: #1d1d1f;" title="Скрыть список">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" stroke-linecap="round"><rect x="3" y="4" width="18" height="16" rx="2"></rect><path d="M4 5l16 14"></path></svg>
+        </button>
       </div>
     </div>
 
@@ -1387,7 +1414,7 @@
                 <span style="position: absolute; top: 3px; left: 19px; width: 18px; height: 18px; border-radius: 999px; background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,0.25);"></span>
               </span>
             </div>
-            <div style="display: flex; align-items: center; gap: 12px; padding: 10px 2px; border-top: 1px solid rgba(0,0,0,0.08); border-bottom: 1px solid rgba(0,0,0,0.08);">
+            <div style="display: flex; align-items: center; gap: 12px; padding: 10px 2px; border-top: 1px solid rgba(0,0,0,0.08);">
               <div style="flex: 1; display: flex; flex-direction: column; gap: 2px;">
                 <div style="font-size: 13px; font-weight: 600;">Только XHR и fetch</div>
                 <div style="font-size: 11.5px; color: #6e6e73;">Пропускать картинки, стили и шрифты</div>
@@ -1396,10 +1423,19 @@
                 <span style="position: absolute; top: 3px; left: 19px; width: 18px; height: 18px; border-radius: 999px; background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,0.25);"></span>
               </span>
             </div>
+            <div style="display: flex; align-items: center; gap: 12px; padding: 10px 2px; border-top: 1px solid rgba(0,0,0,0.08); border-bottom: 1px solid rgba(0,0,0,0.08);">
+              <div style="flex: 1; display: flex; flex-direction: column; gap: 2px;">
+                <div style="font-size: 13px; font-weight: 600;">Чистить историю при выходе</div>
+                <div style="font-size: 11.5px; color: #6e6e73;">Не хранить перехваченные тела запросов</div>
+              </div>
+              <span style="width: 40px; height: 24px; flex: none; border-radius: 999px; background: rgba(0,0,0,0.16); position: relative; cursor: pointer;">
+                <span style="position: absolute; top: 3px; left: 3px; width: 18px; height: 18px; border-radius: 999px; background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,0.25);"></span>
+              </span>
+            </div>
             <div style="padding-top: 10px; font-family: ui-monospace, 'Cascadia Code', 'SF Mono', Consolas, Menlo, monospace; font-size: 10.5px; color: #86868b;">Версия 1.4.2 · сборка 218</div>
           </div>
         </div>
-        <div style="font-size: 12.5px; line-height: 1.5; color: #6e6e73;"><span style="color: #1d1d1f; font-weight: 600;">Настройки.</span> Всё, что настраивают один раз: порт, память вкладок, фильтр типов.</div>
+        <div style="font-size: 12.5px; line-height: 1.5; color: #6e6e73;"><span style="color: #1d1d1f; font-weight: 600;">Настройки.</span> Всё, что настраивают один раз: порт, память вкладок, фильтр типов, приватность.</div>
       </div>
 
     </div>
@@ -1711,34 +1747,37 @@
       </div>
 
       <div style="flex: 1; min-height: 0; display: flex;">
-        <div style="width: 76px; flex: none; background: rgba(255,255,255,0.64); backdrop-filter: blur(20px) saturate(160%); -webkit-backdrop-filter: blur(20px) saturate(160%); border-right: 1px solid rgba(0,0,0,0.05); display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 8px 6px; position: relative;">
-          <button style="width: 32px; height: 32px; border: none; border-radius: 8px; background: transparent; color: #6e6e73; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; margin-bottom: 6px;" style-hover="background: rgba(0,0,0,0.06); color: #1d1d1f;">
-            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M4 6h16"></path><path d="M4 12h16"></path><path d="M4 18h16"></path></svg>
-          </button>
-          <div style="width: 26px; height: 1px; background: rgba(0,0,0,0.12); margin-bottom: 6px;"></div>
-          <button style="width: 100%; padding: 8px 0 6px; border: none; border-radius: 9px; background: transparent; color: #6e6e73; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 4px;" style-hover="background: rgba(0,0,0,0.06); color: #1d1d1f;">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17 17 7"></path><path d="M7 7h10v10"></path></svg>
-            <span style="font-size: 10px; font-weight: 600; letter-spacing: 0.01em; line-height: 1;">Запрос</span>
-          </button>
-          <button style="width: 100%; padding: 8px 0 6px; border: none; border-radius: 9px; background: transparent; color: #6e6e73; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 4px; position: relative;" style-hover="background: rgba(0,0,0,0.06); color: #1d1d1f;">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="12" cy="12" r="9"></circle><circle cx="12" cy="12" r="1.4"></circle></svg>
-            <span style="font-size: 10px; font-weight: 600; letter-spacing: 0.01em; line-height: 1;">Браузер</span>
-            <span style="position: absolute; top: 3px; right: 10px; min-width: 15px; height: 15px; padding: 0 4px; border-radius: 999px; background: #ff3b30; color: #fff; font-size: 9.5px; font-weight: 700; display: inline-flex; align-items: center; justify-content: center; box-shadow: 0 0 0 2px #ececef;">3</span>
-          </button>
-          <button style="width: 100%; padding: 8px 0 6px; border: none; border-radius: 9px; background: rgba(0,122,255,0.14); color: #007aff; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 4px; position: relative;">
-            <span style="position: absolute; left: -6px; top: 5px; bottom: 5px; width: 3px; border-radius: 0 3px 3px 0; background: #007aff;"></span>
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"></path></svg>
-            <span style="font-size: 10px; font-weight: 600; letter-spacing: 0.01em; line-height: 1;">Коллекции</span>
-          </button>
-          <div style="flex: 1;"></div>
-          <button style="width: 32px; height: 32px; border: none; border-radius: 999px; background: transparent; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; position: relative; margin-bottom: 4px;" style-hover="background: rgba(0,0,0,0.06);" title="Аккаунт · ucell.dev@itl.digital">
-            <span style="width: 24px; height: 24px; border-radius: 999px; background: rgba(0,122,255,0.16); color: #007aff; font-size: 10px; font-weight: 700; display: inline-flex; align-items: center; justify-content: center;">UD</span>
-            <span style="position: absolute; bottom: 2px; right: 2px; width: 8px; height: 8px; border-radius: 999px; background: #34c759; box-shadow: 0 0 0 2px #ececef;"></span>
-          </button>
-          <div style="width: 26px; height: 1px; background: rgba(0,0,0,0.12); margin-bottom: 6px;"></div>
-          <button style="width: 32px; height: 32px; border: none; border-radius: 8px; background: transparent; color: #86868b; cursor: pointer; display: inline-flex; align-items: center; justify-content: center;" style-hover="background: rgba(0,0,0,0.06); color: #1d1d1f;" title="Настройки">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M20 7h-9"></path><path d="M14 17H5"></path><circle cx="17" cy="17" r="3"></circle><circle cx="7" cy="7" r="3"></circle></svg>
-          </button>
+        <div style="width: 76px; flex: none; background: rgba(255,255,255,0.64); backdrop-filter: blur(20px) saturate(160%); -webkit-backdrop-filter: blur(20px) saturate(160%); border-right: 1px solid rgba(0,0,0,0.05); display: flex; flex-direction: column; min-height: 0; position: relative;">
+          <div style="flex: 1; min-height: 0; display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 8px 6px;">
+            <button style="width: 32px; height: 32px; border: none; border-radius: 8px; background: transparent; color: #6e6e73; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; margin-bottom: 6px;" style-hover="background: rgba(0,0,0,0.06); color: #1d1d1f;">
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M4 6h16"></path><path d="M4 12h16"></path><path d="M4 18h16"></path></svg>
+            </button>
+            <div style="width: 26px; height: 1px; background: rgba(0,0,0,0.12); margin-bottom: 6px;"></div>
+            <button style="width: 100%; padding: 8px 0 6px; border: none; border-radius: 9px; background: transparent; color: #6e6e73; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 4px;" style-hover="background: rgba(0,0,0,0.06); color: #1d1d1f;">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17 17 7"></path><path d="M7 7h10v10"></path></svg>
+              <span style="font-size: 10px; font-weight: 600; letter-spacing: 0.01em; line-height: 1;">Запрос</span>
+            </button>
+            <button style="width: 100%; padding: 8px 0 6px; border: none; border-radius: 9px; background: transparent; color: #6e6e73; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 4px; position: relative;" style-hover="background: rgba(0,0,0,0.06); color: #1d1d1f;">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="12" cy="12" r="9"></circle><circle cx="12" cy="12" r="1.4"></circle></svg>
+              <span style="font-size: 10px; font-weight: 600; letter-spacing: 0.01em; line-height: 1;">Браузер</span>
+              <span style="position: absolute; top: 3px; right: 10px; min-width: 15px; height: 15px; padding: 0 4px; border-radius: 999px; background: #ff3b30; color: #fff; font-size: 9.5px; font-weight: 700; display: inline-flex; align-items: center; justify-content: center; box-shadow: 0 0 0 2px #ececef;">3</span>
+            </button>
+            <button style="width: 100%; padding: 8px 0 6px; border: none; border-radius: 9px; background: rgba(0,122,255,0.14); color: #007aff; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 4px; position: relative;">
+              <span style="position: absolute; left: -6px; top: 5px; bottom: 5px; width: 3px; border-radius: 0 3px 3px 0; background: #007aff;"></span>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"></path></svg>
+              <span style="font-size: 10px; font-weight: 600; letter-spacing: 0.01em; line-height: 1;">Коллекции</span>
+            </button>
+            <div style="flex: 1;"></div>
+            <button style="width: 32px; height: 32px; border: none; border-radius: 999px; background: transparent; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; position: relative; margin-bottom: 4px;" style-hover="background: rgba(0,0,0,0.06);" title="Аккаунт · ucell.dev@itl.digital">
+              <span style="width: 24px; height: 24px; border-radius: 999px; background: rgba(0,122,255,0.16); color: #007aff; font-size: 10px; font-weight: 700; display: inline-flex; align-items: center; justify-content: center;">UD</span>
+              <span style="position: absolute; bottom: 2px; right: 2px; width: 8px; height: 8px; border-radius: 999px; background: #34c759; box-shadow: 0 0 0 2px #ececef;"></span>
+            </button>
+          </div>
+          <div style="flex: none; height: 40px; display: flex; align-items: center; justify-content: center; border-top: 1px solid rgba(0,0,0,0.08);">
+            <button style="width: 32px; height: 32px; border: none; border-radius: 8px; background: transparent; color: #86868b; cursor: pointer; display: inline-flex; align-items: center; justify-content: center;" style-hover="background: rgba(0,0,0,0.06); color: #1d1d1f;" title="Настройки">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M20 7h-9"></path><path d="M14 17H5"></path><circle cx="17" cy="17" r="3"></circle><circle cx="7" cy="7" r="3"></circle></svg>
+            </button>
+          </div>
         </div>
 
         <div style="width: 288px; flex: none; background: #fff; border-right: 1px solid rgba(0,0,0,0.1); display: flex; flex-direction: column; min-height: 0; position: relative;">
@@ -1750,12 +1789,10 @@
           </div>
           <div style="flex: 1; min-height: 0; overflow: hidden; display: flex; flex-direction: column; position: relative;">
             <div style="position: absolute; left: 0; right: 0; bottom: 0; z-index: 4; pointer-events: none;">
-              <div style="height: 26px; background: linear-gradient(to bottom, rgba(255,255,255,0) 0%, rgba(255,255,255,0.5) 50%, #fff 100%);"></div>
-              <div style="padding: 0 8px 8px; background: #fff;">
-                <div style="pointer-events: auto; display: flex; align-items: center; gap: 6px; height: 28px; padding: 0 9px; border-radius: 7px; background: rgba(0,0,0,0.045); color: #86868b; backdrop-filter: blur(12px);">
-                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="11" cy="11" r="8"></circle><path d="m21 21-4.3-4.3"></path></svg>
-                  <span style="font-size: 12px;">Поиск по коллекции…</span>
-                </div>
+              <div style="height: 18px; background: linear-gradient(to bottom, rgba(255,255,255,0), #fff);"></div>
+              <div style="pointer-events: auto; height: 40px; display: flex; align-items: center; gap: 6px; padding: 0 14px; background: #fff; border-top: 1px solid rgba(0,0,0,0.08); color: #86868b;">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="11" cy="11" r="8"></circle><path d="m21 21-4.3-4.3"></path></svg>
+                <span style="font-size: 12px;">Поиск по коллекции…</span>
               </div>
             </div>
 
@@ -3791,6 +3828,9 @@ class Component extends DCLogic {
       bparamsOpen: this.state.bparams !== false,
       toggleBParams: () => this.setState({ bparams: this.state.bparams === false }),
       closeBParams: () => this.setState({ bparams: false }),
+      capturePaused: !!this.state.capturePaused,
+      captureActive: !this.state.capturePaused,
+      toggleCapturePaused: () => this.setState({ capturePaused: !this.state.capturePaused }),
       includeChips: ['attributes', 'attribute_values', 'articles', 'prices', 'media', 'category', 'brand'],
       fieldChips: ['id', 'title', 'price', 'thumbnail'],
       history: [

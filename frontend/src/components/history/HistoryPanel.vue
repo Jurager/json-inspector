@@ -311,15 +311,18 @@ watch(() => [store.focusTabId, store.records.length, props.sourceKind] as const,
 @reference "../../style.css";
 
 .history-panel {
-  @apply relative flex flex-col h-full min-h-0 bg-bg-panel border-r border-border;
+  /* The seam against the content belongs to the panel's frame, which knows which edge it is on. */
+  @apply relative flex flex-col h-full min-h-0 bg-bg-panel;
 }
 
+/* 40px, like the collection tree's: the rail's own header and footer are strips of that height, and
+   the three hairlines across the window — panel, rail, filter — are drawn on one line. */
 .panel-head {
-  @apply flex items-center justify-between h-12 px-2 pl-3.5 border-b border-border;
+  @apply flex items-center justify-between h-10 px-2 pl-3.5 border-b border-border;
 }
 
 .panel-title {
-  @apply text-sm font-semibold text-text-secondary;
+  @apply text-[12px] font-semibold text-text-secondary;
 }
 
 .date-sep {
@@ -327,7 +330,7 @@ watch(() => [store.focusTabId, store.records.length, props.sourceKind] as const,
 }
 
 .no-results {
-  @apply pt-4 px-4 pb-23 text-center text-text-tertiary text-xs;
+  @apply pt-4 px-4 pb-[58px] text-center text-text-tertiary text-xs;
 }
 
 .empty {
@@ -343,7 +346,8 @@ watch(() => [store.focusTabId, store.records.length, props.sourceKind] as const,
 }
 
 .list {
-  @apply flex-1 min-h-0 overflow-auto pt-1.5 px-1.5 pb-23;
+  /* The tail leaves room for the filter dock — its 40px strip and the 18px fade above it. */
+  @apply flex-1 min-h-0 overflow-auto pt-1.5 px-1.5 pb-[58px];
 }
 
 .group {

@@ -618,7 +618,8 @@ function cancelTop(): boolean {
 @reference "../../style.css";
 
 .tree-panel {
-  @apply relative flex flex-col h-full min-h-0 bg-bg-panel border-r border-border;
+  /* The seam against the content belongs to the panel's frame, which knows which edge it is on. */
+  @apply relative flex flex-col h-full min-h-0 bg-bg-panel;
 }
 
 .panel-head {
@@ -633,7 +634,8 @@ function cancelTop(): boolean {
    hover fill off the header's line — a second 4px here would leave the first row 25px under that
    line where every row below a divider has 18. */
 .tree-scroll {
-  @apply flex-1 min-h-0 overflow-y-auto pb-23;
+  /* The tail leaves room for the filter dock — its 40px strip and the 18px fade above it. */
+  @apply flex-1 min-h-0 overflow-y-auto pb-[58px];
 }
 
 .row {

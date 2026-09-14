@@ -26,7 +26,7 @@ export function useRecordEvents(
       // check against a stray `capture-disconnected` for a since-replaced socket (see server.go).
       Events.On('record:added', (ev) => {
         if (ev.data.source === RecordSource.SourceBrowser) {
-          store.setCaptureState({ connected: true, recording: true })
+          store.setCaptureState({ connected: true, recording: true, paused: false })
         }
         store.addIngested(ev.data)
       }),

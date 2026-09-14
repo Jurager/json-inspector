@@ -310,6 +310,9 @@ function sendState() {
       JSON.stringify({
         type: 'state',
         recording: connected && captureTabIds.size > 0,
+        // Whether capture is held down is ours to know: a paused capture and a connected extension
+        // with nothing under it both report no tabs.
+        paused,
         tabs: captureTabIds.size,
         browser: 'Chrome',
       })

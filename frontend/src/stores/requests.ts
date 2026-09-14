@@ -44,6 +44,7 @@ const FLUSH_MS = 400
 interface CaptureState {
   connected: boolean
   recording: boolean
+  paused: boolean
   tabs: number
 }
 
@@ -69,7 +70,7 @@ export const useRequestsStore = defineStore('requests', {
     // collection run sends through the same path, and its records belong in history, not in the
     // command line's pane.
     mine: [] as string[],
-    capture: { connected: false, recording: false, tabs: 0 } as CaptureState,
+    capture: { connected: false, recording: false, paused: false, tabs: 0 } as CaptureState,
 
     // ---- the draft -------------------------------------------------------
     draft: null as Draft | null,

@@ -19,6 +19,7 @@ export interface LayoutPatch {
     "inspectorOpen"?: boolean | null;
     "inspectorWidth"?: number | null;
     "sideWidth"?: number | null;
+    "listSide"?: domain$0.ListSide | null;
 }
 
 /**

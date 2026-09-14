@@ -190,6 +190,37 @@ func TestSetLayoutWritesOnlyWhatItIsGiven(t *testing.T) {
 	}
 }
 
+// The side of the list is a choice, not a measurement: a value the window cannot lay out is refused
+// rather than clamped, because "hidden-ish" would leave the panel somewhere nobody asked for.
+func TestSetLayoutRefusesAnUnknownListSide(t *testing.T) {
+	uc, store, _ := newUseCase()
+	ctx := context.Background()
+
+	side := domain.ListSideRight
+	got, err := uc.SetLayout(ctx, LayoutPatch{ListSide: &side})
+	if err != nil {
+		t.Fatalf("SetLayout: %v", err)
+	}
+	if got.ListSide != domain.ListSideRight {
+		t.Errorf("listSide = %q, want right back", got.ListSide)
+	}
+	if store[domain.SettingListSide] != "right" {
+		t.Errorf("stored listSide = %q, want right", store[domain.SettingListSide])
+	}
+
+	bad := domain.ListSide("middle")
+	_, err = uc.SetLayout(ctx, LayoutPatch{ListSide: &bad})
+	if !errors.Is(err, domain.ErrNotAllowed) {
+		t.Errorf("unknown side = %v, want ErrNotAllowed", err)
+	}
+	if code := domain.CodeOf(err); code != domain.CodeUnknownListSide {
+		t.Errorf("code = %q, want %q", code, domain.CodeUnknownListSide)
+	}
+	if store[domain.SettingListSide] != "right" {
+		t.Errorf("stored listSide = %q, want the refusal to leave it alone", store[domain.SettingListSide])
+	}
+}
+
 func TestSetRetentionValidates(t *testing.T) {
 	uc, store, _ := newUseCase()
 	ctx := context.Background()

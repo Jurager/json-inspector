@@ -23,9 +23,13 @@ type CapturedRequest struct {
 	DownloadMs      int64             `json:"downloadMs,omitempty"`
 }
 
+// CaptureState is what the extension says about itself. Paused is the extension's own fact and not
+// something the app can read off the other fields: a paused capture and a connected extension with
+// no tab under it look the same — nothing recorded, nothing to count.
 type CaptureState struct {
 	Type      string `json:"type"`
 	Recording bool   `json:"recording"`
+	Paused    bool   `json:"paused"`
 	Tabs      int    `json:"tabs"`
 	Browser   string `json:"browser"`
 }

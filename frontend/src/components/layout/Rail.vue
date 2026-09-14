@@ -103,7 +103,9 @@ async function selectSource(view: RailView) {
       :style="{ transform: `translateY(${marker.y}px)`, height: `${marker.height}px` }"
     ></span>
 
-    <div class="rail-menu-wrap">
+    <!-- The hamburger is the rail's header, as the gear is its footer: the same 40px strip, and its
+         hairline carries on the panel's header line the way the footer's carries on the filter's. -->
+    <div class="rail-head">
       <DropdownMenu>
         <DropdownMenuTrigger as-child>
           <IconButton variant="bare" size="lg" :title="t('rail.menu')">
@@ -125,32 +127,31 @@ async function selectSource(view: RailView) {
       </DropdownMenu>
     </div>
 
-    <div class="rail-divider"></div>
+    <div class="rail-body">
+      <button
+        v-for="item in RAIL_ITEMS"
+        :key="item.view"
+        ref="tiles"
+        class="rail-item"
+        :class="{ active: store.activeView === item.view }"
+        @click="selectSource(item.view)"
+      >
+        <span class="rail-icon"><Icon :name="item.icon" :size="18" /></span>
+        <span class="rail-label">{{ t(item.label) }}</span>
+        <span v-if="item.view === 'browser' && store.unreadCount > 0" class="rail-badge">
+          {{ store.unreadCount }}
+        </span>
+      </button>
 
-    <button
-      v-for="item in RAIL_ITEMS"
-      :key="item.view"
-      ref="tiles"
-      class="rail-item"
-      :class="{ active: store.activeView === item.view }"
-      @click="selectSource(item.view)"
-    >
-      <span class="rail-icon"><Icon :name="item.icon" :size="18" /></span>
-      <span class="rail-label">{{ t(item.label) }}</span>
-      <span v-if="item.view === 'browser' && store.unreadCount > 0" class="rail-badge">
-        {{ store.unreadCount }}
-      </span>
-    </button>
+      <div class="rail-spacer"></div>
+    </div>
 
-    <div class="rail-spacer"></div>
-
-    <IconButton
-      variant="subtle"
-      size="lg"
-      :hint="t('rail.settings')"
-      @click="openSettings()"
-    >
-      <Icon name="settings-2" :size="16" :stroke-width="1.6" />
-    </IconButton>
+    <!-- Settings has a footer of its own: it is not the last thing in the rail's list of sources but
+         the door out of it, and the strip puts it on the same line as the list panel's filter. -->
+    <div class="rail-footer">
+      <IconButton variant="subtle" size="lg" :hint="t('rail.settings')" @click="openSettings()">
+        <Icon name="settings-2" :size="16" :stroke-width="1.6" />
+      </IconButton>
+    </div>
   </aside>
 </template>

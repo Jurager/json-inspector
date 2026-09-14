@@ -41,6 +41,7 @@ const (
 	CodeIntoItself         Code = "intoItself"
 	CodeUnknownTheme       Code = "unknownTheme"
 	CodeUnknownLanguage    Code = "unknownLanguage"
+	CodeUnknownListSide    Code = "unknownListSide"
 	CodeUnknownRetention   Code = "unknownRetention"
 )
 

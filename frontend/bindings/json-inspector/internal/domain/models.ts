@@ -132,6 +132,7 @@ export enum Code {
     CodeIntoItself = "intoItself",
     CodeUnknownTheme = "unknownTheme",
     CodeUnknownLanguage = "unknownLanguage",
+    CodeUnknownListSide = "unknownListSide",
     CodeUnknownRetention = "unknownRetention",
 };
 
@@ -403,6 +404,22 @@ export enum Language {
 };
 
 /**
+ * ListSide is where the list panel lives: the same panel, told to sit at either edge of the work
+ * area, or to stay out of it. Hiding is a choice of the user's rather than the absence of one — a
+ * window whose list is put away was arranged that way, and is not a window that never had a list.
+ */
+export enum ListSide {
+    /**
+     * The Go zero value for the underlying type of the enum.
+     */
+    $zero = "",
+
+    ListSideLeft = "left",
+    ListSideRight = "right",
+    ListSideHidden = "hidden",
+};
+
+/**
  * Record is a summary plus everything the response pane shows. The summary is embedded rather than
  * copied, so the two can never disagree about which request this is.
  */
@@ -582,6 +599,7 @@ export interface Settings {
     "inspectorOpen": boolean;
     "inspectorWidth": number;
     "sideWidth": number;
+    "listSide": ListSide;
     "historyRetention": Retention;
 }
 
