@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
 import { t as tr } from '../i18n'
 import { bodyMissing, recordView, type RecordBodies, type RecordView } from '../lib/requestRecord'
+import { takeAnswer } from '../lib/earlyAnswers'
 import {
   BodyKind,
   BodySide,
@@ -458,16 +459,23 @@ export const useRequestsStore = defineStore('requests', {
       await this.flush()
       this.loading = true
       const id = await RecordsService.Send(DRAFT)
+      // The answer can be back before this call is, and the claim has already adopted it and turned
+      // the spinner off: putting the id back would leave the button waiting for what it just got.
       this.claim(id)
-      // The record can outrun the call that asked for it: if it has already arrived, the spinner is
-      // off and putting the id back would leave the button waiting for what it just got.
       if (this.loading) this.pendingId = id
     },
 
     // The attempt becomes this pane's: the answer to it will be adopted, and an answer to anything
-    // else — a run's request — will not.
+    // else — a run's request — will not. An answer that was already here when this ran — one that
+    // arrived while the call that started the attempt was still on its way back — is adopted now,
+    // because this is the first moment the two can be joined. See lib/earlyAnswers: without it the
+    // spinner would wait for what has already come.
     claim(id: string) {
       this.mine = [id, ...this.mine].slice(0, 20)
+      const early = takeAnswer(id)
+      if (!early) return
+      if ('failed' in early) this.failSend()
+      else void this.finishSend(early.record)
     },
 
     // A request that is not the draft: following a link out of a response must not disturb what is

@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
 import { bodyMissing, recordView, type RecordBodies, type RecordView } from '../lib/requestRecord'
 import { findCollection, holderOf, requestCount, trailOf, type Trail } from '../lib/collectionTree'
+import { takeAnswer } from '../lib/earlyAnswers'
 import type { ChipName } from '../lib/requestSource'
 import { t as tr } from '../i18n'
 import {
@@ -562,10 +563,23 @@ export const useCollectionsStore = defineStore('collections', {
       if (!id) return
       this.loading = true
       const sent = await RecordsService.Send(id)
-      this.mine = [sent, ...this.mine].slice(0, 20)
-      // The record can outrun the call that asked for it: putting the id back would leave the button
-      // waiting for what it just got.
+      // The answer can be back before this call is, and this claim has already adopted it and turned
+      // the spinner off by then: putting the id back would leave the button waiting for what it just
+      // got.
+      this.claim(sent)
       if (this.loading) this.pendingId = sent
+    },
+
+    // The attempt becomes the card's, and an answer that was already here — one that arrived while
+    // the call that started the attempt was still on its way back — is adopted now, because this is
+    // the first moment the two can be joined. See lib/earlyAnswers: without it the spinner would
+    // wait for what has already come.
+    claim(id: string) {
+      this.mine = [id, ...this.mine].slice(0, 20)
+      const early = takeAnswer(id)
+      if (!early) return
+      if ('failed' in early) this.failSend()
+      else void this.finishSend(early.record)
     },
 
     async cancel() {

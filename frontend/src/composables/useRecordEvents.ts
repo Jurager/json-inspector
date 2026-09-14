@@ -5,6 +5,7 @@ import { useRequestsStore } from '../stores/requests'
 import { useCollectionsStore } from '../stores/collections'
 import { useToast } from './useToast'
 import { refusalText, t as tr } from '../i18n'
+import { holdAnswer } from '../lib/earlyAnswers'
 
 // What Go publishes about history and about the attempts that fill it. The payload types come from
 // the generated bindings, so a field renamed on that side is a compile error here.
@@ -31,24 +32,28 @@ export function useRecordEvents(
         store.addIngested(ev.data)
       }),
 
-      // The attempt a pane started has come back, and it carries the record history keeps.
+      // The attempt a pane started has come back, and it carries the record history keeps. A pane
+      // that does not know this id yet is one whose send is still on its way back from the call that
+      // started it: the answer waits under its id until that pane claims it (see lib/earlyAnswers).
       Events.On('request:finished', (ev) => {
         const { id, record } = ev.data
         if (store.mine.includes(id)) void store.finishSend(record)
         else if (collections.mine.includes(id)) void collections.finishSend(record)
+        else holdAnswer(id, { record })
       }),
 
       // No record at all: this side failed before the request became history — a body the database
       // would not take, an engine that could not start. A request that never reached the server
       // still has a record, so there is nothing to show but the reason.
+      //
+      // The reason is the window's, not a pane's: whichever one asked, the attempt failed. Which
+      // spinner it stops is the pane's own, and an id neither pane knows yet waits like any answer.
       Events.On('request:failed', (ev) => {
-        if (collections.mine.includes(ev.data.id)) {
-          collections.failSend()
-          toast.show(tr('errors.requestFailed', { error: refusalText(ev.data.failure) ?? ev.data.error }), 'error')
-          return
-        }
-        store.failSend()
+        const { id } = ev.data
         toast.show(tr('errors.requestFailed', { error: refusalText(ev.data.failure) ?? ev.data.error }), 'error')
+        if (collections.mine.includes(id)) collections.failSend()
+        else if (store.mine.includes(id)) store.failSend()
+        else holdAnswer(id, { failed: true })
       }),
 
       // A run of a collection: one event per request it reaches, and the finished run with its

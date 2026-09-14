@@ -99,7 +99,7 @@ func (e *Engine) Do(ctx context.Context, spec Spec) *domain.Response {
 		e.mu.Unlock()
 	}()
 
-	req, err := http.NewRequestWithContext(reqCtx, spec.Method, spec.URL, strings.NewReader(spec.Body))
+	req, err := http.NewRequestWithContext(reqCtx, spec.Method, complete(spec.URL), strings.NewReader(spec.Body))
 	if err != nil {
 		res.Error = err.Error()
 		return res
