@@ -26,7 +26,6 @@ const DISCONNECTED_ICON = {
 const DEFAULT_SETTINGS = {
   rememberTabs: true,
   xhrOnly: true,
-  clearOnExit: false,
 };
 
 const ASSET_URL =
@@ -777,15 +776,11 @@ function handleCapturedRequest(message, sender) {
     method: message.method,
     url: message.url,
     requestHeaders: message.requestHeaders || {},
-    requestBody: settings.clearOnExit
-        ? ''
-        : message.requestBody || '',
+    requestBody: message.requestBody || '',
     status: message.status,
     statusText: message.statusText || '',
     responseHeaders: message.responseHeaders || {},
-    responseBody: settings.clearOnExit
-        ? ''
-        : message.responseBody || '',
+    responseBody: message.responseBody || '',
     durationMs: message.durationMs || 0,
     hasTiming: Boolean(message.hasTiming),
     waitMs: message.waitMs || 0,

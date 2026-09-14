@@ -218,7 +218,6 @@ actions: setActive, addEnv, removeEnv, renameEnv, startRename, addVar, updateVar
 | Порт приложения | инпут 82×28, моно, выравнивание вправо | как сейчас `setPort`; по умолчанию 38761 |
 | Помнить вкладки | тумблер 40×24, вкл | при старте браузера включать перехват на тех же origin |
 | Только XHR и fetch | тумблер, вкл | фильтр по `resourceType` в `background.js` |
-| Чистить историю при выходе | тумблер, выкл | не сохранять тела перехваченных запросов |
 
 Подвал: версия и сборка, моно 10.5px `--text-tertiary` (из `chrome.runtime.getManifest().version`).
 
@@ -231,7 +230,7 @@ actions: setActive, addEnv, removeEnv, renameEnv, startRename, addVar, updateVar
   appRunning, port, capturing, capturedTabs: [...],   // как сейчас
   currentTab: { tabId, title, url, favIconUrl, count, lastAt, capturing },
   bufferedCount,                                       // накоплено, пока приложение не отвечает
-  settings: { rememberTabs, xhrOnly, clearOnExit }
+  settings: { rememberTabs, xhrOnly }
 }
 ```
 

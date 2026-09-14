@@ -388,7 +388,6 @@ function renderOpenButton(state) {
 const SETTING_INPUTS = [
   'set-rememberTabs',
   'set-xhrOnly',
-  'set-clearOnExit',
 ];
 
 function renderSettings(state) {
