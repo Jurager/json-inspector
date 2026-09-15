@@ -237,6 +237,15 @@ function onInput(field: Field, event: Event) {
   padding-right: 28px;
 }
 
+/* Edge draws its own reveal control inside every password field. It is not themed — on a dark field
+   it comes out black and overflows the rounded corner — and it sits a few pixels from the one the
+   design draws, so a password field showed two eyes. The design has one, and it is the one below:
+   the same on every platform instead of only on the one this app happens to run through. */
+.veiled input[type='password']::-ms-reveal,
+.veiled input[type='password']::-ms-clear {
+  display: none;
+}
+
 .eye {
   @apply absolute flex items-center justify-center border-none bg-transparent cursor-pointer text-text-tertiary;
   right: 4px;

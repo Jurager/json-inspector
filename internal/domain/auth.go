@@ -76,28 +76,54 @@ func (a Auth) GetOrDefault(key string) string {
 // has not answered, which is a different thing from one that answered «нет».
 func (a Auth) IsNone() bool { return a.Type == AuthNone }
 
-// Normalized is the auth as its scheme would hold it: the answers to the fields it declares and
-// nothing else, with the fields it has a first choice for filled in.
+// Answers is whether a level has said anything about authorization at all. «Нет» and «Наследовать»
+// are answers about who authorizes the request rather than credentials, so a level that gave one of
+// them has not answered *for the levels below it*: the walk past it goes on to the next one that
+// did. That is what makes «нет» on a folder mean "not here" instead of "stop here".
+//
+// It is asked of the answer rather than of the absence of one, and that is the point: a level that
+// said «нет» can still carry the answers somebody gave it before changing their mind, and reading
+// the fields is what the walk never does.
+func (a *Auth) Answers() bool {
+	return a != nil && a.Type != AuthNone && a.Type != AuthInherit && a.Type != ""
+}
+
+// Stored is the auth as a tree keeps it: a level nobody has answered anything at is a level with
+// nothing written down at all, which is what an absent one means.
+//
+// An answer that is not a credential — «нет» — is kept as itself when it has answers behind it, so
+// that changing one's mind back finds them. The walk reads Auth.Answers either way, and goes past.
+func (a Auth) Stored() *Auth {
+	if !a.Answers() && len(a.Fields) == 0 {
+		return nil
+	}
+	return &a
+}
+
+// Normalized is the auth as its scheme would hold it: the answers it has, with the fields the
+// scheme starts at filled in where nobody gave one.
 //
 // The window sends an answer as it stands, and the scheme it is about may not be the scheme it was
-// about: switching from Bearer to Basic leaves a token that Basic has no field for, and a select
-// nobody has touched has no answer at all. Both are settled here rather than in the window, which
-// knows neither what a scheme asks for nor what it starts at.
+// about a moment ago. The answers to the others are **kept**, not thrown away: switching a request
+// from Bearer to Basic and back is one gesture with a question in the middle, and a token that did
+// not survive it would be a token the user has to paste again. A scheme reads only the fields it
+// declares, so what is kept is carried and not used — and it is not written to a file either, since
+// an export writes a scheme's own fields and no others.
 func (a Auth) Normalized() Auth {
 	scheme, ok := SchemeFor(a.Type)
 	if !ok {
 		return NewAuth(a.Type)
 	}
-	out := NewAuth(a.Type)
+	out := make(map[string]string, len(a.Fields)+len(scheme.Fields))
+	for key, value := range a.Fields {
+		out[key] = value
+	}
 	for _, field := range scheme.Fields {
-		switch value, answered := a.Fields[field.Key]; {
-		case answered:
-			out.Fields[field.Key] = value
-		case field.Default != "":
-			out.Fields[field.Key] = field.Default
+		if _, given := out[field.Key]; !given && field.Default != "" {
+			out[field.Key] = field.Default
 		}
 	}
-	return out
+	return Auth{Type: a.Type, Fields: out}
 }
 
 // With returns the auth with one answer set. A copy: the map is shared by every holder of the

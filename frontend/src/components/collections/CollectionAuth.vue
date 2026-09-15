@@ -55,9 +55,14 @@ const scheme = computed(() => schemeOf(draft.value.type))
 
 // A scheme is a click, so it is written at once; the answers are typed, so they wait for the field
 // to be left or for Enter.
+//
+// The answers already given stay where they are: each scheme keeps its own, so a level that was
+// Bearer, looked at Basic and went back to Bearer still has its token. Clicking the scheme already
+// in use changes nothing at all.
 async function choose(type: Auth['type']) {
+  if (type === draft.value.type) return
   typing.value = false
-  draft.value = { type, fields: {} }
+  draft.value = { type, fields: draft.value.fields }
   await store.saveAuth(levelId.value, draft.value)
 }
 

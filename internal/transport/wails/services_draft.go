@@ -27,30 +27,44 @@ func NewDraftService(drafts *draft.UseCase, collections *collection.UseCase, hos
 	return &DraftService{drafts: drafts, collections: collections, host: host}
 }
 
-// answered completes what the draft could not work out for itself. A request that inherits its
-// authorization takes it from the tree, and the draft cannot walk one — the tree's requests go
-// through the draft, so asking the draft to know the tree would be asking each to be built before
-// the other. This layer knows both, which is the same reason the tree is here at all.
-//
-// Every answer to the window comes through here, and the ones that are not about an inheriting draft
-// are handed back untouched.
+// answered completes what the draft could not work out for itself, and every answer to the window
+// passes through it — which is what makes this wrapper the one place a card's state is finished
+// rather than one of the several a card is drawn from. See completed for what is filled in.
 func (s *DraftService) answered(ctx context.Context, state draft.State, err error) (draft.State, error) {
-	if err != nil || state.Draft.Auth.Type != domain.AuthInherit {
+	if err != nil {
 		return state, err
 	}
-	// A tree that cannot be reached is a tree that said nothing: the request is still usable, and the
-	// row it would have inherited is the only thing missing.
-	above, aboveErr := s.collections.AuthFor(ctx, state.Draft.ID)
-	if aboveErr != nil {
-		return state, nil
+	return completed(ctx, s.drafts, s.collections, state), nil
+}
+
+// completed fills in what a draft could not work out for itself: what the levels above it answer,
+// and the rows and the token that come of it. The draft cannot walk a tree — the tree's requests go
+// through the draft, so asking one to know the other is asking each to be built first — and this
+// package is where both are known, which is the same reason the tree is here at all.
+//
+// It is one function because the state a card opens with and the state it has after a keystroke
+// have to be the same answer: a card that says nothing is above it, and whose header list is missing
+// the row it inherits, is a card that lies until somebody touches it.
+func completed(ctx context.Context, drafts *draft.UseCase, collections *collection.UseCase, state draft.State) draft.State {
+	// A draft in no tree — the command line's — has nothing above it, and the walk is skipped rather
+	// than run on every keystroke to find that out.
+	if state.Draft.ID != domain.DraftCommandLine {
+		// A tree that cannot be reached is a tree that said nothing: the request is still usable, and
+		// the rows it would have inherited are the only thing missing.
+		if above, err := collections.AuthFor(ctx, state.Draft.ID); err == nil {
+			state.Inherited = above
+		}
 	}
-	projected, projectedErr := s.drafts.Project(ctx, state.Draft, above)
-	if projectedErr != nil {
-		return state, nil
+	// A draft that answers for itself has already been projected from its own answer; only the one
+	// that inherits had nothing to be projected from until the walk above.
+	if state.Draft.Auth.Type != domain.AuthInherit {
+		return state
 	}
-	state.Projected = projected
-	state.Token = s.drafts.Held(state.Draft, above)
-	return state, nil
+	if projected, err := drafts.Project(ctx, state.Draft, state.Inherited); err == nil {
+		state.Projected = projected
+		state.Token = drafts.Held(state.Draft, state.Inherited)
+	}
+	return state
 }
 
 // AuthSchemes is every way a request can authorize itself, in the order the window draws them: what

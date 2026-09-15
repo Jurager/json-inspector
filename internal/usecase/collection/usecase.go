@@ -281,13 +281,16 @@ func (u *UseCase) Describe(ctx context.Context, id string, description string) (
 }
 
 // SaveAuth writes what a level authorizes its requests with — the collection's own tab, or a
-// folder's, which everything inside it inherits. «Нет» is stored as nothing at all: a level that
-// has no authorization of its own is a level the one below it inherits past, and an empty auth
-// written down would stop that walk at the level that meant to say nothing.
+// folder's, which everything inside it inherits.
+//
+// What arrives is the tab's whole state, and the tab holds on to the answers of the schemes it is
+// not currently on: «нет» chosen over a filled-in Bearer is an answer about who authorizes the
+// request rather than an erasure, and coming back to Bearer has to find the token. It is
+// domain.Auth.Stored that draws that distinction, which is why it lives there and not here.
 func (u *UseCase) SaveAuth(ctx context.Context, id string, auth domain.Auth) ([]domain.Collection, error) {
 	// Normalized for the same reason a draft's is: the answers travel whole, and the scheme they are
 	// about may not be the one the previous answer was about.
-	saved := authOrNil(auth.Normalized())
+	saved := auth.Normalized().Stored()
 
 	workspace, err := u.scope.ActiveWorkspace(ctx)
 	if err != nil {
@@ -329,7 +332,7 @@ func (u *UseCase) AuthFor(ctx context.Context, id domain.DraftID) (*domain.Auth,
 	}
 	for _, collection := range tree {
 		if inherited, ok := inheritUnder([]domain.Collection{collection}, string(id), nil); ok {
-			return authOrNil(actionable(inherited)), nil
+			return actionable(inherited).Stored(), nil
 		}
 	}
 	return nil, nil
@@ -342,15 +345,9 @@ func (u *UseCase) AuthFor(ctx context.Context, id domain.DraftID) (*domain.Auth,
 // one and not only into its requests.
 func inheritUnder(collections []domain.Collection, id string, inherited *domain.Auth) (*domain.Auth, bool) {
 	for _, collection := range collections {
-		at := inherited
-		if collection.Auth != nil {
-			at = collection.Auth
-		}
+		at := answerOf(collection.Auth, inherited)
 		for _, node := range collection.Items {
-			nodeAt := at
-			if node.Auth != nil {
-				nodeAt = node.Auth
-			}
+			nodeAt := answerOf(node.Auth, at)
 			if node.ID == id {
 				return nodeAt, true
 			}
@@ -362,20 +359,21 @@ func inheritUnder(collections []domain.Collection, id string, inherited *domain.
 	return nil, false
 }
 
-// authOrNil is an auth as the tree stores it: the two answers that are not credentials — «нет» and
-// «наследовать» — are the absence of an answer.
-func authOrNil(auth domain.Auth) *domain.Auth {
-	if auth.Type == domain.AuthNone || auth.Type == domain.AuthInherit || auth.Type == "" {
-		return nil
+// answerOf is where a walk stands after looking at a level: the level's own answer when it gave one,
+// and what it inherits when it did not. Both walks over the tree go through here, so «нет» means the
+// same thing in a run as it does in a card — and a level that said it is a level passed by.
+func answerOf(level *domain.Auth, inherited *domain.Auth) *domain.Auth {
+	if level.Answers() {
+		return level
 	}
-	return &auth
+	return inherited
 }
 
 // actionable is a stored auth as something to apply: nothing to inherit is «нет», which is what a
 // request with nothing above it authorizes itself with.
 func actionable(auth *domain.Auth) domain.Auth {
 	if auth == nil {
-		return domain.Auth{Type: domain.AuthNone}
+		return domain.NewAuth(domain.AuthNone)
 	}
 	return *auth
 }

@@ -196,6 +196,23 @@ func TestDeletingAProjectedRowRemovesTheAuthorization(t *testing.T) {
 	}
 }
 
+// A `{{token}}` written into a scheme that is not in use is not a variable of this request: nothing
+// reads that answer, so nothing fills it in and nothing can be missing from it. The alternative —
+// walking every scheme's fields — would block a send over a token the request was never going to
+// carry.
+func TestAnUnusedSchemesAnswersAreNotSubstituted(t *testing.T) {
+	line := newLine(t)
+	line.setAuth(t, domain.NewAuth(domain.AuthBasic).
+		With("username", "user").With("password", "pass").
+		With("token", "{{nothing-resolves-this}}"))
+
+	for _, name := range line.state(t).Preview.Missing {
+		if name == "nothing-resolves-this" {
+			t.Error("a variable in a scheme that is not in use was reported missing")
+		}
+	}
+}
+
 // «Наследовать» is not this feature's to answer — a draft cannot walk a tree — so the answer is
 // handed in, and the rows it comes to are worked out the same way a request's own are. That is what
 // makes a request inside a collection show the credential it inherited in its header list.

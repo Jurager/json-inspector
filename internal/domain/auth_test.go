@@ -105,33 +105,44 @@ func TestWithDoesNotReachThrough(t *testing.T) {
 	}
 }
 
-// Normalized is what the scheme would hold, and the window sends what it has: switching a request
-// from Bearer to Basic leaves a token behind, and a select nobody touched has no answer at all.
-// Neither is an error to report — both are settled here, before anything reads the answers.
-func TestNormalizedKeepsOnlyWhatTheSchemeAsksFor(t *testing.T) {
-	// A token carried over to a scheme that has no field for it.
-	carried := Auth{Type: AuthBasic, Fields: map[string]string{
-		"token": "left-over", "username": "user", "nothing-asks-for-this": "x",
+// The answers to the schemes that are not in use are kept. Switching a request from Bearer to Basic
+// and back is one gesture with a question in the middle, and a token that did not survive it would
+// be a token the user has to paste again. A scheme reads only the fields it declares, so what is
+// kept is carried and not used.
+func TestAnswersToOtherSchemesAreKept(t *testing.T) {
+	switched := Auth{Type: AuthBasic, Fields: map[string]string{
+		"token": "left-over", "username": "user",
 	}}
-	normalized := carried.Normalized()
+	normalized := switched.Normalized()
 
-	for _, key := range []string{"token", "nothing-asks-for-this"} {
-		if _, ok := normalized.Fields[key]; ok {
-			t.Errorf("%q survived a scheme that does not ask for it", key)
-		}
+	if normalized.Get("token") != "left-over" {
+		t.Errorf("token = %q, want the answer kept for the scheme it belongs to", normalized.Get("token"))
 	}
 	if normalized.Get("username") != "user" {
 		t.Errorf("username = %q, want the answer that was given", normalized.Get("username"))
 	}
+
+	// And coming back to that scheme finds it: nothing between the two reads takes it away.
+	back := Auth{Type: AuthBearer, Fields: normalized.Fields}.Normalized()
+	if back.Get("token") != "left-over" {
+		t.Errorf("token = %q, want what was there before the switch", back.Get("token"))
+	}
+
 	// The one thing the window never sends is what a field starts at, because the window is not the
 	// side that knows: a select has a first choice whether or not anyone picked one.
 	filled := NewAuth(AuthAPIKey).Normalized()
 	if filled.Get("place") != "header" {
 		t.Errorf("place = %q, want the scheme's own first choice", filled.Get("place"))
 	}
+	// An answer already given wins over the default, including an empty one: a prefix somebody
+	// cleared is a prefix they do not want.
+	cleared := NewAuth(AuthBearer).With("prefix", "")
+	if cleared.Normalized().Get("prefix") != "" {
+		t.Error("a prefix somebody cleared came back")
+	}
 
 	// A scheme nobody has heard of normalizes to nothing rather than to itself with its answers
-	// kept: there is no field list to check them against.
+	// kept: there is no field list to say what any of them mean.
 	stranger := Auth{Type: "nobody-has-this", Fields: map[string]string{"token": "x"}}
 	if len(stranger.Normalized().Fields) != 0 {
 		t.Errorf("an unknown scheme kept %v", stranger.Normalized().Fields)

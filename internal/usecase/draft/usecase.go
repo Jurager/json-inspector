@@ -105,6 +105,11 @@ type State struct {
 	// absent for a scheme that carries what it was given: there is nothing to say about a token the
 	// user typed, and a block saying so would be noise.
 	Token *domain.AuthToken `json:"token,omitempty"`
+	// Inherited is what the levels above this draft answer with, for a draft that is a node of a
+	// tree: the nearest one that gave a credential, or nothing when none did. It is not a getter the
+	// window could have written for itself — «нет» on a folder is a level the walk goes past, and
+	// that rule belongs with the walk.
+	Inherited *domain.Auth `json:"inherited,omitempty"`
 }
 
 // TextResult is a buffer's answer. It carries back which buffer it is and the revision the window
@@ -284,7 +289,9 @@ func (u *UseCase) ForgetAuth(ctx context.Context, id domain.DraftID) (State, err
 // never comes here.
 func (u *UseCase) RemoveDerived(ctx context.Context, id domain.DraftID) (State, error) {
 	return u.result(ctx, id, func(d *domain.Draft) error {
-		d.Auth = domain.NewAuth(domain.AuthNone)
+		// The answers stay: the request stops authorizing itself, which is what deleting the row
+		// asked for, and emptying the fields as well would throw away more than the gesture meant.
+		d.Auth = domain.Auth{Type: domain.AuthNone, Fields: d.Auth.Fields}
 		return nil
 	})
 }

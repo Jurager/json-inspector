@@ -252,26 +252,19 @@ func requestsUnder(collection domain.Collection, nodeID string) ([]runnable, err
 		return requestsIn(collection, nil), nil
 	}
 	if nested, ok := findCollection(collection.Children, nodeID); ok {
-		return requestsIn(nested, collection.Auth), nil
+		return requestsIn(nested, answerOf(collection.Auth, nil)), nil
 	}
 	node, ok := findNode([]domain.Collection{collection}, nodeID)
 	if !ok {
 		return nil, fmt.Errorf("node %s: %w", nodeID, domain.ErrNotFound)
 	}
-	at := collection.Auth
-	if node.Auth != nil {
-		at = node.Auth
-	}
-	return []runnable{{node: node, auth: at}}, nil
+	return []runnable{{node: node, auth: answerOf(node.Auth, answerOf(collection.Auth, nil))}}, nil
 }
 
 // requestsIn walks a level in the order it is drawn, carrying the answer of the levels above: a
 // collection's requests come first or after the collections inside it depending on where they sit.
 func requestsIn(collection domain.Collection, inherited *domain.Auth) []runnable {
-	at := inherited
-	if collection.Auth != nil {
-		at = collection.Auth
-	}
+	at := answerOf(collection.Auth, inherited)
 
 	out := []runnable{}
 	for _, entry := range collection.Level() {
@@ -279,11 +272,7 @@ func requestsIn(collection domain.Collection, inherited *domain.Auth) []runnable
 			out = append(out, requestsIn(*entry.Collection, at)...)
 			continue
 		}
-		nodeAt := at
-		if entry.Node.Auth != nil {
-			nodeAt = entry.Node.Auth
-		}
-		out = append(out, runnable{node: *entry.Node, auth: nodeAt})
+		out = append(out, runnable{node: *entry.Node, auth: answerOf(entry.Node.Auth, at)})
 	}
 	return out
 }

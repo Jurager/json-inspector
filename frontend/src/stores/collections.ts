@@ -115,15 +115,12 @@ export const useCollectionsStore = defineStore('collections', {
     canInherit(): boolean {
       return this.cardOpen
     },
-    // What those levels answer with — the nearest one that set something, or nothing at all. The chip
-    // says what inheriting would mean here instead of leaving the token a blank.
-    inheritedAuth(): Auth | null {
-      const trail = this.trail
-      if (!trail) return null
-      for (const level of [...trail.ancestors].reverse()) {
-        if (level.auth) return level.auth
-      }
-      return null
+    // What those levels answer with — the nearest one that gave a credential, or nothing at all.
+    // The chip says what inheriting would mean here instead of leaving the token a blank, and the
+    // answer comes from Go with every other: the walk past a level that said «нет» is the tree's
+    // rule, and repeating it here would be a second place for it to mean something else.
+    inheritedAuth(state): Auth | null {
+      return state.editor?.state.inherited ?? null
     },
     // What the open level is called: the status bar names it when the level is what is on screen,
     // and the path to it when a card inside is.

@@ -175,6 +175,28 @@ func TestEditsComeBackToTheFields(t *testing.T) {
 	})
 }
 
+// The answers a scheme does not ask for are carried and never read: a token left over from Bearer
+// sits in the fields while Basic is chosen, and what goes on the request is the Basic credential
+// alone. That is what makes keeping them safe — the alternative was throwing them away, and a user
+// who looked at Basic and came back would have had to paste the token again.
+func TestASchemeReadsOnlyItsOwnFields(t *testing.T) {
+	auth := domain.WithDefaults(domain.AuthBasic).
+		With("username", "user").With("password", "pass").
+		With("token", "left-over")
+
+	out := materialize(t, auth)
+	if len(out.Headers) != 1 {
+		t.Fatalf("headers = %+v, want the one credential", out.Headers)
+	}
+	value := out.Headers[0].Value
+	if !strings.HasPrefix(value, "Basic ") {
+		t.Errorf("authorization = %q, want the Basic credential the scheme is", value)
+	}
+	if strings.Contains(value, "left-over") {
+		t.Errorf("authorization = %q, want nothing of the scheme that is not in use", value)
+	}
+}
+
 // Digest puts nothing on the request: what it carries is a hash of the password with a nonce the
 // server has not sent yet. The credential goes to the engine, which is the side that will be there
 // when the server says how — so this is the one scheme whose output is empty and meaningful at once.

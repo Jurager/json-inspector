@@ -81,9 +81,9 @@ type SearchHit struct {
 	Title string     `json:"title"`
 	// Path is what the row sits inside, outermost first: the collections above a request. The window
 	// joins it with the separator the design draws, so the separator is not a word Go has to own.
-	Path  []string   `json:"path"`
-	Badge string     `json:"badge,omitempty"`
-	Note  SearchNote `json:"note"`
+	Path  []string    `json:"path"`
+	Badge string      `json:"badge,omitempty"`
+	Note  SearchNote  `json:"note"`
 	Match SearchMatch `json:"match"`
 	// At is when the row happened, in milliseconds, or 0 for a row that did not happen — a saved
 	// request has no time, and the window draws none rather than one it made up.

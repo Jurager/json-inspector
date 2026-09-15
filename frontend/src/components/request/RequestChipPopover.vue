@@ -59,10 +59,12 @@ function dismiss() {
   store.setOpenChip(null)
 }
 
-// The scheme is a click, so it is written at once and with nothing carried over: the answers belong
-// to the scheme, and a token sent along to one that has no field for it is an answer to nothing.
+// The scheme is a click, so it is written at once. The answers travel with it rather than being
+// cleared: each scheme keeps its own, so going to look at Basic and coming back finds the token
+// still there — and clicking the scheme already in use is not an answer to anything.
 function selectAuth(type: Auth['type']) {
-  void store.setAuth({ type, fields: {} })
+  if (type === store.auth.type) return
+  void store.setAuth({ ...store.auth, type })
 }
 
 function setField(key: string, value: string) {

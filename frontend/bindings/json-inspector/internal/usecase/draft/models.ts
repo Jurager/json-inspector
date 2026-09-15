@@ -88,6 +88,14 @@ export interface State {
      * user typed, and a block saying so would be noise.
      */
     "token"?: domain$0.AuthToken | null;
+
+    /**
+     * Inherited is what the levels above this draft answer with, for a draft that is a node of a
+     * tree: the nearest one that gave a credential, or nothing when none did. It is not a getter the
+     * window could have written for itself — «нет» on a folder is a level the walk goes past, and
+     * that rule belongs with the walk.
+     */
+    "inherited"?: domain$0.Auth | null;
 }
 
 /**
@@ -139,4 +147,12 @@ export interface TextResult {
      * user typed, and a block saying so would be noise.
      */
     "token"?: domain$0.AuthToken | null;
+
+    /**
+     * Inherited is what the levels above this draft answer with, for a draft that is a node of a
+     * tree: the nearest one that gave a credential, or nothing when none did. It is not a getter the
+     * window could have written for itself — «нет» on a folder is a level the walk goes past, and
+     * that rule belongs with the walk.
+     */
+    "inherited"?: domain$0.Auth | null;
 }

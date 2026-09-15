@@ -54,7 +54,9 @@ func (s *CollectionsService) SaveNode(ctx context.Context, id string) (NodeEdito
 	return s.editor(ctx, saved)
 }
 
-// editor is the answer both calls give: the node, the draft opened on it, and the tree.
+// editor is the answer both calls give: the node, the draft opened on it, and the tree. Opening
+// does not go through the draft service, so the state is completed here as well — a card is drawn
+// from this one answer, and would otherwise show a request that inherits nothing until it is edited.
 func (s *CollectionsService) editor(ctx context.Context, node domain.CollectionNode) (NodeEditor, error) {
 	state, err := s.drafts.Open(ctx, draftOfNode(node))
 	if err != nil {
@@ -64,7 +66,7 @@ func (s *CollectionsService) editor(ctx context.Context, node domain.CollectionN
 	if err != nil {
 		return NodeEditor{}, err
 	}
-	return NodeEditor{Tree: tree, Node: node, State: state}, nil
+	return NodeEditor{Tree: tree, Node: node, State: completed(ctx, s.drafts, s.collections, state)}, nil
 }
 
 // draftOfNode is a saved request seen as something to edit. Rows keep their ids, so an editor that
@@ -91,10 +93,10 @@ func draftOfNode(node domain.CollectionNode) domain.Draft {
 	}
 }
 
-// nodeFromDraft is the other direction. «Наследовать» is stored as nothing at all: a level that
-// says nothing is a level the requests below it look past, and a card that never touched the chip
-// must not turn "take the folder's" into "no auth here" — the two are different answers, and only
-// one of them was given.
+// nodeFromDraft is the other direction. The two answers that are not credentials are stored as the
+// absence of an answer, so a card that never touched the chip cannot turn «взять у папки» into «нет
+// здесь» — the two are different answers, and only one of them was given. What a card was holding
+// when it gave one of them stays with it, which is domain.Auth.Stored's job, not this one's.
 func nodeFromDraft(node domain.CollectionNode, d domain.Draft) domain.CollectionNode {
 	node.Method = d.Method
 	node.URL = d.URL
@@ -105,12 +107,7 @@ func nodeFromDraft(node domain.CollectionNode, d domain.Draft) domain.Collection
 	node.Form = d.Form
 	node.BodyFile = d.BodyFile
 	node.Cookies = d.Cookies
-	if d.Auth.Type == domain.AuthInherit || d.Auth.Type == domain.AuthNone {
-		node.Auth = nil
-	} else {
-		auth := d.Auth
-		node.Auth = &auth
-	}
+	node.Auth = d.Auth.Stored()
 	return node
 }
 
