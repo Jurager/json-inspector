@@ -182,13 +182,15 @@ function onUrlPaste(e: ClipboardEvent) {
   }
 
   // A pasted command is a whole request, not an edit to one: it goes over as a seed and the draft
-  // becomes it.
+  // becomes it. The credential goes as the scheme it is, so the Auth chip shows what the command
+  // asked for and the answers stay editable — a header somebody wrote by hand stays a header.
   void store.replace({
     method: result.request.method,
     url: result.request.url,
     headers: Object.entries(result.request.requestHeaders).map(([name, value]) => ({ name, value })),
     body: result.request.requestBody,
     cookies: [],
+    auth: result.request.auth ?? undefined,
   })
   store.setOpenChip(null)
   void nextTick(syncUrlScroll)

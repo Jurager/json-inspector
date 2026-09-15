@@ -97,6 +97,7 @@ func recordInput(prepared draft.Prepared) record.SendInput {
 		MaskedHeaders: prepared.MaskedHeaders,
 		MaskedBody:    prepared.MaskedBody,
 		Cookies:       prepared.Cookies,
+		Digest:        prepared.Digest,
 	}
 }
 

@@ -15,6 +15,13 @@ import (
 // second space.
 const ws = domain.WorkspacePersonalID
 
+// bearerAuth is an authorization of the scheme these tests round-trip through the database. What a
+// scheme asks for is the scheme's business; what these tests are about is that the answers survive
+// being written down and read back.
+func bearerAuth(token string) domain.Auth {
+	return domain.NewAuth(domain.AuthBearer).With("token", token)
+}
+
 // newMigratedStore is a store on a migrated database in a temporary directory: the environment
 // tables only exist after the migrations, so anything reading them needs this.
 func newMigratedStore(t *testing.T) *Store {

@@ -35,9 +35,9 @@ func seedTree(t *testing.T, store *Store) {
 	t.Helper()
 	ctx := context.Background()
 
-	bearer := &domain.Auth{Type: domain.AuthBearer, Token: "{{token}}"}
+	bearer := bearerAuth("{{token}}")
 	if err := store.SaveCollection(ctx, ws, domain.Collection{
-		ID: "col-1", Name: "Пользователи", Description: "тестовые", Position: 0, Auth: bearer,
+		ID: "col-1", Name: "Пользователи", Description: "тестовые", Position: 0, Auth: &bearer,
 	}); err != nil {
 		t.Fatalf("SaveCollection: %v", err)
 	}
@@ -69,7 +69,7 @@ func TestCollectionsReadsTheTreeNested(t *testing.T) {
 	if collection.Name != "Пользователи" || collection.Description != "тестовые" {
 		t.Errorf("collection = %+v, want the saved one", collection)
 	}
-	if collection.Auth == nil || collection.Auth.Token != "{{token}}" {
+	if collection.Auth == nil || collection.Auth.Get("token") != "{{token}}" {
 		t.Errorf("collection auth = %+v, want what everything inside inherits", collection.Auth)
 	}
 	// A collection holds requests and collections, and they are two lists here: the window merges

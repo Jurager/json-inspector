@@ -99,10 +99,92 @@ type fileField struct {
 	Src string `json:"src,omitempty"`
 }
 
+// auth is an authorization as Postman writes it: the scheme's name, and its fields under a key of
+// that same name — `{"type":"bearer","bearer":[{"key":"token","value":"…"}]}`.
+//
+// The fields are a map here and not a struct because they belong to the scheme, and two of the
+// schemes take different fields from the rest. What each key is called on either side is
+// postmanSchemes, and it is the only place this format and ours disagree.
 type auth struct {
-	Type   string  `json:"type"`
-	Bearer []field `json:"bearer,omitempty"`
-	Basic  []field `json:"basic,omitempty"`
+	Type  string             `json:"type"`
+	Extra map[string][]field `json:"-"`
+}
+
+func (a auth) MarshalJSON() ([]byte, error) {
+	out := make(map[string]any, len(a.Extra)+1)
+	out["type"] = a.Type
+	for name, fields := range a.Extra {
+		out[name] = fields
+	}
+	return json.Marshal(out)
+}
+
+func (a *auth) UnmarshalJSON(data []byte) error {
+	var raw map[string]json.RawMessage
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return err
+	}
+	a.Extra = map[string][]field{}
+	for name, value := range raw {
+		if name == "type" {
+			if err := json.Unmarshal(value, &a.Type); err != nil {
+				return err
+			}
+			continue
+		}
+		// A scheme this app does not know may carry something that is not a list of fields — Postman
+		// has half a dozen of those. Refusing the whole file over one is worse than ignoring it.
+		var fields []field
+		if err := json.Unmarshal(value, &fields); err != nil {
+			continue
+		}
+		a.Extra[name] = fields
+	}
+	return nil
+}
+
+// postmanScheme is one of this app's schemes as the file format writes it: what Postman calls the
+// scheme, and what it calls each of its fields. Every disagreement between the two formats is
+// collected here, which is what keeps them out of the code that walks a scheme.
+type postmanScheme struct {
+	Name   string
+	Fields map[string]string
+}
+
+var postmanSchemes = map[domain.AuthType]postmanScheme{
+	domain.AuthBearer: {Name: "bearer", Fields: map[string]string{"token": "token"}},
+	domain.AuthBasic: {Name: "basic", Fields: map[string]string{
+		"username": "username", "password": "password",
+	}},
+	domain.AuthAPIKey: {Name: "apikey", Fields: map[string]string{
+		"key": "key", "value": "value", "place": "in",
+	}},
+	domain.AuthOAuth2: {Name: "oauth2", Fields: map[string]string{
+		"grant": "grant_type", "tokenUrl": "accessTokenUrl", "clientId": "clientId",
+		"clientSecret": "clientSecret", "clientAuth": "client_authentication",
+		"scope": "scope", "audience": "audience", "place": "addTokenTo", "prefix": "headerPrefix",
+	}},
+	domain.AuthJWT: {Name: "jwt", Fields: map[string]string{
+		"algorithm": "algorithm", "secret": "secret", "payload": "payload",
+		"expiresIn": "exp", "place": "addTokenTo", "prefix": "headerPrefix",
+	}},
+	domain.AuthDigest: {Name: "digest", Fields: map[string]string{
+		"username": "username", "password": "password",
+	}},
+	domain.AuthAWS: {Name: "awsv4", Fields: map[string]string{
+		"accessKeyId": "accessKey", "secretAccessKey": "secretKey",
+		"sessionToken": "sessionToken", "region": "region", "service": "service",
+	}},
+}
+
+// postmanType is the app's scheme a file's auth names, and whether the app has it at all.
+func postmanType(name string) (domain.AuthType, postmanScheme, bool) {
+	for kind, scheme := range postmanSchemes {
+		if scheme.Name == name {
+			return kind, scheme, true
+		}
+	}
+	return "", postmanScheme{}, false
 }
 
 // Import reads a collection file into the app's own shape. Ids are left empty: minting them is the
@@ -237,18 +319,19 @@ func applyBody(node *domain.CollectionNode, from *body) {
 	}
 }
 
-// authOf is the app's auth, which is a type and a token. Basic is the one that does not fit: it
-// carries two values, and they are joined here because the chip that edits them has one field.
+// authOf is the app's auth read out of a file's. A scheme this app does not have is left out rather
+// than guessed at: an authorization that means nothing here is nothing, and a level with no auth of
+// its own is one that inherits.
 func authOf(from auth) *domain.Auth {
-	switch from.Type {
-	case "bearer":
-		return &domain.Auth{Type: domain.AuthBearer, Token: value(from.Bearer, "token")}
-	case "basic":
-		user, password := value(from.Basic, "username"), value(from.Basic, "password")
-		return &domain.Auth{Type: domain.AuthBasic, Token: user + ":" + password}
-	default:
+	kind, scheme, ok := postmanType(from.Type)
+	if !ok {
 		return nil
 	}
+	fields := map[string]string{}
+	for key, name := range scheme.Fields {
+		fields[key] = value(from.Extra[scheme.Name], name)
+	}
+	return &domain.Auth{Type: kind, Fields: fields}
 }
 
 func value(rows []field, key string) string {
@@ -359,14 +442,26 @@ func exportedBody(node domain.CollectionNode) *body {
 	}
 }
 
+// exportedAuth is the app's auth written the way the file format wants it. Every field the scheme
+// declares is written, empty or not: a file is read by other people's tools, and a field that is
+// missing reads as one that does not exist rather than one nobody filled in.
+//
+// The fields are written in the order the scheme declares them, which is the order Postman itself
+// draws them in.
 func exportedAuth(from domain.Auth) *auth {
-	switch from.Type {
-	case domain.AuthBearer:
-		return &auth{Type: "bearer", Bearer: []field{{Key: "token", Value: from.Token}}}
-	case domain.AuthBasic:
-		user, password, _ := strings.Cut(from.Token, ":")
-		return &auth{Type: "basic", Basic: []field{{Key: "username", Value: user}, {Key: "password", Value: password}}}
-	default:
+	scheme, ok := postmanSchemes[from.Type]
+	if !ok {
 		return nil
 	}
+	out := &auth{Type: scheme.Name, Extra: map[string][]field{}}
+	fields := []field{}
+	for _, key := range domain.FieldKeys(from.Type) {
+		name, ok := scheme.Fields[key]
+		if !ok {
+			continue
+		}
+		fields = append(fields, field{Key: name, Value: from.Get(key)})
+	}
+	out.Extra[scheme.Name] = fields
+	return out
 }

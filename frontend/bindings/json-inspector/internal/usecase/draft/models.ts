@@ -74,6 +74,20 @@ export interface Seed {
 export interface State {
     "draft": domain$0.Draft;
     "preview": Preview;
+
+    /**
+     * Projected is what the authorization puts in the parameter and header lists, which is not part
+     * of the draft and is not stored with it: it is what the draft's auth comes to, worked out on
+     * every answer so the two can never disagree.
+     */
+    "projected": domain$0.ProjectedRow[] | null;
+
+    /**
+     * Token is the state of a credential somebody else issues, for the schemes that have one. It is
+     * absent for a scheme that carries what it was given: there is nothing to say about a token the
+     * user typed, and a block saying so would be noise.
+     */
+    "token"?: domain$0.AuthToken | null;
 }
 
 /**
@@ -111,4 +125,18 @@ export interface TextResult {
     "rev": number;
     "draft": domain$0.Draft;
     "preview": Preview;
+
+    /**
+     * Projected is what the authorization puts in the parameter and header lists, which is not part
+     * of the draft and is not stored with it: it is what the draft's auth comes to, worked out on
+     * every answer so the two can never disagree.
+     */
+    "projected": domain$0.ProjectedRow[] | null;
+
+    /**
+     * Token is the state of a credential somebody else issues, for the schemes that have one. It is
+     * absent for a scheme that carries what it was given: there is nothing to say about a token the
+     * user typed, and a block saying so would be noise.
+     */
+    "token"?: domain$0.AuthToken | null;
 }

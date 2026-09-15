@@ -12,17 +12,42 @@
 export type Args = { [_ in string]?: string } | null;
 
 /**
- * Auth is what a level authorizes its requests with. Token is the whole of it for both kinds that
- * have one: a Basic credential is written `user:password` in the same field a Bearer token is typed
- * in, because one field is what both the chip and the collection tab have room for.
+ * Auth is what a level authorizes itself with: which scheme, and the answers to the fields that
+ * scheme declared.
+ * 
+ * The answers are a map rather than a struct because they belong to the scheme and not to this
+ * type: a scheme added tomorrow brings its own fields, and nothing here has to learn about them.
+ * Which keys a scheme has, in which order they are drawn, and which of them are secrets is
+ * Scheme.Fields — the one place that knows.
  */
 export interface Auth {
     "type": AuthType;
-    "token": string;
+    "fields"?: { [_ in string]?: string } | null;
 }
 
 /**
- * AuthType is how a request authorizes itself.
+ * AuthToken is what the window needs to draw the part of an authorization that is not a field: a
+ * token somebody else issued, which the user asked for and can throw away.
+ * 
+ * The token itself is not here. The window has no use for it — it goes on the request, and the
+ * request never passes through the window — and a value that is never sent is a value that cannot
+ * leak into a screenshot, a log or an export.
+ */
+export interface AuthToken {
+    /**
+     * Held is whether there is a token at all, which is what the design says «Нет токена» about.
+     */
+    "held": boolean;
+
+    /**
+     * ExpiresAt is unix milliseconds, and zero when the provider did not say. A token with no expiry
+     * is kept for as long as the window is open: the provider has said all it is going to say.
+     */
+    "expiresAt"?: number;
+}
+
+/**
+ * AuthType names how a request authorizes itself.
  */
 export enum AuthType {
     /**
@@ -40,7 +65,11 @@ export enum AuthType {
     AuthInherit = "inherit",
     AuthBearer = "bearer",
     AuthBasic = "basic",
+    AuthAPIKey = "apikey",
     AuthOAuth2 = "oauth2",
+    AuthJWT = "jwt",
+    AuthDigest = "digest",
+    AuthAWS = "aws",
 };
 
 /**
@@ -263,6 +292,14 @@ export interface CollectionRunResult {
 }
 
 /**
+ * Condition is one field's answer making another field relevant: «while Grant Type is one of these».
+ */
+export interface Condition {
+    "key": string;
+    "values": string[] | null;
+}
+
+/**
  * CookieRow is one row of the request-side jar the "Cookies" tab edits. Domain, path, expiry and
  * the flags are Set-Cookie attributes rather than parts of a request's own Cookie header; they are
  * kept so a draft can be restored from a record.
@@ -372,6 +409,78 @@ export interface Failure {
 }
 
 /**
+ * Field is one answer a scheme asks for, and how the window draws the question.
+ */
+export interface Field {
+    "key": string;
+    "kind": FieldKind;
+
+    /**
+     * Label is a message key. So is Placeholder where it reads as prose, and the examples — a header
+     * name, a region — are keys too, because a catalogue with holes in it is worse than a long one.
+     */
+    "label": string;
+    "placeholder"?: string;
+    "hint"?: string;
+    "options"?: Option[] | null;
+    "default"?: string;
+
+    /**
+     * Secret is about what happens to the value, not how it is drawn: a secret is masked in the rows
+     * a scheme projects and in the copy of the request that is written down. The control is Kind's
+     * business, and the two genuinely differ — an API key is typed in the open and still a secret.
+     */
+    "secret"?: boolean;
+
+    /**
+     * Full is a field that takes the whole width. Its neighbours that are not full pair up two to a
+     * row, which is how the design draws them.
+     */
+    "full"?: boolean;
+
+    /**
+     * Mono is a value that is read character by character — a URL, a scope, a region.
+     */
+    "mono"?: boolean;
+
+    /**
+     * Height is how tall a textarea is drawn, in pixels, and it is here rather than in the stylesheet
+     * because the design gives each of them its own: a token is pasted whole, a payload is written
+     * over several lines. Zero is the height the kind is drawn at by default.
+     */
+    "height"?: number;
+
+    /**
+     * When is a field only some answers bring with them. A grant type that asks the user for a login
+     * and a password has them, and one that asks only for a client has nowhere to put them — so which
+     * fields a scheme is showing follows from another field's answer rather than from anything the
+     * window decides. Absent means the field is always drawn.
+     */
+    "when"?: Condition | null;
+}
+
+/**
+ * FieldKind is the control a field is drawn with.
+ */
+export enum FieldKind {
+    /**
+     * The Go zero value for the underlying type of the enum.
+     */
+    $zero = "",
+
+    FieldText = "text",
+    FieldPassword = "password",
+    FieldTextarea = "textarea",
+    FieldNumber = "number",
+
+    /**
+     * FieldSelect is a field drawn as a list of choices. Its Options are the choices, and its Default
+     * is the one that is picked before anyone picks.
+     */
+    FieldSelect = "select",
+};
+
+/**
  * FormRow is one line of a form body. It is not a Row: a form line is text until the paperclip is
  * clicked, and a line that became a file keeps its path in Src rather than in Value, so that
  * switching it back to text does not lose the text that was under it.
@@ -420,6 +529,46 @@ export enum ListSide {
     ListSideRight = "right",
     ListSideHidden = "hidden",
 };
+
+/**
+ * Option is one choice of a field that is drawn as a select.
+ */
+export interface Option {
+    "value": string;
+
+    /**
+     * Label is a message key, not a word: the window is the side that knows the language.
+     */
+    "label": string;
+}
+
+/**
+ * ProjectedRow is a row an authorization put in a list rather than a person: a Bearer token is an
+ * Authorization header, an API key is a header or a query parameter.
+ * 
+ * It is not written down anywhere. The scheme's fields are what is stored, and the row is what those
+ * fields come to — which is why editing it is an edit to the fields and not to a row, and why it
+ * disappears the moment a person writes a row of that name themselves.
+ */
+export interface ProjectedRow {
+    /**
+     * Target is the list the row belongs to: the window draws it beside the parameters or beside the
+     * headers, wherever the scheme put it.
+     */
+    "target": RowKind;
+    "name": string;
+    "value": string;
+
+    /**
+     * From is the scheme that put it there, for the note beside it.
+     */
+    "from": AuthType;
+
+    /**
+     * Editable travels from the scheme: see AuthOutput.
+     */
+    "editable": boolean;
+}
 
 /**
  * Record is a summary plus everything the response pane shows. The summary is embedded rather than
@@ -540,6 +689,51 @@ export enum RowKind {
     RowCookies = "cookies",
     RowForm = "form",
 };
+
+/**
+ * Scheme is one way of authorizing a request: what it asks for, and how it is offered.
+ */
+export interface Scheme {
+    "type": AuthType;
+
+    /**
+     * Label is a message key for the scheme's name where it is offered. The window holds no map of
+     * its own: a scheme named here is named everywhere.
+     */
+    "label": string;
+
+    /**
+     * Menu is the same name where the scheme sits in the «Ещё» menu, for the schemes the design
+     * spells out there and shortens in the control. Empty means the label does for both.
+     */
+    "menu"?: string;
+
+    /**
+     * Primary is a scheme that sits in the segmented control. The rest are behind «Ещё», which is
+     * where the design puts the ones a request rarely needs.
+     */
+    "primary": boolean;
+
+    /**
+     * NeedsParent is a scheme that only makes sense where there is a level above: a command line has
+     * nothing to inherit from, and offering it there would be offering a choice that means nothing.
+     */
+    "needsParent"?: boolean;
+    "fields": Field[] | null;
+
+    /**
+     * Fetches is a scheme whose credential is not typed in and not computed here either: it is asked
+     * for, and the window offers to ask and to forget rather than only to fill fields in.
+     */
+    "fetches"?: boolean;
+
+    /**
+     * Note is a message key for a line the scheme says about itself: «Нет» and «Наследовать» have
+     * nothing to fill in and explain themselves instead, and a scheme whose working is invisible —
+     * Digest answers a challenge the server has not sent yet — says so under its fields.
+     */
+    "note"?: string;
+}
 
 /**
  * ScriptLog is one line a script printed. The level is the call it came from, so a warning does not

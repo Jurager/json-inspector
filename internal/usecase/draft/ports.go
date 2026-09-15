@@ -41,3 +41,31 @@ type VariableSource interface {
 	Missing(ctx context.Context, texts []string) ([]string, error)
 	SubstituteTexts(ctx context.Context, texts []string, mask bool) ([]string, error)
 }
+
+// AuthMaterializer turns what a level answered about its authorization into what actually goes on
+// the wire. Which schemes exist and what they carry is the domain's business; how each of them
+// works — a base64 credential, a signature over the request, a token fetched from an identity
+// provider — is the outside world's, and that is what this port is for.
+//
+// The two calls differ in one thing only: Materialize may talk to the server, because getting a
+// token for OAuth 2.0 and answering a Digest challenge are conversations. Project may not — it is
+// what the window draws while a person is typing, and it answers with nothing where the
+// conversation has not happened yet.
+type AuthMaterializer interface {
+	Materialize(ctx context.Context, auth domain.Auth, req domain.AuthRequest) (domain.AuthOutput, error)
+	// Project is the same answer without the network: what the window draws as a derived row.
+	Project(auth domain.Auth, req domain.AuthRequest) (domain.AuthOutput, error)
+	// Absorb is the other direction: an edit to one of those rows, turned back into the scheme's
+	// fields. A scheme whose rows the user may not edit is not asked, and one that is asked and
+	// cannot answer says so rather than guessing at what the edit meant.
+	Absorb(auth domain.Auth, target domain.RowKind, name, value string) (domain.Auth, error)
+
+	// Obtain goes and gets whatever a scheme carries from somewhere else — a token from an identity
+	// provider — and Forget drops it. Both are only asked of a scheme that fetches: one that carries
+	// what it was given has nothing to obtain and nothing to drop.
+	Obtain(ctx context.Context, auth domain.Auth) error
+	Forget(auth domain.Auth)
+	// Held is whether a scheme has a token at this moment, which is what the window draws «Нет
+	// токена» from. The token itself does not come back: see domain.AuthToken.
+	Held(auth domain.Auth) domain.AuthToken
+}

@@ -1,5 +1,10 @@
-import type { Auth, BodyKind, CookieRow, FormRow, Row, RowKind, Scripts } from '../../bindings/json-inspector/internal/domain'
+import { AuthType } from '../../bindings/json-inspector/internal/domain'
+import type { Auth, AuthToken, BodyKind, CookieRow, FormRow, ProjectedRow, Row, RowKind, Scripts } from '../../bindings/json-inspector/internal/domain'
 import type { RowPatch, Seed } from '../../bindings/json-inspector/internal/usecase/draft'
+
+// A request nobody has authorized yet, and what every reader falls back on. «Нет» is an answer and
+// not the absence of one, which is why it is written down rather than left undefined.
+export const NO_AUTH: Auth = { type: AuthType.AuthNone, fields: {} }
 
 // What the request builder and the response viewer need from whichever store is showing them.
 //
@@ -22,6 +27,21 @@ export interface RequestSource {
   headers: Row[]
   cookies: CookieRow[]
   auth: Auth
+  // The rows the authorization puts in those lists — a Bearer token is an Authorization header, an
+  // API key is a header or a query parameter. They are worked out by Go on every answer and are not
+  // stored anywhere: the scheme's fields are what is written down, and these are what they come to.
+  projected: ProjectedRow[]
+  // Which of them, by the list they are in and the name they carry. A row has no id to address: it
+  // is not a row, it is what a field comes to, and the edit goes to the field behind it.
+  patchDerived(target: RowKind, name: string, value: string): Promise<void>
+  // Deleting one deletes what put it there: the request stops authorizing itself.
+  removeDerived(): Promise<void>
+  // The state of a credential somebody else issues, for the schemes that have one, and the two things
+  // the design offers for them. The token itself never comes back: the window draws «нет токена» or
+  // that there is one, and has no use for the value.
+  token: AuthToken | null
+  obtainAuth(): Promise<void>
+  forgetAuth(): Promise<void>
   // Whether this request can take its authorization from the levels above it. A card inside a
   // collection can — the chip offers «Наследовать» — and the command line cannot, because nothing is
   // above it.

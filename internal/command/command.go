@@ -9,6 +9,7 @@ import (
 	"regexp"
 	"strings"
 
+	"json-inspector/internal/domain"
 	"json-inspector/internal/vars"
 )
 
@@ -37,6 +38,12 @@ type Request struct {
 	URL     string
 	Headers []Header
 	Body    string
+	// Auth is the credential the command carried, as the scheme it *is* rather than as the header it
+	// comes to. `curl -u` and `-H 'Authorization: Basic …'` are the same request on the wire and
+	// different things in the app: one is an answer the Auth chip can edit afterwards, the other a
+	// header somebody wrote and meant to keep. Only flags become a scheme; a written header stays a
+	// header, and being written it wins over any scheme anyway.
+	Auth *domain.Auth
 }
 
 // Reason is why a command was recognised but could not be read; the UI phrases these.
@@ -148,11 +155,14 @@ type pendingRequest struct {
 	url     string
 	entries []headerEntry
 	body    string
+	auth    *domain.Auth
 }
 
 // request folds the entries into the shape a caller sees.
 func (p pendingRequest) request() Request {
-	return Request{Method: p.method, URL: p.url, Headers: foldHeaders(p.entries), Body: p.body}
+	return Request{
+		Method: p.method, URL: p.url, Headers: foldHeaders(p.entries), Body: p.body, Auth: p.auth,
+	}
 }
 
 // defaultMethod is the TS's `method ?? (body ? 'POST' : 'GET')`: an explicit method stands even when
@@ -233,6 +243,33 @@ func withFormType(entries []headerEntry, hasBody bool) []headerEntry {
 // over a byte-per-character string encodes exactly those bytes.
 func basicAuth(user, password string) string {
 	return "Basic " + base64.StdEncoding.EncodeToString([]byte(user+":"+password))
+}
+
+// splitCredential is `login:password` cut at the first colon, which is where a Basic credential is
+// cut and the only rule there is: a password may hold a colon and a login may not.
+func splitCredential(raw string) (string, string) {
+	login, password, found := strings.Cut(raw, ":")
+	if !found {
+		return raw, ""
+	}
+	return login, password
+}
+
+// basicScheme, digestScheme and bearerScheme are what a command's credential is in this app: an
+// answer of a scheme rather than a header it happens to look like.
+func basicScheme(user, password string) *domain.Auth {
+	auth := domain.NewAuth(domain.AuthBasic).With("username", user).With("password", password)
+	return &auth
+}
+
+func digestScheme(user, password string) *domain.Auth {
+	auth := domain.NewAuth(domain.AuthDigest).With("username", user).With("password", password)
+	return &auth
+}
+
+func bearerScheme(token string) *domain.Auth {
+	auth := domain.NewAuth(domain.AuthBearer).With("token", token)
+	return &auth
 }
 
 // basicAuthEntry is what curl's -u and httpie's --auth have in common: a value without a colon is a

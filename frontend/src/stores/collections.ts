@@ -2,6 +2,7 @@ import { defineStore } from 'pinia'
 import { bodyMissing, recordView, type RecordBodies, type RecordView } from '../lib/requestRecord'
 import { findCollection, holderOf, requestCount, trailOf, type Trail } from '../lib/collectionTree'
 import { takeAnswer } from '../lib/earlyAnswers'
+import { NO_AUTH } from '../lib/requestSource'
 import type { ChipName } from '../lib/requestSource'
 import { t as tr } from '../i18n'
 import {
@@ -10,12 +11,14 @@ import {
   DraftID,
   RowKind,
   type Auth,
+  type AuthToken,
   type Collection,
   type CollectionNode,
   type CollectionRun,
   type CollectionRunResult,
   type CookieRow,
   type FormRow,
+  ProjectedRow,
   type Record,
   type Row,
   type Scripts,
@@ -176,7 +179,17 @@ export const useCollectionsStore = defineStore('collections', {
       return state.editor?.state.draft.cookies ?? []
     },
     auth(state): Auth {
-      return state.editor?.state.draft.auth ?? { type: 'none' as Auth['type'], token: '' }
+      return state.editor?.state.draft.auth ?? NO_AUTH
+    },
+    // The rows the authorization puts in the lists, worked out by Go. Empty until the schemas load,
+    // which is a moment nobody sees: nothing to project means no authorization is set yet.
+    projected(state): ProjectedRow[] {
+      return state.editor?.state.projected ?? []
+    },
+    // The state of a token somebody else issued, for the schemes that have one. Absent means the
+    // scheme carries what the user typed, and there is nothing to say about it.
+    token(state): AuthToken | null {
+      return state.editor?.state.token ?? null
     },
     preview(state): Preview {
       return state.editor?.state.preview ?? ({ missing: [] } as Preview)
@@ -489,6 +502,30 @@ export const useCollectionsStore = defineStore('collections', {
       const id = this.draftId()
       if (id) this.apply(await DraftService.SetAuth(id, auth))
     },
+
+    async patchDerived(target: RowKind, name: string, value: string) {
+      const id = this.draftId()
+      if (id) this.apply(await DraftService.PatchDerived(id, target, name, value))
+    },
+
+    async removeDerived() {
+      const id = this.draftId()
+      if (id) this.apply(await DraftService.RemoveDerived(id))
+    },
+
+    // «Получить токен» and «Очистить»: the card's own authorization, not the tree's. A level that
+    // inherits its answers inherits what they come to as well, and the buttons belong to whoever set
+    // them — which is the Auth tab of the collection, not the popover of a request inside it.
+    async obtainAuth() {
+      const id = this.draftId()
+      if (id) this.apply(await DraftService.ObtainAuth(id))
+    },
+
+    async forgetAuth() {
+      const id = this.draftId()
+      if (id) this.apply(await DraftService.ForgetAuth(id))
+    },
+
 
     async setBodyKind(kind: BodyKind) {
       const id = this.draftId()

@@ -23,11 +23,11 @@ type parts struct {
 	form    []domain.FormRow
 	headers []domain.HeaderPair
 	cookie  string
-	auth    string
+	auth    domain.Auth
 }
 
 func collect(d domain.Draft) parts {
-	out := parts{url: d.URL, body: d.Body, form: d.Form, auth: d.Auth.Token}
+	out := parts{url: d.URL, body: d.Body, form: d.Form, auth: d.Auth}
 	// The jar owns the Cookie header: it is what the "Cookies" tab edits, and a header row with the
 	// same name would be the same cookies a second time.
 	out.cookie = headerFromCookies(d.Cookies)
@@ -48,10 +48,15 @@ func collect(d domain.Draft) parts {
 // then its value — which is the same order putBack reads the answers back in.
 //
 // The parameters are not here: they are in the URL, which is where they became rows from in the
-// first place. The Auth token is here last, and it is put back: it is what becomes the
-// Authorization header, and a `{{token}}` in it has to be filled in like any other text.
+// first place. The answers to the authorization's fields are here last, and they are put back: one
+// of them is what becomes the Authorization header, and a `{{token}}` in any of them has to be
+// filled in like any other text.
+//
+// The fields are walked in the order the scheme declares them and not in map order, which is random
+// in Go: texts and putBack have to agree on the list, and a map would shuffle it under them.
 func (p parts) texts() []string {
-	out := make([]string, 0, 4+3*len(p.form)+2*len(p.headers))
+	keys := domain.FieldKeys(p.auth.Type)
+	out := make([]string, 0, 4+3*len(p.form)+2*len(p.headers)+len(keys))
 	out = append(out, p.url, p.body)
 	// A form row contributes its name, its value and the path it may carry: a `{{token}}` reaches a
 	// form body the same way it reaches a header, and a row it could not reach would go out literal.
@@ -61,7 +66,11 @@ func (p parts) texts() []string {
 	for _, header := range p.headers {
 		out = append(out, header.Name, header.Value)
 	}
-	return append(out, p.cookie, p.auth)
+	out = append(out, p.cookie)
+	for _, key := range keys {
+		out = append(out, p.auth.Get(key))
+	}
+	return out
 }
 
 // putBack returns the parts with those answers in them. The headers are copied: the answers are a
@@ -89,7 +98,13 @@ func (p parts) putBack(resolved []string) parts {
 	p.headers = headers
 	p.cookie = resolved[at]
 	at++
-	p.auth = resolved[at]
+
+	fields := make(map[string]string, len(p.auth.Fields))
+	for _, key := range domain.FieldKeys(p.auth.Type) {
+		fields[key] = resolved[at]
+		at++
+	}
+	p.auth = domain.Auth{Type: p.auth.Type, Fields: fields}
 	return p
 }
 

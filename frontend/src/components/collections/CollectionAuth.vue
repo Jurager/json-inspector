@@ -1,125 +1,96 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 import { useCollectionsStore } from '../../stores/collections'
+import { useAuthSchemes } from '../../composables/useAuthSchemes'
 import { useMessages } from '../../i18n'
+import AuthFields from '../request/AuthFields.vue'
+import AuthTypeSwitch from '../request/AuthTypeSwitch.vue'
 import { AuthType, type Auth } from '../../../bindings/json-inspector/internal/domain'
 
-const { t } = useMessages()
-
-// What a collection or a folder authorizes its requests with, set once for everything inside it. The
-// three kinds are the design's: a level either sends a Bearer token, a Basic credential, or nothing —
-// «Наследовать» is what a *request* below says, not what a level does.
+// What a collection or a folder authorizes its requests with, set once for everything inside it.
+// «Наследовать» is not offered here: that is what a *request* below says about where it takes its
+// authorization from, and a level is not a request.
 const store = useCollectionsStore()
+const { t } = useMessages()
+const { schemeOf } = useAuthSchemes()
 
-const KINDS: Auth['type'][] = [AuthType.AuthBearer, AuthType.AuthBasic, AuthType.AuthNone]
-// The two wire schemes are named by their own names; only the app's own word is translated.
-const LABELS: Record<string, string> = { bearer: 'Bearer Token', basic: 'Basic', none: t('request.auth.none') }
-
-const NONE: Auth = { type: 'none' as Auth['type'], token: '' }
+const NONE: Auth = { type: AuthType.AuthNone, fields: {} }
 
 // The level the tab is about: the collection that is open, wherever it sits.
 const levelId = computed(() => store.selectedId ?? '')
 // What this level answers with *itself* — which is what the tab edits. A folder with nothing of its
 // own is «Нет» rather than the token it inherits: showing the parent's here would make the next
 // keystroke a copy of it, and inheriting is not owning.
-const auth = computed<Auth>(() => store.selected?.auth ?? store.trail?.collection?.auth ?? NONE)
+const stored = computed<Auth>(() => store.selected?.auth ?? store.trail?.collection?.auth ?? NONE)
+
 // What the levels above answer with, said in a line of its own. Only a node has levels above it: a
 // collection is the top of its own tree.
 const inherited = computed<Auth | null>(() => (store.selected ? store.inheritedAuth : null))
 const inheritedLabel = computed(() => {
   const level = inherited.value
   if (!level) return ''
-  const kind = LABELS[level.type] ?? level.type
-  return level.token
-    ? t('request.inheritedWithToken', { kind, token: level.token })
-    : t('request.inherited', { kind })
+  const above = schemeOf(level.type)
+  return t('request.inherited', { kind: above ? t(above.label) : level.type })
 })
-const index = computed(() => Math.max(0, KINDS.indexOf(auth.value.type)))
 
-const token = ref(auth.value.token)
-// The token was typed over: what is in the field is not what Go holds, and the field is what the user
-// is looking at — the same rule the description of a collection follows.
-const dirty = ref(false)
+// The answers are the field's while it is being typed in. A tree's authorization saves the whole
+// tree, and a write per keystroke would be a tree's worth of answers for one line — so the tab holds
+// them and hands them over when the field is left.
+const draft = ref<Auth>(stored.value)
+const typing = ref(false)
 
-watch([levelId, () => auth.value.type], () => {
-  dirty.value = false
-  token.value = auth.value.token
+watch([levelId, () => stored.value.type], () => {
+  typing.value = false
+  draft.value = stored.value
 })
 
 watch(
-  () => auth.value.token,
-  (value) => {
-    if (!dirty.value) token.value = value
+  () => stored.value.fields,
+  (fields) => {
+    if (!typing.value) draft.value = { type: stored.value.type, fields: fields ?? {} }
   }
 )
 
-// A kind is a click, so it is written at once; the token is typed, so it waits for the field to be
-// left or for Enter — a write per keystroke would be a tree's worth of answers for one line.
+const scheme = computed(() => schemeOf(draft.value.type))
+
+// A scheme is a click, so it is written at once; the answers are typed, so they wait for the field
+// to be left or for Enter.
 async function choose(type: Auth['type']) {
-  await store.saveAuth(levelId.value, { ...auth.value, type })
+  typing.value = false
+  draft.value = { type, fields: {} }
+  await store.saveAuth(levelId.value, draft.value)
 }
 
-async function commitToken() {
-  if (!dirty.value) return
-  dirty.value = false
-  if (token.value === auth.value.token) return
-  await store.saveAuth(levelId.value, { ...auth.value, token: token.value })
+function onField(key: string, value: string) {
+  typing.value = true
+  draft.value = { ...draft.value, fields: { ...draft.value.fields, [key]: value } }
 }
 
-// The field is bound one way — Go holds the value and the watcher above decides what is drawn there —
-// so what was typed is taken off the event: a ref that stayed as it was would compare equal to the
-// stored token and write nothing.
-function onTokenInput(value: string) {
-  token.value = value
-  dirty.value = true
+async function commit() {
+  if (!typing.value) return
+  typing.value = false
+  await store.saveAuth(levelId.value, draft.value)
 }
-
-function onTokenKeydown(e: KeyboardEvent) {
-  e.stopPropagation()
-  if (e.key === 'Enter') {
-    e.preventDefault()
-    void commitToken()
-  } else if (e.key === 'Escape') {
-    e.preventDefault()
-    dirty.value = false
-    token.value = auth.value.token
-  }
-}
-
 </script>
 
 <template>
   <div class="auth">
     <div class="block">
       <span class="heading">{{ t('collections.authType') }}</span>
-      <div class="segmented">
-        <span class="seg-indicator" :style="{ transform: `translateX(calc(${index} * (100% + 2px)))` }" />
-        <button
-          v-for="kind in KINDS"
-          :key="kind"
-          class="seg"
-          :class="{ active: auth.type === kind }"
-          @click="choose(kind)"
-        >
-          {{ LABELS[kind] }}
-        </button>
-      </div>
+      <AuthTypeSwitch :can-inherit="false" :value="draft.type" scale="roomy" @select="choose" />
     </div>
 
     <div v-if="inheritedLabel" class="inherited">{{ inheritedLabel }}</div>
 
-    <label v-if="auth.type !== 'none'" class="block">
-      <span class="label">{{ auth.type === 'basic' ? t('collections.loginPassword') : t('request.token') }}</span>
-      <input
-        :value="token"
-        class="token mono"
-        :placeholder="auth.type === 'basic' ? t('collections.loginPasswordPlaceholder') : t('request.token')"
-        spellcheck="false"
-        @input="onTokenInput(($event.target as HTMLInputElement).value)"
-        @keydown="onTokenKeydown"
-        @blur="commitToken"
-      />
-    </label>
+    <p v-if="scheme?.note" class="hint">{{ t(scheme.note) }}</p>
+    <AuthFields
+      v-if="scheme?.fields?.length"
+      :scheme="scheme"
+      :auth="draft"
+      scale="roomy"
+      @update="onField"
+      @commit="commit"
+    />
 
     <div class="note">
       <svg
@@ -150,15 +121,11 @@ function onTokenKeydown(e: KeyboardEvent) {
 }
 
 .block {
-  @apply flex flex-col gap-[5px];
+  @apply flex flex-col gap-[6px];
 }
 
 .heading {
   @apply text-[13px] font-semibold;
-}
-
-.label {
-  @apply text-[12px] font-medium;
 }
 
 /* What the level above answers with. It is a line rather than a value in the field: the field is
@@ -167,39 +134,9 @@ function onTokenKeydown(e: KeyboardEvent) {
   @apply text-[12px] text-text-tertiary;
 }
 
-.segmented {
-  @apply relative flex gap-0.5 p-0.5 rounded-[7px] bg-bg-inset w-[320px];
-}
-
-.seg-indicator {
-  @apply absolute top-0.5 left-0.5 h-[calc(100%-4px)] rounded-[5px] bg-bg-panel;
-  width: calc((100% - 4px - 4px) / 3);
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
-  transition: transform 0.18s ease;
-}
-
-.seg {
-  @apply relative flex-1 text-center text-[12px] py-1.5 text-text-secondary cursor-pointer;
-  border: none;
-  background: transparent;
-  font: inherit;
-}
-
-.seg.active {
-  @apply text-text font-semibold;
-}
-
-.token {
-  @apply w-full h-[34px] px-2.5 rounded-lg border border-border-strong bg-bg-panel
-         text-[12.5px] text-text;
-}
-
-.token::placeholder {
-  @apply text-text-tertiary;
-}
-
-.token:focus {
-  @apply outline-none border-accent;
+.hint {
+  @apply text-[12px] text-text-tertiary;
+  line-height: 1.5;
 }
 
 .note {

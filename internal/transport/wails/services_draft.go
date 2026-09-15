@@ -6,6 +6,7 @@ import (
 	"github.com/wailsapp/wails/v3/pkg/application"
 
 	"json-inspector/internal/domain"
+	"json-inspector/internal/usecase/collection"
 	"json-inspector/internal/usecase/draft"
 )
 
@@ -17,64 +18,136 @@ import (
 // window holds both at once — switching between them must not lose the other — so nothing here
 // assumes there is one.
 type DraftService struct {
-	drafts *draft.UseCase
-	host   *Host
+	drafts      *draft.UseCase
+	collections *collection.UseCase
+	host        *Host
 }
 
-func NewDraftService(drafts *draft.UseCase, host *Host) *DraftService {
-	return &DraftService{drafts: drafts, host: host}
+func NewDraftService(drafts *draft.UseCase, collections *collection.UseCase, host *Host) *DraftService {
+	return &DraftService{drafts: drafts, collections: collections, host: host}
 }
+
+// answered completes what the draft could not work out for itself. A request that inherits its
+// authorization takes it from the tree, and the draft cannot walk one — the tree's requests go
+// through the draft, so asking the draft to know the tree would be asking each to be built before
+// the other. This layer knows both, which is the same reason the tree is here at all.
+//
+// Every answer to the window comes through here, and the ones that are not about an inheriting draft
+// are handed back untouched.
+func (s *DraftService) answered(ctx context.Context, state draft.State, err error) (draft.State, error) {
+	if err != nil || state.Draft.Auth.Type != domain.AuthInherit {
+		return state, err
+	}
+	// A tree that cannot be reached is a tree that said nothing: the request is still usable, and the
+	// row it would have inherited is the only thing missing.
+	above, aboveErr := s.collections.AuthFor(ctx, state.Draft.ID)
+	if aboveErr != nil {
+		return state, nil
+	}
+	projected, projectedErr := s.drafts.Project(ctx, state.Draft, above)
+	if projectedErr != nil {
+		return state, nil
+	}
+	state.Projected = projected
+	state.Token = s.drafts.Held(state.Draft, above)
+	return state, nil
+}
+
+// AuthSchemes is every way a request can authorize itself, in the order the window draws them: what
+// each scheme asks for, how each field is drawn, and which of them are secrets. The window renders
+// the Auth popover from this and holds no list of its own, so a scheme added here appears there.
+func (s *DraftService) AuthSchemes() []domain.Scheme { return domain.AuthSchemes() }
 
 // Snapshot is a draft as it stands, which is what a window opens on.
 func (s *DraftService) Snapshot(ctx context.Context, id domain.DraftID) (draft.State, error) {
-	return s.drafts.Snapshot(ctx, id)
+	state, err := s.drafts.Snapshot(ctx, id)
+	return s.answered(ctx, state, err)
 }
 
 func (s *DraftService) SetMethod(ctx context.Context, id domain.DraftID, method string) (draft.State, error) {
-	return s.drafts.SetMethod(ctx, id, method)
+	state, err := s.drafts.SetMethod(ctx, id, method)
+	return s.answered(ctx, state, err)
 }
 
 func (s *DraftService) SetAuth(ctx context.Context, id domain.DraftID, auth domain.Auth) (draft.State, error) {
-	return s.drafts.SetAuth(ctx, id, auth)
+	state, err := s.drafts.SetAuth(ctx, id, auth)
+	return s.answered(ctx, state, err)
 }
 
 // SetBodyKind picks the format the Body popover composes in. It is a call of its own rather than a
 // row patch because it is a property of the request and not of any one row.
 func (s *DraftService) SetBodyKind(ctx context.Context, id domain.DraftID, kind domain.BodyKind) (draft.State, error) {
-	return s.drafts.SetBodyKind(ctx, id, kind)
+	state, err := s.drafts.SetBodyKind(ctx, id, kind)
+	return s.answered(ctx, state, err)
 }
 
 // SetBodyFile is the path a Binary body will be read from. The dialog that produced it is
 // PickBodyFile below, and it is the window that decides which row the answer belongs to.
 func (s *DraftService) SetBodyFile(ctx context.Context, id domain.DraftID, path string) (draft.State, error) {
-	return s.drafts.SetBodyFile(ctx, id, path)
+	state, err := s.drafts.SetBodyFile(ctx, id, path)
+	return s.answered(ctx, state, err)
 }
 
 // SetText is a buffer flush: the URL and the body are the window's while they are being typed, and
 // this is how they reach this side. The revision travels back with the answer so the window can
 // tell a reply to the keystroke it just made from one to the keystroke before it.
 func (s *DraftService) SetText(ctx context.Context, id domain.DraftID, in draft.TextInput) (draft.TextResult, error) {
-	return s.drafts.SetText(ctx, id, in)
+	result, err := s.drafts.SetText(ctx, id, in)
+	if err != nil {
+		return result, err
+	}
+	result.State, err = s.answered(ctx, result.State, nil)
+	return result, err
 }
 
 func (s *DraftService) AddRow(ctx context.Context, id domain.DraftID, kind domain.RowKind) (draft.State, error) {
-	return s.drafts.AddRow(ctx, id, kind)
+	state, err := s.drafts.AddRow(ctx, id, kind)
+	return s.answered(ctx, state, err)
 }
 
 // RemoveRow and PatchRow address a row by id and not by position: a click that lands after the list
 // changed under it must not delete the row that took its place.
 func (s *DraftService) RemoveRow(ctx context.Context, draftID domain.DraftID, kind domain.RowKind, id string) (draft.State, error) {
-	return s.drafts.RemoveRow(ctx, draftID, kind, id)
+	state, err := s.drafts.RemoveRow(ctx, draftID, kind, id)
+	return s.answered(ctx, state, err)
 }
 
 func (s *DraftService) PatchRow(ctx context.Context, draftID domain.DraftID, kind domain.RowKind, id string, patch draft.RowPatch) (draft.State, error) {
-	return s.drafts.PatchRow(ctx, draftID, kind, id, patch)
+	state, err := s.drafts.PatchRow(ctx, draftID, kind, id, patch)
+	return s.answered(ctx, state, err)
+}
+
+// PatchDerived and RemoveDerived are the same edits made to a row the authorization projected rather
+// than to one a person wrote. Such a row has no id — it is not stored — so it is named by what it is:
+// which list it is in, what it is called, and for an edit, what it now says.
+func (s *DraftService) PatchDerived(ctx context.Context, draftID domain.DraftID, target domain.RowKind, name string, value string) (draft.State, error) {
+	state, err := s.drafts.PatchDerived(ctx, draftID, target, name, value)
+	return s.answered(ctx, state, err)
+}
+
+// ObtainAuth and ForgetAuth are the two buttons the design gives a scheme that fetches: go and ask
+// for a token, or throw the one there is away. What went wrong is reported rather than swallowed —
+// the user asked in so many words, and the answer is what they are waiting for.
+func (s *DraftService) ObtainAuth(ctx context.Context, draftID domain.DraftID) (draft.State, error) {
+	state, err := s.drafts.ObtainAuth(ctx, draftID)
+	return s.answered(ctx, state, err)
+}
+
+func (s *DraftService) ForgetAuth(ctx context.Context, draftID domain.DraftID) (draft.State, error) {
+	state, err := s.drafts.ForgetAuth(ctx, draftID)
+	return s.answered(ctx, state, err)
+}
+
+func (s *DraftService) RemoveDerived(ctx context.Context, draftID domain.DraftID) (draft.State, error) {
+	state, err := s.drafts.RemoveDerived(ctx, draftID)
+	return s.answered(ctx, state, err)
 }
 
 // Replace hands a draft a whole request: "открыть в запросе" on a record, or a command pasted into
 // the command line.
 func (s *DraftService) Replace(ctx context.Context, id domain.DraftID, seed draft.Seed) (draft.State, error) {
-	return s.drafts.Replace(ctx, id, seed)
+	state, err := s.drafts.Replace(ctx, id, seed)
+	return s.answered(ctx, state, err)
 }
 
 // bodyFileFilter is deliberately wide: a form field can be any file, and offering "*.json" would be

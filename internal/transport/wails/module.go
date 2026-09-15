@@ -9,6 +9,7 @@ import (
 	"go.uber.org/fx"
 
 	"json-inspector/internal/domain"
+	"json-inspector/internal/infra/authflow"
 	"json-inspector/internal/infra/files"
 	"json-inspector/internal/infra/httpx"
 	"json-inspector/internal/infra/scriptengine"
@@ -68,6 +69,12 @@ var Module = fx.Module("wails",
 		func(uc *settings.UseCase) record.RetentionSource { return settingsRetention(uc) },
 		func(uc *environment.UseCase) draft.VariableSource { return environmentVariables{uc} },
 		func(r *files.Reader) draft.FileSource { return r },
+		// The schemes are the outside world: two of them fetch a token or answer a challenge, and
+		// which ones those are is not something a use case should have to know.
+		func(engine *httpx.Engine, host *Host) *authflow.Materializer {
+			return authflow.New(engine.Client(), host)
+		},
+		func(auth *authflow.Materializer) draft.AuthMaterializer { return auth },
 		func(engine *scriptengine.Engine) scripting.Engine { return engine },
 		func(store *sqlite.Store) scripting.Tree { return store },
 		func(store *sqlite.Store) scripting.Store { return store },

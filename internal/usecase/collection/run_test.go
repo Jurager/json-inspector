@@ -200,10 +200,10 @@ func TestRunSendsTheInheritedAuth(t *testing.T) {
 	r := setupRunnable(t)
 	ctx := context.Background()
 
-	if _, err := r.uc.SaveAuth(ctx, r.collectionID, domain.Auth{Type: domain.AuthBearer, Token: "коллекция"}); err != nil {
+	if _, err := r.uc.SaveAuth(ctx, r.collectionID, bearer("коллекция")); err != nil {
 		t.Fatalf("SaveAuth collection: %v", err)
 	}
-	if _, err := r.uc.SaveAuth(ctx, r.nestedID, domain.Auth{Type: domain.AuthBearer, Token: "вложенная"}); err != nil {
+	if _, err := r.uc.SaveAuth(ctx, r.nestedID, bearer("вложенная")); err != nil {
 		t.Fatalf("SaveAuth nested: %v", err)
 	}
 
@@ -221,7 +221,7 @@ func TestRunSendsTheInheritedAuth(t *testing.T) {
 	want := []string{"коллекция", "вложенная", "вложенная", "коллекция"}
 	for i, token := range want {
 		auth := sent[i].Auth
-		if auth == nil || auth.Token != token {
+		if auth == nil || auth.Get("token") != token {
 			t.Errorf("request %d went out with %+v, want %q", i, auth, token)
 		}
 	}

@@ -10,6 +10,13 @@ import (
 	"json-inspector/internal/domain"
 )
 
+// bearerRef is an authorization of the one scheme these tests carry through a file. What a scheme
+// asks for is the scheme's own business; what is being tested here is that it survives the trip.
+func bearerRef(token string) *domain.Auth {
+	auth := domain.NewAuth(domain.AuthBearer).With("token", token)
+	return &auth
+}
+
 // The half of an import and an export that is not a dialog: the bytes on disk. It is tested here
 // because the dialog in front of it cannot be — a native file dialog is the user's, not a test's —
 // and the file is the part that can be wrong in a way nobody sees until a collection is lost.
@@ -32,7 +39,7 @@ func TestCollectionFileRoundTrip(t *testing.T) {
 				{Name: "Внутри", Position: 0, Method: "GET",
 					URL: "https://api.example.com/users?page=2", Body: `{"a": 1}`,
 					Headers: []domain.Row{{ID: "h1", Name: "Accept", Value: "application/json", Enabled: true}},
-					Auth:    &domain.Auth{Type: domain.AuthBearer, Token: "{{token}}"}},
+					Auth:    bearerRef("{{token}}")},
 			}},
 		},
 	}
@@ -61,7 +68,7 @@ func TestCollectionFileRoundTrip(t *testing.T) {
 	if len(request.Headers) != 1 || request.Headers[0].Name != "Accept" {
 		t.Errorf("headers = %+v", request.Headers)
 	}
-	if request.Auth == nil || request.Auth.Token != "{{token}}" {
+	if request.Auth == nil || request.Auth.Get("token") != "{{token}}" {
 		t.Errorf("auth = %+v, want the token as text", request.Auth)
 	}
 	// A parameter that is switched off is not in the address, and the file is the only place it can

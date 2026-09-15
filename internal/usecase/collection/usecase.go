@@ -285,7 +285,9 @@ func (u *UseCase) Describe(ctx context.Context, id string, description string) (
 // has no authorization of its own is a level the one below it inherits past, and an empty auth
 // written down would stop that walk at the level that meant to say nothing.
 func (u *UseCase) SaveAuth(ctx context.Context, id string, auth domain.Auth) ([]domain.Collection, error) {
-	saved := authOrNil(auth)
+	// Normalized for the same reason a draft's is: the answers travel whole, and the scheme they are
+	// about may not be the one the previous answer was about.
+	saved := authOrNil(auth.Normalized())
 
 	workspace, err := u.scope.ActiveWorkspace(ctx)
 	if err != nil {

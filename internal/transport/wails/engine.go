@@ -24,6 +24,7 @@ func (e engineExecutor) Execute(ctx context.Context, req record.Request) (*domai
 		URL:     req.URL,
 		Headers: req.Headers,
 		Body:    req.Body,
+		Digest:  req.Digest,
 	}), nil
 }
 

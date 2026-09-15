@@ -33,6 +33,8 @@
   <a href="#s11" style="padding: 5px 10px; border-radius: 6px; color: #6e6e73; text-decoration: none;" style-hover="background: rgba(0,0,0,0.05); color: #1d1d1f;">11 Workspaces</a>
   <a href="#s12" style="padding: 5px 10px; border-radius: 6px; color: #6e6e73; text-decoration: none;" style-hover="background: rgba(0,0,0,0.05); color: #1d1d1f;">12 Тёмная тема</a>
   <a href="#s13" style="padding: 5px 10px; border-radius: 6px; color: #6e6e73; text-decoration: none;" style-hover="background: rgba(0,0,0,0.05); color: #1d1d1f;">13 Скелетон</a>
+  <a href="#s14" style="padding: 5px 10px; border-radius: 6px; color: #6e6e73; text-decoration: none;" style-hover="background: rgba(0,0,0,0.05); color: #1d1d1f;">14 Вход</a>
+  <a href="#s15" style="padding: 5px 10px; border-radius: 6px; color: #6e6e73; text-decoration: none;" style-hover="background: rgba(0,0,0,0.05); color: #1d1d1f;">15 Участники</a>
 </div>
 
 <div style="padding: 48px 40px 80px; background: #f2f2f4; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI Variable Text', 'Segoe UI', 'SF Pro Text', Roboto, 'Helvetica Neue', Helvetica, Arial, sans-serif; color: #1d1d1f; display: flex; flex-direction: column; align-items: center; gap: 56px;">
@@ -238,9 +240,9 @@
               <span style="font-size: 10px; font-weight: 600; letter-spacing: 0.01em; line-height: 1;">Коллекции</span>
             </button>
             <div style="flex: 1;"></div>
-            <button style="width: 32px; height: 32px; border: none; border-radius: 999px; background: transparent; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; position: relative; margin-bottom: 4px;" style-hover="background: rgba(0,0,0,0.06);" title="Аккаунт · ucell.dev@itl.digital">
-              <span style="width: 24px; height: 24px; border-radius: 999px; background: rgba(0,122,255,0.16); color: #007aff; font-size: 10px; font-weight: 700; display: inline-flex; align-items: center; justify-content: center;">UD</span>
-              <span style="position: absolute; bottom: 2px; right: 2px; width: 8px; height: 8px; border-radius: 999px; background: #34c759; box-shadow: 0 0 0 2px #ececef;"></span>
+            <button style="width: 32px; height: 32px; border: none; border-radius: 8px; background: transparent; color: #6e6e73; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; position: relative; margin-bottom: 4px;" style-hover="background: rgba(0,0,0,0.06); color: #1d1d1f;" title="Аккаунт · ucell.dev@itl.digital">
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="3.6"></circle><path d="M5 20c0-3.6 3.1-6.4 7-6.4s7 2.8 7 6.4"></path></svg>
+              <span style="position: absolute; bottom: 3px; right: 4px; width: 7px; height: 7px; border-radius: 999px; background: #34c759; box-shadow: 0 0 0 2px #ececef;"></span>
             </button>
           </div>
           <div style="flex: none; height: 40px; display: flex; align-items: center; justify-content: center; border-top: 1px solid rgba(0,0,0,0.08);">
@@ -378,18 +380,271 @@
             </sc-if>
 
             <sc-if value="{{ authOpen }}">
-              <div style="position: absolute; top: 50px; right: 138px; width: 380px; background: rgba(255,255,255,0.8); backdrop-filter: blur(26px) saturate(180%); -webkit-backdrop-filter: blur(26px) saturate(180%); border: 1px solid rgba(0,0,0,0.07); border-radius: 10px; box-shadow: inset 0 1px 0 rgba(255,255,255,0.85), 0 12px 32px rgba(0,0,0,0.16); padding: 10px; display: flex; flex-direction: column; gap: 8px; z-index: 20;">
-                <div style="display: flex; align-items: center; justify-content: space-between; padding: 2px 4px 0;">
+              <div style="position: absolute; top: 50px; right: 138px; width: 500px; max-height: 520px; background: rgba(255,255,255,0.8); backdrop-filter: blur(26px) saturate(180%); -webkit-backdrop-filter: blur(26px) saturate(180%); border: 1px solid rgba(0,0,0,0.07); border-radius: 10px; box-shadow: inset 0 1px 0 rgba(255,255,255,0.85), 0 12px 32px rgba(0,0,0,0.16); padding: 10px; display: flex; flex-direction: column; gap: 10px; z-index: 20;">
+                <div style="display: flex; align-items: center; justify-content: space-between; padding: 2px 4px 0; flex: none;">
                   <span style="font-size: 12px; font-weight: 600;">Авторизация</span>
                   <button onClick="{{ closeChip }}" style="border: none; background: transparent; color: #86868b; cursor: pointer; font-size: 13px; line-height: 1; padding: 2px 4px; border-radius: 4px;" style-hover="background: rgba(0,0,0,0.05); color: #1d1d1f;">✕</button>
                 </div>
-                <div style="display: flex; gap: 2px; padding: 2px; border-radius: 7px; background: #f2f2f7;">
-                  <span style="flex: 1; text-align: center; font-size: 11.5px; padding: 4px 0; border-radius: 5px; background: #fff; box-shadow: 0 1px 2px rgba(0,0,0,0.08); font-weight: 500;">Нет</span>
-                  <span style="flex: 1; text-align: center; font-size: 11.5px; padding: 4px 0; color: #6e6e73;">Bearer</span>
-                  <span style="flex: 1; text-align: center; font-size: 11.5px; padding: 4px 0; color: #6e6e73;">Basic</span>
-                  <span style="flex: 1; text-align: center; font-size: 11.5px; padding: 4px 0; color: #6e6e73;">OAuth 2</span>
+
+                <div style="display: flex; flex-direction: column; gap: 5px; padding: 0 4px; flex: none;">
+                  <span style="font-size: 11px; color: #6e6e73; font-weight: 500;">Тип авторизации</span>
+                  <div style="display: flex; gap: 2px; padding: 2px; border-radius: 8px; background: #f2f2f7;">
+                    <button onClick="{{ setAuthInherit }}" style="{{ segInheritStyle }}">Наслед.</button>
+                    <button onClick="{{ setAuthNone }}" style="{{ segNoneStyle }}">Нет</button>
+                    <button onClick="{{ setAuthBearer }}" style="{{ segBearerStyle }}">Bearer</button>
+                    <button onClick="{{ setAuthBasic }}" style="{{ segBasicStyle }}">Basic</button>
+                    <button onClick="{{ setAuthApikey }}" style="{{ segApikeyStyle }}">API-ключ</button>
+                    <div style="position: relative; flex: 1;">
+                      <button onClick="{{ toggleAuthMore }}" style="{{ segMoreStyle }} width: 100%; display: flex; align-items: center; justify-content: center; gap: 2px; padding: 5px 4px;">
+                        <span>{{ moreLabel }}</span>
+                        <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="flex: none;"><path d="m6 9 6 6 6-6"></path></svg>
+                      </button>
+                      <sc-if value="{{ authMoreOpen }}">
+                        <div style="position: absolute; top: 32px; right: 0; width: 150px; background: #fff; border: 1px solid rgba(0,0,0,0.1); border-radius: 8px; box-shadow: 0 8px 24px rgba(0,0,0,0.16); padding: 4px; display: flex; flex-direction: column; gap: 1px; z-index: 21;">
+                          <button onClick="{{ setAuthOAuth2 }}" style="text-align: left; font: inherit; font-size: 12px; padding: 6px 8px; border-radius: 5px; border: none; cursor: pointer; background: transparent; color: #1d1d1f;" style-hover="background: #f2f2f7;">OAuth 2.0</button>
+                          <button onClick="{{ setAuthJwt }}" style="text-align: left; font: inherit; font-size: 12px; padding: 6px 8px; border-radius: 5px; border: none; cursor: pointer; background: transparent; color: #1d1d1f;" style-hover="background: #f2f2f7;">JWT Bearer</button>
+                          <button onClick="{{ setAuthDigest }}" style="text-align: left; font: inherit; font-size: 12px; padding: 6px 8px; border-radius: 5px; border: none; cursor: pointer; background: transparent; color: #1d1d1f;" style-hover="background: #f2f2f7;">Digest</button>
+                          <button onClick="{{ setAuthAws }}" style="text-align: left; font: inherit; font-size: 12px; padding: 6px 8px; border-radius: 5px; border: none; cursor: pointer; background: transparent; color: #1d1d1f;" style-hover="background: #f2f2f7;">AWS Signature</button>
+                        </div>
+                      </sc-if>
+                    </div>
+                  </div>
                 </div>
-                <div style="font-size: 11.5px; color: #86868b; line-height: 1.45; padding: 0 4px 2px;">Значение можно взять из окружения — переменные подставляются в URL, заголовки и тело.</div>
+
+                <div style="display: flex; flex-direction: column; gap: 10px; padding: 0 4px 2px; overflow-y: auto;">
+
+                  <sc-if value="{{ isAuthInherit }}">
+                    <div style="font-size: 11.5px; color: #86868b; line-height: 1.5;">Используются настройки авторизации родительской папки или коллекции.</div>
+                  </sc-if>
+
+                  <sc-if value="{{ isAuthNone }}">
+                    <div style="font-size: 11.5px; color: #86868b; line-height: 1.5;">Заголовок Authorization не добавляется к запросу.</div>
+                  </sc-if>
+
+                  <sc-if value="{{ isAuthBasic }}">
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+                      <div style="display: flex; flex-direction: column; gap: 4px;">
+                        <span style="font-size: 11px; color: #6e6e73; font-weight: 500;">Username</span>
+                        <input type="text" placeholder="Username" style="width: 100%; height: 28px; padding: 0 8px; border-radius: 6px; border: 1px solid rgba(0,0,0,0.1); background: #fff; font: inherit; font-size: 11.5px; color: #1d1d1f; box-sizing: border-box;" />
+                      </div>
+                      <div style="display: flex; flex-direction: column; gap: 4px;">
+                        <span style="font-size: 11px; color: #6e6e73; font-weight: 500;">Password</span>
+                        <div style="position: relative;">
+                          <input type="password" placeholder="Password" style="width: 100%; height: 28px; padding: 0 28px 0 8px; border-radius: 6px; border: 1px solid rgba(0,0,0,0.1); background: #fff; font: inherit; font-size: 11.5px; color: #1d1d1f; box-sizing: border-box;" />
+                          <span style="position: absolute; right: 4px; top: 50%; transform: translateY(-50%); width: 20px; height: 20px; border-radius: 5px; color: #86868b; display: inline-flex; align-items: center; justify-content: center; cursor: pointer;" style-hover="background: rgba(0,0,0,0.06); color: #1d1d1f;">
+                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12Z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  </sc-if>
+
+                  <sc-if value="{{ isAuthBearer }}">
+                    <div style="display: flex; flex-direction: column; gap: 4px;">
+                      <span style="font-size: 11px; color: #6e6e73; font-weight: 500;">Prefix</span>
+                      <input type="text" placeholder="Bearer" style="width: 100%; height: 28px; padding: 0 8px; border-radius: 6px; border: 1px solid rgba(0,0,0,0.1); background: #fff; font: inherit; font-size: 11.5px; color: #1d1d1f; box-sizing: border-box;" />
+                    </div>
+                    <div style="display: flex; flex-direction: column; gap: 4px;">
+                      <span style="font-size: 11px; color: #6e6e73; font-weight: 500;">Token</span>
+                      <textarea placeholder="Вставьте токен" style="width: 100%; height: 64px; padding: 6px 8px; border-radius: 6px; border: 1px solid rgba(0,0,0,0.1); background: #fff; font: inherit; font-family: ui-monospace, 'Cascadia Code', 'SF Mono', Consolas, Menlo, monospace; font-size: 11px; color: #1d1d1f; box-sizing: border-box; resize: none;"></textarea>
+                    </div>
+                  </sc-if>
+
+                  <sc-if value="{{ isAuthApikey }}">
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+                      <div style="display: flex; flex-direction: column; gap: 4px;">
+                        <span style="font-size: 11px; color: #6e6e73; font-weight: 500;">Key</span>
+                        <input type="text" placeholder="X-API-Key" style="width: 100%; height: 28px; padding: 0 8px; border-radius: 6px; border: 1px solid rgba(0,0,0,0.1); background: #fff; font: inherit; font-family: ui-monospace, 'Cascadia Code', 'SF Mono', Consolas, Menlo, monospace; font-size: 11.5px; color: #1d1d1f; box-sizing: border-box;" />
+                      </div>
+                      <div style="display: flex; flex-direction: column; gap: 4px;">
+                        <span style="font-size: 11px; color: #6e6e73; font-weight: 500;">Value</span>
+                        <input type="text" placeholder="Значение ключа" style="width: 100%; height: 28px; padding: 0 8px; border-radius: 6px; border: 1px solid rgba(0,0,0,0.1); background: #fff; font: inherit; font-size: 11.5px; color: #1d1d1f; box-sizing: border-box;" />
+                      </div>
+                    </div>
+                    <div style="display: flex; flex-direction: column; gap: 4px;">
+                      <span style="font-size: 11px; color: #6e6e73; font-weight: 500;">Добавить в</span>
+                      <select style="width: 100%; height: 28px; padding: 0 8px; border-radius: 6px; border: 1px solid rgba(0,0,0,0.1); background: #fff; font: inherit; font-size: 11.5px; color: #1d1d1f; box-sizing: border-box; cursor: pointer;">
+                        <option>Заголовок</option>
+                        <option>Query-параметры</option>
+                      </select>
+                    </div>
+                  </sc-if>
+
+                  <sc-if value="{{ isAuthOAuth2 }}">
+                    <div style="display: flex; flex-direction: column; gap: 4px;">
+                      <span style="font-size: 11px; color: #6e6e73; font-weight: 500;">Grant Type</span>
+                      <select style="width: 100%; height: 28px; padding: 0 8px; border-radius: 6px; border: 1px solid rgba(0,0,0,0.1); background: #fff; font: inherit; font-size: 11.5px; color: #1d1d1f; box-sizing: border-box; cursor: pointer;">
+                        <option>Client Credentials</option>
+                        <option>Authorization Code</option>
+                        <option>Implicit</option>
+                        <option>Password Credentials</option>
+                      </select>
+                    </div>
+                    <div style="display: flex; flex-direction: column; gap: 8px; padding: 10px; border-radius: 8px; background: rgba(0,0,0,0.035); border: 1px solid rgba(0,0,0,0.06);">
+                      <div style="display: flex; align-items: center; gap: 6px; font-size: 11.5px; color: #6e6e73;">
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" style="flex: none;"><path d="M15 7a4 4 0 1 0-4 4"></path><path d="m11 11-6 6"></path><path d="m14 14 2 2"></path></svg>
+                        <span>Нет токена</span>
+                      </div>
+                      <div style="display: flex; gap: 6px;">
+                        <button style="height: 26px; padding: 0 12px; border-radius: 6px; border: none; background: #007aff; color: #fff; font: inherit; font-size: 11.5px; font-weight: 600; cursor: pointer;" style-hover="filter: brightness(1.08);">Получить токен</button>
+                        <button style="height: 26px; padding: 0 12px; border-radius: 6px; border: 1px solid rgba(0,0,0,0.14); background: #fff; color: #6e6e73; font: inherit; font-size: 11.5px; cursor: pointer;" style-hover="border-color: rgba(0,0,0,0.28); color: #1d1d1f;">Очистить</button>
+                      </div>
+                    </div>
+                    <div style="display: flex; flex-direction: column; gap: 4px;">
+                      <span style="font-size: 11px; color: #6e6e73; font-weight: 500;">Token URL</span>
+                      <input type="text" placeholder="https://idp.example.com/oauth2/token" style="width: 100%; height: 28px; padding: 0 8px; border-radius: 6px; border: 1px solid rgba(0,0,0,0.1); background: #fff; font: inherit; font-family: ui-monospace, 'Cascadia Code', 'SF Mono', Consolas, Menlo, monospace; font-size: 11px; color: #1d1d1f; box-sizing: border-box;" />
+                    </div>
+                    <div style="display: flex; flex-direction: column; gap: 4px;">
+                      <span style="font-size: 11px; color: #6e6e73; font-weight: 500;">Client ID</span>
+                      <input type="text" placeholder="Client ID" style="width: 100%; height: 28px; padding: 0 8px; border-radius: 6px; border: 1px solid rgba(0,0,0,0.1); background: #fff; font: inherit; font-size: 11.5px; color: #1d1d1f; box-sizing: border-box;" />
+                    </div>
+                    <div style="display: flex; flex-direction: column; gap: 4px;">
+                      <span style="font-size: 11px; color: #6e6e73; font-weight: 500;">Client Secret</span>
+                      <div style="position: relative;">
+                        <input type="password" placeholder="Client Secret" style="width: 100%; height: 28px; padding: 0 28px 0 8px; border-radius: 6px; border: 1px solid rgba(0,0,0,0.1); background: #fff; font: inherit; font-size: 11.5px; color: #1d1d1f; box-sizing: border-box;" />
+                        <span style="position: absolute; right: 4px; top: 50%; transform: translateY(-50%); width: 20px; height: 20px; border-radius: 5px; color: #86868b; display: inline-flex; align-items: center; justify-content: center; cursor: pointer;" style-hover="background: rgba(0,0,0,0.06); color: #1d1d1f;">
+                          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12Z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+                        </span>
+                      </div>
+                    </div>
+                    <div style="display: flex; flex-direction: column; gap: 4px;">
+                      <span style="font-size: 11px; color: #6e6e73; font-weight: 500;">Client Authentication</span>
+                      <select style="width: 100%; height: 28px; padding: 0 8px; border-radius: 6px; border: 1px solid rgba(0,0,0,0.1); background: #fff; font: inherit; font-size: 11.5px; color: #1d1d1f; box-sizing: border-box; cursor: pointer;">
+                        <option>Basic-заголовок</option>
+                        <option>В теле запроса</option>
+                      </select>
+                    </div>
+                    <div style="display: flex; flex-direction: column; gap: 4px;">
+                      <span style="font-size: 11px; color: #6e6e73; font-weight: 500;">Scope</span>
+                      <input type="text" placeholder="openid profile" style="width: 100%; height: 28px; padding: 0 8px; border-radius: 6px; border: 1px solid rgba(0,0,0,0.1); background: #fff; font: inherit; font-family: ui-monospace, 'Cascadia Code', 'SF Mono', Consolas, Menlo, monospace; font-size: 11px; color: #1d1d1f; box-sizing: border-box;" />
+                    </div>
+                    <div style="display: flex; flex-direction: column; gap: 4px;">
+                      <span style="font-size: 11px; color: #6e6e73; font-weight: 500;">Audience</span>
+                      <input type="text" placeholder="https://api.example.com" style="width: 100%; height: 28px; padding: 0 8px; border-radius: 6px; border: 1px solid rgba(0,0,0,0.1); background: #fff; font: inherit; font-family: ui-monospace, 'Cascadia Code', 'SF Mono', Consolas, Menlo, monospace; font-size: 11px; color: #1d1d1f; box-sizing: border-box;" />
+                    </div>
+                    <div style="display: flex; flex-direction: column; gap: 4px;">
+                      <span style="font-size: 11px; color: #6e6e73; font-weight: 500;">Добавить токен в</span>
+                      <select style="width: 100%; height: 28px; padding: 0 8px; border-radius: 6px; border: 1px solid rgba(0,0,0,0.1); background: #fff; font: inherit; font-size: 11.5px; color: #1d1d1f; box-sizing: border-box; cursor: pointer;">
+                        <option>Заголовок</option>
+                        <option>Query-параметры</option>
+                      </select>
+                    </div>
+                    <div style="display: flex; flex-direction: column; gap: 4px;">
+                      <span style="font-size: 11px; color: #6e6e73; font-weight: 500;">Header Prefix</span>
+                      <input type="text" placeholder="Bearer" style="width: 100%; height: 28px; padding: 0 8px; border-radius: 6px; border: 1px solid rgba(0,0,0,0.1); background: #fff; font: inherit; font-size: 11.5px; color: #1d1d1f; box-sizing: border-box;" />
+                    </div>
+                  </sc-if>
+
+                  <sc-if value="{{ isAuthJwt }}">
+                    <div style="display: flex; flex-direction: column; gap: 4px;">
+                      <span style="font-size: 11px; color: #6e6e73; font-weight: 500;">Algorithm</span>
+                      <select style="width: 100%; height: 28px; padding: 0 8px; border-radius: 6px; border: 1px solid rgba(0,0,0,0.1); background: #fff; font: inherit; font-size: 11.5px; color: #1d1d1f; box-sizing: border-box; cursor: pointer;">
+                        <option>HS256</option><option>HS384</option><option>HS512</option>
+                        <option>RS256</option><option>RS384</option><option>RS512</option>
+                      </select>
+                    </div>
+                    <div style="display: flex; flex-direction: column; gap: 4px;">
+                      <span style="font-size: 11px; color: #6e6e73; font-weight: 500;">Secret</span>
+                      <div style="position: relative;">
+                        <input type="password" placeholder="Secret" style="width: 100%; height: 28px; padding: 0 28px 0 8px; border-radius: 6px; border: 1px solid rgba(0,0,0,0.1); background: #fff; font: inherit; font-size: 11.5px; color: #1d1d1f; box-sizing: border-box;" />
+                        <span style="position: absolute; right: 4px; top: 50%; transform: translateY(-50%); width: 20px; height: 20px; border-radius: 5px; color: #86868b; display: inline-flex; align-items: center; justify-content: center; cursor: pointer;" style-hover="background: rgba(0,0,0,0.06); color: #1d1d1f;">
+                          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12Z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+                        </span>
+                      </div>
+                    </div>
+                    <div style="display: flex; flex-direction: column; gap: 4px;">
+                      <span style="font-size: 11px; color: #6e6e73; font-weight: 500;">Secret Encoding</span>
+                      <select style="width: 100%; height: 28px; padding: 0 8px; border-radius: 6px; border: 1px solid rgba(0,0,0,0.1); background: #fff; font: inherit; font-size: 11.5px; color: #1d1d1f; box-sizing: border-box; cursor: pointer;">
+                        <option>Plain text</option><option>Base64</option>
+                      </select>
+                    </div>
+                    <div style="display: flex; flex-direction: column; gap: 4px;">
+                      <span style="font-size: 11px; color: #6e6e73; font-weight: 500;">Payload (claims)</span>
+                      <textarea style="width: 100%; height: 76px; padding: 6px 8px; border-radius: 6px; border: 1px solid rgba(0,0,0,0.1); background: #f2f2f7; font: inherit; font-family: ui-monospace, 'Cascadia Code', 'SF Mono', Consolas, Menlo, monospace; font-size: 11px; line-height: 1.5; color: #1d1d1f; box-sizing: border-box; resize: none;">{ "sub": "1234567890" }</textarea>
+                      <span style="font-size: 10.5px; color: #86868b; line-height: 1.4;">iat и exp добавляются при отправке, если их нет в claims.</span>
+                    </div>
+                    <div style="display: flex; flex-direction: column; gap: 4px;">
+                      <span style="font-size: 11px; color: #6e6e73; font-weight: 500;">Expires In (seconds)</span>
+                      <input type="text" placeholder="3600" style="width: 100%; height: 28px; padding: 0 8px; border-radius: 6px; border: 1px solid rgba(0,0,0,0.1); background: #fff; font: inherit; font-family: ui-monospace, 'Cascadia Code', 'SF Mono', Consolas, Menlo, monospace; font-size: 11.5px; color: #1d1d1f; box-sizing: border-box;" />
+                      <span style="font-size: 10.5px; color: #86868b; line-height: 1.4;">0 — токен без exp.</span>
+                    </div>
+                    <div style="display: flex; flex-direction: column; gap: 4px;">
+                      <span style="font-size: 11px; color: #6e6e73; font-weight: 500;">JOSE Header</span>
+                      <textarea style="width: 100%; height: 56px; padding: 6px 8px; border-radius: 6px; border: 1px solid rgba(0,0,0,0.1); background: #f2f2f7; font: inherit; font-family: ui-monospace, 'Cascadia Code', 'SF Mono', Consolas, Menlo, monospace; font-size: 11px; line-height: 1.5; color: #1d1d1f; box-sizing: border-box; resize: none;">{ "kid": "key-1" }</textarea>
+                      <span style="font-size: 10.5px; color: #86868b; line-height: 1.4;">Только kid, typ, cty, x5t, x5u, jku — alg берётся из Algorithm.</span>
+                    </div>
+                    <div style="display: flex; flex-direction: column; gap: 4px;">
+                      <span style="font-size: 11px; color: #6e6e73; font-weight: 500;">Добавить токен в</span>
+                      <select style="width: 100%; height: 28px; padding: 0 8px; border-radius: 6px; border: 1px solid rgba(0,0,0,0.1); background: #fff; font: inherit; font-size: 11.5px; color: #1d1d1f; box-sizing: border-box; cursor: pointer;">
+                        <option>Заголовок</option>
+                        <option>Query-параметры</option>
+                      </select>
+                    </div>
+                    <div style="display: flex; flex-direction: column; gap: 4px;">
+                      <span style="font-size: 11px; color: #6e6e73; font-weight: 500;">Header Prefix</span>
+                      <input type="text" placeholder="Bearer" style="width: 100%; height: 28px; padding: 0 8px; border-radius: 6px; border: 1px solid rgba(0,0,0,0.1); background: #fff; font: inherit; font-size: 11.5px; color: #1d1d1f; box-sizing: border-box;" />
+                    </div>
+                  </sc-if>
+
+                  <sc-if value="{{ isAuthDigest }}">
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+                      <div style="display: flex; flex-direction: column; gap: 4px;">
+                        <span style="font-size: 11px; color: #6e6e73; font-weight: 500;">Username</span>
+                        <input type="text" placeholder="Username" style="width: 100%; height: 28px; padding: 0 8px; border-radius: 6px; border: 1px solid rgba(0,0,0,0.1); background: #fff; font: inherit; font-size: 11.5px; color: #1d1d1f; box-sizing: border-box;" />
+                      </div>
+                      <div style="display: flex; flex-direction: column; gap: 4px;">
+                        <span style="font-size: 11px; color: #6e6e73; font-weight: 500;">Password</span>
+                        <div style="position: relative;">
+                          <input type="password" placeholder="Password" style="width: 100%; height: 28px; padding: 0 28px 0 8px; border-radius: 6px; border: 1px solid rgba(0,0,0,0.1); background: #fff; font: inherit; font-size: 11.5px; color: #1d1d1f; box-sizing: border-box;" />
+                          <span style="position: absolute; right: 4px; top: 50%; transform: translateY(-50%); width: 20px; height: 20px; border-radius: 5px; color: #86868b; display: inline-flex; align-items: center; justify-content: center; cursor: pointer;" style-hover="background: rgba(0,0,0,0.06); color: #1d1d1f;">
+                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12Z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                    <span style="font-size: 10.5px; color: #86868b; line-height: 1.4;">Алгоритм зависит от вызова сервера: поддерживаются MD5, SHA-256 и SHA-512-256.</span>
+                  </sc-if>
+
+                  <sc-if value="{{ isAuthAws }}">
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+                      <div style="display: flex; flex-direction: column; gap: 4px;">
+                        <span style="font-size: 11px; color: #6e6e73; font-weight: 500;">Access Key ID</span>
+                        <input type="text" placeholder="AKIA..." style="width: 100%; height: 28px; padding: 0 8px; border-radius: 6px; border: 1px solid rgba(0,0,0,0.1); background: #fff; font: inherit; font-family: ui-monospace, 'Cascadia Code', 'SF Mono', Consolas, Menlo, monospace; font-size: 11.5px; color: #1d1d1f; box-sizing: border-box;" />
+                      </div>
+                      <div style="display: flex; flex-direction: column; gap: 4px;">
+                        <span style="font-size: 11px; color: #6e6e73; font-weight: 500;">Secret Access Key</span>
+                        <div style="position: relative;">
+                          <input type="password" placeholder="Secret Access Key" style="width: 100%; height: 28px; padding: 0 28px 0 8px; border-radius: 6px; border: 1px solid rgba(0,0,0,0.1); background: #fff; font: inherit; font-size: 11.5px; color: #1d1d1f; box-sizing: border-box;" />
+                          <span style="position: absolute; right: 4px; top: 50%; transform: translateY(-50%); width: 20px; height: 20px; border-radius: 5px; color: #86868b; display: inline-flex; align-items: center; justify-content: center; cursor: pointer;" style-hover="background: rgba(0,0,0,0.06); color: #1d1d1f;">
+                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12Z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                    <div style="display: flex; flex-direction: column; gap: 4px;">
+                      <span style="font-size: 11px; color: #6e6e73; font-weight: 500;">Session Token <span style="color: #86868b; font-weight: 400;">(опционально, для STS)</span></span>
+                      <div style="position: relative;">
+                        <input type="password" placeholder="Session Token" style="width: 100%; height: 28px; padding: 0 28px 0 8px; border-radius: 6px; border: 1px solid rgba(0,0,0,0.1); background: #fff; font: inherit; font-size: 11.5px; color: #1d1d1f; box-sizing: border-box;" />
+                        <span style="position: absolute; right: 4px; top: 50%; transform: translateY(-50%); width: 20px; height: 20px; border-radius: 5px; color: #86868b; display: inline-flex; align-items: center; justify-content: center; cursor: pointer;" style-hover="background: rgba(0,0,0,0.06); color: #1d1d1f;">
+                          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12Z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+                        </span>
+                      </div>
+                    </div>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+                      <div style="display: flex; flex-direction: column; gap: 4px;">
+                        <span style="font-size: 11px; color: #6e6e73; font-weight: 500;">Region</span>
+                        <input type="text" placeholder="us-east-1" style="width: 100%; height: 28px; padding: 0 8px; border-radius: 6px; border: 1px solid rgba(0,0,0,0.1); background: #fff; font: inherit; font-family: ui-monospace, 'Cascadia Code', 'SF Mono', Consolas, Menlo, monospace; font-size: 11.5px; color: #1d1d1f; box-sizing: border-box;" />
+                      </div>
+                      <div style="display: flex; flex-direction: column; gap: 4px;">
+                        <span style="font-size: 11px; color: #6e6e73; font-weight: 500;">Service</span>
+                        <input type="text" placeholder="execute-api" style="width: 100%; height: 28px; padding: 0 8px; border-radius: 6px; border: 1px solid rgba(0,0,0,0.1); background: #fff; font: inherit; font-family: ui-monospace, 'Cascadia Code', 'SF Mono', Consolas, Menlo, monospace; font-size: 11.5px; color: #1d1d1f; box-sizing: border-box;" />
+                      </div>
+                    </div>
+                  </sc-if>
+
+                </div>
+
+                <div style="font-size: 10.5px; color: #86868b; line-height: 1.4; padding: 6px 4px 0; border-top: 1px solid rgba(0,0,0,0.08); flex: none;">Значения можно брать из окружения — переменные подставляются в URL, заголовки и тело.</div>
               </div>
             </sc-if>
 
@@ -863,9 +1118,9 @@
               <span style="font-size: 10px; font-weight: 600; letter-spacing: 0.01em; line-height: 1;">Коллекции</span>
             </button>
             <div style="flex: 1;"></div>
-            <button style="width: 32px; height: 32px; border: none; border-radius: 999px; background: transparent; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; position: relative; margin-bottom: 4px;" style-hover="background: rgba(0,0,0,0.06);" title="Аккаунт · ucell.dev@itl.digital">
-              <span style="width: 24px; height: 24px; border-radius: 999px; background: rgba(0,122,255,0.16); color: #007aff; font-size: 10px; font-weight: 700; display: inline-flex; align-items: center; justify-content: center;">UD</span>
-              <span style="position: absolute; bottom: 2px; right: 2px; width: 8px; height: 8px; border-radius: 999px; background: #34c759; box-shadow: 0 0 0 2px #ececef;"></span>
+            <button style="width: 32px; height: 32px; border: none; border-radius: 8px; background: transparent; color: #6e6e73; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; position: relative; margin-bottom: 4px;" style-hover="background: rgba(0,0,0,0.06); color: #1d1d1f;" title="Аккаунт · ucell.dev@itl.digital">
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="3.6"></circle><path d="M5 20c0-3.6 3.1-6.4 7-6.4s7 2.8 7 6.4"></path></svg>
+              <span style="position: absolute; bottom: 3px; right: 4px; width: 7px; height: 7px; border-radius: 999px; background: #34c759; box-shadow: 0 0 0 2px #ececef;"></span>
             </button>
           </div>
           <div style="flex: none; height: 40px; display: flex; align-items: center; justify-content: center; border-top: 1px solid rgba(0,0,0,0.08);">
@@ -1151,9 +1406,9 @@
           <span style="font-size: 10px; font-weight: 600; letter-spacing: 0.01em; line-height: 1;">Коллекции</span>
         </button>
         <div style="flex: 1;"></div>
-        <button style="width: 32px; height: 32px; border: none; border-radius: 999px; background: transparent; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; position: relative; margin-bottom: 4px;" style-hover="background: rgba(0,0,0,0.06);" title="Аккаунт · ucell.dev@itl.digital">
-          <span style="width: 24px; height: 24px; border-radius: 999px; background: rgba(0,122,255,0.16); color: #007aff; font-size: 10px; font-weight: 700; display: inline-flex; align-items: center; justify-content: center;">UD</span>
-          <span style="position: absolute; bottom: 2px; right: 2px; width: 8px; height: 8px; border-radius: 999px; background: #34c759; box-shadow: 0 0 0 2px #ececef;"></span>
+        <button style="width: 32px; height: 32px; border: none; border-radius: 8px; background: transparent; color: #6e6e73; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; position: relative; margin-bottom: 4px;" style-hover="background: rgba(0,0,0,0.06); color: #1d1d1f;" title="Аккаунт · ucell.dev@itl.digital">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="3.6"></circle><path d="M5 20c0-3.6 3.1-6.4 7-6.4s7 2.8 7 6.4"></path></svg>
+          <span style="position: absolute; bottom: 3px; right: 4px; width: 7px; height: 7px; border-radius: 999px; background: #34c759; box-shadow: 0 0 0 2px #ececef;"></span>
         </button>
         <div style="width: 26px; height: 1px; background: rgba(0,0,0,0.12); margin-bottom: 6px;"></div>
         <button style="width: 32px; height: 32px; border: none; border-radius: 8px; background: transparent; color: #86868b; cursor: pointer; display: inline-flex; align-items: center; justify-content: center;" style-hover="background: rgba(0,0,0,0.06); color: #1d1d1f;" title="Настройки">
@@ -1794,9 +2049,9 @@
               <span style="font-size: 10px; font-weight: 600; letter-spacing: 0.01em; line-height: 1;">Коллекции</span>
             </button>
             <div style="flex: 1;"></div>
-            <button style="width: 32px; height: 32px; border: none; border-radius: 999px; background: transparent; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; position: relative; margin-bottom: 4px;" style-hover="background: rgba(0,0,0,0.06);" title="Аккаунт · ucell.dev@itl.digital">
-              <span style="width: 24px; height: 24px; border-radius: 999px; background: rgba(0,122,255,0.16); color: #007aff; font-size: 10px; font-weight: 700; display: inline-flex; align-items: center; justify-content: center;">UD</span>
-              <span style="position: absolute; bottom: 2px; right: 2px; width: 8px; height: 8px; border-radius: 999px; background: #34c759; box-shadow: 0 0 0 2px #ececef;"></span>
+            <button style="width: 32px; height: 32px; border: none; border-radius: 8px; background: transparent; color: #6e6e73; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; position: relative; margin-bottom: 4px;" style-hover="background: rgba(0,0,0,0.06); color: #1d1d1f;" title="Аккаунт · ucell.dev@itl.digital">
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="3.6"></circle><path d="M5 20c0-3.6 3.1-6.4 7-6.4s7 2.8 7 6.4"></path></svg>
+              <span style="position: absolute; bottom: 3px; right: 4px; width: 7px; height: 7px; border-radius: 999px; background: #34c759; box-shadow: 0 0 0 2px #ececef;"></span>
             </button>
           </div>
           <div style="flex: none; height: 40px; display: flex; align-items: center; justify-content: center; border-top: 1px solid rgba(0,0,0,0.08);">
@@ -2060,9 +2315,9 @@
             <span style="font-size: 10px; font-weight: 600; letter-spacing: 0.01em; line-height: 1;">Коллекции</span>
           </button>
           <div style="flex: 1;"></div>
-          <button style="width: 32px; height: 32px; border: none; border-radius: 999px; background: transparent; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; position: relative; margin-bottom: 4px;" style-hover="background: rgba(0,0,0,0.06);" title="Аккаунт · ucell.dev@itl.digital">
-            <span style="width: 24px; height: 24px; border-radius: 999px; background: rgba(0,122,255,0.16); color: #007aff; font-size: 10px; font-weight: 700; display: inline-flex; align-items: center; justify-content: center;">UD</span>
-            <span style="position: absolute; bottom: 2px; right: 2px; width: 8px; height: 8px; border-radius: 999px; background: #34c759; box-shadow: 0 0 0 2px #ececef;"></span>
+          <button style="width: 32px; height: 32px; border: none; border-radius: 8px; background: transparent; color: #6e6e73; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; position: relative; margin-bottom: 4px;" style-hover="background: rgba(0,0,0,0.06); color: #1d1d1f;" title="Аккаунт · ucell.dev@itl.digital">
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="3.6"></circle><path d="M5 20c0-3.6 3.1-6.4 7-6.4s7 2.8 7 6.4"></path></svg>
+            <span style="position: absolute; bottom: 3px; right: 4px; width: 7px; height: 7px; border-radius: 999px; background: #34c759; box-shadow: 0 0 0 2px #ececef;"></span>
           </button>
           <div style="width: 26px; height: 1px; background: rgba(0,0,0,0.12); margin-bottom: 6px;"></div>
           <button style="width: 32px; height: 32px; border: none; border-radius: 8px; background: transparent; color: #86868b; cursor: pointer; display: inline-flex; align-items: center; justify-content: center;" style-hover="background: rgba(0,0,0,0.06); color: #1d1d1f;" title="Настройки">
@@ -2197,22 +2452,166 @@
 
           <sc-if value="{{ isCollAuth }}">
             <div style="flex: 1; min-height: 0; overflow: auto; background: #fff; padding: 24px;">
-              <div style="max-width: 460px; display: flex; flex-direction: column; gap: 12px;">
-                <div style="font-size: 13px; font-weight: 600;">Тип авторизации</div>
-                <div style="display: flex; gap: 2px; padding: 2px; border-radius: 7px; background: #f2f2f7; width: 320px;">
-                  <span style="flex: 1; text-align: center; font-size: 12px; padding: 6px 0; border-radius: 5px; background: #fff; box-shadow: 0 1px 2px rgba(0,0,0,0.08); font-weight: 600; color: #1d1d1f;">Bearer Token</span>
-                  <span style="flex: 1; text-align: center; font-size: 12px; padding: 6px 0; color: #6e6e73;">Basic</span>
-                  <span style="flex: 1; text-align: center; font-size: 12px; padding: 6px 0; color: #6e6e73;">Нет</span>
-                </div>
-                <div style="display: flex; flex-direction: column; gap: 5px;">
-                  <span style="font-size: 12px; font-weight: 500; color: #1d1d1f;">Токен</span>
-                  <div style="display: flex; align-items: center; gap: 8px; height: 34px; padding: 0 10px; border: 1px solid rgba(0,0,0,0.16); border-radius: 8px; background: #fff; font-family: ui-monospace, 'Cascadia Code', 'SF Mono', Consolas, Menlo, monospace; font-size: 12.5px; color: #c41a16;">
-                    <span>переменная admin_token</span>
+              <div style="max-width: 420px; display: flex; flex-direction: column; gap: 14px;">
+                <div style="display: flex; flex-direction: column; gap: 6px;">
+                  <span style="font-size: 13px; font-weight: 600;">Тип авторизации</span>
+                  <div style="display: flex; gap: 2px; padding: 2px; border-radius: 9px; background: #f2f2f7; width: 320px;">
+                    <button onClick="{{ setAuthNone }}" style="{{ collSegNoneStyle }}">Нет</button>
+                    <button onClick="{{ setAuthBearer }}" style="{{ collSegBearerStyle }}">Bearer</button>
+                    <button onClick="{{ setAuthBasic }}" style="{{ collSegBasicStyle }}">Basic</button>
+                    <button onClick="{{ setAuthApikey }}" style="{{ collSegApikeyStyle }}">API-ключ</button>
+                    <div style="position: relative; flex: 1;">
+                      <button onClick="{{ toggleAuthMore }}" style="{{ collSegMoreStyle }} width: 100%; display: flex; align-items: center; justify-content: center; gap: 3px;">
+                        <span>{{ moreLabel }}</span>
+                        <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="flex: none;"><path d="m6 9 6 6 6-6"></path></svg>
+                      </button>
+                      <sc-if value="{{ authMoreOpen }}">
+                        <div style="position: absolute; top: 36px; right: 0; width: 150px; background: #fff; border: 1px solid rgba(0,0,0,0.1); border-radius: 8px; box-shadow: 0 8px 24px rgba(0,0,0,0.16); padding: 4px; display: flex; flex-direction: column; gap: 1px; z-index: 21;">
+                          <button onClick="{{ setAuthOAuth2 }}" style="text-align: left; font: inherit; font-size: 12px; padding: 6px 8px; border-radius: 5px; border: none; cursor: pointer; background: transparent; color: #1d1d1f;" style-hover="background: #f2f2f7;">OAuth 2.0</button>
+                          <button onClick="{{ setAuthJwt }}" style="text-align: left; font: inherit; font-size: 12px; padding: 6px 8px; border-radius: 5px; border: none; cursor: pointer; background: transparent; color: #1d1d1f;" style-hover="background: #f2f2f7;">JWT Bearer</button>
+                          <button onClick="{{ setAuthDigest }}" style="text-align: left; font: inherit; font-size: 12px; padding: 6px 8px; border-radius: 5px; border: none; cursor: pointer; background: transparent; color: #1d1d1f;" style-hover="background: #f2f2f7;">Digest</button>
+                          <button onClick="{{ setAuthAws }}" style="text-align: left; font: inherit; font-size: 12px; padding: 6px 8px; border-radius: 5px; border: none; cursor: pointer; background: transparent; color: #1d1d1f;" style-hover="background: #f2f2f7;">AWS Signature</button>
+                        </div>
+                      </sc-if>
+                    </div>
                   </div>
                 </div>
+
+                <sc-if value="{{ isAuthBasic }}">
+                  <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                    <div style="display: flex; flex-direction: column; gap: 5px;">
+                      <span style="font-size: 12px; font-weight: 500; color: #1d1d1f;">Username</span>
+                      <input type="text" placeholder="Username" style="width: 100%; height: 34px; padding: 0 10px; border: 1px solid rgba(0,0,0,0.16); border-radius: 8px; background: #fff; font: inherit; font-size: 12.5px; color: #1d1d1f; box-sizing: border-box;" />
+                    </div>
+                    <div style="display: flex; flex-direction: column; gap: 5px;">
+                      <span style="font-size: 12px; font-weight: 500; color: #1d1d1f;">Password</span>
+                      <input type="password" placeholder="Password" style="width: 100%; height: 34px; padding: 0 10px; border: 1px solid rgba(0,0,0,0.16); border-radius: 8px; background: #fff; font: inherit; font-size: 12.5px; color: #1d1d1f; box-sizing: border-box;" />
+                    </div>
+                  </div>
+                </sc-if>
+
+                <sc-if value="{{ isAuthBearer }}">
+                  <div style="display: flex; flex-direction: column; gap: 5px;">
+                    <span style="font-size: 12px; font-weight: 500; color: #1d1d1f;">Токен</span>
+                    <div style="display: flex; align-items: center; gap: 8px; height: 34px; padding: 0 10px; border: 1px solid rgba(0,0,0,0.16); border-radius: 8px; background: #fff; font-family: ui-monospace, 'Cascadia Code', 'SF Mono', Consolas, Menlo, monospace; font-size: 12.5px; color: #c41a16;">
+                      <span>переменная admin_token</span>
+                    </div>
+                  </div>
+                </sc-if>
+
+                <sc-if value="{{ isAuthApikey }}">
+                  <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                    <div style="display: flex; flex-direction: column; gap: 5px;">
+                      <span style="font-size: 12px; font-weight: 500; color: #1d1d1f;">Key</span>
+                      <input type="text" placeholder="X-API-Key" style="width: 100%; height: 34px; padding: 0 10px; border: 1px solid rgba(0,0,0,0.16); border-radius: 8px; background: #fff; font: inherit; font-family: ui-monospace, 'Cascadia Code', 'SF Mono', Consolas, Menlo, monospace; font-size: 12.5px; color: #1d1d1f; box-sizing: border-box;" />
+                    </div>
+                    <div style="display: flex; flex-direction: column; gap: 5px;">
+                      <span style="font-size: 12px; font-weight: 500; color: #1d1d1f;">Value</span>
+                      <input type="text" placeholder="Значение ключа" style="width: 100%; height: 34px; padding: 0 10px; border: 1px solid rgba(0,0,0,0.16); border-radius: 8px; background: #fff; font: inherit; font-size: 12.5px; color: #1d1d1f; box-sizing: border-box;" />
+                    </div>
+                  </div>
+                  <div style="display: flex; flex-direction: column; gap: 5px;">
+                    <span style="font-size: 12px; font-weight: 500; color: #1d1d1f;">Добавить в</span>
+                    <select style="width: 260px; height: 34px; padding: 0 10px; border: 1px solid rgba(0,0,0,0.16); border-radius: 8px; background: #fff; font: inherit; font-size: 12.5px; color: #1d1d1f; box-sizing: border-box; cursor: pointer;">
+                      <option>Заголовок</option><option>Query-параметры</option>
+                    </select>
+                  </div>
+                </sc-if>
+
+                <sc-if value="{{ isAuthOAuth2 }}">
+                  <div style="display: flex; flex-direction: column; gap: 5px;">
+                    <span style="font-size: 12px; font-weight: 500; color: #1d1d1f;">Grant Type</span>
+                    <select style="width: 260px; height: 34px; padding: 0 10px; border: 1px solid rgba(0,0,0,0.16); border-radius: 8px; background: #fff; font: inherit; font-size: 12.5px; color: #1d1d1f; box-sizing: border-box; cursor: pointer;">
+                      <option>Client Credentials</option><option>Authorization Code</option>
+                    </select>
+                  </div>
+                  <div style="display: flex; flex-direction: column; gap: 5px;">
+                    <span style="font-size: 12px; font-weight: 500; color: #1d1d1f;">Token URL</span>
+                    <input type="text" placeholder="https://idp.example.com/oauth2/token" style="width: 100%; height: 34px; padding: 0 10px; border: 1px solid rgba(0,0,0,0.16); border-radius: 8px; background: #fff; font: inherit; font-family: ui-monospace, 'Cascadia Code', 'SF Mono', Consolas, Menlo, monospace; font-size: 12px; color: #1d1d1f; box-sizing: border-box;" />
+                  </div>
+                  <div style="display: flex; flex-direction: column; gap: 5px;">
+                    <span style="font-size: 12px; font-weight: 500; color: #1d1d1f;">Client ID</span>
+                    <div style="display: flex; align-items: center; gap: 8px; height: 34px; padding: 0 10px; border: 1px solid rgba(0,0,0,0.16); border-radius: 8px; background: #fff; font-family: ui-monospace, 'Cascadia Code', 'SF Mono', Consolas, Menlo, monospace; font-size: 12.5px; color: #c41a16;">
+                      <span>переменная oauth_client_id</span>
+                    </div>
+                  </div>
+                  <div style="display: flex; flex-direction: column; gap: 5px;">
+                    <span style="font-size: 12px; font-weight: 500; color: #1d1d1f;">Client Secret</span>
+                    <div style="display: flex; align-items: center; gap: 8px; height: 34px; padding: 0 10px; border: 1px solid rgba(0,0,0,0.16); border-radius: 8px; background: #fff; font-family: ui-monospace, 'Cascadia Code', 'SF Mono', Consolas, Menlo, monospace; font-size: 12.5px; color: #c41a16;">
+                      <span>переменная oauth_client_secret</span>
+                    </div>
+                  </div>
+                  <div style="display: flex; flex-direction: column; gap: 5px;">
+                    <span style="font-size: 12px; font-weight: 500; color: #1d1d1f;">Scope</span>
+                    <input type="text" placeholder="openid profile" style="width: 100%; height: 34px; padding: 0 10px; border: 1px solid rgba(0,0,0,0.16); border-radius: 8px; background: #fff; font: inherit; font-family: ui-monospace, 'Cascadia Code', 'SF Mono', Consolas, Menlo, monospace; font-size: 12px; color: #1d1d1f; box-sizing: border-box;" />
+                  </div>
+                </sc-if>
+
+                <sc-if value="{{ isAuthJwt }}">
+                  <div style="display: flex; flex-direction: column; gap: 5px;">
+                    <span style="font-size: 12px; font-weight: 500; color: #1d1d1f;">Algorithm</span>
+                    <select style="width: 260px; height: 34px; padding: 0 10px; border: 1px solid rgba(0,0,0,0.16); border-radius: 8px; background: #fff; font: inherit; font-size: 12.5px; color: #1d1d1f; box-sizing: border-box; cursor: pointer;">
+                      <option>HS256</option><option>RS256</option>
+                    </select>
+                  </div>
+                  <div style="display: flex; flex-direction: column; gap: 5px;">
+                    <span style="font-size: 12px; font-weight: 500; color: #1d1d1f;">Secret</span>
+                    <div style="display: flex; align-items: center; gap: 8px; height: 34px; padding: 0 10px; border: 1px solid rgba(0,0,0,0.16); border-radius: 8px; background: #fff; font-family: ui-monospace, 'Cascadia Code', 'SF Mono', Consolas, Menlo, monospace; font-size: 12.5px; color: #c41a16;">
+                      <span>переменная jwt_secret</span>
+                    </div>
+                  </div>
+                  <div style="display: flex; flex-direction: column; gap: 5px;">
+                    <span style="font-size: 12px; font-weight: 500; color: #1d1d1f;">Payload (claims)</span>
+                    <div style="height: 64px; border-radius: 8px; border: 1px solid rgba(0,0,0,0.16); background: #f2f2f7; padding: 8px 10px; font-family: ui-monospace, 'Cascadia Code', 'SF Mono', Consolas, Menlo, monospace; font-size: 12px; line-height: 1.5; color: #1d1d1f;">{ "sub": "1234567890" }</div>
+                  </div>
+                </sc-if>
+
+                <sc-if value="{{ isAuthDigest }}">
+                  <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                    <div style="display: flex; flex-direction: column; gap: 5px;">
+                      <span style="font-size: 12px; font-weight: 500; color: #1d1d1f;">Username</span>
+                      <input type="text" placeholder="Username" style="width: 100%; height: 34px; padding: 0 10px; border: 1px solid rgba(0,0,0,0.16); border-radius: 8px; background: #fff; font: inherit; font-size: 12.5px; color: #1d1d1f; box-sizing: border-box;" />
+                    </div>
+                    <div style="display: flex; flex-direction: column; gap: 5px;">
+                      <span style="font-size: 12px; font-weight: 500; color: #1d1d1f;">Password</span>
+                      <input type="password" placeholder="Password" style="width: 100%; height: 34px; padding: 0 10px; border: 1px solid rgba(0,0,0,0.16); border-radius: 8px; background: #fff; font: inherit; font-size: 12.5px; color: #1d1d1f; box-sizing: border-box;" />
+                    </div>
+                  </div>
+                  <span style="font-size: 11px; color: #86868b; line-height: 1.4;">Алгоритм зависит от вызова сервера: MD5, SHA-256, SHA-512-256.</span>
+                </sc-if>
+
+                <sc-if value="{{ isAuthAws }}">
+                  <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                    <div style="display: flex; flex-direction: column; gap: 5px;">
+                      <span style="font-size: 12px; font-weight: 500; color: #1d1d1f;">Access Key ID</span>
+                      <input type="text" placeholder="AKIA..." style="width: 100%; height: 34px; padding: 0 10px; border: 1px solid rgba(0,0,0,0.16); border-radius: 8px; background: #fff; font: inherit; font-family: ui-monospace, 'Cascadia Code', 'SF Mono', Consolas, Menlo, monospace; font-size: 12.5px; color: #1d1d1f; box-sizing: border-box;" />
+                    </div>
+                    <div style="display: flex; flex-direction: column; gap: 5px;">
+                      <span style="font-size: 12px; font-weight: 500; color: #1d1d1f;">Secret Access Key</span>
+                      <div style="display: flex; align-items: center; gap: 8px; height: 34px; padding: 0 10px; border: 1px solid rgba(0,0,0,0.16); border-radius: 8px; background: #fff; font-family: ui-monospace, 'Cascadia Code', 'SF Mono', Consolas, Menlo, monospace; font-size: 12.5px; color: #c41a16;">
+                        <span>переменная aws_secret_key</span>
+                      </div>
+                    </div>
+                  </div>
+                  <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                    <div style="display: flex; flex-direction: column; gap: 5px;">
+                      <span style="font-size: 12px; font-weight: 500; color: #1d1d1f;">Region</span>
+                      <input type="text" placeholder="us-east-1" style="width: 100%; height: 34px; padding: 0 10px; border: 1px solid rgba(0,0,0,0.16); border-radius: 8px; background: #fff; font: inherit; font-family: ui-monospace, 'Cascadia Code', 'SF Mono', Consolas, Menlo, monospace; font-size: 12.5px; color: #1d1d1f; box-sizing: border-box;" />
+                    </div>
+                    <div style="display: flex; flex-direction: column; gap: 5px;">
+                      <span style="font-size: 12px; font-weight: 500; color: #1d1d1f;">Service</span>
+                      <input type="text" placeholder="execute-api" style="width: 100%; height: 34px; padding: 0 10px; border: 1px solid rgba(0,0,0,0.16); border-radius: 8px; background: #fff; font: inherit; font-family: ui-monospace, 'Cascadia Code', 'SF Mono', Consolas, Menlo, monospace; font-size: 12.5px; color: #1d1d1f; box-sizing: border-box;" />
+                    </div>
+                  </div>
+                </sc-if>
+
+                <sc-if value="{{ isAuthNone }}">
+                  <div style="font-size: 12.5px; color: #86868b; line-height: 1.5;">Заголовок Authorization не добавляется к запросам коллекции.</div>
+                </sc-if>
+
                 <div style="display: flex; align-items: flex-start; gap: 8px; padding: 10px 12px; border-radius: 8px; background: rgba(0,122,255,0.08); margin-top: 4px;">
                   <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#007aff" stroke-width="2" style="flex: none; margin-top: 1px;"><circle cx="12" cy="12" r="9"></circle><path d="M12 8v5M12 16h.01" stroke-linecap="round"></path></svg>
-                  <span style="font-size: 12px; line-height: 1.5; color: #1d1d1f;">Наследуется всеми папками и запросами коллекции. В карточке запроса — выбор «Наследовать» вместо «Bearer»/«Basic»/«Нет».</span>
+                  <span style="font-size: 12px; line-height: 1.5; color: #1d1d1f;">Наследуется всеми папками и запросами коллекции. В карточке запроса — выбор «Наследовать» вместо конкретного типа авторизации.</span>
                 </div>
               </div>
             </div>
@@ -2304,9 +2703,9 @@
             <span style="font-size: 10px; font-weight: 600; letter-spacing: 0.01em; line-height: 1;">Коллекции</span>
           </button>
           <div style="flex: 1;"></div>
-          <button style="width: 32px; height: 32px; border: none; border-radius: 999px; background: transparent; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; position: relative; margin-bottom: 4px;" style-hover="background: rgba(0,0,0,0.06);" title="Аккаунт · ucell.dev@itl.digital">
-            <span style="width: 24px; height: 24px; border-radius: 999px; background: rgba(0,122,255,0.16); color: #007aff; font-size: 10px; font-weight: 700; display: inline-flex; align-items: center; justify-content: center;">UD</span>
-            <span style="position: absolute; bottom: 2px; right: 2px; width: 8px; height: 8px; border-radius: 999px; background: #34c759; box-shadow: 0 0 0 2px #ececef;"></span>
+          <button style="width: 32px; height: 32px; border: none; border-radius: 8px; background: transparent; color: #6e6e73; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; position: relative; margin-bottom: 4px;" style-hover="background: rgba(0,0,0,0.06); color: #1d1d1f;" title="Аккаунт · ucell.dev@itl.digital">
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="3.6"></circle><path d="M5 20c0-3.6 3.1-6.4 7-6.4s7 2.8 7 6.4"></path></svg>
+            <span style="position: absolute; bottom: 3px; right: 4px; width: 7px; height: 7px; border-radius: 999px; background: #34c759; box-shadow: 0 0 0 2px #ececef;"></span>
           </button>
           <div style="width: 26px; height: 1px; background: rgba(0,0,0,0.12); margin-bottom: 6px;"></div>
           <button style="width: 32px; height: 32px; border: none; border-radius: 8px; background: transparent; color: #86868b; cursor: pointer; display: inline-flex; align-items: center; justify-content: center;" style-hover="background: rgba(0,0,0,0.06); color: #1d1d1f;" title="Настройки">
@@ -3026,6 +3425,10 @@
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v11"></path><path d="m7 12 5 5 5-5"></path><path d="M5 20h14"></path></svg>
             <span>Обновления</span>
           </button>
+          <button style="{{ settingsNav.members.style }}" onClick="{{ settingsNav.members.onClick }}">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M17 20v-1.5a3.5 3.5 0 0 0-3.5-3.5h-4A3.5 3.5 0 0 0 6 18.5V20"></path><circle cx="11" cy="8" r="3"></circle><path d="M19 20v-1.2a3 3 0 0 0-2-2.8"></path><path d="M16 5.2a3 3 0 0 1 0 5.6"></path></svg>
+            <span>Участники</span>
+          </button>
           <button style="{{ settingsNav.account.style }}" onClick="{{ settingsNav.account.onClick }}">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="3.5"></circle><path d="M5 20c1.4-3.5 4.2-5.3 7-5.3s5.6 1.8 7 5.3"></path></svg>
             <span>Аккаунт</span>
@@ -3190,7 +3593,7 @@
             <div style="display: flex; flex-direction: column; gap: 2px; max-width: 560px;">
               <h2 style="margin: 0 0 10px; font-size: 20px; font-weight: 600; letter-spacing: -0.01em;">Аккаунт</h2>
               <div style="display: flex; align-items: center; gap: 14px; padding: 14px 0; border-bottom: 1px solid rgba(0,0,0,0.08);">
-                <span style="width: 44px; height: 44px; border-radius: 999px; background: rgba(0,122,255,0.12); color: #007aff; font-size: 15px; font-weight: 600; display: inline-flex; align-items: center; justify-content: center;">UD</span>
+                <span style="width: 44px; height: 44px; border-radius: 999px; background: rgba(0,0,0,0.06); color: #6e6e73; display: inline-flex; align-items: center; justify-content: center;"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="3.6"></circle><path d="M5 20c0-3.6 3.1-6.4 7-6.4s7 2.8 7 6.4"></path></svg></span>
                 <div style="display: flex; flex-direction: column; gap: 2px;">
                   <div style="font-size: 13px; font-weight: 600;">ucell.dev@itl.digital</div>
                   <div style="font-size: 12px; color: #6e6e73;">Тариф Team · 4 участника</div>
@@ -3199,6 +3602,107 @@
               <div style="display: flex; align-items: center; gap: 10px; padding: 14px 0;">
                 <button style="height: 30px; padding: 0 14px; border-radius: 7px; border: 1px solid rgba(0,0,0,0.16); background: #fff; color: #1d1d1f; font: inherit; font-size: 12.5px; cursor: pointer;">Управлять аккаунтом</button>
                 <button style="height: 30px; padding: 0 14px; border-radius: 7px; border: none; background: transparent; color: #ff3b30; font: inherit; font-size: 12.5px; cursor: pointer;">Выйти</button>
+              </div>
+
+              <div style="display: flex; flex-direction: column; gap: 2px; padding-top: 6px;">
+                <span style="font-size: 13px; font-weight: 600;">Сессии и устройства</span>
+                <span style="font-size: 12px; color: #6e6e73; margin-bottom: 8px;">Где сейчас выполнен вход в аккаунт.</span>
+              </div>
+              <div style="display: flex; flex-direction: column; gap: 1px; border: 1px solid rgba(0,0,0,0.08); border-radius: 8px; padding: 4px;">
+                <div style="display: flex; align-items: center; gap: 10px; padding: 8px 8px;">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#6e6e73" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="flex: none;"><rect x="3" y="4" width="18" height="13" rx="2"></rect><path d="M8 21h8M12 17v4"></path></svg>
+                  <div style="flex: 1; display: flex; flex-direction: column; min-width: 0;">
+                    <span style="font-size: 12.5px; color: #1d1d1f;">macOS · JSON Inspector 2.4.1 <span style="color: #86868b; font-weight: 400;">· это устройство</span></span>
+                    <span style="font-size: 11px; color: #86868b;">Алматы, Казахстан · активна сейчас</span>
+                  </div>
+                  <span style="width: 7px; height: 7px; border-radius: 999px; background: #34c759; flex: none;"></span>
+                </div>
+                <div style="display: flex; align-items: center; gap: 10px; padding: 8px 8px;">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#6e6e73" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="flex: none;"><rect x="5" y="2" width="14" height="20" rx="2"></rect><path d="M11 18h2"></path></svg>
+                  <div style="flex: 1; display: flex; flex-direction: column; min-width: 0;">
+                    <span style="font-size: 12.5px; color: #1d1d1f;">iOS · JSON Inspector 2.4.0</span>
+                    <span style="font-size: 11px; color: #86868b;">Алматы, Казахстан · вчера в 19:42</span>
+                  </div>
+                  <button style="border: none; background: transparent; color: #ff3b30; font: inherit; font-size: 11.5px; cursor: pointer; padding: 4px 8px; border-radius: 5px; flex: none;" style-hover="background: rgba(255,59,48,0.08);">Завершить</button>
+                </div>
+                <div style="display: flex; align-items: center; gap: 10px; padding: 8px 8px;">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#6e6e73" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="flex: none;"><rect x="3" y="4" width="18" height="13" rx="2"></rect><path d="M8 21h8M12 17v4"></path></svg>
+                  <div style="flex: 1; display: flex; flex-direction: column; min-width: 0;">
+                    <span style="font-size: 12.5px; color: #1d1d1f;">Windows · JSON Inspector 2.3.6</span>
+                    <span style="font-size: 11px; color: #86868b;">Астана, Казахстан · 12 сентября</span>
+                  </div>
+                  <button style="border: none; background: transparent; color: #ff3b30; font: inherit; font-size: 11.5px; cursor: pointer; padding: 4px 8px; border-radius: 5px; flex: none;" style-hover="background: rgba(255,59,48,0.08);">Завершить</button>
+                </div>
+              </div>
+              <button style="align-self: flex-start; border: none; background: transparent; color: #ff3b30; font: inherit; font-size: 12px; cursor: pointer; padding: 4px; border-radius: 5px; margin-top: 2px;" style-hover="background: rgba(255,59,48,0.08);">Завершить все другие сессии</button>
+            </div>
+          </sc-if>
+
+          <sc-if value="{{ isSettingsMembers }}">
+            <div style="display: flex; flex-direction: column; gap: 2px; max-width: 700px;">
+              <h2 style="margin: 0 0 2px; font-size: 20px; font-weight: 600; letter-spacing: -0.01em;">Участники</h2>
+              <p style="margin: 0 0 12px; font-size: 12.5px; line-height: 1.5; color: #6e6e73;">Общий доступ к коллекциям, окружениям и истории workspace «Каталог API». Доступно владельцу и админам.</p>
+
+              <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
+                <span style="font-size: 12px; color: #86868b;">5 участников, 1 приглашение ожидает</span>
+                <button style="height: 28px; padding: 0 11px; border-radius: 7px; border: none; background: #007aff; color: #fff; font: inherit; font-size: 12px; font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; gap: 5px;" style-hover="filter: brightness(1.08);">
+                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"></path></svg>
+                  <span>Пригласить</span>
+                </button>
+              </div>
+
+              <div style="display: flex; flex-direction: column; gap: 1px;">
+                <div style="display: grid; grid-template-columns: 1fr 120px 50px; gap: 10px; padding: 4px 8px; font-size: 10px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: #86868b;">
+                  <span>Участник</span><span>Роль</span><span></span>
+                </div>
+                <div style="display: grid; grid-template-columns: 1fr 120px 50px; align-items: center; gap: 10px; padding: 7px 8px; border-radius: 8px;" style-hover="background: rgba(0,0,0,0.03);">
+                  <div style="display: flex; align-items: center; gap: 9px; min-width: 0;">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#6e6e73" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="flex: none;"><circle cx="12" cy="8" r="3.6"></circle><path d="M5 20c0-3.6 3.1-6.4 7-6.4s7 2.8 7 6.4"></path></svg>
+                    <span style="font-size: 12.5px; color: #1d1d1f; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">ucell.dev@itl.digital <span style="color: #86868b;">· вы</span></span>
+                  </div>
+                  <span style="display: inline-flex; align-items: center; height: 21px; padding: 0 8px; border-radius: 999px; font-size: 10.5px; font-weight: 600; background: rgba(175,82,222,0.13); color: #7d3bb0; width: fit-content;">Владелец</span>
+                  <span></span>
+                </div>
+                <div style="display: grid; grid-template-columns: 1fr 120px 50px; align-items: center; gap: 10px; padding: 7px 8px; border-radius: 8px;" style-hover="background: rgba(0,0,0,0.03);">
+                  <div style="display: flex; align-items: center; gap: 9px; min-width: 0;">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#6e6e73" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="flex: none;"><circle cx="12" cy="8" r="3.6"></circle><path d="M5 20c0-3.6 3.1-6.4 7-6.4s7 2.8 7 6.4"></path></svg>
+                    <span style="font-size: 12.5px; color: #1d1d1f;">m.lebedev@itl.digital</span>
+                  </div>
+                  <select style="height: 25px; padding: 0 5px; border-radius: 6px; border: 1px solid rgba(0,0,0,0.14); background: #fff; font: inherit; font-size: 11px; color: #1d1d1f; cursor: pointer;">
+                    <option>Админ</option><option selected="">Редактор</option><option>Читатель</option>
+                  </select>
+                  <button style="border: none; background: transparent; color: #86868b; cursor: pointer; padding: 4px; border-radius: 5px; display: inline-flex;" style-hover="background: rgba(255,59,48,0.08); color: #ff3b30;" title="Удалить из workspace">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4 7h16M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2m2 0-1 13a1 1 0 0 1-1 1H8a1 1 0 0 1-1-1L6 7"></path></svg>
+                  </button>
+                </div>
+                <div style="display: grid; grid-template-columns: 1fr 120px 50px; align-items: center; gap: 10px; padding: 7px 8px; border-radius: 8px; background: rgba(0,122,255,0.04);">
+                  <div style="display: flex; align-items: center; gap: 9px; min-width: 0;">
+                    <span style="width: 14px; height: 14px; border-radius: 999px; border: 1.5px dashed #86868b; display: inline-flex; flex: none;"></span>
+                    <div style="display: flex; flex-direction: column; min-width: 0;">
+                      <span style="font-size: 12.5px; color: #6e6e73;">n.sidorova@itl.digital</span>
+                      <span style="font-size: 10.5px; color: #86868b;">Приглашена · 2 дня назад</span>
+                    </div>
+                  </div>
+                  <span style="display: inline-flex; align-items: center; height: 21px; padding: 0 8px; border-radius: 999px; font-size: 10.5px; font-weight: 500; background: rgba(0,0,0,0.05); color: #6e6e73; width: fit-content;">Редактор</span>
+                  <button style="border: none; background: transparent; color: #86868b; font: inherit; font-size: 10.5px; cursor: pointer; padding: 3px 5px; border-radius: 5px;" style-hover="background: rgba(0,0,0,0.06); color: #1d1d1f;">Отозвать</button>
+                </div>
+              </div>
+
+              <div style="display: flex; gap: 8px; margin-top: 14px; padding-top: 12px; border-top: 1px solid rgba(0,0,0,0.08);">
+                <span style="display: inline-flex; align-items: center; height: 19px; padding: 0 7px; border-radius: 999px; font-size: 10px; font-weight: 600; background: rgba(175,82,222,0.13); color: #7d3bb0;">Владелец</span>
+                <span style="font-size: 11px; color: #86868b; line-height: 1.6;">биллинг, удаление workspace</span>
+              </div>
+              <div style="display: flex; gap: 8px;">
+                <span style="display: inline-flex; align-items: center; height: 19px; padding: 0 7px; border-radius: 999px; font-size: 10px; font-weight: 600; background: rgba(0,122,255,0.12); color: #0060df;">Админ</span>
+                <span style="font-size: 11px; color: #86868b; line-height: 1.6;">участники, роли, окружения, авторизация коллекции</span>
+              </div>
+              <div style="display: flex; gap: 8px;">
+                <span style="display: inline-flex; align-items: center; height: 19px; padding: 0 7px; border-radius: 999px; font-size: 10px; font-weight: 500; background: rgba(52,199,89,0.14); color: #1f8a3d;">Редактор</span>
+                <span style="font-size: 11px; color: #86868b; line-height: 1.6;">запросы, коллекции, переменные</span>
+              </div>
+              <div style="display: flex; gap: 8px;">
+                <span style="display: inline-flex; align-items: center; height: 19px; padding: 0 7px; border-radius: 999px; font-size: 10px; font-weight: 500; background: rgba(0,0,0,0.06); color: #6e6e73;">Читатель</span>
+                <span style="font-size: 11px; color: #86868b; line-height: 1.6;">только просмотр и выполнение запросов</span>
               </div>
             </div>
           </sc-if>
@@ -3539,12 +4043,12 @@
           <span style="font-size: 12px; font-weight: 500; color: #1d1d1f;">Участники · 4</span>
           <div style="display: flex; flex-direction: column; gap: 1px; border: 1px solid rgba(0,0,0,0.08); border-radius: 8px; padding: 4px;">
             <div style="display: flex; align-items: center; gap: 8px; padding: 6px 6px;">
-              <span style="width: 22px; height: 22px; border-radius: 999px; background: rgba(0,122,255,0.16); color: #007aff; font-size: 10px; font-weight: 700; display: inline-flex; align-items: center; justify-content: center;">UD</span>
+              <span style="width: 22px; height: 22px; border-radius: 999px; background: rgba(0,0,0,0.06); color: #6e6e73; display: inline-flex; align-items: center; justify-content: center;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="3.6"></circle><path d="M5 20c0-3.6 3.1-6.4 7-6.4s7 2.8 7 6.4"></path></svg></span>
               <span style="flex: 1; font-size: 12.5px; color: #1d1d1f;">ucell.dev@itl.digital</span>
               <span style="font-size: 10.5px; color: #86868b;">Владелец</span>
             </div>
             <div style="display: flex; align-items: center; gap: 8px; padding: 6px 6px;">
-              <span style="width: 22px; height: 22px; border-radius: 999px; background: rgba(0,0,0,0.08); color: #6e6e73; font-size: 10px; font-weight: 700; display: inline-flex; align-items: center; justify-content: center;">МЛ</span>
+              <span style="width: 22px; height: 22px; border-radius: 999px; background: rgba(0,0,0,0.06); color: #6e6e73; display: inline-flex; align-items: center; justify-content: center;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="3.6"></circle><path d="M5 20c0-3.6 3.1-6.4 7-6.4s7 2.8 7 6.4"></path></svg></span>
               <span style="flex: 1; font-size: 12.5px; color: #1d1d1f;">m.lebedev@itl.digital</span>
               <span style="font-size: 10.5px; color: #86868b;">Участник</span>
             </div>
@@ -3748,6 +4252,226 @@
 
     <div style="font-size: 12.5px; line-height: 1.5; color: #6e6e73; max-width: 1040px;"><span style="color: #1d1d1f; font-weight: 600;">Форма скелетона.</span> Каждая серая полоса повторяет геометрию своего будущего элемента (бейдж метода, статус, время, строка URL) — раскладка не прыгает, когда данные приходят. Shimmer — один и тот же <code style="font-family: ui-monospace, monospace;">@keyframes shimmer</code>, без отдельного спиннера.</div>
   </section>
+
+  <section id="s14" style="width: 1480px; display: flex; flex-direction: column; gap: 28px;">
+    <div style="display: flex; flex-direction: column; gap: 10px; max-width: 860px;">
+      <div style="font-family: ui-monospace, 'Cascadia Code', 'SF Mono', Consolas, Menlo, monospace; font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: #86868b;">14 · Рейл: аккаунт и вход через браузер</div>
+      <h1 style="margin: 0; font-size: 34px; line-height: 1.15; font-weight: 600; letter-spacing: -0.02em;">Пользователь в рейле</h1>
+      <p style="margin: 0; font-size: 15px; line-height: 1.55; color: #6e6e73; text-wrap: pretty;">Аватар — не наш инструмент: везде в приложении только иконки, без подложек и инициалов. Клик по иконке пользователя открывает карточку аккаунта, а вход происходит через системный браузер — без пароля в приложении, как в Postman, Insomnia и Bruno.</p>
+    </div>
+
+    <div style="display: flex; gap: 40px; align-items: flex-start; flex-wrap: wrap;">
+
+      <div style="display: flex; flex-direction: column; gap: 10px; position: relative;">
+        <span style="font-size: 12px; font-weight: 600; color: #86868b;">Кнопка в рейле — без подложки, в стиле остальных иконок</span>
+        <div style="width: 76px; background: #ececef; border-radius: 10px; padding: 10px 6px; display: flex; flex-direction: column; align-items: center;">
+          <button style="width: 32px; height: 32px; border: none; border-radius: 8px; background: transparent; color: #6e6e73; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; position: relative;" style-hover="background: rgba(0,0,0,0.06); color: #1d1d1f;">
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="3.6"></circle><path d="M5 20c0-3.6 3.1-6.4 7-6.4s7 2.8 7 6.4"></path></svg>
+            <span style="position: absolute; bottom: 3px; right: 4px; width: 7px; height: 7px; border-radius: 999px; background: #34c759; box-shadow: 0 0 0 2px #ececef;"></span>
+          </button>
+        </div>
+
+        <div style="position: absolute; left: 84px; bottom: 0; width: 232px; background: rgba(255,255,255,0.86); backdrop-filter: blur(26px) saturate(180%); -webkit-backdrop-filter: blur(26px) saturate(180%); border: 1px solid rgba(0,0,0,0.07); border-radius: 12px; box-shadow: inset 0 1px 0 rgba(255,255,255,0.85), 0 16px 40px rgba(0,0,0,0.18); padding: 12px; display: flex; flex-direction: column; gap: 10px;">
+          <div style="display: flex; align-items: center; gap: 10px; padding-bottom: 10px; border-bottom: 1px solid rgba(0,0,0,0.08);">
+            <span style="width: 34px; height: 34px; border-radius: 999px; background: rgba(0,0,0,0.06); color: #6e6e73; display: inline-flex; align-items: center; justify-content: center; flex: none;"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="3.6"></circle><path d="M5 20c0-3.6 3.1-6.4 7-6.4s7 2.8 7 6.4"></path></svg></span>
+            <div style="display: flex; flex-direction: column; gap: 1px; min-width: 0;">
+              <span style="font-size: 12.5px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">ucell.dev@itl.digital</span>
+              <span style="font-size: 11px; color: #6e6e73;">Team · синхронизировано</span>
+            </div>
+          </div>
+          <button style="display: flex; align-items: center; gap: 8px; height: 30px; padding: 0 8px; border: none; border-radius: 6px; background: transparent; color: #1d1d1f; font: inherit; font-size: 12px; cursor: pointer; text-align: left;" style-hover="background: rgba(0,0,0,0.05);">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="flex: none;"><circle cx="12" cy="8" r="3.5"></circle><path d="M5 20c0-3.5 3.1-6 7-6s7 2.5 7 6"></path></svg>
+            <span>Аккаунт</span>
+          </button>
+          <button style="display: flex; align-items: center; gap: 8px; height: 30px; padding: 0 8px; border: none; border-radius: 6px; background: transparent; color: #1d1d1f; font: inherit; font-size: 12px; cursor: pointer; text-align: left;" style-hover="background: rgba(0,0,0,0.05);">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M20 7h-9"></path><path d="M14 17H5"></path><circle cx="17" cy="17" r="3"></circle><circle cx="7" cy="7" r="3"></circle></svg>
+            <span>Настройки</span>
+          </button>
+          <div style="height: 1px; background: rgba(0,0,0,0.08); margin: 2px 0;"></div>
+          <button style="display: flex; align-items: center; gap: 8px; height: 30px; padding: 0 8px; border: none; border-radius: 6px; background: transparent; color: #ff3b30; font: inherit; font-size: 12px; cursor: pointer; text-align: left;" style-hover="background: rgba(255,59,48,0.08);">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><path d="M16 17l5-5-5-5"></path><path d="M21 12H9"></path></svg>
+            <span>Выйти</span>
+          </button>
+        </div>
+      </div>
+
+      <div style="display: flex; flex-direction: column; gap: 10px;">
+        <span style="font-size: 12px; font-weight: 600; color: #86868b;">Если не авторизован</span>
+        <div style="width: 76px; background: #ececef; border-radius: 10px; padding: 10px 6px; display: flex; flex-direction: column; align-items: center;">
+          <button style="width: 32px; height: 32px; border: none; border-radius: 8px; background: transparent; color: #6e6e73; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; position: relative;" style-hover="background: rgba(0,0,0,0.06); color: #1d1d1f;">
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="3.6"></circle><path d="M5 20c0-3.6 3.1-6.4 7-6.4s7 2.8 7 6.4"></path></svg>
+          </button>
+        </div>
+        <span style="font-size: 11px; color: #86868b; line-height: 1.4; max-width: 76px;">Клик открывает окно входа</span>
+      </div>
+    </div>
+
+    <div style="display: flex; flex-direction: column; gap: 14px; max-width: 860px; padding-top: 10px; border-top: 1px solid rgba(0,0,0,0.08);">
+      <span style="font-size: 12px; font-weight: 600; color: #86868b;">Окно входа — передача в системный браузер</span>
+      <p style="margin: 0; font-size: 13px; line-height: 1.55; color: #6e6e73; max-width: 640px;">Никаких полей логина/пароля внутри приложения: кнопка открывает системный браузер, где пользователь входит через провайдера или SSO, затем возвращается в приложение уже авторизованным.</p>
+    </div>
+
+    <div style="display: flex; gap: 40px; align-items: flex-start; flex-wrap: wrap;">
+
+      <div style="display: flex; flex-direction: column; gap: 10px;">
+        <span style="font-size: 12px; font-weight: 600; color: #86868b;">Шаг 1 · Выбор способа входа</span>
+        <div style="width: 380px; border-radius: 14px; background: #fff; border: 1px solid rgba(0,0,0,0.08); box-shadow: 0 20px 48px rgba(0,0,0,0.16); overflow: hidden;">
+          <div style="height: 36px; display: flex; align-items: center; justify-content: center; border-bottom: 1px solid rgba(0,0,0,0.06); position: relative;">
+            <span style="font-size: 12px; font-weight: 600; color: #6e6e73;">Вход</span>
+            <div style="position: absolute; left: 12px; top: 50%; transform: translateY(-50%); display: flex; gap: 7px;">
+              <span style="width: 10px; height: 10px; border-radius: 999px; background: #ff5f57;"></span>
+              <span style="width: 10px; height: 10px; border-radius: 999px; background: #febc2e;"></span>
+              <span style="width: 10px; height: 10px; border-radius: 999px; background: #28c840;"></span>
+            </div>
+          </div>
+          <div style="padding: 36px 32px 30px; display: flex; flex-direction: column; align-items: center; gap: 22px;">
+            <span style="width: 48px; height: 48px; border-radius: 12px; background: #007aff; color: #fff; display: inline-flex; align-items: center; justify-content: center;">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3h8l4 4v10a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2Z"></path><path d="M9 9h6M9 13h6M9 17h3"></path></svg>
+            </span>
+            <div style="display: flex; flex-direction: column; align-items: center; gap: 6px; text-align: center;">
+              <span style="font-size: 17px; font-weight: 600; letter-spacing: -0.01em;">Войти в JSON Inspector</span>
+              <span style="font-size: 12.5px; line-height: 1.5; color: #6e6e73; max-width: 280px;">Синхронизируйте коллекции, окружения и историю между устройствами.</span>
+            </div>
+            <div style="display: flex; flex-direction: column; gap: 8px; width: 100%;">
+              <button style="height: 36px; border-radius: 8px; border: none; background: #007aff; color: #fff; font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px;" style-hover="filter: brightness(1.06);">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"></rect><path d="m3 7 8.4 6a1.5 1.5 0 0 0 1.6 0L21 7"></path></svg>
+                <span>Продолжить через браузер</span>
+              </button>
+            </div>
+            <div style="display: flex; align-items: center; gap: 10px;">
+              <button style="border: none; background: transparent; color: #86868b; font: inherit; font-size: 12px; cursor: pointer; padding: 2px;" style-hover="color: #1d1d1f;">Продолжить без аккаунта</button>
+              <span style="color: rgba(0,0,0,0.15);">·</span>
+              <button style="border: none; background: transparent; color: #86868b; font: inherit; font-size: 12px; cursor: pointer; padding: 2px; display: inline-flex; align-items: center; gap: 4px;" style-hover="color: #1d1d1f;">
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12h18"></path><path d="M12 3a15 15 0 0 1 0 18M12 3a15 15 0 0 0 0 18"></path></svg>
+                <span>Свой сервер</span>
+              </button>
+            </div>
+            <div style="width: 100%; border-radius: 9px; background: #f7f7f9; border: 1px solid rgba(0,0,0,0.08); padding: 10px 12px; display: flex; flex-direction: column; gap: 6px; box-sizing: border-box;">
+              <span style="font-size: 11px; font-weight: 500; color: #6e6e73;">Адрес сервера</span>
+              <div style="display: flex; gap: 6px;">
+                <input placeholder="https://app.jsoninspector.dev" value="https://app.jsoninspector.dev" style="flex: 1; min-width: 0; height: 28px; padding: 0 8px; border-radius: 6px; border: 1px solid rgba(0,0,0,0.14); background: #fff; font: inherit; font-family: ui-monospace, 'Cascadia Code', 'SF Mono', Consolas, Menlo, monospace; font-size: 11px; color: #6e6e73;" />
+                <button style="height: 28px; padding: 0 10px; border-radius: 6px; border: 1px solid rgba(0,0,0,0.14); background: #fff; color: #1d1d1f; font: inherit; font-size: 11px; cursor: pointer; flex: none;" style-hover="border-color: rgba(0,0,0,0.28);">Применить</button>
+              </div>
+              <span style="font-size: 10px; color: #86868b; line-height: 1.4;">По умолчанию — сервер JSON Inspector. Свой сервер — для self-hosted развёртывания в команде.</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div style="display: flex; flex-direction: column; gap: 10px;">
+        <span style="font-size: 12px; font-weight: 600; color: #86868b;">Шаг 2 · Ожидание подтверждения</span>
+        <div style="width: 380px; border-radius: 14px; background: #fff; border: 1px solid rgba(0,0,0,0.08); box-shadow: 0 20px 48px rgba(0,0,0,0.16); overflow: hidden;">
+          <div style="height: 36px; display: flex; align-items: center; justify-content: center; border-bottom: 1px solid rgba(0,0,0,0.06); position: relative;">
+            <span style="font-size: 12px; font-weight: 600; color: #6e6e73;">Вход</span>
+            <div style="position: absolute; left: 12px; top: 50%; transform: translateY(-50%); display: flex; gap: 7px;">
+              <span style="width: 10px; height: 10px; border-radius: 999px; background: #ff5f57;"></span>
+              <span style="width: 10px; height: 10px; border-radius: 999px; background: #febc2e;"></span>
+              <span style="width: 10px; height: 10px; border-radius: 999px; background: #28c840;"></span>
+            </div>
+          </div>
+          <div style="padding: 40px 32px 34px; display: flex; flex-direction: column; align-items: center; gap: 20px;">
+            <span style="width: 48px; height: 48px; border-radius: 999px; border: 2.5px solid rgba(0,122,255,0.2); border-top-color: #007aff; display: inline-flex;"></span>
+            <div style="display: flex; flex-direction: column; align-items: center; gap: 6px; text-align: center;">
+              <span style="font-size: 15px; font-weight: 600;">Открываем браузер…</span>
+              <span style="font-size: 12.5px; line-height: 1.5; color: #6e6e73; max-width: 280px;">Завершите вход в открывшемся окне — приложение продолжит автоматически.</span>
+            </div>
+            <div style="display: flex; align-items: center; gap: 14px;">
+              <button style="border: none; background: transparent; color: #007aff; font: inherit; font-size: 12.5px; font-weight: 500; cursor: pointer;" style-hover="text-decoration: underline;">Открыть браузер снова</button>
+              <button style="border: none; background: transparent; color: #86868b; font: inherit; font-size: 12.5px; cursor: pointer;" style-hover="color: #1d1d1f;">Отменить</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+<section id="s15" style="width: 1480px; display: flex; flex-direction: column; gap: 20px;">
+    <div style="display: flex; flex-direction: column; gap: 10px; max-width: 860px;">
+      <div style="font-family: ui-monospace, 'Cascadia Code', 'SF Mono', Consolas, Menlo, monospace; font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: #86868b;">15 · Команда и права доступа</div>
+      <h1 style="margin: 0; font-size: 34px; line-height: 1.15; font-weight: 600; letter-spacing: -0.02em;">Участники — внутри окна приложения</h1>
+      <p style="margin: 0; font-size: 15px; line-height: 1.55; color: #6e6e73; text-wrap: pretty;">Управление командой — не отдельный плавающий экран, а вкладка «Участники» в существующем окне Настроек: рядом с «Аккаунтом», в той же навигации слева. Открывается через шестерёнку в рейле или пункт «Настроить» в переключателе workspace (блок 11). Ниже — реальная вкладка, целиком.</p>
+    </div>
+
+    <div style="width: 1180px; height: 620px; border-radius: 12px; overflow: hidden; box-shadow: 0 24px 60px rgba(0,0,0,0.2), 0 0 0 1px rgba(0,0,0,0.08); background: #fff; display: flex; flex-direction: column;">
+      <div style="height: 40px; flex: none; background: rgba(255,255,255,0.7); backdrop-filter: blur(20px); border-bottom: 1px solid rgba(0,0,0,0.08); display: flex; align-items: center; padding: 0 14px; position: relative;">
+        <div style="display: flex; gap: 7px;">
+          <span style="width: 11px; height: 11px; border-radius: 999px; background: #ff5f57;"></span>
+          <span style="width: 11px; height: 11px; border-radius: 999px; background: #febc2e;"></span>
+          <span style="width: 11px; height: 11px; border-radius: 999px; background: #28c840;"></span>
+        </div>
+        <span style="position: absolute; left: 0; right: 0; text-align: center; font-size: 12.5px; font-weight: 600; color: #6e6e73;">Настройки</span>
+      </div>
+      <div style="flex: 1; min-height: 0; display: flex;">
+        <div style="width: 190px; flex: none; background: #f7f7f9; border-right: 1px solid rgba(0,0,0,0.1); padding: 12px 8px; display: flex; flex-direction: column; gap: 2px;">
+          <div style="display: flex; align-items: center; gap: 8px; padding: 7px 9px; border-radius: 6px; color: #6e6e73; font-size: 12px;">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M20 7h-9"></path><path d="M14 17H5"></path><circle cx="17" cy="17" r="3"></circle><circle cx="7" cy="7" r="3"></circle></svg>
+            <span>Общие</span>
+          </div>
+          <div style="display: flex; align-items: center; gap: 8px; padding: 7px 9px; border-radius: 6px; color: #6e6e73; font-size: 12px;">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"></circle><path d="M3 12h18"></path></svg>
+            <span>Внешний вид</span>
+          </div>
+          <div style="display: flex; align-items: center; gap: 8px; padding: 7px 9px; border-radius: 6px; background: rgba(0,122,255,0.12); color: #007aff; font-size: 12px; font-weight: 600;">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M17 20v-1.5a3.5 3.5 0 0 0-3.5-3.5h-4A3.5 3.5 0 0 0 6 18.5V20"></path><circle cx="11" cy="8" r="3"></circle><path d="M19 20v-1.2a3 3 0 0 0-2-2.8"></path><path d="M16 5.2a3 3 0 0 1 0 5.6"></path></svg>
+            <span>Участники</span>
+          </div>
+          <div style="display: flex; align-items: center; gap: 8px; padding: 7px 9px; border-radius: 6px; color: #6e6e73; font-size: 12px;">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="3.5"></circle><path d="M5 20c1.4-3.5 4.2-5.3 7-5.3s5.6 1.8 7 5.3"></path></svg>
+            <span>Аккаунт</span>
+          </div>
+        </div>
+        <div style="flex: 1; min-height: 0; overflow: auto; padding: 20px 26px;">
+          <div style="display: flex; flex-direction: column; gap: 2px; max-width: 700px;">
+            <h2 style="margin: 0 0 2px; font-size: 18px; font-weight: 600; letter-spacing: -0.01em;">Участники</h2>
+            <p style="margin: 0 0 12px; font-size: 12px; line-height: 1.5; color: #6e6e73;">Общий доступ к коллекциям, окружениям и истории workspace «Каталог API». Приглашать и менять роли может владелец или админ.</p>
+            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
+              <span style="font-size: 11.5px; color: #86868b;">5 участников, 1 приглашение ожидает</span>
+              <button style="height: 27px; padding: 0 11px; border-radius: 7px; border: none; background: #007aff; color: #fff; font: inherit; font-size: 11.5px; font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; gap: 5px;" style-hover="filter: brightness(1.08);">
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"></path></svg>
+                <span>Пригласить</span>
+              </button>
+            </div>
+            <div style="display: flex; flex-direction: column; gap: 1px; border: 1px solid rgba(0,0,0,0.08); border-radius: 8px; padding: 4px;">
+              <div style="display: grid; grid-template-columns: 1fr 118px 40px; align-items: center; gap: 10px; padding: 7px 7px;">
+                <div style="display: flex; align-items: center; gap: 9px; min-width: 0;">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#6e6e73" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="flex: none;"><circle cx="12" cy="8" r="3.6"></circle><path d="M5 20c0-3.6 3.1-6.4 7-6.4s7 2.8 7 6.4"></path></svg>
+                  <span style="font-size: 12px; color: #1d1d1f;">ucell.dev@itl.digital <span style="color: #86868b;">· вы</span></span>
+                </div>
+                <span style="display: inline-flex; align-items: center; height: 20px; padding: 0 8px; border-radius: 999px; font-size: 10.5px; font-weight: 600; background: rgba(175,82,222,0.13); color: #7d3bb0; width: fit-content;">Владелец</span>
+                <span></span>
+              </div>
+              <div style="display: grid; grid-template-columns: 1fr 118px 40px; align-items: center; gap: 10px; padding: 7px 7px;">
+                <div style="display: flex; align-items: center; gap: 9px; min-width: 0;">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#6e6e73" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="flex: none;"><circle cx="12" cy="8" r="3.6"></circle><path d="M5 20c0-3.6 3.1-6.4 7-6.4s7 2.8 7 6.4"></path></svg>
+                  <span style="font-size: 12px; color: #1d1d1f;">m.lebedev@itl.digital</span>
+                </div>
+                <select style="height: 24px; padding: 0 5px; border-radius: 6px; border: 1px solid rgba(0,0,0,0.14); background: #fff; font: inherit; font-size: 10.5px; color: #1d1d1f; cursor: pointer;">
+                  <option>Админ</option><option selected="">Редактор</option><option>Читатель</option>
+                </select>
+                <button style="border: none; background: transparent; color: #86868b; cursor: pointer; padding: 3px; border-radius: 5px; display: inline-flex;" style-hover="background: rgba(255,59,48,0.08); color: #ff3b30;" title="Удалить из workspace">
+                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4 7h16M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2m2 0-1 13a1 1 0 0 1-1 1H8a1 1 0 0 1-1-1L6 7"></path></svg>
+                </button>
+              </div>
+              <div style="display: grid; grid-template-columns: 1fr 118px 40px; align-items: center; gap: 10px; padding: 7px 7px; background: rgba(0,122,255,0.04); border-radius: 6px;">
+                <div style="display: flex; align-items: center; gap: 9px; min-width: 0;">
+                  <span style="width: 14px; height: 14px; border-radius: 999px; border: 1.5px dashed #86868b; display: inline-flex; flex: none;"></span>
+                  <div style="display: flex; flex-direction: column; min-width: 0;">
+                    <span style="font-size: 12px; color: #6e6e73;">n.sidorova@itl.digital</span>
+                    <span style="font-size: 10px; color: #86868b;">Приглашена · 2 дня назад</span>
+                  </div>
+                </div>
+                <span style="display: inline-flex; align-items: center; height: 20px; padding: 0 8px; border-radius: 999px; font-size: 10.5px; font-weight: 500; background: rgba(0,0,0,0.05); color: #6e6e73; width: fit-content;">Редактор</span>
+                <button style="border: none; background: transparent; color: #86868b; font: inherit; font-size: 10px; cursor: pointer; padding: 3px 4px; border-radius: 5px;" style-hover="background: rgba(0,0,0,0.06); color: #1d1d1f;">Отозвать</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <p style="margin: 0; font-size: 12.5px; line-height: 1.55; color: #6e6e73; max-width: 900px;">Полная вкладка с приглашением по email/ссылке и разбором ролей — в блоке 09 (Настройки → Участники), в реальной навигации приложения, а не отдельным макетом.</p>
+  </section>
 </div>
 </x-dc>
 <script type="text/x-dc" data-dc-script data-props="{&quot;zoneOverlay&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Схема&quot;},&quot;openChip&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;params&quot;,&quot;headers&quot;,&quot;auth&quot;,&quot;body&quot;,&quot;none&quot;],&quot;default&quot;:&quot;params&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Прототип&quot;},&quot;responseTab&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;body&quot;,&quot;map&quot;,&quot;raw&quot;,&quot;headers&quot;,&quot;cookies&quot;,&quot;timings&quot;,&quot;tests&quot;,&quot;request&quot;],&quot;default&quot;:&quot;body&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Прототип&quot;},&quot;showInspector&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Прототип&quot;}}">
@@ -3816,6 +4540,16 @@ class Component extends DCLogic {
   get chip() { return this.state.chip ?? this.props.openChip ?? 'params'; }
   get inspector() { return this.state.inspector ?? (this.props.showInspector ?? true); }
 
+  segFn(active) {
+    return 'flex:1;text-align:center;font:inherit;font-size:11.5px;padding:5px 0;border-radius:6px;border:none;cursor:pointer;'
+      + (active ? 'background:#fff;box-shadow:0 1px 2px rgba(0,0,0,0.12);color:#1d1d1f;font-weight:600;' : 'background:transparent;color:#6e6e73;font-weight:500;');
+  }
+
+  collSegFn(active) {
+    return 'flex:1;text-align:center;font:inherit;font-size:12.5px;padding:7px 0;border-radius:7px;border:none;cursor:pointer;'
+      + (active ? 'background:#fff;box-shadow:0 1px 2px rgba(0,0,0,0.12);color:#1d1d1f;font-weight:600;' : 'background:transparent;color:#6e6e73;font-weight:500;');
+  }
+
   tabStyle(active) {
     const base = 'display:inline-flex;align-items:center;padding:0 13px;font:inherit;font-size:12.5px;background:transparent;border:0;border-bottom:2px solid transparent;cursor:pointer;';
     return active
@@ -3825,6 +4559,7 @@ class Component extends DCLogic {
 
   renderVals() {
     const tab = this.tab, chip = this.chip;
+    const authType = this.state.authType || 'bearer';
     const uc = this.state.updateCheck;
     const set = (t) => () => this.setState({ tab: t });
     const collTabStyle = (active) => 'height:38px;padding:0 4px;margin-right:20px;border:none;background:transparent;font:inherit;font-size:12.5px;border-bottom:2px solid ' + (active ? '#007aff;color:#007aff;font-weight:500;' : 'transparent;color:#6e6e73;') + 'cursor:pointer;';
@@ -3862,9 +4597,11 @@ class Component extends DCLogic {
       isSettingsData: this.state.settingsTab === 'data',
       isSettingsUpdates: this.state.settingsTab === 'updates',
       isSettingsAccount: this.state.settingsTab === 'account',
+      isSettingsMembers: this.state.settingsTab === 'members',
       settingsNav: {
         general: nav('general'), appearance: nav('appearance'), language: nav('language'),
-        proxy: nav('proxy'), data: nav('data'), updates: nav('updates'), account: nav('account'),
+        proxy: nav('proxy'), data: nav('data'), updates: nav('updates'),
+        members: nav('members'), account: nav('account'),
       },
       themeOpt: { light: seg('theme', 'light'), dark: seg('theme', 'dark'), system: seg('theme', 'system') },
       densityOpt: { compact: seg('density', 'compact'), comfortable: seg('density', 'comfortable'), spacious: seg('density', 'spacious') },
@@ -3920,6 +4657,40 @@ class Component extends DCLogic {
       paramsOpen: chip === 'params',
       headersOpen: chip === 'headers',
       authOpen: chip === 'auth',
+      authType: authType,
+      isAuthInherit: authType === 'inherit',
+      isAuthNone: authType === 'none',
+      isAuthBasic: authType === 'basic',
+      isAuthBearer: authType === 'bearer',
+      isAuthApikey: authType === 'apikey',
+      isAuthOAuth2: authType === 'oauth2',
+      isAuthJwt: authType === 'jwt',
+      isAuthDigest: authType === 'digest',
+      isAuthAws: authType === 'aws',
+      isAuthMore: ['oauth2','jwt','digest','aws'].includes(authType),
+      segInheritStyle: this.segFn(authType==='inherit'),
+      segNoneStyle: this.segFn(authType==='none'),
+      segBearerStyle: this.segFn(authType==='bearer'),
+      segBasicStyle: this.segFn(authType==='basic'),
+      segApikeyStyle: this.segFn(authType==='apikey'),
+      segMoreStyle: this.segFn(['oauth2','jwt','digest','aws'].includes(authType)),
+      collSegNoneStyle: this.collSegFn(authType==='none'),
+      collSegBearerStyle: this.collSegFn(authType==='bearer'),
+      collSegBasicStyle: this.collSegFn(authType==='basic'),
+      collSegApikeyStyle: this.collSegFn(authType==='apikey'),
+      collSegMoreStyle: this.collSegFn(['oauth2','jwt','digest','aws'].includes(authType)),
+      authMoreOpen: !!this.state.authMoreOpen,
+      moreLabel: ({oauth2:'OAuth 2',jwt:'JWT',digest:'Digest',aws:'AWS'})[authType] || 'Ещё',
+      setAuthInherit: () => this.setState({ authType: 'inherit', authMoreOpen: false }),
+      setAuthNone: () => this.setState({ authType: 'none', authMoreOpen: false }),
+      setAuthBasic: () => this.setState({ authType: 'basic', authMoreOpen: false }),
+      setAuthBearer: () => this.setState({ authType: 'bearer', authMoreOpen: false }),
+      setAuthApikey: () => this.setState({ authType: 'apikey', authMoreOpen: false }),
+      setAuthOAuth2: () => this.setState({ authType: 'oauth2', authMoreOpen: false }),
+      setAuthJwt: () => this.setState({ authType: 'jwt', authMoreOpen: false }),
+      setAuthDigest: () => this.setState({ authType: 'digest', authMoreOpen: false }),
+      setAuthAws: () => this.setState({ authType: 'aws', authMoreOpen: false }),
+      toggleAuthMore: (e) => { e.stopPropagation(); this.setState(s => ({ authMoreOpen: !s.authMoreOpen })); },
       bodyOpen: chip === 'body',
       scriptsOpen: chip === 'scripts',
       bodyType: {

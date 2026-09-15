@@ -306,6 +306,17 @@ func (h *Host) ToggleMaximize() {
 	}
 }
 
+// OpenURL puts a page in front of the person in whatever browser the system has. The app's own
+// window is not that browser: a provider's sign-in page wants a real address bar and a real cookie
+// jar, and the person wants to see where they are being asked to type.
+func (h *Host) OpenURL(url string) error {
+	app := h.App()
+	if app == nil {
+		return errors.New("the window does not exist yet")
+	}
+	return app.Browser.OpenURL(url)
+}
+
 // OpenFile asks the user for a file to read and answers with its path, or with nothing when the
 // dialog was closed — closing a dialog is not a failure.
 //

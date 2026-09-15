@@ -118,11 +118,23 @@ func (f *fakeFiles) Read(path string) ([]byte, error) {
 }
 
 func newUseCase() (*UseCase, *fakeStore) {
-	uc, store, _ := newUseCaseWithFiles()
+	uc, store, _, _ := newWithFakes()
 	return uc, store
 }
 
 func newUseCaseWithFiles() (*UseCase, *fakeStore, *fakeFiles) {
+	uc, store, files, _ := newWithFakes()
+	return uc, store, files
+}
+
+// newUseCaseWithAuth is for the tests that are about what the draft does with what a scheme
+// answered. The fakes are the ports; the schemes have tests of their own, next to themselves.
+func newUseCaseWithAuth() (*UseCase, *fakeStore, *fakeAuth) {
+	uc, store, _, auth := newWithFakes()
+	return uc, store, auth
+}
+
+func newWithFakes() (*UseCase, *fakeStore, *fakeFiles, *fakeAuth) {
 	store := &fakeStore{}
 	variables := fakeVars{
 		values: map[string]string{"host": "api.example.com", "token": "abc123", "nothing": ""},
@@ -132,7 +144,64 @@ func newUseCaseWithFiles() (*UseCase, *fakeStore, *fakeFiles) {
 		"/tmp/logo.png":  "PNGDATA",
 		"/tmp/notes.txt": "hello",
 	}}
-	return NewUseCase(store, fakeScope{}, variables, sources, platform.NewIDGen()), store, sources
+	auth := &fakeAuth{}
+	uc := NewUseCase(store, fakeScope{}, variables, sources, auth, platform.NewIDGen())
+	return uc, store, sources, auth
+}
+
+// fakeAuth stands in for the schemes. A scheme's own working — the base64 of a Basic credential, the
+// signature over a request — is tested where it lives; what this package has to get right is that a
+// field's value reaches the scheme resolved, that the mask reaches it on the second pass, and that
+// what comes back lands on the request without burying a row the user wrote.
+type fakeAuth struct {
+	// answer is what the fake hands back, so a test can watch any output travel the pipeline.
+	answer domain.AuthOutput
+	// token is what a scheme that fetches is reported to hold, so a test can say what the window is
+	// told without a provider anywhere near it.
+	token domain.AuthToken
+	// absorbInto is the field an edit to a projected row lands in. Empty means the scheme cannot take
+	// one, which is what a Basic credential's base64 is.
+	absorbInto string
+	// asked is what it was asked while sending, in order: a draft is prepared twice, once with the
+	// values and once with the masks, and the two answers are the whole of what this side is
+	// responsible for. shown is the same question asked while nobody is sending — the rows the window
+	// draws — and the two are kept apart because a mutation asks for one and a preparation for the
+	// other, interleaved.
+	asked []domain.Auth
+	shown []domain.Auth
+}
+
+func (f *fakeAuth) Materialize(_ context.Context, auth domain.Auth, _ domain.AuthRequest) (domain.AuthOutput, error) {
+	f.asked = append(f.asked, auth)
+	return f.answer, nil
+}
+
+func (f *fakeAuth) Project(auth domain.Auth, _ domain.AuthRequest) (domain.AuthOutput, error) {
+	f.shown = append(f.shown, auth)
+	return f.answer, nil
+}
+
+// Absorb answers the way a scheme that can take the edit does: the value lands in the field the test
+// named. What a real scheme does with it is tested next to that scheme.
+func (f *fakeAuth) Absorb(auth domain.Auth, _ domain.RowKind, _, value string) (domain.Auth, error) {
+	if f.absorbInto == "" {
+		return auth, fmt.Errorf("editing the row: %w", domain.ErrNotAllowed)
+	}
+	return auth.With(f.absorbInto, value), nil
+}
+
+// Obtain and Forget do nothing here: what these tests are about is the pipeline, and a token
+// somebody else issues is tested where it is fetched and kept.
+func (f *fakeAuth) Obtain(context.Context, domain.Auth) error { return nil }
+func (f *fakeAuth) Forget(domain.Auth)                        {}
+func (f *fakeAuth) Held(domain.Auth) domain.AuthToken         { return f.token }
+
+// last is the most recent question, which is the once a test that prepares one request has.
+func (f *fakeAuth) last() domain.Auth {
+	if len(f.asked) == 0 {
+		return domain.Auth{}
+	}
+	return f.asked[len(f.asked)-1]
 }
 
 func loaded(t *testing.T) (*UseCase, *fakeStore) {

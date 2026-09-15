@@ -1,6 +1,10 @@
 package command
 
-import "strings"
+import (
+	"strings"
+
+	"json-inspector/internal/domain"
+)
 
 // fromCurl reads a curl command. It is the richest of the five: curl needs the most flags before
 // the URL, and it is the one that can turn data into a query string, a form body or an upload.
@@ -9,6 +13,8 @@ func fromCurl(tokens []string) (pendingRequest, Reason) {
 	var explicitURL optString
 	var user optString
 	nonBasicAuth := false
+	digest := false
+	bearer := optString{}
 	get := false
 	entries := []headerEntry{}
 	data := []string{}
@@ -83,8 +89,15 @@ func fromCurl(tokens []string) (pendingRequest, Reason) {
 				}
 				forms = append(forms, headerEntry{name: name, value: value})
 			}
-		case "--digest", "--ntlm", "--negotiate", "--anyauth", "--proxy-anyauth":
-			// Any of these means the server is not asked for basic auth, so `-u` is left alone.
+		case "--digest":
+			digest = true
+		case "--oauth2-bearer":
+			if v := take(tokens, &cursor, inline); v.set {
+				bearer = v
+			}
+		case "--ntlm", "--negotiate", "--anyauth", "--proxy-anyauth":
+			// Schemes this app has no answer for. Inventing a Basic credential for them would be
+			// sending one the command never asked for, so `-u` is left alone.
 			nonBasicAuth = true
 		default:
 			if valueFlags[FormatCurl][flag] {
@@ -104,8 +117,18 @@ func fromCurl(tokens []string) (pendingRequest, Reason) {
 		return pendingRequest{}, ReasonLeftover
 	}
 
-	if user.set && !nonBasicAuth {
-		entries = append(entries, basicAuthEntry(user.value))
+	// A token the command handed over outright wins over a login it also carries: curl takes both, and
+	// the one the server reads is the bearer one.
+	auth := (*domain.Auth)(nil)
+	if bearer.set {
+		auth = bearerScheme(bearer.value)
+	} else if user.set && !nonBasicAuth {
+		login, password := splitCredential(user.value)
+		if digest {
+			auth = digestScheme(login, password)
+		} else {
+			auth = basicScheme(login, password)
+		}
 	}
 
 	body := strings.Join(data, "&")
@@ -117,6 +140,7 @@ func fromCurl(tokens []string) (pendingRequest, Reason) {
 		url:     url,
 		entries: withFormType(entries, len(data) > 0 || len(forms) > 0),
 		body:    body,
+		auth:    auth,
 	}
 	switch {
 	case method.set:

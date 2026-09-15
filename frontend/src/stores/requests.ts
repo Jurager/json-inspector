@@ -9,9 +9,11 @@ import {
   RecordSource,
   RowKind,
   type Auth,
+  type AuthToken,
   type CookieRow,
   type Draft,
   type FormRow,
+  ProjectedRow,
   type Record,
   type Row,
   type Scripts,
@@ -25,6 +27,7 @@ import {
   type TextResult,
 } from '../../bindings/json-inspector/internal/usecase/draft'
 import type { Level } from '../../bindings/json-inspector/internal/usecase/scripting'
+import { NO_AUTH } from '../lib/requestSource'
 import type { ChipName } from '../lib/requestSource'
 import { DraftService, RecordsService, ScriptingService } from '../../bindings/json-inspector/internal/transport/wails'
 import { useEnvironmentsStore } from './environments'
@@ -79,6 +82,10 @@ export const useRequestsStore = defineStore('requests', {
 
     // ---- the draft -------------------------------------------------------
     draft: null as Draft | null,
+    // What the draft's authorization comes to, as Go worked it out: the rows it puts in the parameter
+    // and header lists, and the state of a token somebody else issued. Neither is part of the draft.
+    projected: [] as ProjectedRow[],
+    token: null as AuthToken | null,
     preview: { missing: [], canSend: false } as Preview,
     // The two texts the window is typing. Rev counts this window's own flushes, and it comes back
     // with every answer: a reply to a keystroke that has since been typed over is recognised by it.
@@ -137,10 +144,13 @@ export const useRequestsStore = defineStore('requests', {
       return state.draft?.cookies ?? []
     },
     auth(state): Auth {
-      return state.draft?.auth ?? { type: 'none' as AuthType, token: '' }
+      return state.draft?.auth ?? NO_AUTH
     },
+    // `projected` and `token` are fields of this store rather than getters — Go sends them with every
+    // answer, so there is nothing to derive.
+    //
     // The command line composes one request and nothing stands above it, so its Auth chip offers the
-    // four kinds and no «Наследовать».
+    // schemes a request can have and no «Наследовать».
     canInherit(): boolean {
       return false
     },
@@ -227,6 +237,8 @@ export const useRequestsStore = defineStore('requests', {
     apply(state: State) {
       this.draft = state.draft
       this.preview = state.preview
+      this.projected = state.projected ?? []
+      this.token = state.token ?? null
       if (!this.bufferedUrl) this.urlText = state.draft.url
       if (!this.bufferedBody) this.bodyText = state.draft.body
     },
@@ -288,6 +300,27 @@ export const useRequestsStore = defineStore('requests', {
     async setAuth(auth: Auth) {
       this.apply(await DraftService.SetAuth(DRAFT, auth))
     },
+
+    // A row the authorization put in a list is not stored, so an edit to it is an edit to the field
+    // behind it and a deletion is the request no longer authorizing itself.
+    async patchDerived(target: RowKind, name: string, value: string) {
+      this.apply(await DraftService.PatchDerived(DRAFT, target, name, value))
+    },
+
+    async removeDerived() {
+      this.apply(await DraftService.RemoveDerived(DRAFT))
+    },
+
+    // «Получить токен» and «Очистить». A failure is not swallowed: the user asked in so many words,
+    // and the refusal is the answer they are waiting for.
+    async obtainAuth() {
+      this.apply(await DraftService.ObtainAuth(DRAFT))
+    },
+
+    async forgetAuth() {
+      this.apply(await DraftService.ForgetAuth(DRAFT))
+    },
+
 
     async setBodyKind(kind: BodyKind) {
       this.apply(await DraftService.SetBodyKind(DRAFT, kind))

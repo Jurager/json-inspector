@@ -13,7 +13,7 @@ interface CollectionRequest {
   id: string; name: string; method: string; url: string
   params: { name: string; value: string; enabled: boolean }[]
   headers: { name: string; value: string; enabled: boolean }[]
-  auth: { type: 'none' | 'bearer' | 'basic' | 'oauth2'; token: string }
+  auth: { type: 'none' | 'inherit' | 'bearer' | 'basic' | 'apikey' | 'oauth2' | 'jwt' | 'digest' | 'aws'; fields: Record<string, string> }
   body: string; description?: string
 }
 interface CollectionFolder { id: string; name: string; items: (CollectionFolder | CollectionRequest)[] }

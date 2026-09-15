@@ -1,3 +1,4 @@
+import { AuthType, type Auth } from '../../bindings/json-inspector/internal/domain'
 import type { ExportFormat } from './export'
 
 export type ParseErrorReason =
@@ -14,6 +15,11 @@ export interface ParsedRequest {
   url: string
   requestHeaders: Record<string, string>
   requestBody: string
+  // The credential the command carried, as the scheme it *is* rather than as the header it comes to.
+  // `curl -u` and `-H 'Authorization: Basic …'` are the same request on the wire and different things
+  // in the app: one is an answer the Auth chip can edit afterwards, the other a header somebody wrote
+  // and meant to keep. Only the flags become a scheme; a written header stays a header.
+  auth: Auth | null
 }
 
 export type ParseResult =
@@ -309,11 +315,23 @@ function parseHeaderArg(raw: string): HeaderEntry {
   return { name: raw.slice(0, at).trim(), value: raw.slice(at + 1).trim() }
 }
 
-function basicAuth(user: string, password: string): string {
-  const bytes = new TextEncoder().encode(`${user}:${password}`)
-  let binary = ''
-  for (const b of bytes) binary += String.fromCharCode(b)
-  return `Basic ${btoa(binary)}`
+// `login:password`, cut at the first colon — which is where a Basic credential is cut, and the only
+// rule there is: a password may hold a colon and a login may not.
+function splitCredential(raw: string): [string, string] {
+  const colon = raw.indexOf(':')
+  return colon === -1 ? [raw, ''] : [raw.slice(0, colon), raw.slice(colon + 1)]
+}
+
+function basicAuth(user: string, password: string): Auth {
+  return { type: AuthType.AuthBasic, fields: { username: user, password } }
+}
+
+function digestAuth(user: string, password: string): Auth {
+  return { type: AuthType.AuthDigest, fields: { username: user, password } }
+}
+
+function bearerAuth(token: string): Auth {
+  return { type: AuthType.AuthBearer, fields: { token } }
 }
 
 function pickUrl(positionals: string[]): string | null {
@@ -348,6 +366,10 @@ function fromCurl(tokens: string[]): ParsedRequest | ParseErrorReason {
   let method: string | undefined
   let explicitUrl: string | undefined
   let user: string | undefined
+  let bearer: string | undefined
+  // The two answers to `-u`: `--digest` is a scheme this app has, and the rest are schemes it does
+  // not — inventing a Basic credential for them would be sending one the command never asked for.
+  let digest = false
   let nonBasicAuth = false
   let get = false
   const entries: HeaderEntry[] = []
@@ -444,6 +466,13 @@ function fromCurl(tokens: string[]): ParsedRequest | ParseErrorReason {
         break
       }
       case '--digest':
+        digest = true
+        break
+      case '--oauth2-bearer': {
+        const v = take()
+        if (v !== null) bearer = v
+        break
+      }
       case '--ntlm':
       case '--negotiate':
       case '--anyauth':
@@ -460,15 +489,14 @@ function fromCurl(tokens: string[]): ParsedRequest | ParseErrorReason {
   if (!url) return 'no-url'
   if (hasLeftover(positionals, url)) return 'leftover'
 
-  if (user !== undefined && !nonBasicAuth) {
-    const colon = user.indexOf(':')
-    entries.push({
-      name: 'Authorization',
-      value: basicAuth(
-        colon === -1 ? user : user.slice(0, colon),
-        colon === -1 ? '' : user.slice(colon + 1)
-      ),
-    })
+  // A token the command handed over outright wins over a login it also carries: curl takes both, and
+  // the one the server reads is the bearer one.
+  let auth: Auth | null = null
+  if (bearer !== undefined) {
+    auth = bearerAuth(bearer)
+  } else if (user !== undefined && !nonBasicAuth) {
+    const [login, password] = splitCredential(user)
+    auth = digest ? digestAuth(login, password) : basicAuth(login, password)
   }
 
   let body = data.join('&')
@@ -477,6 +505,7 @@ function fromCurl(tokens: string[]): ParsedRequest | ParseErrorReason {
   return {
     method: method ?? (body && !get ? 'POST' : 'GET'),
     url: get && body ? appendQuery(url, body) : url,
+    auth,
     requestHeaders: foldHeaders(withFormType(entries, data.length > 0 || forms.length > 0)),
     requestBody: get ? '' : body,
   }
@@ -524,6 +553,7 @@ function fromWget(tokens: string[]): ParsedRequest | ParseErrorReason {
   return {
     method: method ?? (body ? 'POST' : 'GET'),
     url,
+    auth: null,
     requestHeaders: foldHeaders(withFormType(entries, body !== '')),
     requestBody: body,
   }
@@ -545,6 +575,11 @@ function fromHttpie(tokens: string[]): ParsedRequest | ParseErrorReason {
   const entries: HeaderEntry[] = []
   const fields: [string, string][] = []
   const query: string[] = []
+  // The three flags that carry a credential, collected and decided on once the loop is over: which
+  // scheme `--auth` means depends on `--auth-type`, wherever in the line it was written.
+  let authType: string | undefined
+  let credential: string | undefined
+  let bearer: string | undefined
 
   const cursor = { i: 0 }
   for (cursor.i = 0; cursor.i < tokens.length; cursor.i++) {
@@ -561,21 +596,17 @@ function fromHttpie(tokens: string[]): ParsedRequest | ParseErrorReason {
         case '--auth':
         case '-a': {
           const v = take()
-          if (v) {
-            const colon = v.indexOf(':')
-            entries.push({
-              name: 'Authorization',
-              value: basicAuth(
-                colon === -1 ? v : v.slice(0, colon),
-                colon === -1 ? '' : v.slice(colon + 1)
-              ),
-            })
-          }
+          if (v) credential = v
+          break
+        }
+        case '--auth-type': {
+          const v = take()
+          if (v) authType = v.toLowerCase()
           break
         }
         case '--bearer': {
           const v = take()
-          if (v) entries.push({ name: 'Authorization', value: `Bearer ${v}` })
+          if (v) bearer = v
           break
         }
         default:
@@ -621,9 +652,21 @@ function fromHttpie(tokens: string[]): ParsedRequest | ParseErrorReason {
     }
   }
 
+  // httpie names the scheme separately from the credential, and `digest` is the only other one this
+  // app has: an `--auth-type` it does not know is read as Basic, which is what httpie itself does
+  // when it is not told otherwise.
+  let auth: Auth | null = null
+  if (bearer !== undefined) {
+    auth = bearerAuth(bearer)
+  } else if (credential !== undefined) {
+    const [login, password] = splitCredential(credential)
+    auth = authType === 'digest' ? digestAuth(login, password) : basicAuth(login, password)
+  }
+
   return {
     method: method ?? (body ? 'POST' : 'GET'),
     url: query.length ? appendQuery(url, query.join('&')) : url,
+    auth,
     requestHeaders: foldHeaders(entries),
     requestBody: body,
   }
@@ -738,6 +781,7 @@ function fromPowerShell(tokens: string[]): ParsedRequest | ParseErrorReason {
   return {
     method: method ?? (body ? 'POST' : 'GET'),
     url,
+    auth: null,
     requestHeaders: foldHeaders(withFormType(entries, body !== '')),
     requestBody: body,
   }
@@ -797,7 +841,7 @@ function fromFetch(text: string): ParsedRequest | ParseErrorReason {
   if (url === null) return 'bad-fetch-init'
 
   if (args.length < 2 || !args[1].trim()) {
-    return { method: 'GET', url, requestHeaders: {}, requestBody: '' }
+    return { method: 'GET', url, auth: null, requestHeaders: {}, requestBody: '' }
   }
 
   let init: Record<string, unknown>
@@ -831,6 +875,7 @@ function fromFetch(text: string): ParsedRequest | ParseErrorReason {
   return {
     method: typeof init.method === 'string' && init.method ? init.method.toUpperCase() : 'GET',
     url,
+    auth: null,
     requestHeaders: foldHeaders(entries),
     requestBody: body,
   }

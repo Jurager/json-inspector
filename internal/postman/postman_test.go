@@ -74,7 +74,7 @@ func TestImportReadsNestedCollectionsAndRequests(t *testing.T) {
 	if len(list.Params) != 3 || list.Params[2].Name != "filter[state]" || list.Params[2].Enabled {
 		t.Errorf("params = %+v, want the disabled one kept", list.Params)
 	}
-	if list.Auth == nil || list.Auth.Type != domain.AuthBearer || list.Auth.Token != "{{token}}" {
+	if list.Auth == nil || list.Auth.Type != domain.AuthBearer || list.Auth.Get("token") != "{{token}}" {
 		t.Errorf("auth = %+v, want the bearer token as it was written", list.Auth)
 	}
 
@@ -102,9 +102,11 @@ func TestImportReadsAFormBody(t *testing.T) {
 	if report.Body != "from=2026-01-01" {
 		t.Errorf("body = %q, want the enabled rows of the form", report.Body)
 	}
-	// Basic carries two values and the chip has one field, so they are joined here.
-	if report.Auth == nil || report.Auth.Type != domain.AuthBasic || report.Auth.Token != "reader:{{secret}}" {
-		t.Errorf("auth = %+v, want the pair joined", report.Auth)
+	// Basic carries two values, and both of them are the request's: a login is not a secret and a
+	// password is, and they have to come back the way they were written.
+	if report.Auth == nil || report.Auth.Type != domain.AuthBasic || report.Auth.Get("username") != "reader" ||
+		report.Auth.Get("password") != "{{secret}}" {
+		t.Errorf("auth = %+v, want both halves of the pair", report.Auth)
 	}
 }
 
@@ -123,7 +125,7 @@ func TestImportReadsTheAuthOfANestedCollection(t *testing.T) {
 		t.Fatalf("children = %+v, want the group", collection.Children)
 	}
 	nested := collection.Children[0]
-	if nested.Auth == nil || nested.Auth.Token != "{{admin}}" {
+	if nested.Auth == nil || nested.Auth.Get("token") != "{{admin}}" {
 		t.Errorf("auth = %+v, want the group's own", nested.Auth)
 	}
 
@@ -139,7 +141,7 @@ func TestImportReadsTheAuthOfANestedCollection(t *testing.T) {
 	if len(doc.Item) != 1 || doc.Item[0].Auth == nil || doc.Item[0].Request != nil {
 		t.Fatalf("item = %+v, want the group with its auth", doc.Item)
 	}
-	if doc.Item[0].Auth.Bearer[0].Value != "{{admin}}" {
+	if doc.Item[0].Auth.Extra["bearer"][0].Value != "{{admin}}" {
 		t.Errorf("auth = %+v, want the token as it was written", doc.Item[0].Auth)
 	}
 }
@@ -212,9 +214,23 @@ func compareNode(t *testing.T, want domain.CollectionNode, got domain.Collection
 	}
 	if (got.Auth == nil) != (want.Auth == nil) {
 		t.Errorf("%q auth = %+v, want %+v", want.Name, got.Auth, want.Auth)
-	} else if got.Auth != nil && *got.Auth != *want.Auth {
+	} else if got.Auth != nil && !sameAuth(*got.Auth, *want.Auth) {
 		t.Errorf("%q auth = %+v, want %+v", want.Name, *got.Auth, *want.Auth)
 	}
+}
+
+// sameAuth compares two authorizations the way a person would: the same scheme and the same answers
+// to its fields, whether or not the map happened to be built in the same order.
+func sameAuth(got domain.Auth, want domain.Auth) bool {
+	if got.Type != want.Type || len(got.Fields) != len(want.Fields) {
+		return false
+	}
+	for key, value := range want.Fields {
+		if got.Get(key) != value {
+			return false
+		}
+	}
+	return true
 }
 
 // An export of one request is a file with one item — which is what the context menu promises.

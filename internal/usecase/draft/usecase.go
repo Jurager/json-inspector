@@ -32,16 +32,18 @@ type UseCase struct {
 	scope  Scope
 	vars   VariableSource
 	files  FileSource
+	auth   AuthMaterializer
 	ids    platform.IDGen
 	drafts map[draftKey]domain.Draft
 }
 
-func NewUseCase(store Store, scope Scope, vars VariableSource, files FileSource, ids platform.IDGen) *UseCase {
+func NewUseCase(store Store, scope Scope, vars VariableSource, files FileSource, auth AuthMaterializer, ids platform.IDGen) *UseCase {
 	return &UseCase{
 		store:  store,
 		scope:  scope,
 		vars:   vars,
 		files:  files,
+		auth:   auth,
 		ids:    ids,
 		drafts: map[draftKey]domain.Draft{},
 	}
@@ -95,6 +97,14 @@ type TextInput struct {
 type State struct {
 	Draft   domain.Draft `json:"draft"`
 	Preview Preview      `json:"preview"`
+	// Projected is what the authorization puts in the parameter and header lists, which is not part
+	// of the draft and is not stored with it: it is what the draft's auth comes to, worked out on
+	// every answer so the two can never disagree.
+	Projected []domain.ProjectedRow `json:"projected"`
+	// Token is the state of a credential somebody else issues, for the schemes that have one. It is
+	// absent for a scheme that carries what it was given: there is nothing to say about a token the
+	// user typed, and a block saying so would be noise.
+	Token *domain.AuthToken `json:"token,omitempty"`
 }
 
 // TextResult is a buffer's answer. It carries back which buffer it is and the revision the window
@@ -226,9 +236,55 @@ func (u *UseCase) SetMethod(ctx context.Context, id domain.DraftID, method strin
 	})
 }
 
+// SetAuth is the whole of what a level authorizes itself with, sent whole: the scheme and the
+// answers to the fields that scheme asks for. What arrives is normalized against the scheme, so a
+// token left over from the scheme before it cannot travel as an answer nobody asked for.
 func (u *UseCase) SetAuth(ctx context.Context, id domain.DraftID, auth domain.Auth) (State, error) {
 	return u.result(ctx, id, func(d *domain.Draft) error {
-		d.Auth = auth
+		d.Auth = auth.Normalized()
+		return nil
+	})
+}
+
+// PatchDerived is an edit to a row the authorization put in a list: the token in the header, the
+// value of an API key. The row is not stored — it is what the scheme's fields come to — so the edit
+// goes the other way, into the field behind it, and the row the window draws next is the same one
+// worked out again. A scheme that cannot take the edit refuses it, and the window does not offer
+// one: see domain.AuthOutput.Editable.
+func (u *UseCase) PatchDerived(ctx context.Context, id domain.DraftID, target domain.RowKind, name string, value string) (State, error) {
+	return u.result(ctx, id, func(d *domain.Draft) error {
+		auth, err := u.auth.Absorb(d.Auth, target, name, value)
+		if err != nil {
+			return err
+		}
+		d.Auth = auth.Normalized()
+		return nil
+	})
+}
+
+// ObtainAuth asks whoever issues the token to issue one, and ForgetAuth throws it away and lets the
+// next send ask for another. Neither changes what the user answered: what is being got and dropped
+// is what those answers currently come to, not the answers themselves.
+func (u *UseCase) ObtainAuth(ctx context.Context, id domain.DraftID) (State, error) {
+	return u.result(ctx, id, func(d *domain.Draft) error {
+		return u.auth.Obtain(ctx, d.Auth)
+	})
+}
+
+func (u *UseCase) ForgetAuth(ctx context.Context, id domain.DraftID) (State, error) {
+	return u.result(ctx, id, func(d *domain.Draft) error {
+		u.auth.Forget(d.Auth)
+		return nil
+	})
+}
+
+// RemoveDerived is a projected row deleted from the list it was drawn in. There is no row to delete —
+// the row is what the scheme's fields come to — so what the deletion reaches is what put it there:
+// the request stops authorizing itself. A row a person wrote is removed as a row, by its id, and
+// never comes here.
+func (u *UseCase) RemoveDerived(ctx context.Context, id domain.DraftID) (State, error) {
+	return u.result(ctx, id, func(d *domain.Draft) error {
+		d.Auth = domain.NewAuth(domain.AuthNone)
 		return nil
 	})
 }
@@ -406,15 +462,24 @@ type Prepared struct {
 	MaskedHeaders []domain.HeaderPair
 	MaskedBody    string
 	Cookies       []domain.CookieRow
+
+	// Digest is a credential the request cannot carry: it goes to the engine, which is the only side
+	// that can be there when the server says how. Nothing above the engine has a header to show for
+	// it, which is why it travels beside them rather than among them.
+	Digest *domain.DigestCredentials
 }
 
 // authOf is the seed's authorization as the pipeline holds it: a seed that says nothing about
 // authorization is not one that forgot, it is one with none.
+//
+// It is normalized like one the window sent: a seed comes from outside — a pasted command, a record,
+// a collection — and a scheme that arrived without the answers it starts at would be drawn with a
+// blank where its first choice belongs.
 func authOf(seed Seed) domain.Auth {
 	if seed.Auth == nil {
-		return domain.Auth{Type: domain.AuthNone}
+		return domain.NewAuth(domain.AuthNone)
 	}
-	return *seed.Auth
+	return seed.Auth.Normalized()
 }
 
 // Prepared is the draft the window is editing, ready to go out. inherits is what its «Наследовать»
@@ -527,14 +592,88 @@ func (u *UseCase) withRowIDs(d domain.Draft) domain.Draft {
 	return d
 }
 
-// stateOf is the answer to "what does this draft look like now": the draft itself, and the preview
-// that follows from it.
+// stateOf is the answer to "what does this draft look like now": the draft itself, what follows from
+// it, and the rows its authorization puts in the lists.
 func (u *UseCase) stateOf(ctx context.Context, draft domain.Draft) (State, error) {
 	preview, err := u.preview(ctx, draft)
 	if err != nil {
 		return State{}, err
 	}
-	return State{Draft: draft, Preview: preview}, nil
+	projected, err := u.projected(ctx, draft, nil)
+	if err != nil {
+		return State{}, err
+	}
+	return State{
+		Draft:     draft,
+		Preview:   preview,
+		Projected: projected,
+		Token:     u.Held(draft, nil),
+	}, nil
+}
+
+// Held is what a scheme that fetches has at this moment, handed the same way the projection is: a
+// request inside a collection takes its authorization from the tree, and the answer travels in
+// rather than being walked for here.
+func (u *UseCase) Held(draft domain.Draft, inherits *domain.Auth) *domain.AuthToken {
+	auth := authToApply(draft.Auth, inherits)
+	scheme, ok := domain.SchemeFor(auth.Type)
+	if !ok || !scheme.Fetches {
+		return nil
+	}
+	token := u.auth.Held(auth)
+	return &token
+}
+
+// Project is what the draft's authorization puts in the parameter and header lists, with what the
+// levels above answered handed in. Whoever can walk a tree passes its answer here; a request that
+// stands on its own passes nothing, and `inherits` going unused is that case rather than a mistake.
+//
+// The two callers are the draft describing itself — where nothing above it is known — and the layer
+// that knows both, which asks again with the inherited answer in hand.
+func (u *UseCase) Project(ctx context.Context, draft domain.Draft, inherits *domain.Auth) ([]domain.ProjectedRow, error) {
+	return u.projected(ctx, draft, inherits)
+}
+
+// projected is the rows the request's authorization puts in the parameter and header lists. The
+// window draws them beside the rows a person wrote, because that is where they end up: a Bearer
+// token is an Authorization header, and a list that did not show it would be a list of the request
+// without the credential.
+//
+// A row a person wrote under that name is the better answer and the projected one is dropped — the
+// same rule sending follows, so the list the window draws is the list that goes out.
+//
+// The fields are read as they are, `{{tokens}}` and all: this is not the request being sent but the
+// request being described, and the window paints a token the way it paints one in any other row.
+func (u *UseCase) projected(ctx context.Context, draft domain.Draft, inherits *domain.Auth) ([]domain.ProjectedRow, error) {
+	auth := authToApply(draft.Auth, inherits)
+	out, err := u.auth.Project(auth, authRequest(draft.Method, draft.URL, nil, draft.Body))
+	if err != nil {
+		return nil, err
+	}
+
+	// The comparison is made against what actually goes out, which is the same list sending compares
+	// against: enabled rows with a name in them. A row the user switched off is not competing with
+	// anything, and dropping the projection over it would hide a credential that is on its way.
+	sent := collect(draft)
+
+	rows := []domain.ProjectedRow{}
+	for _, pair := range out.Headers {
+		if !hasHeader(sent.headers, pair.Name) {
+			rows = append(rows, domain.ProjectedRow{
+				Target: domain.RowHeaders, Name: pair.Name, Value: pair.Value,
+				From: auth.Type, Editable: out.Editable,
+			})
+		}
+	}
+	for _, pair := range out.Query {
+		if !hasParam(draft.URL, pair.Name) {
+			rows = append(rows, domain.ProjectedRow{
+				Target: domain.RowParams, Name: pair.Name, Value: pair.Value,
+				From: auth.Type, Editable: out.Editable,
+			})
+		}
+	}
+	return rows, nil
 }
 
 // fresh is what a window with no stored draft starts on: the Accept header every JSON:API request

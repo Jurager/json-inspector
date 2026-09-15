@@ -25,6 +25,14 @@ type wantParse struct {
 	Headers [][]string `json:"headers"`
 	Body    string     `json:"body"`
 	Reason  string     `json:"reason"`
+	// Auth is the scheme a command's flags come to, which is not a header and is not in `headers`:
+	// `<type>` and the answers to its fields, as the fixture writes them out.
+	Auth *wantAuth `json:"auth"`
+}
+
+type wantAuth struct {
+	Type   string            `json:"type"`
+	Fields map[string]string `json:"fields"`
 }
 
 // wantExport is the shape a `.in.json` has.
@@ -117,6 +125,27 @@ func assertRequest(t *testing.T, got Request, want wantParse) {
 		t.Errorf("body = %q, want %q", got.Body, want.Body)
 	}
 	assertHeaders(t, got.Headers, want.Headers)
+	assertAuth(t, got.Auth, want.Auth)
+}
+
+// assertAuth compares the scheme a command came to. A fixture that says nothing about one is a
+// command with no credential in it, and a parse that invented one fails here.
+func assertAuth(t *testing.T, got *domain.Auth, want *wantAuth) {
+	t.Helper()
+	if (got == nil) != (want == nil) {
+		t.Fatalf("auth = %+v, want %+v", got, want)
+	}
+	if got == nil {
+		return
+	}
+	if string(got.Type) != want.Type {
+		t.Errorf("auth type = %q, want %q", got.Type, want.Type)
+	}
+	for key, value := range want.Fields {
+		if got.Get(key) != value {
+			t.Errorf("auth %s = %q, want %q", key, got.Get(key), value)
+		}
+	}
 }
 
 // assertHeaders compares the header sequence as a sequence: two requests with the same headers in a

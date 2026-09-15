@@ -96,6 +96,9 @@ type SendInput struct {
 	MaskedBody    string              `json:"maskedBody"`
 	Cookies       []domain.CookieRow  `json:"cookies"`
 
+	// Digest is a credential the request cannot carry and the engine has to: see draft.Prepared.
+	Digest *domain.DigestCredentials `json:"-"`
+
 	// Node is the request this came from, when it came from a collection, and Run is the scope the
 	// run's own variables live in — a collection run's id, or the send itself for a request sent on
 	// its own. Both are what the scripts around the attempt are found by; both are empty for a
@@ -212,6 +215,7 @@ func (u *UseCase) attempt(ctx context.Context, workspace, id string, started int
 		URL:     pass.Request.URL,
 		Headers: pass.Request.Headers,
 		Body:    pass.Request.Body,
+		Digest:  in.Digest,
 	})
 	if err != nil {
 		return domain.Record{}, err
@@ -279,6 +283,16 @@ func (u *UseCase) Cancel(id string) bool {
 	return u.executor.Cancel(id)
 }
 
+// sentHeaders is what the request carried, as the record keeps it: the masked rows it was prepared
+// with, and whatever the engine itself had to add to get it through.
+//
+// A Digest answer is the case: it is computed from a challenge that had not arrived when the request
+// was prepared, so there is no row anywhere above the engine that could have known it — and a record
+// without it would be a record of the request that was refused rather than of the one that answered.
+func sentHeaders(masked []domain.HeaderPair, resp *domain.Response) []domain.HeaderPair {
+	return append(orEmptyPairs(masked), resp.SentHeaders...)
+}
+
 // recordFrom folds a response into the record history keeps: the request that went out, as it can be
 // shown, on one side, and what came back on the other.
 func (u *UseCase) recordFrom(
@@ -312,7 +326,7 @@ func (u *UseCase) recordFrom(
 		DownloadUs:      resp.DownloadUs,
 		RequestBytes:    int64(len(pass.Request.Body)),
 		ResponseBytes:   int64(len(resp.Body)),
-		RequestHeaders:  orEmptyPairs(masked.Headers),
+		RequestHeaders:  sentHeaders(masked.Headers, resp),
 		ResponseHeaders: orEmptyPairs(resp.Headers),
 		RequestCookies:  in.Cookies,
 		RequestBody:     bodyRef(masked.Body),

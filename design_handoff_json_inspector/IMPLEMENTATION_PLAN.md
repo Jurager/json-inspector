@@ -70,10 +70,10 @@
      url: '',
      params:  [] as { name: string; value: string; enabled: boolean }[],
      headers: [{ name: 'Accept', value: 'application/vnd.api+json', enabled: true }],
-     auth: { type: 'none' as 'none' | 'bearer' | 'basic' | 'oauth2', token: '' },
+     auth: { type: 'none' as ... , fields: {} },   // схема и ответы на её поля
      body: '',
    },
-   openChip: null as 'params' | 'headers' | 'auth' | 'body' | null,
+   openChip: null as 'params' | 'headers' | 'auth' | 'body' | 'scripts' | null,
    ```
 2. **Двусторонняя синхронизация URL ↔ параметры.** Это ядро шага: при вводе URL query-строка разбирается в `draft.params` (`URLSearchParams`), при правке параметров URL пересобирается. Правила: выключенные параметры в URL не попадают; ручная правка URL — источник истины; порядок параметров сохраняется; при невалидном URL разбор не делается и параметры не трогаются.
 3. Разметка одной строки (56px = `padding: 12px 16px` + контрол 32px):
@@ -83,7 +83,7 @@
    - внутри справа — чипы «Параметры N», «Заголовки N», «Auth», «Тело»: 22px, радиус 6px, рамка `--border`, фон `--bg-panel`, 11px `--text-secondary`, hover `border-color: var(--border-strong)`; счётчик — моно 11px/600 `--accent`; «Тело» при пустом теле — пунктирная рамка и `--text-tertiary`; для GET и HEAD чип «Тело» неактивен с подсказкой «GET не отправляет тело»;
    - кнопка «Отправить» 32px, радиус 8px, `.btn-primary`, кэпс `⌘↵`; при `store.loading` — «Отмена» с `xmark`;
    - кнопку «Образец» перенести в меню рейла (она нужна раз в жизни и занимает место в горячей зоне).
-4. `RequestChipPopover.vue` — один компонент на все четыре чипа: `position: absolute` под якорем, ширина 460px (Auth 380px), фон `--bg-panel`, рамка `--border`, радиус 10px, тень `0 12px 32px rgba(0,0,0,.16)`, `padding: 10px`, `z-index` выше шапки ответа. Содержимое — слот. Строка таблицы: грид `20px 150px 1fr 22px`, чекбокс 13px, имя моно 11.5px, значение моно 11.5px с подсветкой типа (`--tok-str` строка, `--tok-num` число), `xmark` для удаления (hover `--red`); выключенная строка `opacity: .55`. Подвал: «+ Параметр» / «+ Заголовок» цвета `--accent` и подсказка 11px `--text-tertiary`. Закрытие: клик вне (паттерн `onDocClick` из `ResponseViewer`), `Esc`, повторный клик по чипу. Открытым может быть только один поповер.
+4. `RequestChipPopover.vue` — один компонент на все чипы: `position: absolute` под якорем, ширина 460px (Auth 500px и `max-height: 520px`), фон `--bg-panel`, рамка `--border`, радиус 10px, тень `0 12px 32px rgba(0,0,0,.16)`, `padding: 10px`, `z-index` выше шапки ответа. Содержимое — слот. Строка таблицы: грид `20px 150px 1fr 22px`, чекбокс 13px, имя моно 11.5px, значение моно 11.5px с подсветкой типа (`--tok-str` строка, `--tok-num` число), `xmark` для удаления (hover `--red`); выключенная строка `opacity: .55`. Подвал: «+ Параметр» / «+ Заголовок» цвета `--accent` и подсказка 11px `--text-tertiary`. Закрытие: клик вне (паттерн `onDocClick` из `ResponseViewer`), `Esc`, повторный клик по чипу. Открытым может быть только один поповер.
 5. Удалить `.builder-options`, `.opt-toggle`, `.builder-panel`, `.header-row`, `.header-name`, `.header-value`, `.body-input` — и из компонента, и из `style.css`, если там что-то осталось.
 
 **Приёмка:** высота верхней зоны не меняется ни при каком действии; ответ не сдвигается; счётчики на чипах равны числу включённых строк; выключенный параметр исчезает из URL; ⌘↵ отправляет; Esc закрывает поповер.

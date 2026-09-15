@@ -520,6 +520,13 @@ html.window-translucent body {
   padding: 8px;
 }
 
+/* The schemes behind «Ещё»: four short names, which the menu's own width would leave swimming in
+   room. Sized here rather than in the component for the reason above — the class lands on an
+   element reka builds in its portal. */
+.menu.auth-menu {
+  min-width: 150px;
+}
+
 .menu[data-state='closed'] {
   animation: panel-out 0.1s ease-in forwards;
 }
@@ -590,8 +597,25 @@ html.window-translucent body {
   width: 460px;
 }
 
+/* The auth popover is the widest of the chips and the only one that scrolls: a scheme asks for a
+   dozen fields and a request does not get taller for it. The control and the header stay put and the
+   fields move under them, which is why the height is capped here and the scrolling is the body's. */
 .chip-popover.auth {
-  width: 380px;
+  width: 500px;
+  max-height: 520px;
+  gap: 10px;
+}
+
+.auth-body {
+  @apply flex flex-col gap-2.5 px-1 pb-0.5 overflow-y-auto;
+}
+
+/* The line every scheme shares: values can come from the environment, and the popover is where a
+   person finds that out. */
+.auth-foot {
+  @apply px-1 pt-1.5 border-t border-border text-[10.5px] text-text-tertiary;
+  line-height: 1.4;
+  flex: none;
 }
 
 /* The body popover is the one the handoff draws wider than the rest: it holds five formats and, for

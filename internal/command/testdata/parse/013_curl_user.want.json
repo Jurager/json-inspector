@@ -3,11 +3,13 @@
   "format": "curl",
   "method": "GET",
   "url": "https://api.example.com/articles",
-  "headers": [
-    [
-      "Authorization",
-      "Basic dXNlcjpzZWNyZXQ="
-    ]
-  ],
-  "body": ""
+  "headers": [],
+  "body": "",
+  "auth": {
+    "type": "basic",
+    "fields": {
+      "username": "user",
+      "password": "secret"
+    }
+  }
 }

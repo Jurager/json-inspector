@@ -14,6 +14,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/icholy/digest"
+
 	"json-inspector/internal/domain"
 	"json-inspector/internal/platform"
 )
@@ -48,6 +50,12 @@ func NewEngine(cfg Config, ids platform.IDGen) *Engine {
 	return engine
 }
 
+// Client is the client every user request goes out through, for the one thing that is not a user
+// request and still leaves the process the same way: an identity provider's token endpoint. It
+// carries the proxy, the timeout and the TLS settings the user configured, which is the whole reason
+// to hand it over rather than build a second one that quietly ignores them.
+func (e *Engine) Client() *http.Client { return e.client }
+
 // Spec is one request to send.
 type Spec struct {
 	// ID names this attempt for cancellation. Empty means one is minted; a caller that wants to
@@ -57,6 +65,65 @@ type Spec struct {
 	URL     string
 	Headers []domain.HeaderPair
 	Body    string
+	// Digest is a credential that cannot be put on the request until the server has said how. The
+	// first send is what asks — it comes back refused, with the realm and the nonce in the challenge
+	// — and the second carries the answer. The two are one attempt: one id, one cancellation, one
+	// duration, because that is what they are.
+	Digest *domain.DigestCredentials
+}
+
+// newRequest builds the request a spec describes. Both halves of Digest are built from the same spec
+// and differ only in the header the second one carries, which is why this is a function and not two.
+func (e *Engine) newRequest(ctx context.Context, spec Spec) (*http.Request, error) {
+	req, err := http.NewRequestWithContext(ctx, spec.Method, complete(spec.URL), strings.NewReader(spec.Body))
+	if err != nil {
+		return nil, err
+	}
+	if e.cfg.UserAgent != "" {
+		req.Header.Set("User-Agent", e.cfg.UserAgent)
+	}
+	for _, h := range spec.Headers {
+		if strings.TrimSpace(h.Name) != "" {
+			req.Header.Add(h.Name, h.Value)
+		}
+	}
+	return req, nil
+}
+
+// answerChallenge is the second half of Digest: the server refused the request and said how, and
+// what it said becomes the header the retry carries.
+//
+// The address the answer is computed over is the one the request is actually going to — the engine
+// completes a bare host into a scheme and a path, and a response computed over what the user typed
+// rather than over what was sent is one the server refuses.
+func (e *Engine) answerChallenge(ctx context.Context, spec Spec, refused *http.Response) (*http.Response, []domain.HeaderPair, error) {
+	challenge, err := digest.FindChallenge(refused.Header)
+	if err != nil {
+		return nil, nil, err
+	}
+	retry, err := e.newRequest(ctx, spec)
+	if err != nil {
+		return nil, nil, err
+	}
+	credentials, err := digest.Digest(challenge, digest.Options{
+		Method:   spec.Method,
+		URI:      retry.URL.RequestURI(),
+		GetBody:  retry.GetBody,
+		Count:    1,
+		Username: spec.Digest.Username,
+		Password: spec.Digest.Password,
+	})
+	if err != nil {
+		return nil, nil, err
+	}
+	answer := credentials.String()
+	retry.Header.Set("Authorization", answer)
+
+	sent, err := e.client.Do(retry)
+	if err != nil {
+		return nil, nil, err
+	}
+	return sent, []domain.HeaderPair{{Name: "Authorization", Value: answer}}, nil
 }
 
 // Do sends the request and reports what came back. A transport failure is not an error return: it
@@ -99,18 +166,10 @@ func (e *Engine) Do(ctx context.Context, spec Spec) *domain.Response {
 		e.mu.Unlock()
 	}()
 
-	req, err := http.NewRequestWithContext(reqCtx, spec.Method, complete(spec.URL), strings.NewReader(spec.Body))
+	req, err := e.newRequest(reqCtx, spec)
 	if err != nil {
 		res.Error = err.Error()
 		return res
-	}
-	if e.cfg.UserAgent != "" {
-		req.Header.Set("User-Agent", e.cfg.UserAgent)
-	}
-	for _, h := range spec.Headers {
-		if strings.TrimSpace(h.Name) != "" {
-			req.Header.Add(h.Name, h.Value)
-		}
 	}
 
 	resp, err := e.client.Do(req)
@@ -123,6 +182,18 @@ func (e *Engine) Do(ctx context.Context, spec Spec) *domain.Response {
 			res.Error = err.Error()
 		}
 		return res
+	}
+
+	// The refusal is what a Digest request is for: it is where the realm and the nonce come from. What
+	// the window is waiting for is the second answer, so the first one is dropped on the floor — and
+	// a challenge that cannot be answered leaves the refusal standing, because that is the answer.
+	if spec.Digest != nil && resp.StatusCode == http.StatusUnauthorized {
+		answered, sent, answerErr := e.answerChallenge(reqCtx, spec, resp)
+		if answerErr == nil {
+			resp.Body.Close()
+			resp = answered
+			res.SentHeaders = sent
+		}
 	}
 	defer resp.Body.Close()
 

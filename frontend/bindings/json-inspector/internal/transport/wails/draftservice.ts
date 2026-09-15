@@ -27,6 +27,37 @@ export function AddRow(id: domain$0.DraftID, kind: domain$0.RowKind): $Cancellab
     return $Call.ByID(1330992221, id, kind);
 }
 
+/**
+ * AuthSchemes is every way a request can authorize itself, in the order the window draws them: what
+ * each scheme asks for, how each field is drawn, and which of them are secrets. The window renders
+ * the Auth popover from this and holds no list of its own, so a scheme added here appears there.
+ */
+export function AuthSchemes(): $CancellablePromise<domain$0.Scheme[] | null> {
+    return $Call.ByID(2129810982);
+}
+
+export function ForgetAuth(draftID: domain$0.DraftID): $CancellablePromise<draft$0.State> {
+    return $Call.ByID(1929148719, draftID);
+}
+
+/**
+ * ObtainAuth and ForgetAuth are the two buttons the design gives a scheme that fetches: go and ask
+ * for a token, or throw the one there is away. What went wrong is reported rather than swallowed —
+ * the user asked in so many words, and the answer is what they are waiting for.
+ */
+export function ObtainAuth(draftID: domain$0.DraftID): $CancellablePromise<draft$0.State> {
+    return $Call.ByID(1952302695, draftID);
+}
+
+/**
+ * PatchDerived and RemoveDerived are the same edits made to a row the authorization projected rather
+ * than to one a person wrote. Such a row has no id — it is not stored — so it is named by what it is:
+ * which list it is in, what it is called, and for an edit, what it now says.
+ */
+export function PatchDerived(draftID: domain$0.DraftID, target: domain$0.RowKind, name: string, value: string): $CancellablePromise<draft$0.State> {
+    return $Call.ByID(1683248839, draftID, target, name, value);
+}
+
 export function PatchRow(draftID: domain$0.DraftID, kind: domain$0.RowKind, id: string, patch: draft$0.RowPatch): $CancellablePromise<draft$0.State> {
     return $Call.ByID(816954078, draftID, kind, id, patch);
 }
@@ -40,6 +71,10 @@ export function PatchRow(draftID: domain$0.DraftID, kind: domain$0.RowKind, id: 
  */
 export function PickBodyFile(title: string, kindName: string): $CancellablePromise<string> {
     return $Call.ByID(1983199931, title, kindName);
+}
+
+export function RemoveDerived(draftID: domain$0.DraftID): $CancellablePromise<draft$0.State> {
+    return $Call.ByID(1910982485, draftID);
 }
 
 /**

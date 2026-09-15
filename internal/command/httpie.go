@@ -1,6 +1,10 @@
 package command
 
-import "strings"
+import (
+	"strings"
+
+	"json-inspector/internal/domain"
+)
 
 // fromHTTPie reads an httpie command. Its grammar is the odd one out: bare words are not operands
 // but `name=value` items, and the separator inside them decides whether the item becomes a header,
@@ -10,6 +14,11 @@ func fromHTTPie(tokens []string) (pendingRequest, Reason) {
 	url := ""
 	var raw optString
 	entries := []headerEntry{}
+	// The three flags that carry a credential, decided on once the loop is over: which scheme
+	// `--auth` means depends on `--auth-type`, wherever in the line it was written.
+	var authType optString
+	var credential optString
+	var bearer optString
 	var fields []jsMember
 	query := []string{}
 
@@ -27,11 +36,15 @@ func fromHTTPie(tokens []string) (pendingRequest, Reason) {
 				}
 			case "--auth", "-a":
 				if v := take(tokens, &cursor, inline); v.set && v.value != "" {
-					entries = append(entries, basicAuthEntry(v.value))
+					credential = v
+				}
+			case "--auth-type":
+				if v := take(tokens, &cursor, inline); v.set {
+					authType = optString{value: strings.ToLower(v.value), set: true}
 				}
 			case "--bearer":
 				if v := take(tokens, &cursor, inline); v.set && v.value != "" {
-					entries = append(entries, headerEntry{name: "Authorization", value: "Bearer " + v.value})
+					bearer = v
 				}
 			default:
 				if valueFlags[FormatHTTPie][flag] {
@@ -90,11 +103,27 @@ func fromHTTPie(tokens []string) (pendingRequest, Reason) {
 		}
 	}
 
+	// httpie names the scheme separately from the credential, and `digest` is the only other one this
+	// app has: an `--auth-type` it does not know is read as Basic, which is what httpie itself does
+	// when it is not told otherwise.
+	auth := (*domain.Auth)(nil)
+	if bearer.set {
+		auth = bearerScheme(bearer.value)
+	} else if credential.set {
+		login, password := splitCredential(credential.value)
+		if authType.set && authType.value == "digest" {
+			auth = digestScheme(login, password)
+		} else {
+			auth = basicScheme(login, password)
+		}
+	}
+
 	result := pendingRequest{
 		method:  defaultMethod(method, body),
 		url:     url,
 		entries: entries,
 		body:    body,
+		auth:    auth,
 	}
 	if len(query) > 0 {
 		result.url = appendQuery(url, strings.Join(query, "&"))

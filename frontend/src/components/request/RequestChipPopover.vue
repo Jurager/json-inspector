@@ -7,12 +7,16 @@ import { Button, IconButton } from '../ui/button'
 import { Checkbox } from '../ui/checkbox'
 import ScriptsFields from './ScriptsFields.vue'
 import BodyFields from './BodyFields.vue'
+import AuthFields from './AuthFields.vue'
+import DerivedRow from './DerivedRow.vue'
+import AuthTypeSwitch from './AuthTypeSwitch.vue'
 import { useRequestsStore } from '../../stores/requests'
 import { useCollectionsStore } from '../../stores/collections'
+import { useAuthSchemes } from '../../composables/useAuthSchemes'
 import type { ChipName, RequestSource } from '../../lib/requestSource'
 import { parseTokens, tokenSegments } from '../../lib/vars'
-import { useMessages } from '../../i18n'
-import { AuthType, DraftID, RowKind, type Auth } from '../../../bindings/json-inspector/internal/domain'
+import { useMessages, formatCheckedAt } from '../../i18n'
+import { DraftID, RowKind, type Auth } from '../../../bindings/json-inspector/internal/domain'
 
 const props = defineProps<{ chip: ChipName; source?: RequestSource }>()
 
@@ -32,52 +36,46 @@ const scriptsNote = computed(() =>
     : t('request.scriptsNoteCollection')
 )
 
-// The choices and their names come from Go, so the chip and the draft cannot disagree about what a
-// mode is called. A card inside a collection gets «Наследовать» in place of «Нет»: the request is one
-// node of a tree, and the design puts the collection's own answer above it.
-const AUTH_TYPES = computed<Auth['type'][]>(() =>
-  store.canInherit
-    ? [AuthType.AuthInherit, AuthType.AuthBearer, AuthType.AuthBasic, AuthType.AuthOAuth2]
-    : [AuthType.AuthNone, AuthType.AuthBearer, AuthType.AuthBasic, AuthType.AuthOAuth2]
-)
-// Rebuilt when the language moves, which is what a static map cannot do — the words are in the
-// catalogue and a language is chosen while the window is open.
-const AUTH_LABELS = computed<Record<string, string>>(() => ({
-  none: t('request.auth.none'),
-  inherit: t('request.auth.inherit'),
-  bearer: t('request.auth.bearer'),
-  basic: t('request.auth.basic'),
-  oauth2: t('request.auth.oauth2'),
-}))
+const { schemeOf } = useAuthSchemes()
 
-// What the level above answers, said in one line where the token would be: a choice whose meaning is
-// invisible is a choice nobody makes.
+// The scheme the request is authorized with, as Go describes it: which fields to ask for and how to
+// draw them. A card inside a collection may also choose «Наследовать» — the request is one node of a
+// tree, and Go offers that scheme only where there is a level above it.
+const scheme = computed(() => schemeOf(store.auth.type))
+
+// What the level above answers, said in one line: a choice whose meaning is invisible is a choice
+// nobody makes.
 const inheritedLabel = computed(() => {
   const auth = store.inheritedAuth
   if (!auth) return t('request.inheritedNothing')
-  const kind = AUTH_LABELS.value[auth.type] ?? auth.type
-  return auth.token
-    ? t('request.inheritedWithToken', { kind, token: auth.token })
-    : t('request.inherited', { kind })
+  const above = schemeOf(auth.type)
+  const kind = above ? t(above.label) : auth.type
+  // The one answer worth repeating is the one that is not a secret: a token is masked in the copy
+  // that outlives the send, and the window is not the side that gets to see it.
+  return t('request.inherited', { kind })
 })
-
-// The pill moves one segment (+ the 2px gap) per step, animated by a CSS transition on transform.
-const activeAuthIndex = computed(() => AUTH_TYPES.value.indexOf(store.auth.type))
-const authIndicatorStyle = computed(() => ({
-  transform: `translateX(calc(${activeAuthIndex.value} * (100% + 2px)))`,
-}))
 
 function dismiss() {
   store.setOpenChip(null)
 }
 
+// The scheme is a click, so it is written at once and with nothing carried over: the answers belong
+// to the scheme, and a token sent along to one that has no field for it is an answer to nothing.
 function selectAuth(type: Auth['type']) {
-  void store.setAuth({ ...store.auth, type })
+  void store.setAuth({ type, fields: {} })
 }
 
-function setToken(token: string) {
-  void store.setAuth({ ...store.auth, token })
+function setField(key: string, value: string) {
+  void store.setAuth({ ...store.auth, fields: { ...store.auth.fields, [key]: value } })
 }
+
+// What the token block says. A provider that named no expiry never expires to this window's
+// knowledge, and saying "получен" is more honest than inventing a time for it.
+const tokenState = computed(() => {
+  if (!store.token?.held) return t('request.auth.noToken')
+  if (!store.token.expiresAt) return t('request.auth.tokenHeld')
+  return t('request.auth.tokenUntil', { at: formatCheckedAt(store.token.expiresAt) })
+})
 
 // A row edit goes straight over: the rows are Go's, and the answer is what the popover draws.
 function patch(kind: RowKind, id: string, patch: { name?: string; value?: string }) {
@@ -90,6 +88,20 @@ function toggle(kind: RowKind, id: string, enabled: boolean) {
 
 function remove(kind: RowKind, id: string) {
   void store.removeRow(kind, id)
+}
+
+// The rows the authorization put in the list, kept apart from the ones a person wrote: they are
+// drawn after them, and they are edited through the scheme's fields rather than as rows.
+function projected(kind: RowKind) {
+  return store.projected.filter((row) => row.target === kind)
+}
+
+function patchDerived(target: RowKind, name: string, value: string) {
+  void store.patchDerived(target, name, value)
+}
+
+function removeDerived() {
+  void store.removeDerived()
 }
 
 // A chip button sits outside the popover's own content, so clicking it — even the one already
@@ -170,6 +182,13 @@ function valueClass(v: string): string {
             <IconButton variant="danger" size="sm" :hint="t('common.delete')" @click.stop="remove(RowKind.RowParams, p.id)"><Icon name="trash" :size="13" /></IconButton>
           </div>
         </TransitionGroup>
+        <DerivedRow
+          v-for="row in projected(RowKind.RowParams)"
+          :key="row.name"
+          :row="row"
+          @patch="patchDerived"
+          @remove="removeDerived"
+        />
         <div class="popover-foot">
           <Button variant="ghost" size="sm" @click="store.addRow(RowKind.RowParams)">
             <Icon name="plus" :size="16" />
@@ -209,6 +228,13 @@ function valueClass(v: string): string {
             <IconButton variant="danger" size="sm" :hint="t('common.delete')" @click.stop="remove(RowKind.RowHeaders, h.id)"><Icon name="trash" :size="13" /></IconButton>
           </div>
         </TransitionGroup>
+        <DerivedRow
+          v-for="row in projected(RowKind.RowHeaders)"
+          :key="row.name"
+          :row="row"
+          @patch="patchDerived"
+          @remove="removeDerived"
+        />
         <div class="popover-foot">
           <Button variant="ghost" size="sm" @click="store.addRow(RowKind.RowHeaders)">
             <Icon name="plus" :size="16" />
@@ -220,28 +246,39 @@ function valueClass(v: string): string {
     </template>
 
     <template v-else-if="props.chip === 'auth'">
-      <div class="segmented">
-        <span class="seg-indicator" :style="authIndicatorStyle"></span>
-        <button
-          v-for="t in AUTH_TYPES"
-          :key="t"
-          class="seg"
-          :class="{ active: store.auth.type === t }"
-          @click="selectAuth(t)"
-        >
-          {{ AUTH_LABELS[t] }}
-        </button>
+      <AuthTypeSwitch :can-inherit="store.canInherit" :value="store.auth.type" @select="selectAuth" />
+
+      <div class="auth-body">
+        <!-- «Нет» and «Наследовать» ask for nothing and say what they mean instead. So does a scheme
+             whose working is invisible until the server answers it. -->
+        <p v-if="scheme?.note" class="hint">{{ t(scheme.note) }}</p>
+        <AuthFields
+          v-if="scheme?.fields?.length"
+          :scheme="scheme"
+          :auth="store.auth"
+          @update="setField"
+        />
+        <!-- The part of an authorization that is not a field: a token somebody else issues, and the
+             two things a person can do about it. It is drawn where the scheme says it fetches, so a
+             scheme that carries what the user typed gets no block saying there is no token. -->
+        <div v-if="scheme?.fetches && store.token" class="token">
+          <div class="token-state">
+            <Icon name="lock" :size="13" />
+            <span>{{ tokenState }}</span>
+          </div>
+          <div class="token-actions">
+            <Button variant="primary" size="sm" @click="store.obtainAuth()">
+              {{ t('request.auth.obtain') }}
+            </Button>
+            <Button variant="outline" size="sm" :disabled="!store.token.held" @click="store.forgetAuth()">
+              {{ t('request.auth.forget') }}
+            </Button>
+          </div>
+        </div>
+        <p v-if="store.auth.type === 'inherit'" class="hint">{{ inheritedLabel }}</p>
       </div>
-      <input
-        v-if="store.auth.type !== 'none' && store.auth.type !== 'inherit'"
-        :value="store.auth.token"
-        class="row-input mono"
-        :placeholder="t('request.token')"
-        spellcheck="false"
-        @input="setToken(($event.target as HTMLInputElement).value)"
-      />
-      <div v-else-if="store.auth.type === 'inherit'" class="hint">{{ inheritedLabel }}</div>
-      <div class="hint">{{ t('request.tokenFromEnvironment') }}</div>
+
+      <div class="auth-foot">{{ t('request.auth.foot') }}</div>
     </template>
 
     <template v-else-if="props.chip === 'scripts'">
@@ -336,31 +373,26 @@ function valueClass(v: string): string {
 .hint {
   color: var(--text-tertiary);
   font-size: 11.5px;
-  line-height: 1.45;
+  line-height: 1.5;
   padding: 0 4px 2px;
 }
 
-.segmented {
-  @apply relative flex gap-0.5 p-0.5 bg-bg-inset;
-  border-radius: 7px;
+/* The part of an authorization that is not a field. It is a block of its own rather than a row of
+   the form because it is not an answer the user gives: it is what came back when they asked. */
+.token {
+  @apply flex flex-col gap-2 p-2.5 rounded-lg bg-bg-inset border border-border;
 }
 
-.seg-indicator {
-  @apply absolute top-0.5 bottom-0.5 left-0.5 bg-bg-panel;
-  border-radius: 5px;
-  width: calc((100% - 10px) / 4);
-  transition: transform 0.18s cubic-bezier(0.4, 0, 0.2, 1);
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.18), 0 0 0 0.5px var(--border-strong);
+.token-state {
+  @apply flex items-center gap-1.5 text-[11.5px] text-text-secondary;
 }
 
-.seg {
-  @apply relative flex-1 text-center text-xs py-1 border-none bg-transparent text-text-secondary cursor-pointer;
-  border-radius: 5px;
-  transition: color 0.18s ease;
+.token-state svg {
+  @apply flex-none;
 }
 
-.seg.active {
-  @apply font-medium text-text;
+.token-actions {
+  @apply flex gap-1.5;
 }
 
 </style>

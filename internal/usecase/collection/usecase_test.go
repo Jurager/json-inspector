@@ -703,7 +703,7 @@ func TestCreateNodeTakesAWholeRequest(t *testing.T) {
 		URL:          "https://api.example.com/users/1?page=2",
 		Headers:      []domain.Row{{ID: "h1", Name: "Accept", Value: "application/vnd.api+json", Enabled: true}},
 		Body:         `{"data": 1}`,
-		Auth:         &domain.Auth{Type: domain.AuthBearer, Token: "{{token}}"},
+		Auth:         bearerRef("{{token}}"),
 	})
 	if err != nil {
 		t.Fatalf("CreateNode: %v", err)
@@ -726,7 +726,7 @@ func TestCreateNodeTakesAWholeRequest(t *testing.T) {
 	if len(stored.Headers) != 1 || stored.Body != `{"data": 1}` {
 		t.Errorf("stored = %+v, want its headers and body", stored)
 	}
-	if stored.Auth == nil || stored.Auth.Token != "{{token}}" {
+	if stored.Auth == nil || stored.Auth.Get("token") != "{{token}}" {
 		t.Errorf("auth = %+v, want the choice the composer made", stored.Auth)
 	}
 }
@@ -906,7 +906,7 @@ func TestDuplicateCopiesTheRequestItself(t *testing.T) {
 	_, tree, _ = uc.CreateNode(ctx, NewNode{CollectionID: collectionID, Name: "Запрос"})
 	requestID := only(t, tree).Items[0].ID
 
-	bearer := &domain.Auth{Type: domain.AuthBearer, Token: "{{token}}"}
+	bearer := bearerRef("{{token}}")
 	if _, err := uc.SaveNode(ctx, domain.CollectionNode{
 		ID: requestID, Name: "Запрос", Method: "PATCH", URL: "https://api.example.com/users/1?page=2",
 		Description: "про пользователя",
@@ -947,7 +947,7 @@ func TestDuplicateCopiesTheRequestItself(t *testing.T) {
 	if copied.Description != "про пользователя" {
 		t.Errorf("description = %q, want it carried over", copied.Description)
 	}
-	if copied.Auth == nil || copied.Auth.Token != "{{token}}" {
+	if copied.Auth == nil || copied.Auth.Get("token") != "{{token}}" {
 		t.Errorf("auth = %+v, want it carried over", copied.Auth)
 	}
 	// The copy is a second thing: its own rows, so editing one does not edit the other.

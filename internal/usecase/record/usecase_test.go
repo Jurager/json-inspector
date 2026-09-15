@@ -271,6 +271,39 @@ func input() SendInput {
 	}
 }
 
+// The credential the engine computed is on no list above it — a Digest answer comes from a challenge
+// that had not arrived when the request was prepared — so the record learns it from what came back.
+// A record without it would be a record of the request that was refused.
+func TestSendRecordsWhatTheEngineAdded(t *testing.T) {
+	uc, _, executor, notifier := newUseCase()
+	executor.response.SentHeaders = []domain.HeaderPair{
+		{Name: "Authorization", Value: `Digest username="user", realm="example", response="deadbeef"`},
+	}
+
+	in := input()
+	in.Headers = nil
+	in.MaskedHeaders = nil
+	in.Digest = &domain.DigestCredentials{Username: "user", Password: "pass"}
+	if _, err := uc.Send(context.Background(), in); err != nil {
+		t.Fatalf("Send: %v", err)
+	}
+	// The answer is what says the attempt is over; the engine has been asked by then.
+	finished := notifier.waitFor(t, TopicRequestFinished).(RequestFinished)
+
+	// The credential itself goes to the engine rather than onto the request: there is nothing to put
+	// on it until the server has said how.
+	if len(executor.got) != 1 || executor.got[0].Digest == nil || executor.got[0].Digest.Username != "user" {
+		t.Errorf("sent = %+v, want the credential handed to the engine", executor.got)
+	}
+
+	if len(finished.Record.RequestHeaders) != 1 {
+		t.Fatalf("recorded headers = %+v, want the answer folded in", finished.Record.RequestHeaders)
+	}
+	if !strings.HasPrefix(finished.Record.RequestHeaders[0].Value, "Digest ") {
+		t.Errorf("recorded headers = %+v, want the answer that was computed", finished.Record.RequestHeaders)
+	}
+}
+
 func TestSendRecordsTheMaskedRequest(t *testing.T) {
 	uc, store, executor, notifier := newUseCase()
 

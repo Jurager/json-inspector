@@ -34,6 +34,10 @@ type Request struct {
 	URL     string
 	Headers []domain.HeaderPair
 	Body    string
+	// Digest is a credential the request cannot carry until the server has said how: see
+	// domain.DigestCredentials. It is passed through untouched — this feature is not the one that
+	// knows what to do with it, and the engine is.
+	Digest *domain.DigestCredentials
 }
 
 // Executor sends a request. One implementation is the HTTP engine; a test can hand in its own.
