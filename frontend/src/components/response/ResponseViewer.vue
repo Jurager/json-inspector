@@ -233,6 +233,9 @@ function openInRequest() {
   // The whole record becomes the request being composed, the jar it was sent with and all. Which
   // rail is on screen does not change: the button is answered where it was pressed.
   void requests.replace(recordSeed(props.record, props.record.requestBody))
+  // Nothing the history shows is what the line is holding any more: this came from a capture, and
+  // the row that was lit named a record the line has just stopped being.
+  requests.deselectManual()
   requests.setOpenChip(null)
   requests.activeView = 'request'
   focusUrlField()

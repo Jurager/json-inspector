@@ -487,6 +487,13 @@ export const useRequestsStore = defineStore('requests', {
       this.unreadCount = 0
     },
 
+    // The command line stops being a record it was showing. What it holds now is a request being
+    // composed, and a row left lit in the history would name a record it has nothing to do with —
+    // and the pane would go on drawing that record's response beside it.
+    deselectManual() {
+      this.manualId = null
+    },
+
     focusBrowserTab(tabId: number) {
       this.activeView = 'browser'
       this.unreadCount = 0
