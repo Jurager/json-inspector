@@ -6,13 +6,12 @@ import (
 	"strings"
 )
 
-// Code names a failure the window can word itself. It is not a message: the catalogue holds one
-// sentence per code per language, and the window picks it — which is why the app can refuse in
-// words it does not know.
+// Code names a failure the window can word itself: the catalogue holds one sentence per code per
+// language, which is how the app can refuse in words it does not know.
 //
-// A code travels to the window beside the error, not inside it: Wails marshals a rejected call's
-// error through the app's own marshaller, and the window reads the code off that. The error's own
-// text stays what it always was — the machine's account, for the log and for a bug report.
+// It travels beside the error rather than inside it — Wails marshals a rejected call's error
+// through the app's own marshaller and the window reads the code off that — and the error's own
+// text stays the machine's account, for the log and for a bug report.
 type Code string
 
 const (
@@ -47,19 +46,13 @@ const (
 	CodeWorkspaceMissing   Code = "workspaceMissing"
 )
 
-// Args are the values a code's sentence interpolates. They are strings because that is what a
-// message interpolates, and because a value that is a number is formatted where it is known to be
-// one — a file limit is counted in the unit its sentence names, not in bytes.
-//
-// The same values make the error's own text, so an arg is read twice: by the sentence, which uses
-// the ones it names, and by a log, which prints all of them.
+// Args are the values a code's sentence interpolates. Strings because that is what a message
+// interpolates, and a number is formatted where it is known to be one — a file limit is counted
+// in the unit its sentence names, not in bytes.
 type Args map[string]string
 
 // Failure is an error the window can word itself: a code, the values its sentence needs, and the
-// sentinel a caller above asks `errors.Is` about.
-//
-// It marshals to exactly what the window needs and nothing more, which is what makes it worth a
-// type of its own rather than a formatted string.
+// sentinel a caller above asks errors.Is about. It marshals to exactly what the window needs.
 type Failure struct {
 	Code Code `json:"code"`
 	Args Args `json:"args,omitempty"`

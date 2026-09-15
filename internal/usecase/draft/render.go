@@ -1,14 +1,8 @@
 package draft
 
-// Rendering a request back as a command, in each of the five notations this app can write: curl,
-// fetch, wget, httpie and Invoke-RestMethod. One tool is written per file beside this one.
-//
-// Only curl is ever read back — detect.go says why — but all five are ways of carrying a request
-// out of here, and which one a person wants depends on where they are taking it.
-//
-// What comes out of here goes to the clipboard, for a person to carry into their own terminal,
-// script or editor. So it is written the way that person would have written it and not the way a
-// program would have to, and none of what that costs changes the request anybody ends up sending.
+// Rendering a request back as a command, in the five notations this app can write — one tool per
+// file beside this one. Only curl is ever read back, but all five are ways of carrying a request
+// out of here, written for a person to paste into their own terminal and not for a program.
 
 import (
 	"strings"
@@ -16,8 +10,7 @@ import (
 	"json-inspector/internal/domain"
 )
 
-// CommandFormat is the notation a request is written out in. The reader knows one of them; the
-// writer knows all five.
+// The reader knows one of them; the writer knows all five.
 type CommandFormat string
 
 const (
@@ -39,9 +32,8 @@ func psQuote(s string) string {
 	return "'" + strings.ReplaceAll(s, "'", "''") + "'"
 }
 
-// orderedHeaders is the header list as the renderers pass it around. Losing a header to a name
-// collision would change the command, so the list collapses: a name that is already there keeps its
-// position and takes the new value.
+// Losing a header to a name collision would change the command, so the list collapses: a name
+// already there keeps its position and takes the new value.
 type orderedHeaders struct {
 	names []string
 	vals  map[string]string
@@ -57,7 +49,6 @@ func (h *orderedHeaders) set(name, value string) {
 	h.vals[name] = value
 }
 
-// entries is the set as a list, in the order the names were first set.
 func (h orderedHeaders) entries() []domain.HeaderPair {
 	out := make([]domain.HeaderPair, 0, len(h.names))
 	for _, name := range h.names {

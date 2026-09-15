@@ -1,8 +1,7 @@
 package collection
 
 // A collection going out as a file and coming back as one. The tree a list draws is shallow, so
-// what leaves is read whole first — an export of what the window holds would be an export of
-// names.
+// what leaves is read whole first — an export of what the window holds would be an export of names.
 
 import (
 	"context"
@@ -47,9 +46,6 @@ func (u *UseCase) Import(
 
 // adopt gives an imported subtree what a file does not write: ids, and where it lives. Everything
 // else — the names, the addresses, the rows — is the file's.
-//
-// A collection is a level of the file like any other, so it is adopted by this same function one
-// level down, with the level it came from carried along for its scripts.
 func (u *UseCase) adopt(
 	collection domain.Collection,
 	items []domain.CollectionNode,

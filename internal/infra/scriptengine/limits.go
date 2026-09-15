@@ -8,12 +8,9 @@ import (
 )
 
 // What a script is given to work with. The time limit is the one that matters: there is no network
-// and no timer inside the sandbox, so the only long call a script has can make is to itself, and an
-// interruption is the only thing that can take a `while (true) {}` away from it.
-//
-// The rest are what keeps a runaway script from filling the report the tab draws. They are not a
-// memory limit — goja has none, and the honest answer is that a script can allocate as much as the
-// process can hold — they are a limit on what comes back out.
+// and no timer in the sandbox, so an interruption is the only thing that can end a runaway loop.
+// The rest are not a memory limit — goja has none — but a cap on what comes back out, so a runaway
+// script cannot fill the report the tab draws.
 const (
 	maxScriptDuration = 5 * time.Second
 	maxLogLines       = 200

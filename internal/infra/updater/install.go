@@ -11,9 +11,6 @@ import (
 	"runtime"
 )
 
-// Installing a release: download it, check it against the release's own checksums file, and
-// give the archive to the platform to swap in.
-
 func Install(version string) error {
 	rel, err := fetchRelease("tags/" + url.PathEscape(version))
 	if err != nil {

@@ -6,11 +6,9 @@ import (
 	"json-inspector/internal/domain"
 )
 
-// Store is the persistence this feature needs. It is declared here, next to its user, so the
-// feature does not have to know whether the rows come from SQLite or a fake in a test.
-//
-// Every method that touches an environment or a variable is told which workspace it is working in:
-// environments belong to one, globals belong to one, and a name may be taken in each of them.
+// Store is the persistence this feature needs, declared next to its user so the feature does not
+// have to know whether the rows come from SQLite or a fake in a test. Every call names the
+// workspace it works in: a name may be taken in each of them.
 type Store interface {
 	EnvState(ctx context.Context, workspaceID string) (domain.EnvState, error)
 	SaveEnvironment(ctx context.Context, workspaceID string, env domain.Environment) error

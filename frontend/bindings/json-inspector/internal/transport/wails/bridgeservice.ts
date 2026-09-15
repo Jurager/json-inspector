@@ -17,8 +17,7 @@ export function PauseCapture(): $CancellablePromise<void> {
 }
 
 /**
- * Port is the port the extension is told to connect to. The service is the bridge already, so the
- * name does not repeat it.
+ * Port is the port the extension connects to — the service is the bridge, so the name omits it.
  */
 export function Port(): $CancellablePromise<number> {
     return $Call.ByID(2250383837);

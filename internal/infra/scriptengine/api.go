@@ -131,7 +131,7 @@ func (s *runState) test(call goja.FunctionCall) goja.Value {
 			panic(err)
 		}
 		result.Passed, result.Error = false, messageOf(err)
-	} else if waiting(returned) {
+	} else if isThenable(returned) {
 		// `pm.test('...', async () => ...)` would otherwise pass without checking anything: an
 		// assertion inside an async function throws into a promise nobody is waiting for, and there is
 		// nothing in the sandbox to wait with.
@@ -321,14 +321,14 @@ func headerPairs(value goja.Value) []domain.HeaderPair {
 		if !ok {
 			continue
 		}
-		name := jsText(fields["key"])
+		name := exportedString(fields["key"])
 		if name == "" {
-			name = jsText(fields["name"])
+			name = exportedString(fields["name"])
 		}
 		if name == "" {
 			continue
 		}
-		out = append(out, domain.HeaderPair{Name: name, Value: jsText(fields["value"])})
+		out = append(out, domain.HeaderPair{Name: name, Value: exportedString(fields["value"])})
 	}
 	return out
 }
@@ -342,14 +342,12 @@ func text(value goja.Value) string {
 	return value.String()
 }
 
-// isText says whether the script put something here. A field it never touched reads as undefined,
-// and undefined is not a value a request can be given.
+// A field the script never touched reads as undefined, which a request cannot be given.
 func isText(value goja.Value) bool {
 	return value != nil && !goja.IsUndefined(value) && !goja.IsNull(value)
 }
 
-// jsText is the same for a value that already came out of JS as Go data.
-func jsText(value any) string {
+func exportedString(value any) string {
 	if value == nil {
 		return ""
 	}
@@ -359,8 +357,8 @@ func jsText(value any) string {
 	return fmt.Sprint(value)
 }
 
-// waiting says whether a check handed back a promise. Nothing in the sandbox resolves one.
-func waiting(value goja.Value) bool {
+// Nothing in the sandbox resolves a promise.
+func isThenable(value goja.Value) bool {
 	object, ok := value.(*goja.Object)
 	if !ok {
 		return false

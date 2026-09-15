@@ -140,8 +140,7 @@ func TestNodeRoundTrip(t *testing.T) {
 }
 
 // A saved request carries its format and what its body is made of, so a card gets the same five
-// formats the command line has. This is the column that used to be written as 'raw' whatever the
-// node held.
+// formats the command line has.
 func TestNodeRoundTripKeepsTheBodyFormat(t *testing.T) {
 	store := newMigratedStore(t)
 	ctx := context.Background()
@@ -169,8 +168,7 @@ func TestNodeRoundTripKeepsTheBodyFormat(t *testing.T) {
 		t.Errorf("form = %+v, want both rows and the file's path", read.Form)
 	}
 
-	// A second save without the format keeps what the first one wrote: the column is in the update
-	// set, which is the half of it that was missing before.
+	// The format survives a second save: body_kind and body_file are in the upsert's update set.
 	node.BodyFile = "/tmp/other.bin"
 	node.BodyKind = domain.BodyBinary
 	if err := store.SaveNode(ctx, node); err != nil {
@@ -448,12 +446,10 @@ func TestMoveCollectionNestsAndComesBack(t *testing.T) {
 	if len(nested.Children) != 1 || nested.Children[0].ID != "col-2" {
 		t.Fatalf("nested = %+v, want the collection that was moved in", nested.Children)
 	}
-	// It took its own level with it: a moved collection is the same collection.
 	if inner := nested.Children[0]; len(inner.Items) != 0 || inner.Name != "Заказы" {
 		t.Errorf("moved = %+v, want its own name and its own (empty) level", inner)
 	}
 
-	// Back out at the top, at the dropped index: the level is where it was put, not appended.
 	if err := store.MoveCollection(ctx, ws, "col-2", "", 0); err != nil {
 		t.Fatalf("MoveCollection back out: %v", err)
 	}

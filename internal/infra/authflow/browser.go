@@ -29,13 +29,9 @@ type Browser interface {
 // to giving up is a send that never returns.
 const signInTimeout = 5 * time.Minute
 
-// browserExchange is the two grants that need a person: a browser is opened at the provider, they
-// say yes, and the provider sends them back to a loopback address this app is listening on. What
-// arrives there is the code or the token, and it is handed back the same way the other grants hand
-// back what they fetched.
-//
-// No browser means no exchange: a test, or a platform this app cannot open one on, gets a grant
-// that says so rather than one that would wait five minutes for nothing.
+// browserExchange is the two grants that need a person. No browser means no exchange: a test, or a
+// platform this app cannot open one on, gets a grant that refuses rather than one that waits five
+// minutes for nothing.
 func browserExchange(browser Browser) codeExchange {
 	if browser == nil {
 		return nil
@@ -45,14 +41,12 @@ func browserExchange(browser Browser) codeExchange {
 	}
 }
 
-// signIn is one trip through the browser: listen, send them away, wait for them to come back.
 func signIn(ctx context.Context, browser Browser, auth domain.Auth) (string, time.Time, error) {
 	implicit := auth.OrDefault("grant") == grantImplicit
 	config := oauthConfig(auth)
 
-	// A loopback port the operating system picks. It is a loopback address and not a custom scheme
-	// because a scheme would have to be registered with the system, and only one of those can be
-	// registered by one app — while every provider already allows an address on this machine.
+	// A loopback port the OS picks rather than a custom scheme: a scheme has to be registered with the
+	// system and only one app can hold it, while every provider already allows this machine's address.
 	listener, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
 		return "", time.Time{}, fmt.Errorf("listening for the sign-in answer: %w", err)
@@ -108,8 +102,6 @@ func signIn(ctx context.Context, browser Browser, auth domain.Auth) (string, tim
 	}
 }
 
-// signInAnswer is what came back: a code to exchange, or a token the provider handed over directly,
-// or the reason none of that happened.
 type signInAnswer struct {
 	code    string
 	token   string
@@ -117,9 +109,8 @@ type signInAnswer struct {
 	err     error
 }
 
-// callback is the listener the provider sends the person back to. It answers with something for
-// them to read — they are looking at a browser, not at this app — and hands what arrived to the
-// channel the sign-in is waiting on.
+// callback is the listener the provider sends the person back to. It answers with a page, because
+// the person is looking at a browser and not at this app.
 type callback struct {
 	state    string
 	implicit bool
@@ -137,7 +128,7 @@ func (c *callback) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		if !c.implicit {
 			// The code grant comes back with everything in the query, and the state is checked before
 			// anything else: an answer that belongs to another sign-in is not one to read.
-			if c.refuse(query.Get("state")) {
+			if c.isForeignAnswer(query.Get("state")) {
 				http.Error(w, "This answer does not belong to this sign-in.", http.StatusBadRequest)
 				return
 			}
@@ -157,7 +148,6 @@ func (c *callback) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		_, _ = w.Write([]byte(fragmentPage))
 
 	case "/token":
-		// The second half of the fragment trick, and only the implicit grant has one.
 		if !c.implicit {
 			http.NotFound(w, r)
 			return
@@ -167,7 +157,7 @@ func (c *callback) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		form := r.PostForm
-		if c.refuse(form.Get("state")) {
+		if c.isForeignAnswer(form.Get("state")) {
 			http.Error(w, "This answer does not belong to this sign-in.", http.StatusBadRequest)
 			return
 		}
@@ -190,9 +180,7 @@ func (c *callback) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// refuse is whether this answer belongs to this sign-in. A callback that names another state is one
-// that arrived from somewhere else, and taking its word for it would be taking a stranger's.
-func (c *callback) refuse(state string) bool {
+func (c *callback) isForeignAnswer(state string) bool {
 	return state != c.state
 }
 

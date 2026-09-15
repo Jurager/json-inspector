@@ -9,8 +9,8 @@ import (
 	"json-inspector/internal/domain"
 )
 
-// LegacySource is the key the old frontend wrote its environments under. The import runs off the
-// raw string for exactly this key, once, and the claim in data_imports is what makes it once.
+// LegacySource is the localStorage key the old frontend wrote its environments under. data_imports
+// claims it, which is what makes the import run exactly once.
 const LegacySource = "localStorage:ji-env-v1"
 
 // legacyState is the shape the TypeScript store persisted: the same fields, spelled the same way.
@@ -100,8 +100,7 @@ func (u *UseCase) ImportLegacy(ctx context.Context, raw string) (ImportReport, e
 	return report, nil
 }
 
-// parseLegacy reads the old payload. An empty or absent value returns a nil state — nothing to do —
-// while a payload that exists but cannot be read is an error the caller records.
+// An empty value is a nil state — nothing to do; an unreadable one is an error the caller records.
 func parseLegacy(raw string) (*legacyState, error) {
 	if raw == "" {
 		return nil, nil
@@ -116,9 +115,8 @@ func parseLegacy(raw string) (*legacyState, error) {
 	return &state, nil
 }
 
-// writeLegacy restores the old localStorage payload. It lands in the default workspace and not in
-// whichever one happens to be on screen: the import is a one-time repair of what this installation
-// kept before environments moved into the database, and it must not follow the user around spaces.
+// writeLegacy lands in the default workspace, not in whichever one happens to be on screen:
+// the import repairs this installation's own data once and must not follow the user around.
 func (u *UseCase) writeLegacy(ctx context.Context, state legacyState, report *ImportReport) error {
 	const workspace = domain.WorkspacePersonalID
 
@@ -161,9 +159,8 @@ func (u *UseCase) writeLegacy(ctx context.Context, state legacyState, report *Im
 	return nil
 }
 
-// legacyVariable carries one variable over. A text variable brings its value, which was in the
-// payload. A secret brings its name and its kind and no value: what it held lived in the keychain,
-// on one platform only, and the report names it rather than carrying a stale copy.
+// A secret keeps its name and its kind but no value: the keychain held it on one platform only, and
+// the report names it rather than carrying a stale copy.
 func (u *UseCase) legacyVariable(
 	legacy legacyVariable,
 	position int,

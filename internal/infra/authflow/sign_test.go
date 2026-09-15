@@ -11,10 +11,9 @@ import (
 	"json-inspector/internal/domain"
 )
 
-// What is tested here is the wiring and not the cryptography: the signature itself is the
-// library's, and a signature this app computed correctly would still be a broken request if the
-// wrong secret, the wrong service or the wrong place on the wire went into it. Those are the things
-// that can be wrong on this side, so those are the things these tests look at.
+// What is tested here is the wiring and not the cryptography: a signature computed correctly is
+// still a broken request if the wrong secret, service or place on the wire went into it. Those are
+// the things that can be wrong on this side.
 
 func bearerToken(t *testing.T, out domain.AuthOutput) string {
 	t.Helper()
@@ -96,7 +95,6 @@ func TestJWTKeepsTheClaimsItWasGiven(t *testing.T) {
 	}
 }
 
-// A base64 secret is decoded before it is used, which is the whole of what that field means.
 func TestJWTReadsABase64Secret(t *testing.T) {
 	raw := "not-the-secret"
 	auth := domain.WithDefaults(domain.AuthJWT).
@@ -110,8 +108,7 @@ func TestJWTReadsABase64Secret(t *testing.T) {
 	}
 }
 
-// The JOSE header carries the keys the design names and no others: `alg` comes from the algorithm,
-// and a header that said otherwise would describe a token nobody signed.
+// The JOSE header carries the keys the design names and no others: `alg` comes from the algorithm.
 func TestJWTHeaderIsRestricted(t *testing.T) {
 	auth := domain.WithDefaults(domain.AuthJWT).
 		With("secret", "s3cret").
@@ -243,8 +240,7 @@ func TestAWSSignsTheBody(t *testing.T) {
 	}
 }
 
-// A signature over a service nobody named is a request the server refuses, and a row drawn as if it
-// worked would be worse than none.
+// A signature over a service nobody named is a request the server refuses.
 func TestAWSSaysNothingWhenItIsHalfFilled(t *testing.T) {
 	half := domain.WithDefaults(domain.AuthAWS).
 		With("accessKeyId", "AKIAEXAMPLE").

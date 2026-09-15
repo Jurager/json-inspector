@@ -184,7 +184,6 @@ func TestRecordsFilterAndOrder(t *testing.T) {
 		t.Errorf("browser records = %v", ids(browser))
 	}
 
-	// A limit keeps the newest, which is what the list asks for.
 	limited, err := store.Records(ctx, ws, "", 2)
 	if err != nil {
 		t.Fatalf("Records: %v", err)

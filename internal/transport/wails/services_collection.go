@@ -9,10 +9,8 @@ import (
 )
 
 // CollectionsService is the saved requests. Every call that changes the tree answers with the whole
-// tree, because a rename moves a row the list is already drawing — a caller that had to splice the
-// change in itself would be a second implementation of the tree's order.
-// It holds the draft as well, and this is one of the two places that does: a saved request is
-// edited as a draft, and the layer that knows both features is the one that can put them together.
+// tree — a rename moves a row the list is already drawing. It holds the draft too, because a saved
+// request is edited as one.
 type CollectionsService struct {
 	collections *collection.UseCase
 	drafts      *draft.UseCase
@@ -45,8 +43,7 @@ func (s *CollectionsService) CreateCollection(
 }
 
 // CreatedNode is what a creation answers with: the row that appeared and the tree it appeared in.
-// The window needs the id Go minted — looking it up by name afterwards would find the older row of
-// the same name — and the tree is what every other change to the tree answers with.
+// The id has to come back from Go — a lookup by name would find the older row of the same name.
 type CreatedNode struct {
 	Node domain.CollectionNode `json:"node"`
 	Tree []domain.Collection   `json:"tree"`
@@ -63,12 +60,9 @@ func (s *CollectionsService) CreateNode(
 	return CreatedNode{Node: node, Tree: tree}, nil
 }
 
-// SaveDraft copies what the command line is composing into a collection as a new request. The draft
-// is not touched: saving a copy is not a move, and what is being composed stays where it is.
-//
-// The request arrives whole — method, address, rows, body, and the auth the chip chose — because
-// the node is written once: an empty request filled in by a second call would be a saved request
-// with no address if that call failed.
+// SaveDraft copies what the command line is composing into a collection as a new request. The
+// draft is not touched: saving a copy is not a move. The request arrives whole, because the node
+// is written once — a second call filling in an empty one could leave it saved with no address.
 func (s *CollectionsService) SaveDraft(
 	ctx context.Context,
 	collectionID string,

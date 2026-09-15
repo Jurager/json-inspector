@@ -17,12 +17,10 @@ import (
 	"json-inspector/internal/domain"
 )
 
-// jwtBearer mints a token here rather than being given one. What goes on the request is a bearer
-// token like any other — the same header, the same prefix — and only the way it was come by
-// differs, which is why it is carried by the same code.
-//
-// There is no absorb beside it: a signature over claims is not a value a person can edit, and the
-// window shows the row rather than offering to.
+// jwtBearer mints a token here rather than being given one; what goes on the request is a bearer
+// token like any other, which is why it is carried by the same code. There is no absorb:
+// a signature over claims is not a value a person can edit. The window shows the row rather than
+// offering to.
 func jwtBearer(auth domain.Auth, _ domain.AuthRequest) (domain.AuthOutput, error) {
 	secret := auth.Answer("secret")
 	if secret == "" {
@@ -125,12 +123,10 @@ func expiresIn(raw string) time.Duration {
 	return time.Duration(seconds) * time.Second
 }
 
-// awsSignature signs the request itself rather than putting a credential on it. There is no single
-// header to add: the method, the address, the headers and the body all go into the signature, and
-// the signer writes what it made back onto the request.
-//
-// No absorb, for the same reason a JWT has none and one more: the signature is over the request, so
-// an edited one would be a signature for something nobody sent.
+// awsSignature signs the request itself rather than putting a credential on it: the method, the
+// address, the headers and the body all go into the signature, and the signer writes what it made
+// back onto the request. No absorb — the signature is over the request, so an edited one would be a
+// signature for something nobody sent.
 func awsSignature(auth domain.Auth, req domain.AuthRequest) (domain.AuthOutput, error) {
 	accessKey := strings.TrimSpace(auth.Answer("accessKeyId"))
 	secretKey := auth.Answer("secretAccessKey")
@@ -183,12 +179,10 @@ func awsSignature(auth domain.Auth, req domain.AuthRequest) (domain.AuthOutput, 
 	return out, nil
 }
 
-// seekable is the bytes of a request in something the signer can read, rewind and close. The signer
-// hashes the body to sign it and has to go back over it afterwards, and it can only do that for a
-// body it can seek. `http.NewRequest` wraps anything that is not a ReadCloser in a plain reader —
-// and a plain reader cannot be sought, at which point the body is left unsigned, which many
-// services refuse. bytes.Reader seeks but does not close, so the one method it is missing is added
-// here.
+// seekable is the bytes of a request in something the signer can read, rewind and close. It hashes
+// the body to sign it and goes back over it afterwards, which it can only do for a body it can
+// seek. `http.NewRequest` wraps a non-ReadCloser in a plain reader, and an unsigned body is one
+// many services refuse; bytes.Reader seeks but does not close.
 type seekable struct{ *bytes.Reader }
 
 func (seekable) Close() error { return nil }
@@ -197,9 +191,8 @@ func (seekable) Close() error { return nil }
 // choose: OAuth 2 names it, and a server reading it there looks for this word.
 const queryTokenName = "access_token"
 
-// carry puts a token where the scheme was told to carry it: in the Authorization header under the
-// prefix the scheme names, or in the query string. The credential is the same either way, and some
-// servers read it only one of the two.
+// carry puts a token where the scheme was told to carry it. It is the same credential either way,
+// and some servers read it only one of the two.
 func carry(auth domain.Auth, token string) domain.AuthOutput {
 	if auth.OrDefault("place") == domain.PlaceQuery {
 		return domain.AuthOutput{Query: []domain.HeaderPair{{Name: queryTokenName, Value: token}}}

@@ -1,8 +1,7 @@
 package collection
 
-// Duplicating a subtree. A copy is written as a whole level at a time, because a request is
-// read whole on the way in: what the list draws is shallow, and a copy of that would have no
-// address and no headers.
+// Duplicating a subtree. A copy is written a whole level at a time: a tree row is shallow, and a
+// copy of the row would have no address and no headers.
 
 import (
 	"context"
@@ -54,9 +53,8 @@ func (u *UseCase) Duplicate(
 	return u.store.Collections(ctx, workspace)
 }
 
-// duplicateCollection copies a whole collection into a new one beside it, what is inside it
-// included. The tree is read with its request fields left out, so every request is read again on
-// the way in — a copy that lost its headers would be worse than no copy at all.
+// The tree is read with its request fields left out, so every request is read again on the way in
+// — a copy that lost its headers would be worse than no copy at all.
 func (u *UseCase) duplicateCollection(
 	ctx context.Context,
 	workspace string,
@@ -76,12 +74,9 @@ func (u *UseCase) duplicateCollection(
 	return u.saveTree(ctx, workspace, copied)
 }
 
-// copyCollection builds the copy of a whole collection in memory before any of it is written: a
-// duplicate that failed halfway would leave a collection with half a tree in it.
-//
-// What it is given is a tree row — a name, and what is under it — and what it copies is what the
-// store holds: the two are not the same thing, and taking the row for the content is how a
-// duplicate once came out as an empty request with the right name.
+// Built in memory before anything is written: a duplicate that failed halfway would leave a
+// collection with half a tree in it. The row it is given is not what the store holds — taking the
+// row for the content is how a duplicate once came out as an empty request with the right name.
 func (u *UseCase) copyCollection(
 	ctx context.Context,
 	row domain.Collection,
@@ -121,7 +116,6 @@ func (u *UseCase) copyCollection(
 	return out, nil
 }
 
-// copyNode builds the copy of one request: the row itself, read whole, with rows of its own.
 func (u *UseCase) copyNode(
 	ctx context.Context,
 	row domain.CollectionNode,
@@ -160,7 +154,6 @@ func withIDs(ids platform.IDGen, rows []domain.Row) []domain.Row {
 	return out
 }
 
-// withFormIDs is withIDs for a form body.
 func withFormIDs(ids platform.IDGen, rows []domain.FormRow) []domain.FormRow {
 	out := make([]domain.FormRow, 0, len(rows))
 	for _, row := range rows {
@@ -172,7 +165,6 @@ func withFormIDs(ids platform.IDGen, rows []domain.FormRow) []domain.FormRow {
 	return out
 }
 
-// copyFormRows is copyRows for a form body, for the same reason.
 func copyFormRows(ids platform.IDGen, rows []domain.FormRow) []domain.FormRow {
 	out := make([]domain.FormRow, 0, len(rows))
 	for _, row := range rows {
@@ -202,12 +194,8 @@ func copyCookies(ids platform.IDGen, cookies []domain.CookieRow) []domain.Cookie
 	return out
 }
 
-// pendingLevel is a collection waiting to be written: its row, and the level it was copied from —
-// empty for one that came from a file rather than from the tree.
-//
-// Scripts are not part of a collection: they belong to the level and are read by id, and
-// SaveScripts can only write to a row that already exists. So they travel beside the row rather
-// than inside it, and are written the moment the row is.
+// A level waiting to be written. Scripts belong to the level, not to the row, and SaveScripts only
+// writes to a row that exists — so they travel beside it, read from `from` (empty for an import).
 type pendingLevel struct {
 	collection domain.Collection
 	from       string

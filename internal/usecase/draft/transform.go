@@ -1,8 +1,5 @@
 package draft
 
-// The transforms between what the window types and the parts a request is made of: the address and
-// its rows, and the jar a `Cookie` header comes to.
-
 import (
 	"net/url"
 	"strings"
@@ -75,14 +72,9 @@ func joinURL(base string, rows []domain.Row) string {
 	return base + "?" + query.String()
 }
 
-// encodeQuery is the percent-encoding a query string gets, written out by hand rather than taken
-// from url.QueryEscape. Both it and the browser's own encoder escape `,` and the brackets, and both
-// are wrong for this app: its URLs are `include=author,comments` and `filter[id][in]=1,2`, and a
-// URL that has been through a parameter edit has to stay the URL the user pasted. All three are
-// legal in a query string, so they are left as typed.
-//
-// The rest is escaped by the standard rule — everything but the unreserved characters, `~`
-// included — with a space as `+`, which is what a form-encoded query string has always used.
+// Written by hand rather than taken from url.QueryEscape: both it and the browser escape `,` and
+// the brackets, and this app's URLs are `include=author,comments` and `filter[id][in]=1,2`. All
+// three are legal in a query and stay as typed; the rest follows the standard rule, space as `+`.
 func encodeQuery(text string) string {
 	var out strings.Builder
 	out.Grow(len(text))
@@ -185,7 +177,6 @@ func (u *UseCase) rowsFromURL(raw string, existing []domain.Row) []domain.Row {
 	return rows
 }
 
-// syncURL writes the parameter rows back into the URL, which is what actually goes out.
 func syncURL(d *domain.Draft) {
 	base, _ := queryOf(d.URL)
 	d.URL = joinURL(base, d.Params)

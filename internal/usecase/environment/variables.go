@@ -121,8 +121,7 @@ func existing(variables []domain.Variable, name string) (domain.Variable, bool) 
 	return domain.Variable{}, false
 }
 
-// The sheet: the variables of an environment and the globals beside it, added, edited and
-// removed one at a time. A secret leaves this side masked — see hideSecretValues.
+// A secret leaves this side masked — see hideSecretValues.
 
 // VariableDraft is a variable on its way in: the sheet's "add row" leaves it empty, the .env
 // dialog fills it in, and both go through one call.

@@ -10,7 +10,6 @@ import (
 	"testing"
 )
 
-// zipWith writes a zip holding one entry of the given name and answers where it is.
 func zipWith(t *testing.T, name, body string) string {
 	t.Helper()
 
@@ -35,7 +34,6 @@ func zipWith(t *testing.T, name, body string) string {
 	return path
 }
 
-// tarGzWith writes a tarball holding one entry of the given name and answers where it is.
 func tarGzWith(t *testing.T, name, body string) string {
 	t.Helper()
 

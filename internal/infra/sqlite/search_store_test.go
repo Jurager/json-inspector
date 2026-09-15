@@ -41,10 +41,8 @@ func TestFindRequestsNamesTheWayDown(t *testing.T) {
 	}
 }
 
-// A request made a moment ago is named and not yet addressed, and the palette has to draw it by
-// something: a row whose title is an empty address says nothing but its method, which is what the
-// first version of this did — the name is the identity until there is an address to stand in for
-// it.
+// A request made a moment ago is named and not yet addressed: a row titled by an empty address says
+// nothing but its method, so the name is the identity until an address can stand in for it.
 func TestFindRequestsDrawsAnUnaddressedRequestByName(t *testing.T) {
 	store := newMigratedStore(t)
 	ctx := context.Background()

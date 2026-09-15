@@ -25,16 +25,10 @@ type Config struct {
 	// does, and the default until now has been "each request on its own".
 	UseCookieJar bool
 	UserAgent    string
-	// KeepConnections reuses an open connection for the next request to the same host.
-	//
-	// Off, and deliberately: a reused connection spends nothing on DNS, TCP or TLS, so the same
-	// request sent twice reports a different breakdown — and the second report says nothing about
-	// what a cold request costs. This app is a probe, not a browsing session; what a browser does
-	// with its connections is not the question, what the endpoint does is.
-	//
-	// On, every request after the first is cheaper and the timings tab says so, because a phase that
-	// did not happen is absent rather than zero and the tab draws what it is given. The settings
-	// screen is where this is meant to end up; until then the zero value is the app's answer.
+	// KeepConnections reuses an open connection for the next request to the same host. Off, and
+	// deliberately: a reused connection spends nothing on DNS, TCP or TLS, so the same request sent
+	// twice reports a different breakdown and the second says nothing about what a cold request costs.
+	// This app is a probe, not a browsing session; a phase that did not happen is absent, not zero.
 	KeepConnections bool
 }
 

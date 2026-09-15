@@ -29,9 +29,8 @@ func TestAMissingFileSaysNotFound(t *testing.T) {
 	}
 }
 
-// A file exactly at the limit is a file that fits; one byte past it is an error and not a
-// truncation. A cut-off response is still something to read, but a cut-off upload is a corrupt file
-// at the other end, which is worse than a send that did not happen.
+// A file exactly at the limit fits; one byte past it is an error and not a truncation — a cut-off
+// upload is a corrupt file at the other end, which is worse than a send that did not happen.
 func TestAFileOverTheLimitIsAnError(t *testing.T) {
 	reader := &Reader{MaxBytes: 4}
 

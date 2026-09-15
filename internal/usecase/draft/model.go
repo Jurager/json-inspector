@@ -1,8 +1,5 @@
 package draft
 
-// The draft as the window and the record see it: the shapes that cross the boundary, and the
-// edits that address one row of one list.
-
 import "json-inspector/internal/domain"
 
 // TextField names one of the two texts the window owns while they are being typed in. Everything

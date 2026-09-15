@@ -7,12 +7,8 @@ import (
 	"json-inspector/internal/domain"
 )
 
-// What history holds and how it is read back: the list without its bodies, one record whole,
-// and the body a viewer asks for on its own.
-
-// Ingest stores a record the app was told about and tells the window about it. The record is what
-// the window receives — not the extension's own shape — so there is one type to draw and one id to
-// select, whether a record came from this app or from the browser.
+// Ingest stores a record the app was told about and tells the window. The window gets the app's
+// own record type — not the extension's shape — so both sources draw the same way.
 func (u *UseCase) Ingest(ctx context.Context, in IngestInput) (domain.Record, error) {
 	workspace, err := u.scope.ActiveWorkspace(ctx)
 	if err != nil {
@@ -67,9 +63,8 @@ func (u *UseCase) Ingest(ctx context.Context, in IngestInput) (domain.Record, er
 	return rec, nil
 }
 
-// List is what the history panel draws: the newest records of one source, or of both when the
-// source is empty. Everything but the body text comes with them, so switching between two records
-// costs nothing until a body is actually opened.
+// List is the history panel's read: the newest records of one source, or of both when it is
+// empty. Bodies stay behind, so switching records costs nothing until one is opened.
 func (u *UseCase) List(
 	ctx context.Context,
 	source domain.RecordSource,
@@ -85,8 +80,7 @@ func (u *UseCase) List(
 	return u.store.Records(ctx, workspace, source, limit)
 }
 
-// Record is one record by id — what a run's row opens: the run knows which record it produced, and
-// the row says which endpoint it was, but what it answered lives here.
+// Record is one record by id, bodies included — what a run's row opens.
 func (u *UseCase) Record(ctx context.Context, id string) (domain.Record, error) {
 	return u.store.Record(ctx, id)
 }
@@ -101,15 +95,14 @@ func (u *UseCase) Clear(ctx context.Context, ids []string) error {
 	return u.store.DeleteRecords(ctx, ids)
 }
 
-// bodyRef is the way in for a body: the whole text, with the size that lets the store decide how
-// much of it travels back out. A body the sender had to cut short says so — the window then offers
-// to fetch the rest rather than drawing half a document as if it were all of it.
+// A body the sender had to cut short says so: the window then offers to fetch the rest rather
+// than drawing half a document as if it were all of it.
 func bodyRef(text string, truncated bool) *domain.BodyRef {
 	return &domain.BodyRef{Inline: text, Size: int64(len(text)), Truncated: truncated}
 }
 
-// millisToMicros converts what the browser measured, keeping zero as "nothing to report": a page
-// that timed no phase sends none, and that has to stay distinguishable from a measured zero.
+// millisToMicros keeps zero as "nothing to report": a page that timed no phase must stay
+// distinguishable from one that measured a zero.
 func millisToMicros(ms int64) *int64 {
 	if ms <= 0 {
 		return nil

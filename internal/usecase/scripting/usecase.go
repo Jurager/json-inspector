@@ -241,7 +241,6 @@ func (u *UseCase) script(
 	return report
 }
 
-// scriptVariables is where a script reads and writes, seen by one script of one run.
 type scriptVariables struct {
 	ctx   context.Context
 	owner *UseCase
@@ -250,10 +249,9 @@ type scriptVariables struct {
 
 var _ domain.VarStore = scriptVariables{}
 
-// Get answers the run's own scope first and the environment and the globals after it — the order a
-// request is resolved in, so a script asking for a name gets what the next request of the run will
-// get. Reading either of the other two asks for that one alone, which is what tells a script
-// whether a name is set in the environment or only borrowed from the run.
+// Lookup answers the run's own scope first, then the environment, then the globals — the order
+// a request resolves in, so a script gets what the next request of the run will get. Asking for
+// either of the other two reads that one alone, which is how a script tells where a name is set.
 func (v scriptVariables) Lookup(scope domain.VarScope, name string) (string, bool, error) {
 	if scope != domain.ScopeRun {
 		return v.owner.vars.Variable(v.ctx, scope, name)
@@ -298,11 +296,9 @@ func (u *UseCase) setRunVariable(run string, name string, value string) {
 	u.runs[run][name] = value
 }
 
-// pathTo is the way down from a collection to one id, collections inside it included. What is above
-// a request is what runs before it does, so the order of this walk is the order of the chain.
-//
-// A collection that is the id itself is a chain of one: what it runs is its own code, and nothing
-// is above it because there is nothing above it.
+// pathTo is the way down from a collection to one id, collections inside it included: what is
+// above a request is what runs before it does, so this walk's order is the chain's order. A
+// collection that is the id itself is a chain of one, with nothing above it.
 func (u *UseCase) pathTo(
 	ctx context.Context,
 	workspace string,
@@ -359,8 +355,6 @@ func (u *UseCase) levelOf(
 	return &Level{NodeID: id, Name: name, Kind: kind, Scripts: *scripts}, nil
 }
 
-// levelsOf drops the levels with nothing to run, which is what keeps a chain what runs rather than
-// the places it could have run from.
 func levelsOf(levels ...*Level) []Level {
 	out := []Level{}
 	for _, level := range levels {

@@ -3,10 +3,8 @@
 
 /**
  * CollectionsService is the saved requests. Every call that changes the tree answers with the whole
- * tree, because a rename moves a row the list is already drawing — a caller that had to splice the
- * change in itself would be a second implementation of the tree's order.
- * It holds the draft as well, and this is one of the two places that does: a saved request is
- * edited as a draft, and the layer that knows both features is the one that can put them together.
+ * tree — a rename moves a row the list is already drawing. It holds the draft too, because a saved
+ * request is edited as one.
  * @module
  */
 
@@ -55,21 +53,16 @@ export function Duplicate(id: string, suffix: string): $CancellablePromise<domai
 
 /**
  * ExportFile writes a collection — or one request, when the id names one — into a file the user
- * picks. It answers whether anything was written: a cancelled save dialog is not an error, and the
- * window says nothing about it.
+ * picks. False is a cancelled dialog, not an error, and the window says nothing about it.
  */
 export function ExportFile(title: string, id: string): $CancellablePromise<boolean> {
     return $Call.ByID(4114312118, title, id);
 }
 
 /**
- * ImportFile asks for a file, reads it and writes what is in it into the tree. A nil tree is a
- * cancelled dialog: nothing happened, and it is not a failure.
- * 
- * There is one shape, and nothing is guessed: a file that is not a Postman collection is told that
- * it is not. When a second shape arrives, the window offers them by name and the user says which
- * one they are handing over — a file read as something it is not is worse than a wrong choice that
- * says so out loud.
+ * ImportFile asks for a file and imports it; a nil tree is a cancelled dialog, not a failure.
+ * Nothing is guessed: a file that is not a Postman collection is told so. When a second shape
+ * arrives, the window will offer the shapes by name rather than read the file as one it is not.
  */
 export function ImportFile(title: string): $CancellablePromise<domain$0.Collection[] | null> {
     return $Call.ByID(548291153, title);
@@ -134,12 +127,9 @@ export function SaveAuth(id: string, auth: domain$0.Auth): $CancellablePromise<d
 }
 
 /**
- * SaveDraft copies what the command line is composing into a collection as a new request. The draft
- * is not touched: saving a copy is not a move, and what is being composed stays where it is.
- * 
- * The request arrives whole — method, address, rows, body, and the auth the chip chose — because
- * the node is written once: an empty request filled in by a second call would be a saved request
- * with no address if that call failed.
+ * SaveDraft copies what the command line is composing into a collection as a new request. The
+ * draft is not touched: saving a copy is not a move. The request arrives whole, because the node
+ * is written once — a second call filling in an empty one could leave it saved with no address.
  */
 export function SaveDraft(collectionID: string, name: string): $CancellablePromise<$models.CreatedNode> {
     return $Call.ByID(1665422330, collectionID, name);

@@ -19,8 +19,8 @@ type Row struct {
 	Enabled bool   `json:"enabled"`
 }
 
-// RowKind names which list of a draft a row belongs to. The window edits all three through the
-// same four calls, so it is an argument rather than three sets of methods.
+// RowKind names which list of a draft a row belongs to. The window edits every one of them
+// through the same four calls, so it is an argument rather than a set of methods per list.
 type RowKind string
 
 const (

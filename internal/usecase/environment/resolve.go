@@ -7,9 +7,9 @@ import (
 	"json-inspector/internal/vars"
 )
 
-// SubstituteTexts fills texts in with their variables, in the order they were given. A request is a
-// list of texts — its URL, its body, every header name and value — and resolving them together
-// keeps the answers consistent with each other and the values on this side of the boundary.
+// SubstituteTexts fills texts in with their variables, in the order they were given: a request is
+// resolved as a whole, so its URL, body and headers agree with each other. The values stay on this
+// side of the boundary.
 //
 // mask is the difference between the request that goes out and everything that outlives it: the
 // preview, an export, the record. A secret leaves those as its mask.
@@ -55,11 +55,9 @@ func (u *UseCase) Missing(ctx context.Context, texts []string) ([]string, error)
 	return out, nil
 }
 
-// resolver is the lookup the `{{}}` grammar calls. The active environment wins over the globals,
-// which is the order the design names: запрос → окружение → глобальные.
-//
-// revealSecrets decides whether a secret's value travels with the answer. Only the send path asks
-// for it; everything else gets the kind and the fact that a value exists.
+// resolver is the lookup the `{{}}` grammar calls: the active environment wins over the globals,
+// which is the order the design names — запрос → окружение → глобальные. Only the send path asks
+// for a secret's value; everything else gets its kind and whether a value exists.
 func (u *UseCase) resolver(ctx context.Context, revealSecrets bool) (vars.Resolver, error) {
 	workspace, err := u.scope.ActiveWorkspace(ctx)
 	if err != nil {
@@ -112,8 +110,7 @@ func resolution(v domain.Variable, source string, reveal bool) domain.Resolution
 	return out
 }
 
-// findVariable looks a variable up by id inside one scope, which is how a patch proves it belongs
-// where the caller says it does.
+// The lookup is scoped so that a patch proves the variable belongs where the caller says it does.
 func findVariable(state domain.EnvState, scope domain.EnvScope, id string) (domain.Variable, bool) {
 	for _, v := range scopeVariables(state, scope) {
 		if v.ID == id {

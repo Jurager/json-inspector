@@ -92,7 +92,7 @@ func TestBasic(t *testing.T) {
 	}
 }
 
-// A key the server named itself, which is why both halves are fields and where it goes is one too.
+// A key the server named itself: both halves are fields, and so is where it goes.
 func TestAPIKey(t *testing.T) {
 	key := domain.NewAuth(domain.AuthAPIKey).With("key", "X-API-Key").With("value", "s3cret")
 
@@ -181,10 +181,9 @@ func TestEditsComeBackToTheFields(t *testing.T) {
 	})
 }
 
-// The answers a scheme does not ask for are carried and never read: a token left over from Bearer
-// sits in the fields while Basic is chosen, and what goes on the request is the Basic credential
-// alone. That is what makes keeping them safe — the alternative was throwing them away, and a user
-// who looked at Basic and came back would have had to paste the token again.
+// The answers a scheme does not ask for are carried and never read. That is what makes keeping them
+// safe: the alternative was throwing them away, and a user who looked at Basic and came back would
+// have had to paste the token again.
 func TestASchemeReadsOnlyItsOwnFields(t *testing.T) {
 	auth := domain.WithDefaults(domain.AuthBasic).
 		With("username", "user").With("password", "pass").
@@ -203,10 +202,9 @@ func TestASchemeReadsOnlyItsOwnFields(t *testing.T) {
 	}
 }
 
-// Digest puts nothing on the request: what it carries is a hash of the password with a nonce the
-// server has not sent yet. The credential goes to the engine, which is the side that will be there
-// when the server says how — so this is the one scheme whose output is empty and meaningful at
-// once.
+// Digest puts nothing on the request: the credential goes to the engine, which is the side
+// that will be there when the server says how — the one scheme whose output is empty and
+// meaningful at once.
 func TestDigestHandsTheCredentialToTheEngine(t *testing.T) {
 	auth := domain.WithDefaults(domain.AuthDigest).With("username", "user").With("password", "pass")
 	out := materialize(t, auth)

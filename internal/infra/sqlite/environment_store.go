@@ -62,8 +62,7 @@ func (s *Store) EnvState(ctx context.Context, workspaceID string) (domain.EnvSta
 	return state, nil
 }
 
-// scopedVariable is a variable together with the environment it belongs to (empty = globals),
-// which is the shape the grouping above needs.
+// scope is the environment the variable belongs to; empty means the globals.
 type scopedVariable struct {
 	scope    string
 	variable domain.Variable
@@ -96,7 +95,7 @@ func (s *Store) variables(ctx context.Context, workspaceID string) ([]scopedVari
 	return out, rows.Err()
 }
 
-// SaveEnvironment writes an environment through, keeping its position.
+// SaveEnvironment writes the environment's own row; its variables are saved one by one.
 func (s *Store) SaveEnvironment(
 	ctx context.Context,
 	workspaceID string,
@@ -158,9 +157,8 @@ func (s *Store) SaveVariable(
 	}
 
 	now := time.Now().UnixMilli()
-	// Every column the statement writes is written on the update as well: a row that came back for a
-	// save is the row it was described as, scope included, and a scope left out here would be a
-	// variable that answered for an environment it had been moved out of.
+	// Every column is written on the update too: a scope left out here would be a variable answering
+	// for an environment it had been moved out of.
 	_, err := s.db.ExecContext(ctx,
 		`INSERT INTO variables (id, workspace_id, scope_kind, scope_id, name, value, kind, enabled,
 		                        position, created_at, updated_at)

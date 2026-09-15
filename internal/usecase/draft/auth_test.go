@@ -8,7 +8,6 @@ import (
 	"json-inspector/internal/domain"
 )
 
-// prepared is a loaded command line with one request in it, and the fakes it is wired to.
 type preparedLine struct {
 	uc   *UseCase
 	auth *fakeAuth
@@ -58,9 +57,8 @@ func rowOf(
 	return domain.ProjectedRow{}, false
 }
 
-// A row the authorization put in a list travels in the answer beside the rows a person wrote, and
-// it says which list it belongs to and which scheme put it there: the window has nowhere else to
-// learn either of those.
+// The window has nowhere else to learn which list a projected row belongs to or which scheme put
+// it there.
 func TestProjectedRowsTravelWithTheDraft(t *testing.T) {
 	line := newLine(t)
 	line.auth.answer = domain.AuthOutput{

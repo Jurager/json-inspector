@@ -149,7 +149,6 @@ func Up(ctx context.Context, db *sql.DB, fsys fs.FS) (Result, error) {
 	return result, nil
 }
 
-// appliedChecksums reads applied migration checksums.
 func appliedChecksums(ctx context.Context, db *sql.DB) (map[int]string, error) {
 	rows, err := db.QueryContext(ctx, `SELECT version, checksum FROM schema_migrations`)
 	if err != nil {

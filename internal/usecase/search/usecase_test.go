@@ -76,7 +76,7 @@ func search(t *testing.T, index Index, in Query) domain.SearchResult {
 	return result
 }
 
-// kind pulls one group out, so that a test reads as the question it is asking.
+// group pulls the one group a test is asking about out of the answer.
 func group(t *testing.T, result domain.SearchResult, kind domain.SearchKind) domain.SearchGroup {
 	t.Helper()
 	for _, g := range result.Groups {

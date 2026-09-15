@@ -13,7 +13,7 @@ import (
 
 // fakeScope answers which workspace the window is showing. The store below keeps one history and
 // ignores the id, but records every one it was called with: the id the scope answers with has to be
-// the id the store is asked in, and that is what scoped is for.
+// the id the store is asked in, and that is what askedIn is for.
 type fakeScope struct{ id string }
 
 func (f fakeScope) ActiveWorkspace(context.Context) (string, error) {
@@ -30,8 +30,7 @@ type fakeStore struct {
 	listed   []int
 	saveFail error
 	imports  map[string]string
-	// scoped is every workspace this store was addressed in, in call order.
-	scoped []string
+	askedIn  []string
 }
 
 func newFakeStore() *fakeStore {
@@ -39,7 +38,7 @@ func newFakeStore() *fakeStore {
 }
 
 func (f *fakeStore) SaveRecord(_ context.Context, workspaceID string, rec domain.Record) error {
-	f.scoped = append(f.scoped, workspaceID)
+	f.askedIn = append(f.askedIn, workspaceID)
 	if f.saveFail != nil {
 		return f.saveFail
 	}
@@ -55,7 +54,6 @@ func (f *fakeStore) SaveRecord(_ context.Context, workspaceID string, rec domain
 	return nil
 }
 
-// Record answers the way the store does: the record with this id, or nothing found.
 func (f *fakeStore) Record(_ context.Context, id string) (domain.Record, error) {
 	for _, rec := range f.saved {
 		if rec.ID == id {
@@ -71,7 +69,7 @@ func (f *fakeStore) Records(
 	source domain.RecordSource,
 	limit int,
 ) ([]domain.Record, error) {
-	f.scoped = append(f.scoped, workspaceID)
+	f.askedIn = append(f.askedIn, workspaceID)
 	f.listed = append(f.listed, limit)
 	out := []domain.Record{}
 	for _, rec := range f.saved {
@@ -114,7 +112,7 @@ func (f *fakeStore) Prune(
 	workspaceID string,
 	opts domain.PruneOptions,
 ) (int, error) {
-	f.scoped = append(f.scoped, workspaceID)
+	f.askedIn = append(f.askedIn, workspaceID)
 	f.pruned = append(f.pruned, opts)
 	return 0, nil
 }
@@ -369,8 +367,8 @@ func TestSendRecordsTheMaskedRequest(t *testing.T) {
 	}
 }
 
-// The scripts of a collection run around the attempt: before it goes out, with the request they may
-// change, and after the answer came back, with the answer in hand. What goes out is what they left.
+// The scripts run around the attempt — before it goes out with a request they may change, and
+// after the answer came back. What goes out is what they left.
 func TestTheScriptsRunAroundTheAttempt(t *testing.T) {
 	screen := &fakeScreen{change: func(pass *domain.ScriptPass) {
 		pass.Request.Headers = append(pass.Request.Headers,
@@ -463,8 +461,6 @@ func TestAnUnchangedRequestIsNotMaskedAgain(t *testing.T) {
 	}
 }
 
-// A script that says the request must not go out is obeyed: nothing is sent, nothing is written to
-// history, and whoever asked is told which of the two happened.
 func TestASkippedRequestNeverGoesOut(t *testing.T) {
 	uc, store, executor, notifier := newScriptedUseCase(&fakeScreen{skip: true}, &fakeMask{})
 
@@ -651,7 +647,6 @@ func TestListDefaultsToWhatHistoryKeeps(t *testing.T) {
 	}
 }
 
-// Retention keeps the count that has always applied and adds the age window the settings offer.
 func TestPruneUsesTheRetentionWindow(t *testing.T) {
 	uc, store, _, _ := newUseCase()
 
@@ -753,9 +748,8 @@ func mustList(t *testing.T, uc *UseCase, source domain.RecordSource) []domain.Re
 	return rows
 }
 
-// What a script may rewrite is the text kinds; the byte kinds travel to the prelude blanked, which
-// is the scriptengine's business and is tested there. What this side owes is the other half: the
-// encoded body the preparation produced is what goes on the wire, whatever a script was shown.
+// The byte kinds travel to the prelude blanked — the scriptengine's business, tested there — so
+// what this side owes is the other half: the prepared body is what goes on the wire.
 func TestThePreparedBodyIsWhatGoesOut(t *testing.T) {
 	for _, want := range []struct {
 		kind domain.BodyKind
@@ -844,11 +838,11 @@ func TestTheWorkspaceOnScreenReachesTheStore(t *testing.T) {
 
 	// One call per method above, and the first two in the workspace the scope named.
 	want := []string{workspace, workspace, "other-space"}
-	if len(store.scoped) != len(want) {
-		t.Fatalf("the store was addressed %d time(s), want one per call: %v", len(store.scoped),
-			store.scoped)
+	if len(store.askedIn) != len(want) {
+		t.Fatalf("the store was addressed %d time(s), want one per call: %v", len(store.askedIn),
+			store.askedIn)
 	}
-	for i, got := range store.scoped {
+	for i, got := range store.askedIn {
 		if got != want[i] {
 			t.Errorf("call %d was made in %q, want %q", i, got, want[i])
 		}
@@ -864,8 +858,8 @@ func TestSendAndWaitCarriesTheSpaceItWasGiven(t *testing.T) {
 	if _, err := uc.SendAndWait(context.Background(), "run-space", input()); err != nil {
 		t.Fatalf("SendAndWait: %v", err)
 	}
-	if len(store.scoped) != 1 || store.scoped[0] != "run-space" {
-		t.Fatalf("the store was addressed %v, want exactly [run-space]", store.scoped)
+	if len(store.askedIn) != 1 || store.askedIn[0] != "run-space" {
+		t.Fatalf("the store was addressed %v, want exactly [run-space]", store.askedIn)
 	}
 }
 

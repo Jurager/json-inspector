@@ -17,10 +17,8 @@ import (
 // written out rather than minted so that a test can name the realm and the nonce it expects back.
 const challenge = `Digest realm="example", qop="auth", nonce="abc123", algorithm=MD5`
 
-// digestServer refuses the first request and accepts the second, which is what a Digest server
-// does: the refusal is where the realm and the nonce come from, and it is the point of the first
-// request rather than a failure of it. Every request that arrives is handed to check, and the
-// number of them is counted for the tests that are about how many were made.
+// What a Digest server does: refuse a request without a credential, accept one with it. The
+// refusal is the point of the first request, not a failure of it — it carries realm and nonce.
 func digestServer(
 	t *testing.T,
 	check func(*testing.T, *http.Request) bool,
@@ -48,8 +46,7 @@ func digestServer(
 	return srv, &requests
 }
 
-// A Digest request is answered rather than refused: the engine sends it, reads what the server said
-// about how to authorize, and sends it again — and what the window gets is the second answer.
+// What the window gets is the second answer, not the refusal that asked for it.
 func TestDigestAnswersTheChallenge(t *testing.T) {
 	srv, requests := digestServer(t, func(t *testing.T, r *http.Request) bool {
 		credentials, err := digest.ParseCredentials(r.Header.Get("Authorization"))

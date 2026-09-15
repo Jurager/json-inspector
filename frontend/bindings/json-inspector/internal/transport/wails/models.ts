@@ -10,8 +10,7 @@ import * as draft$0 from "../../usecase/draft/models.js";
 
 /**
  * CreatedNode is what a creation answers with: the row that appeared and the tree it appeared in.
- * The window needs the id Go minted — looking it up by name afterwards would find the older row of
- * the same name — and the tree is what every other change to the tree answers with.
+ * The id has to come back from Go — a lookup by name would find the older row of the same name.
  */
 export interface CreatedNode {
     "node": domain$0.CollectionNode;
@@ -43,12 +42,8 @@ export interface MenuLabels {
 }
 
 /**
- * NodeEditor is a saved request open for editing: the node it came from, the draft the card edits,
- * and the tree the row lives in.
- * 
- * It is assembled in this layer because this is the only one that knows both features — collections
- * own the tree, the draft owns the editing — and neither of them has any business knowing the
- * other.
+ * NodeEditor is assembled in this layer because this is the only one that knows both features —
+ * collections own the tree, the draft owns the editing — and neither should know the other.
  */
 export interface NodeEditor {
     "tree": domain$0.Collection[] | null;

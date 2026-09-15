@@ -7,9 +7,8 @@ import (
 	"unicode/utf8"
 )
 
-// optString is a string that may be absent. The TS tells `null` (the flag had no value at all) from
-// `""` (its value was empty) with `??` and with truthiness, and the two decide differently — an
-// empty `--url` is not a missing `--url` — so the port keeps them apart.
+// optString keeps `null` (the flag had no value) apart from `""` (its value was empty): the TS
+// decides the two differently — an empty `--url` is not a missing one — and the port follows.
 type optString struct {
 	value string
 	set   bool
@@ -29,8 +28,7 @@ func splitFlag(token string) (string, *string) {
 	return token, nil
 }
 
-// take is the TS's taker(): the inline value, else the next token, else nothing. The cursor moves
-// past a token that was consumed, which is why the reader indexes a slice by hand.
+// The TS's taker(): the inline value, else the next token, advancing the cursor past what it took.
 func take(tokens []string, cursor *int, inline *string) optString {
 	if inline != nil {
 		return optString{value: *inline, set: true}
@@ -42,9 +40,8 @@ func take(tokens []string, cursor *int, inline *string) optString {
 	return optString{}
 }
 
-// lineJoin reports where a line continuation resumes, or -1 when there is none. A curl command
-// copied on Windows is continued with a caret as often as with a backslash, so both count, and the
-// spaces and tabs before the newline go with them.
+// A curl command copied on Windows is continued with a caret as often as with a backslash, so both
+// count, and the spaces and tabs before the newline go with them.
 func lineJoin(input string, at int) int {
 	ch := input[at]
 	if ch != '\\' && ch != '^' {
@@ -69,13 +66,11 @@ func byteAt(s string, i int) byte {
 	return s[i]
 }
 
-// readResult is what every reader returns: the text it collected and where scanning resumes.
 type readResult struct {
 	text string
 	next int
 }
 
-// readQuoted dispatches on the quote character.
 func readQuoted(text string, at int) (readResult, bool) {
 	if text[at] == '\'' {
 		return readSingle(text, at)

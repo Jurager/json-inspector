@@ -1,7 +1,5 @@
 package wails
 
-// The `json-inspector://` links the OS hands the app, and the second launch that carries one.
-
 import (
 	"net/url"
 	"strconv"

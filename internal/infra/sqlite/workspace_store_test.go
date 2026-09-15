@@ -40,7 +40,6 @@ func TestTwoWorkspacesDoNotSeeEachOther(t *testing.T) {
 		t.Fatalf("SaveDraft: %v", err)
 	}
 
-	// Nothing of it is in the second space.
 	records, err := store.Records(ctx, team, "", 10)
 	if err != nil {
 		t.Fatalf("Records(%s): %v", team, err)
@@ -69,7 +68,6 @@ func TestTwoWorkspacesDoNotSeeEachOther(t *testing.T) {
 		t.Errorf("the second space's command line = %v, want ErrNotFound", err)
 	}
 
-	// And every one of them is still where it was put.
 	records, err = store.Records(ctx, ws, "", 10)
 	if err != nil {
 		t.Fatalf("Records: %v", err)
@@ -117,7 +115,6 @@ func TestTheCommandLineDraftIsPerWorkspace(t *testing.T) {
 		t.Fatalf("SaveDraft(%s): %v", team, err)
 	}
 
-	// Two rows with one id, and each space reads back the one it was given.
 	got, err := store.Draft(ctx, ws, domain.DraftCommandLine)
 	if err != nil || got.URL != mine.URL {
 		t.Errorf("the personal command line = %q, %v; want its own", got.URL, err)

@@ -7,12 +7,8 @@ import (
 )
 
 // Store is the tree as this feature keeps it. The whole thing is read at once — a collection is a
-// document, not a list to page through — and written a node at a time. Runs are written beside it:
-// a run row when it starts and again when it ends, and one row per request that was reached.
-//
-// The tree, and everything that changes its shape, is told which workspace it is working in: a
-// collection belongs to one, and the level a row is dropped into is a level of that workspace. A
-// node is reached by its own id, which is unique across the database.
+// document, not a list to page through. Anything that changes the tree's shape is told its
+// workspace; a node is reached by its own id, which is unique across the database.
 type Store interface {
 	Collections(ctx context.Context, workspaceID string) ([]domain.Collection, error)
 	Node(ctx context.Context, id string) (domain.CollectionNode, error)
@@ -22,10 +18,9 @@ type Store interface {
 	DeleteCollection(ctx context.Context, workspaceID, id string) error
 	DeleteNode(ctx context.Context, id string) error
 
-	// Scripts are read and written by the level they belong to, which is a collection or a request,
-	// and the two are addressed in the same id space — as is the command line's own draft, which is
-	// why the workspace has to be named here: the draft's id is the same word in every workspace.
-	// Nil is "not set here" — the level inherits.
+	// A level is a collection or a request, addressed in one id space — as is the command line's own
+	// draft, which is why the workspace has to be named here: the draft's id is the same word in every
+	// workspace. Nil is "not set here" — the level inherits.
 	Scripts(ctx context.Context, workspaceID, id string) (*domain.Scripts, error)
 	SaveScripts(ctx context.Context, workspaceID, id string, scripts *domain.Scripts) error
 
@@ -42,12 +37,9 @@ type Store interface {
 		error)
 }
 
-// RunRequest is one saved request on its way out: what a node asks for, with its rows already
-// narrowed to the ones that are switched on and its jar carried as rows.
-//
-// The run and the node travel with it although a run does not use them itself: a request that came
-// from a collection has the scripts of everything above it around it, and whoever sends it has to
-// be able to say which node it was.
+// One saved request on its way out, its rows narrowed to the ones switched on. Run and Node travel
+// with it although the sender does not use them: whoever sends it must be able to say which node it
+// was.
 type RunRequest struct {
 	Run    string
 	NodeID string
@@ -70,8 +62,7 @@ type RunRequest struct {
 	Form     []domain.FormRow
 	BodyFile string
 
-	// Auth is what the request inherits: the answer of the nearest level above it that gave one, or
-	// nothing when none did. It travels resolved because the walk up the tree is the run's own —
+	// The answer of the nearest level above, resolved here: the walk up the tree is the run's own, and
 	// by the time a request is on its way out, where it sits is no longer known.
 	Auth *domain.Auth
 }

@@ -18,20 +18,16 @@ import (
 	"json-inspector/internal/platform"
 )
 
-// UseCase keeps the drafts the window is editing, addressed by id: the command line's, and one for
-// the collection node whose card is open.
-//
-// They live in memory because a keystroke is a call, and only the command line's is written down:
-// that draft is a document the window opens on, while a card's draft is a proposal — saving it into
-// the collection is a separate gesture, and until it is made, the request belongs to the window.
 // draftKey names a draft. The workspace is part of the address because the command line's draft is
-// the same fixed id in every workspace: without it, switching spaces would open the request the
-// other one was composing.
+// the same fixed id in every workspace.
 type draftKey struct {
 	workspace string
 	id        domain.DraftID
 }
 
+// UseCase keeps the drafts the window is editing, addressed by id: the command line's, and one for
+// the collection node whose card is open. They live in memory because a keystroke is a call, and
+// only the command line's is written down: a card's draft is a proposal until it is saved.
 type UseCase struct {
 	mu     sync.Mutex
 	store  Store
@@ -266,8 +262,6 @@ func (u *UseCase) change(
 	return edited, nil
 }
 
-// result turns an edit into an answer: the draft that came of it, and the preview the command line
-// draws from it.
 func (u *UseCase) result(
 	ctx context.Context,
 	id domain.DraftID,
@@ -292,8 +286,6 @@ func copyOf(d domain.Draft) domain.Draft {
 	return d
 }
 
-// stateOf is the answer to "what does this draft look like now": the draft itself, what follows
-// from it, and the rows its authorization puts in the lists.
 func (u *UseCase) stateOf(ctx context.Context, draft domain.Draft) (State, error) {
 	preview, err := u.preview(ctx, draft)
 	if err != nil {

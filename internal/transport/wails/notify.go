@@ -1,8 +1,5 @@
 package wails
 
-// What the app tells a window that is already open: which tab to show, and that a release is
-// waiting. Both are parked while the page cannot take an event yet.
-
 import (
 	"json-inspector/internal/infra/updater"
 )
@@ -23,7 +20,7 @@ func (h *Host) OpenTab(tab int) {
 	h.Emit(eventOpenTab, tab)
 }
 
-// AnnounceUpdate tells the window a release is available, parking it the same way OpenTab does.
+// AnnounceUpdate tells the window a release is available, parked until the page can take one.
 func (h *Host) AnnounceUpdate(u *updater.Info) {
 	h.mu.Lock()
 	if !h.ready.Load() {

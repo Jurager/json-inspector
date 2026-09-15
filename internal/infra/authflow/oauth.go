@@ -13,9 +13,8 @@ import (
 	"json-inspector/internal/domain"
 )
 
-// The four grants. They are four conversations with the same endpoint, and the difference between
-// them is where the credential comes from: the client itself, the person using it, or a browser the
-// person was sent to.
+// The four grants: four conversations with the same endpoint. They differ in where the credential
+// comes from — the client itself, the person using it, or a browser the person was sent to.
 const (
 	grantClientCredentials = "client_credentials"
 	grantAuthorizationCode = "authorization_code"
@@ -23,11 +22,9 @@ const (
 	grantPassword          = "password"
 )
 
-// oauthConfig is what every grant needs and none of them differs about. The endpoint the token
-// comes from is the same one in all four.
-//
-// The client's own authentication is the one thing the user chooses and no server can be guessed
-// at: the design gives it a field, and the two answers are the two styles the library knows.
+// oauthConfig is the configuration all four grants share. Client authentication is the one thing
+// the user chooses and no server can be guessed about: the design gives it a field, and the two
+// answers are the two styles the library knows.
 func oauthConfig(auth domain.Auth) oauth2.Config {
 	return oauth2.Config{
 		ClientID:     strings.TrimSpace(auth.Answer("clientId")),
@@ -52,9 +49,8 @@ func authStyle(auth domain.Auth) oauth2.AuthStyle {
 // the form rather than in a header.
 const clientAuthBody = "body"
 
-// scope splits what the user typed into the scopes a provider expects. They are written the way
-// OAuth writes them — space-separated — and a provider that wanted them some other way would be the
-// first.
+// scope splits what the user typed into the scopes a provider expects — space-separated, which is
+// how OAuth writes them; a provider that wanted them some other way would be the first.
 func scope(raw string) []string {
 	return strings.Fields(raw)
 }
@@ -69,11 +65,9 @@ func endpointParams(auth domain.Auth) url.Values {
 	return params
 }
 
-// oauthToken asks the provider for a token by whichever grant the user chose.
-//
-// Three of the four are the library's: it knows what the parameters are called, how the client
-// authenticates itself, and which of the several shapes a token endpoint may answer in is the one
-// it got. The fourth — the code grant — needs a browser, and lives in browser.go.
+// oauthToken asks the provider for a token by whichever grant the user chose. Three of the four are
+// the library's, which knows the parameter names and the shapes a token endpoint may answer in; the
+// fourth needs a browser and lives in browser.go.
 func oauthToken(
 	ctx context.Context,
 	auth domain.Auth,
@@ -107,9 +101,8 @@ func oauthToken(
 		return token.AccessToken, token.Expiry, nil
 
 	case grantAuthorizationCode, grantImplicit:
-		// These two need the person: a browser is opened at the provider and what comes back is
-		// handed here. Without one to open — a test, or a platform the app cannot reach a browser on
-		// — there is no token, and saying so is better than a request that would hang.
+		// These two need the person: without a browser to open — a test, or a platform the app
+		// cannot reach one on — saying so is better than a request that would hang.
 		if exchange == nil {
 			return "", time.Time{}, fmt.Errorf("asking for a token with the %s grant: %w", grant,
 				domain.ErrNotAllowed)
@@ -123,11 +116,9 @@ func oauthToken(
 	}
 }
 
-// fetcher is the scheme's way of getting what it carries, and how long that is good for. It is only
-// ever called by Materialize: the window draws rows without asking anybody for anything.
-//
-// The exchange is handed in rather than looked up because the registry is one table for every
-// materializer, and only some of them were built with a browser to open.
+// fetcher is the scheme's way of getting what it carries, and is only ever called by Materialize:
+// the window draws rows without asking anybody for anything. The exchange is handed in because the
+// registry is one table shared by every materializer, only some of which have a browser to open.
 type fetcher func(ctx context.Context, auth domain.Auth, exchange codeExchange) (token string,
 	expires time.Time, err error)
 

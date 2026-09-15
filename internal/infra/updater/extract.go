@@ -11,9 +11,8 @@ import (
 	"strings"
 )
 
-// archiveTarget is where one entry of an archive is written. `../../x` as an entry name would
-// otherwise resolve outside destDir and the file would land wherever it names — an archive is a
-// downloaded file, and the names inside it are not something this app has any reason to trust.
+// A name like `../../x` would otherwise resolve outside destDir: an archive is a downloaded file,
+// and the names inside it are not something this app has any reason to trust.
 func archiveTarget(destDir, name string) (string, error) {
 	target := filepath.Join(destDir, filepath.Clean(filepath.FromSlash(name)))
 

@@ -13,7 +13,6 @@ func NewIDGen() IDGen {
 func newID() string {
 	id, err := uuid.NewV7()
 	if err != nil {
-		// Fall back to UUID v4 if UUID v7 generation fails.
 		return uuid.NewString()
 	}
 

@@ -31,8 +31,6 @@ func (b *browserThatFollows) OpenURL(raw string) error {
 	return nil
 }
 
-// follow is the trip back: the browser asks for the address the provider would have sent it to, and
-// if the answer is one a fragment carries, it does what the page there tells it to.
 func (b *browserThatFollows) follow(redirect, fragment string) {
 	if redirect == "" {
 		// A browser that opens nothing, which is what a test of the waiting needs.
@@ -141,10 +139,9 @@ func TestTheImplicitGrantTakesTheTokenFromTheFragment(t *testing.T) {
 	}
 }
 
-// An answer naming another sign-in is one that arrived from somewhere else, and its code is not
-// exchanged. The sign-in itself goes on waiting: a request that landed on the port by accident is
-// not the same thing as the answer that is still coming, and giving up over one would end a
-// legitimate sign-in because something port-scanned the machine.
+// An answer naming another sign-in is not exchanged, and the sign-in goes on waiting: a request
+// that landed on the port by accident is not the answer that is still coming, and giving up over
+// one would end a legitimate sign-in because something port-scanned the machine.
 func TestAnAnswerFromAnotherSignInIsNotTaken(t *testing.T) {
 	browser := &browserThatFollows{t: t, answer: func(authorize url.URL) (string, string) {
 		return authorize.Query().Get("redirect_uri") + "?code=theirs&state=not-our-state", ""

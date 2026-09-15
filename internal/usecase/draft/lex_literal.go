@@ -9,8 +9,8 @@ import (
 // The string literals a command carries: `$'…'` with its C escapes, and the `\uXXXX` a literal may
 // spell a character with.
 
-// readAnsiC reads `$'…'`, where the backslash escapes are C's. Only the four a pasted command ever
-// carries are translated; anything else stands for the character that follows the backslash.
+// `$'…'` escapes are C's: only the four a pasted command ever carries are translated, and anything
+// else stands for the character that follows the backslash.
 func readAnsiC(input string, at int) (readResult, bool) {
 	i := at + 2
 	var text strings.Builder
@@ -65,8 +65,7 @@ func runeSize(s string, i int) int {
 	return size
 }
 
-// ansiCodeUnit reads the characters after a `\u` as a code unit. Anything that is not hex digits
-// reads as zero, which is where a `\u` with nothing usable behind it lands.
+// Anything that is not hex digits reads as zero, which is where a `\u` with nothing usable lands.
 func ansiCodeUnit(s string) uint16 {
 	n, err := strconv.ParseUint(s, 16, 16)
 	if err != nil {

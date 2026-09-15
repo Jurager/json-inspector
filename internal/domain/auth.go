@@ -8,9 +8,8 @@ type AuthType string
 const (
 	AuthNone AuthType = "none"
 
-	// AuthInherit is «Наследовать»: the level above decides. Only a request that sits in a tree can
-	// say it — a collection, a folder or a node of one — and the command line cannot, because
-	// nothing is above it.
+	// AuthInherit is «Наследовать»: the level above decides. Only a request in a tree can say it:
+	// the command line cannot, because nothing is above it.
 	AuthInherit AuthType = "inherit"
 
 	AuthBearer AuthType = "bearer"
@@ -32,10 +31,9 @@ const (
 // Auth is what a level authorizes itself with: which scheme, and the answers to the fields that
 // scheme declared.
 //
-// The answers are a map rather than a struct because they belong to the scheme and not to this
-// type: a scheme added tomorrow brings its own fields, and nothing here has to learn about them.
-// Which keys a scheme has, in which order they are drawn, and which of them are secrets is
-// Scheme.Fields — the one place that knows.
+// Fields is a map rather than a struct because the answers belong to the scheme, so a scheme
+// added tomorrow brings its own fields and nothing here has to learn about them: Scheme.Fields
+// is the one place that knows their keys, their order and which of them are secret.
 type Auth struct {
 	Type   AuthType          `json:"type"`
 	Fields map[string]string `json:"fields,omitempty"`
@@ -49,13 +47,9 @@ func NewAuth(t AuthType) Auth {
 // Answer is one answer, absent if nobody gave it.
 func (a Auth) Answer(key string) string { return a.Fields[key] }
 
-// OrDefault is one answer, or what the scheme starts that field at when nobody gave one.
-//
-// An answer that is there wins even when it is empty: a prefix somebody cleared is a prefix they do
-// not want, and putting the default back would be answering over them. Only a field nobody has
-// touched at all falls through to the table — which is also where the window reads its starting
-// values, so a scheme drawn by the window and one read here cannot disagree about where a field
-// begins.
+// OrDefault is one answer, or what the scheme starts that field at when nobody gave one. An
+// answer that is there wins even when it is empty: only a field nobody has touched falls
+// through to the same table the window reads its starting values from, so the two cannot disagree.
 func (a Auth) OrDefault(key string) string {
 	if value, given := a.Fields[key]; given {
 		return value
@@ -76,39 +70,32 @@ func (a Auth) OrDefault(key string) string {
 // that has not answered, which is a different thing from one that answered «нет».
 func (a Auth) IsNone() bool { return a.Type == AuthNone }
 
-// Answers is whether a level has said anything about authorization at all. «Нет» and «Наследовать»
-// are answers about who authorizes the request rather than credentials, so a level that gave one of
-// them has not answered *for the levels below it*: the walk past it goes on to the next one that
-// did. That is what makes «нет» on a folder mean "not here" instead of "stop here".
+// Answered is whether a level has said anything about authorization at all. «Нет» and
+// «Наследовать» are answers about who authorizes the request rather than credentials, so the
+// walk goes past them: «нет» on a folder means "not here", not "stop here".
 //
-// It is asked of the answer rather than of the absence of one, and that is the point: a level that
-// said «нет» can still carry the answers somebody gave it before changing their mind, and reading
-// the fields is what the walk never does.
-func (a *Auth) Answers() bool {
+// It reads the type and never the fields: a level that said «нет» keeps the answers it was given
+// before changing its mind, and the walk does not read fields either.
+func (a *Auth) Answered() bool {
 	return a != nil && a.Type != AuthNone && a.Type != AuthInherit && a.Type != ""
 }
 
-// Stored is the auth as a tree keeps it: a level nobody has answered anything at is a level with
-// nothing written down at all, which is what an absent one means.
-//
-// An answer that is not a credential — «нет» — is kept as itself when it has answers behind it, so
-// that changing one's mind back finds them. The walk reads Auth.Answers either way, and goes past.
+// Stored is the auth as a tree keeps it: nil for a level nobody has answered anything at, which
+// is what an absent one means. «Нет» with answers behind it is kept as itself, so that changing
+// one's mind back finds them — the walk reads Auth.Answered either way and goes past.
 func (a Auth) Stored() *Auth {
-	if !a.Answers() && len(a.Fields) == 0 {
+	if !a.Answered() && len(a.Fields) == 0 {
 		return nil
 	}
 	return &a
 }
 
-// Normalized is the auth as its scheme would hold it: the answers it has, with the fields the
-// scheme starts at filled in where nobody gave one.
+// Normalized is the auth as its scheme would hold it: the answers it has, with the scheme's own
+// defaults filled in where nobody gave one.
 //
-// The window sends an answer as it stands, and the scheme it is about may not be the scheme it was
-// about a moment ago. The answers to the others are **kept**, not thrown away: switching a request
-// from Bearer to Basic and back is one gesture with a question in the middle, and a token that did
-// not survive it would be a token the user has to paste again. A scheme reads only the fields it
-// declares, so what is kept is carried and not used — and it is not written to a file either, since
-// an export writes a scheme's own fields and no others.
+// The answers to other schemes are kept, not thrown away: switching a request from Bearer to
+// Basic and back is one gesture, and a token that did not survive it is a token to paste again.
+// A scheme reads only its own fields, and an export writes only those.
 func (a Auth) Normalized() Auth {
 	scheme, ok := SchemeFor(a.Type)
 	if !ok {
@@ -145,8 +132,7 @@ const (
 	FieldPassword FieldKind = "password"
 	FieldTextarea FieldKind = "textarea"
 	FieldNumber   FieldKind = "number"
-	// FieldSelect is a field drawn as a list of choices. Its Options are the choices, and its Default
-	// is the one that is picked before anyone picks.
+	// FieldSelect is a field drawn as a list of choices.
 	FieldSelect FieldKind = "select"
 )
 
@@ -177,14 +163,12 @@ type Field struct {
 	Full bool `json:"full,omitempty"`
 	// Mono is a value that is read character by character — a URL, a scope, a region.
 	Mono bool `json:"mono,omitempty"`
-	// Height is how tall a textarea is drawn, in pixels, and it is here rather than in the stylesheet
-	// because the design gives each of them its own: a token is pasted whole, a payload is written
-	// over several lines. Zero is the height the kind is drawn at by default.
+	// Height is how tall a textarea is drawn, in pixels — per field rather than in the stylesheet,
+	// because the design gives each its own: a token is pasted whole, a payload is written over
+	// lines. Zero is the height the kind is drawn at by default.
 	Height int `json:"height,omitempty"`
-	// When is a field only some answers bring with them. A grant type that asks the user for a login
-	// and a password has them, and one that asks only for a client has nowhere to put them — so which
-	// fields a scheme is showing follows from another field's answer rather than from anything the
-	// window decides. Absent means the field is always drawn.
+	// When is a field only some answers bring with them, so which fields a scheme shows follows from
+	// another field's answer rather than from anything the window decides. Absent means always drawn.
 	When *Condition `json:"when,omitempty"`
 }
 
@@ -195,8 +179,7 @@ type Condition struct {
 	Values []string `json:"values"`
 }
 
-// Shown is whether a field is drawn for the answers an authorization holds. A field with no
-// condition is always drawn, which is most of them.
+// Shown is whether a field is drawn for the answers an authorization holds.
 func (f Field) Shown(a Auth) bool {
 	if f.When == nil {
 		return true
@@ -419,9 +402,8 @@ type AuthOutput struct {
 	Headers []HeaderPair
 	Query   []HeaderPair
 	// Editable is whether an edit to these rows can be turned back into the scheme's fields. A
-	// credential that is encoded as a whole — a Basic login and password, a signature over the
-	// request — cannot: base64 does not come apart into what went into it, and a signature is not a
-	// value a person has. Such a row is shown and not offered for editing.
+	// credential encoded as a whole — a Basic login and password, a signature — cannot: base64 does
+	// not come apart into what went into it. Such a row is shown, not offered for editing.
 	Editable bool
 	// Digest is a credential that cannot be put on the request at all yet, and travels to the engine
 	// instead: see DigestCredentials.
@@ -447,11 +429,9 @@ func (t AuthToken) Expired(now time.Time) bool {
 	return t.Held && t.ExpiresAt > 0 && now.UnixMilli() >= t.ExpiresAt
 }
 
-// DigestCredentials is what a Digest scheme has to give the engine rather than the request. There
-// is nothing to compute from it here — the server sends the realm and the nonce in a challenge, and
-// the first request is what asks for one. So the header does not exist until a request has been
-// refused, and the engine, which is where that answer arrives, is the only side that can be there
-// to read it.
+// DigestCredentials is what a Digest scheme gives the engine rather than the request: the header
+// cannot be computed here, because the realm and the nonce arrive in a challenge the server sends
+// only after a request has been refused, and the engine is where that answer arrives.
 type DigestCredentials struct {
 	Username string `json:"username"`
 	Password string `json:"password"`
@@ -460,9 +440,8 @@ type DigestCredentials struct {
 // ProjectedRow is a row an authorization put in a list rather than a person: a Bearer token is an
 // Authorization header, an API key is a header or a query parameter.
 //
-// It is not written down anywhere. The scheme's fields are what is stored, and the row is what
-// those fields come to — which is why editing it is an edit to the fields and not to a row, and why
-// it disappears the moment a person writes a row of that name themselves.
+// It is written down nowhere — the scheme's fields are what is stored — which is why editing it
+// edits the fields, and why it disappears once a person writes a row of that name themselves.
 type ProjectedRow struct {
 	// Target is the list the row belongs to: the window draws it beside the parameters or beside the
 	// headers, wherever the scheme put it.

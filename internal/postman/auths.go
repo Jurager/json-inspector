@@ -2,13 +2,10 @@ package postman
 
 import "json-inspector/internal/domain"
 
-// The two names a scheme goes by in the format, and the table that pairs them with this app's
-// own. Adding a scheme is a row here and nothing else: neither direction asks what type it is
-// holding.
+// Adding a scheme is a row here and nothing else: neither direction asks what type it is holding.
 
-// scheme is one of this app's schemes as the file format writes it: what Postman calls the scheme,
-// and what it calls each of its fields. Every disagreement between the two formats is collected
-// here, which is what keeps them out of the code that walks a scheme.
+// scheme is one app scheme as the file format writes it: every disagreement between the two
+// formats is collected here, which keeps them out of the code that walks a scheme.
 type scheme struct {
 	Name   string
 	Fields map[string]string
@@ -40,8 +37,7 @@ var schemes = map[domain.AuthType]scheme{
 	}},
 }
 
-// typeOf is the app's scheme a file's auth names, and whether the app has it at all.
-func typeOf(name string) (domain.AuthType, scheme, bool) {
+func schemeOf(name string) (domain.AuthType, scheme, bool) {
 	for kind, written := range schemes {
 		if written.Name == name {
 			return kind, written, true

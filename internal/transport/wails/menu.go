@@ -39,9 +39,9 @@ func BuildMenu(host *Host, name string, labels MenuLabels) *application.Menu {
 	return menu
 }
 
-// ApplyMenu rebuilds the native menu in the language the window settled on, with the words the
-// window sent. Go cannot resolve "system" and has nowhere to keep a second catalogue, so the menu
-// is built twice: once with the fallback when the app starts, and once here.
+// ApplyMenu rebuilds the native menu in the language the window sent. Go cannot resolve «system»
+// and has nowhere to keep a second catalogue, so the menu is built twice: once with the fallback
+// at startup, once here.
 func (h *Host) ApplyMenu(labels MenuLabels) {
 	app := h.App()
 	if app == nil || UseCustomTitlebar() {

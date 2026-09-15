@@ -59,13 +59,10 @@ func TestEmbeddedSchemaApplies(t *testing.T) {
 }
 
 // TestEmbeddedSchemaEnforcesForeignKeys is the point of the schema test: foreign_keys is a
-// per-connection pragma that SQLite leaves off by default, and with it off every REFERENCES
-// clause in the schema is accepted but silently ignored — all the ON DELETE CASCADE wiring in
-// records, collection_nodes and the script tables would quietly do nothing, and orphaned rows
-// would only surface much later as missing data.
-//
-// So this asserts the path end to end: the pragma reports 1, a dangling child row is refused,
-// and a delete really does cascade.
+// per-connection pragma SQLite leaves off by default, and with it off every REFERENCES clause is
+// accepted but silently ignored — the cascades would do nothing and orphaned rows would surface
+// much later as missing data. So the path is asserted end to end: the pragma reports 1, a
+// dangling child row is refused, a delete really cascades.
 func TestEmbeddedSchemaEnforcesForeignKeys(t *testing.T) {
 	db := testDB(t)
 
@@ -116,10 +113,9 @@ func TestEmbeddedSchemaEnforcesForeignKeys(t *testing.T) {
 	}
 }
 
-// A workspace is the row everything else hangs off, and deleting one is the operation that leans
-// on every cascade in the schema at once: history, collections with their nodes, environments with
-// their variables, the composer's draft. Each carries the workspace through a different parent, so
-// each is checked rather than assumed from the one that happens to be wired the same way.
+// A workspace is the row everything else hangs off, and deleting one leans on every cascade in the
+// schema at once. Each child reaches it through a different parent, so each is checked rather than
+// assumed from the one that happens to be wired the same way.
 func TestEmbeddedSchemaCascadesAWorkspace(t *testing.T) {
 	db := testDB(t)
 

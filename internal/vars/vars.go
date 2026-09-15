@@ -21,7 +21,6 @@ type Token struct {
 	Raw        string
 }
 
-// nameRe matches valid variable names.
 var nameRe = regexp.MustCompile(`^[A-Za-z_][A-Za-z0-9_]*$`)
 
 // jsSpaceRunes contains the whitespace characters used by JavaScript trim.

@@ -16,7 +16,6 @@ var spaceRunes = []rune{
 	0x2008, 0x2009, 0x200a, 0x2028, 0x2029, 0x202f, 0x205f, 0x3000, 0xfeff,
 }
 
-// spaceSet is the same set as text, for trimming.
 var spaceSet = string(spaceRunes)
 
 func trimSpace(s string) string { return strings.Trim(s, spaceSet) }
@@ -33,8 +32,7 @@ const (
 	spaceClass = "[" + spaceInner + "]"
 )
 
-// Headers and JSON keys keep the order they were written in. A JS object would enumerate a
-// numeric-looking key first, whatever position it was written in, and an earlier version of this
-// port reproduced that — but the order a request's headers go out in is the order somebody wrote
-// them in. The corpus says nothing about the difference, so fixtures_test.go is where the rule is
+// Headers and JSON keys keep the order they were written in: a JS object would enumerate a
+// numeric-looking key first, while the order headers go out in is the order somebody wrote them.
+// The corpus says nothing about the difference, so fixtures_test.go is where the rule is
 // written down.

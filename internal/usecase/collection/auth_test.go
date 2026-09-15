@@ -7,8 +7,7 @@ import (
 	"json-inspector/internal/domain"
 )
 
-// authTree is a collection with another one inside it, a request inside that and one beside it: the
-// shape that says whether a request finds the level that answers for it.
+// The shape that says whether a request finds the level that answers for it.
 type authTree struct {
 	uc           *UseCase
 	collectionID string
@@ -56,9 +55,6 @@ func bearerRef(token string) *domain.Auth {
 	return &auth
 }
 
-// What a level authorizes its requests with, and where a request finds it: the nearest level above
-// it that answered, which is the collection inside one for what it holds and the outer collection
-// for what is not in it.
 func TestAuthIsInheritedDownTheTree(t *testing.T) {
 	ctx := context.Background()
 	a := setupAuthTree(t)
@@ -155,7 +151,6 @@ func TestNoKeepsWhatWasAlreadyFilled(t *testing.T) {
 		t.Fatalf("stored = %+v, want «нет» to have kept the token", stored)
 	}
 
-	// What the tab does next: the same fields, the type back to Bearer.
 	back := *stored
 	back.Type = domain.AuthBearer
 	if _, err := a.uc.SaveAuth(ctx, a.nestedID, back); err != nil {
@@ -167,8 +162,6 @@ func TestNoKeepsWhatWasAlreadyFilled(t *testing.T) {
 	}
 }
 
-// The command line's draft is in no tree, and neither is an id the tree has never heard of: both
-// are told there is nothing to inherit rather than being told the question was wrong.
 func TestAuthForAnswersNothingOutsideTheTree(t *testing.T) {
 	ctx := context.Background()
 	a := setupAuthTree(t)
@@ -184,11 +177,8 @@ func TestAuthForAnswersNothingOutsideTheTree(t *testing.T) {
 	}
 }
 
-// A request saved from the command line arrives with the auth the chip is showing, and the command
-// line can never answer «Наследовать» — nothing is above it, which is why its chip offers «нет» in
-// that place. So «нет» there is the unset state, and a saved request that kept it as a value would
-// stop inheriting from the collection it was put into: the card would open on «нет», and the
-// collection's own token would never be found.
+// The command line can never answer «Наследовать» — nothing is above it — so «нет» is its unset
+// state, and stored as a value it would keep a saved request from inheriting the collection.
 func TestARequestSavedFromTheCommandLineInherits(t *testing.T) {
 	ctx := context.Background()
 	a := setupAuthTree(t)

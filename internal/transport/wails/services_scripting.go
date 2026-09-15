@@ -9,10 +9,8 @@ import (
 )
 
 // ScriptingService is the code of a collection as the window works with it: what a level runs of
-// its own, what runs around a node, and what the scripts of a record did.
-//
-// It holds the feature itself and nothing else: a level's code, what runs around a node and what
-// the scripts of a record did are all questions the scripting feature answers, whoever the level
+// its own, what runs around a node, and what the scripts of a record did. It holds the feature
+// itself and nothing else, because all three are questions scripting answers whoever the level
 // belongs to — a collection, a node of one, or the draft the command line is composing.
 type ScriptingService struct {
 	scripts *scripting.UseCase

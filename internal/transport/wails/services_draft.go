@@ -11,12 +11,8 @@ import (
 )
 
 // DraftService is the request being composed. The window draws it and asks for changes; what those
-// changes mean — which rows a URL has, what a `{{token}}` resolves to, whether the request can go
-// out — is decided here.
-//
-// Every call names the draft it is about: the command line's, or the node a card is editing. The
-// window holds both at once — switching between them must not lose the other — so nothing here
-// assumes there is one.
+// changes mean is decided here. Every call names the draft it is about — the command line's or the
+// node a card is editing — because the window holds both at once and must lose neither.
 type DraftService struct {
 	drafts      *draft.UseCase
 	collections *collection.UseCase
@@ -31,9 +27,8 @@ func NewDraftService(
 	return &DraftService{drafts: drafts, collections: collections, host: host}
 }
 
-// answered completes what the draft could not work out for itself, and every answer to the window
-// passes through it — which is what makes this wrapper the one place a card's state is finished
-// rather than one of the several a card is drawn from. See completed for what is filled in.
+// answered completes what the draft cannot work out alone, and every answer to the window goes
+// through it: this wrapper is the one place a card's state is finished.
 func (s *DraftService) answered(
 	ctx context.Context,
 	state draft.State,
@@ -45,14 +40,10 @@ func (s *DraftService) answered(
 	return completed(ctx, s.drafts, s.collections, state), nil
 }
 
-// completed fills in what a draft could not work out for itself: what the levels above it answer,
-// and the rows and the token that come of it. The draft cannot walk a tree — the tree's requests go
-// through the draft, so asking one to know the other is asking each to be built first — and this
-// package is where both are known, which is the same reason the tree is here at all.
-//
-// It is one function because the state a card opens with and the state it has after a keystroke
-// have to be the same answer: a card that says nothing is above it, and whose header list is
-// missing the row it inherits, is a card that lies until somebody touches it.
+// completed fills in what a draft cannot work out for itself: what the levels above it answer, and
+// the rows and the token that come of it. Walking the tree is not the draft's job — the tree's
+// requests go through the draft, so each would have to be built first. One function, because the
+// state a card opens with and the state after a keystroke have to be the same answer.
 func completed(
 	ctx context.Context,
 	drafts *draft.UseCase,

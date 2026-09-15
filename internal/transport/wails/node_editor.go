@@ -7,12 +7,8 @@ import (
 	"json-inspector/internal/usecase/draft"
 )
 
-// NodeEditor is a saved request open for editing: the node it came from, the draft the card edits,
-// and the tree the row lives in.
-//
-// It is assembled in this layer because this is the only one that knows both features — collections
-// own the tree, the draft owns the editing — and neither of them has any business knowing the
-// other.
+// NodeEditor is assembled in this layer because this is the only one that knows both features —
+// collections own the tree, the draft owns the editing — and neither should know the other.
 type NodeEditor struct {
 	Tree  []domain.Collection   `json:"tree"`
 	Node  domain.CollectionNode `json:"node"`

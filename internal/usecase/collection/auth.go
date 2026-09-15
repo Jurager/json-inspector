@@ -1,7 +1,6 @@
 package collection
 
-// What each level authorizes its requests with, and where a request finds the nearest level
-// above it that answered: the walk the card and the run both ask.
+// The auth walk the card and the run both ask: the nearest level above a request that answered.
 
 import (
 	"context"
@@ -9,20 +8,15 @@ import (
 	"json-inspector/internal/domain"
 )
 
-// SaveAuth writes what a level authorizes its requests with — the collection's own tab, or a
-// folder's, which everything inside it inherits.
-//
-// What arrives is the tab's whole state, and the tab holds on to the answers of the schemes it is
-// not currently on: «нет» chosen over a filled-in Bearer is an answer about who authorizes the
-// request rather than an erasure, and coming back to Bearer has to find the token. It is
-// domain.Auth.Stored that draws that distinction, which is why it lives there and not here.
+// SaveAuth writes what a level authorizes its requests with. The tab sends its whole state, so
+// «нет» over a filled-in Bearer is an answer about who authorizes, not an erasure — that
+// distinction is domain.Auth.Stored's to draw, which is why it lives there.
 func (u *UseCase) SaveAuth(
 	ctx context.Context,
 	id string,
 	auth domain.Auth,
 ) ([]domain.Collection, error) {
-	// Normalized for the same reason a draft's is: the answers travel whole, and the scheme they are
-	// about may not be the one the previous answer was about.
+	// Normalized like a draft's: the answers arrive whole, and the scheme may have changed.
 	saved := auth.Normalized().Stored()
 
 	workspace, err := u.scope.ActiveWorkspace(ctx)
@@ -71,9 +65,6 @@ func (u *UseCase) AuthFor(ctx context.Context, id domain.DraftID) (*domain.Auth,
 	return nil, nil
 }
 
-// inheritUnder walks the tree looking for a request, carrying the answer of the levels above it:
-// the nearest level that set one wins, and a level that set none passes down what it was given.
-//
 // A collection is a level like any other, which is why the walk descends into the collections
 // inside one and not only into its requests.
 func inheritUnder(
@@ -96,19 +87,15 @@ func inheritUnder(
 	return nil, false
 }
 
-// answerOf is where a walk stands after looking at a level: the level's own answer when it gave
-// one, and what it inherits when it did not. Both walks over the tree go through here, so «нет»
-// means the same thing in a run as it does in a card — and a level that said it is a level passed
-// by.
+// Both walks over the tree go through here, so «нет» means the same thing in a run as in a card.
 func answerOf(level *domain.Auth, inherited *domain.Auth) *domain.Auth {
-	if level.Answers() {
+	if level.Answered() {
 		return level
 	}
 	return inherited
 }
 
-// actionable is a stored auth as something to apply: nothing to inherit is «нет», which is what a
-// request with nothing above it authorizes itself with.
+// A request with nothing above it authorizes itself with «нет».
 func actionable(auth *domain.Auth) domain.Auth {
 	if auth == nil {
 		return domain.NewAuth(domain.AuthNone)
@@ -116,9 +103,8 @@ func actionable(auth *domain.Auth) domain.Auth {
 	return *auth
 }
 
-// storedAuth is an auth as the tree keeps one, for a caller that may not have given any at all. A
-// pointer that is not there stays not there; one that says «нет» without an answer behind it is
-// stored as nothing, which is what domain.Auth.Stored is for.
+// A nil auth stays nil — a level nobody touched; «нет» with no answers behind it is stored as
+// nothing, so the level still inherits.
 func storedAuth(auth *domain.Auth) *domain.Auth {
 	if auth == nil {
 		return nil

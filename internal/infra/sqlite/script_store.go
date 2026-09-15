@@ -13,9 +13,8 @@ import (
 	"json-inspector/internal/domain"
 )
 
-// encodeScripts keeps "not set here" apart from "nothing to run": the column is NULL for the first
-// and a JSON object for the second, which is the difference between inheriting and having nothing
-// to add. An empty object is still a value, and it is written as one.
+// NULL is "not set here" and a JSON object is "nothing to run": the difference between inheriting
+// and having nothing to add. An empty object is still a value, and it is written as one.
 func encodeScripts(scripts *domain.Scripts) (sql.NullString, error) {
 	if scripts == nil {
 		return sql.NullString{}, nil

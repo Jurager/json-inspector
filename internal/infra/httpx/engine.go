@@ -72,9 +72,8 @@ type Spec struct {
 	Digest *domain.DigestCredentials
 }
 
-// newRequest builds the request a spec describes. Both halves of Digest are built from the same
-// spec and differ only in the header the second one carries, which is why this is a function and
-// not two.
+// Both halves of Digest are built from the same spec and differ only in the header the second one
+// carries, which is why this is one function and not two.
 func (e *Engine) newRequest(ctx context.Context, spec Spec) (*http.Request, error) {
 	req, err := http.NewRequestWithContext(ctx, spec.Method, complete(spec.URL),
 		strings.NewReader(spec.Body))
@@ -92,12 +91,9 @@ func (e *Engine) newRequest(ctx context.Context, spec Spec) (*http.Request, erro
 	return req, nil
 }
 
-// answerChallenge is the second half of Digest: the server refused the request and said how, and
-// what it said becomes the header the retry carries.
-//
-// The address the answer is computed over is the one the request is actually going to — the engine
-// completes a bare host into a scheme and a path, and a response computed over what the user typed
-// rather than over what was sent is one the server refuses.
+// The second half of Digest: the refusal said how, and what it said is the header the retry
+// carries. The answer must be computed over the address actually sent — a bare host is completed
+// with a scheme and a path here — because one computed over what the user typed is refused.
 func (e *Engine) answerChallenge(
 	ctx context.Context,
 	spec Spec,

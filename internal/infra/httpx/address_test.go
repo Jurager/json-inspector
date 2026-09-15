@@ -6,9 +6,8 @@ import (
 	"testing"
 )
 
-// TestCompleteReadsAnAddressTheWayABrowserWould is the table of what the field's own example
-// promises: a host typed without a scheme is an address, a port is not a scheme, and a local server
-// is the one place where the guess goes the other way.
+// What the address field's example promises: a bare host is an address, a port is not a scheme,
+// and a local server is the one place where the guess goes the other way.
 func TestCompleteReadsAnAddressTheWayABrowserWould(t *testing.T) {
 	cases := []struct {
 		name string
@@ -43,8 +42,6 @@ func TestCompleteReadsAnAddressTheWayABrowserWould(t *testing.T) {
 	}
 }
 
-// TestAHostWithoutASchemeIsSentToThatHost is the promise above kept on the wire rather than in the
-// string: what the server sees is a request to the host that was named.
 func TestAHostWithoutASchemeIsSentToThatHost(t *testing.T) {
 	var host string
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

@@ -1,5 +1,4 @@
 // Package platform provides shared application infrastructure.
-// It depends only on the standard library.
 package platform
 
 import (

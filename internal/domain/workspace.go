@@ -15,18 +15,14 @@ func (k WorkspaceKind) Valid() bool {
 }
 
 // Workspace is the container everything the user makes belongs to: the history, the collections,
-// the environments and the draft the composer is holding. Which one is being shown is the window's
-// own pointer (SettingActiveWorkspace); what a workspace holds never mixes with another.
+// the environments and the draft the composer is holding. Which one is shown is the window's own
+// pointer (SettingActiveWorkspace); what a workspace holds never mixes with another.
 //
-// Color is the palette's own word — "blue", "purple" — and not a value: the tint of an avatar is
-// the interface's business, and it is drawn from a token in the one place that knows the tokens.
-// A word the window does not know is drawn in the default tint rather than refused, because no
-// behaviour depends on it.
+// Color is the palette's word — "blue", "purple" — and not a value: the tint is drawn from a
+// token, and a word the window does not know is drawn in the default tint rather than refused.
 //
-// Personal is derived from the id where the row is read, and never written back: it is the one
-// workspace the app cannot do without, and the window draws that rule — the delete is not offered
-// on it. Saying it here rather than letting the window compare against a word of its own keeps the
-// spelling of that id in one place, which is the one that also refuses the call.
+// Personal is derived from the id where the row is read and never written back: saying it here
+// keeps the spelling of that id in one place, which is the one that also refuses the call.
 type Workspace struct {
 	ID        string        `json:"id"`
 	Name      string        `json:"name"`
@@ -56,8 +52,7 @@ type WorkspaceState struct {
 	ActiveID   string      `json:"activeId"`
 }
 
-// NewWorkspace is a workspace on its way in: the id it will have, and the two things the user
-// chose.
+// NewWorkspace is a workspace on its way in.
 func NewWorkspace(id string, name string, kind WorkspaceKind, color string, now int64) Workspace {
 	return Workspace{
 		ID:        id,

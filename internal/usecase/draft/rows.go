@@ -33,8 +33,8 @@ func (u *UseCase) AddRow(
 	})
 }
 
-// RemoveRow drops a row by id. A row that is not there is not an error: a double click, or a patch
-// that arrives after its row is gone, has asked for exactly what it got.
+// A row that is not there is not an error: a double click, or a patch arriving after its row is
+// gone, has asked for exactly what it got.
 //
 // The row is rowID and the draft is id, because a row id and a draft id are different things in the
 // same call: every other method on this use case names the draft the way this one does.
@@ -62,8 +62,8 @@ func (u *UseCase) RemoveRow(
 	})
 }
 
-// PatchRow changes the fields a patch names and leaves the rest. A parameter edit writes the list
-// back into the URL, because the URL is what goes out and the rows are only how it is edited.
+// A parameter edit writes the list back into the URL: the URL is what goes out, and the rows are
+// only how it is edited.
 func (u *UseCase) PatchRow(
 	ctx context.Context,
 	id domain.DraftID,

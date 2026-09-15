@@ -218,8 +218,6 @@ func TestRunSendsTheInheritedAuth(t *testing.T) {
 	if len(sent) != 4 {
 		t.Fatalf("sent %d requests, want the whole collection", len(sent))
 	}
-	// The first request is the collection's own; the two inside the nested collection are its own; the
-	// last one is the collection's again.
 	want := []string{"коллекция", "вложенная", "вложенная", "коллекция"}
 	for i, token := range want {
 		auth := sent[i].Auth

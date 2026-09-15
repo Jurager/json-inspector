@@ -2,10 +2,7 @@ package record
 
 import "json-inspector/internal/domain"
 
-// What crosses the boundary: an attempt handed in, and the news of one coming back.
-
-// RequestFinished carries the record the attempt produced — the same shape history lists, so the
-// window has one type to draw and one place to put it.
+// RequestFinished carries the record the attempt produced, in the same shape history lists.
 type RequestFinished struct {
 	ID     string        `json:"id"`
 	Record domain.Record `json:"record"`
@@ -22,11 +19,9 @@ type RequestFailed struct {
 	Failure *domain.Failure `json:"failure,omitempty"`
 }
 
-// SendInput is one attempt. The request in it is ready to go — its variables are already filled in
-// — and the masked copy beside it is what history keeps.
-//
-// The two representations exist because the draft is still the window's: it holds the tokens, so it
-// is the one that can say what a secret was. When the draft moves here, so does this.
+// SendInput is one attempt: the request ready to go, and the masked copy history keeps. The two
+// exist because the draft is still the window's — it holds the tokens, so only it can say what
+// a secret was.
 type SendInput struct {
 	Method  string              `json:"method"`
 	URL     string              `json:"url"`
@@ -55,9 +50,8 @@ type SendInput struct {
 	Run  string `json:"run,omitempty"`
 }
 
-// IngestInput is a request this app did not send: one the browser made, as the extension reported
-// it, or one that never left the machine at all. Source says which, and an empty one means the
-// browser — the extension is the only thing that sends one of these from the outside.
+// IngestInput is a request this app did not send. An empty Source means the browser — the
+// extension is the only thing that reports one from the outside.
 type IngestInput struct {
 	Source          domain.RecordSource `json:"source"`
 	Method          string              `json:"method"`

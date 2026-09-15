@@ -50,7 +50,6 @@ const cursorChar = string(rune(0x276f))
 // code point: a literal one would not survive as Go source, and it is also whitespace to JS.
 const bom = string(rune(0xfeff))
 
-// looksLikeURL is the generous test used to pick the URL out of the positionals.
 func looksLikeURL(s string) bool {
 	if schemeRe.MatchString(s) {
 		return true
@@ -67,14 +66,9 @@ func looksLikeURL(s string) bool {
 	return hostRe.MatchString(s)
 }
 
-// detect recognises a curl command and answers what is left of it once the command word is gone. A
-// leading command word is required: this is meant for a pasted command, not for a URL typed into a
-// body field, and a paste that is not a command has to come back as one so the window can leave the
-// field alone.
-//
-// `curl` is the only tool read, because it is the only one a person copies a request out of: the
-// other notations this app can *write* — fetch, wget, httpie, PowerShell — are ways of carrying a
-// request away, and nobody pastes a PowerShell line into an address field to get a request back.
+// A leading command word is required: a paste that is not a command has to come back as one so the
+// window can leave the field alone. `curl` is the only tool read — the others this app can *write*
+// are ways of carrying a request away, and nobody pastes a PowerShell line back into a field.
 func detect(text string) (string, bool) {
 	head := headRe.FindStringSubmatch(trimSpace(text))
 	if head == nil {
@@ -87,8 +81,8 @@ func detect(text string) (string, bool) {
 	return "", false
 }
 
-// normalizeInput strips what a copied command picks up from the terminal it came from: the BOM, the
-// line endings, the prompt, sudo, and the redirections that are not part of the command.
+// What a copied command picks up from the terminal it came from — the BOM, the prompt, sudo, the
+// redirections — none of which is the command.
 func normalizeInput(text string) string {
 	text = strings.TrimPrefix(text, bom)
 	text = crlfRe.ReplaceAllString(text, "\n")
@@ -97,9 +91,8 @@ func normalizeInput(text string) string {
 	return stripRedirection(text)
 }
 
-// stripRedirection cuts the command at the first `>` or `|`, which starts a redirection or a pipe
-// rather than belonging to the command. The cut is after the file descriptor number that `2>&1`
-// and `2> out` leave behind, unless a quoted string is in the way.
+// The cut lands after the file descriptor number that `2>&1` and `2> out` leave behind, and a
+// quoted string is skipped rather than cut at.
 func stripRedirection(text string) string {
 	i := 0
 	for i < len(text) {

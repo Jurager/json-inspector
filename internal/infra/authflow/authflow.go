@@ -18,24 +18,22 @@ import (
 	"json-inspector/internal/domain"
 )
 
-// Materializer is the registry, and the one thing it has to remember between calls: a token
-// somebody else issued. It lives here rather than anywhere the user can see it — a token is not a
-// field, and one that is never written down is one that cannot be exported, logged or
-// screenshotted.
+// Materializer holds the credentials the schemes in the table hand out. A token is kept in memory
+// and never written down: one that is not stored cannot be exported, logged or screenshotted.
 type Materializer struct {
-	// client is the app's own outbound HTTP. The token endpoint is a request like any other and goes
-	// out through the same door, with the same proxy and the same timeout.
+	// client is what the app sends every request with, so the token endpoint gets the same proxy and
+	// the same timeout as anything else.
 	client *http.Client
-	// exchange is the half of the two browser grants that needs a browser. It is nil where there is
-	// none to open, and those grants then say so rather than hanging.
+	// exchange is nil where there is nothing to open; the two grants that need a browser then refuse
+	// instead of hanging.
 	exchange codeExchange
 
 	mu     sync.Mutex
 	tokens map[string]issued
 }
 
-// issued is a token and when it stops being good. A provider that named no expiry has said all it
-// is going to say, and the token is kept until the window closes.
+// issued is a token with its expiry. A provider that named none has said all it will, and the token
+// is kept until the window closes.
 type issued struct {
 	token   string
 	expires time.Time
@@ -45,9 +43,8 @@ type issued struct {
 // half-second is not one to send a request with, and asking for another is cheaper than a refusal.
 const expiryDelta = 10 * time.Second
 
-// New builds the materializer. The client is the app's own outbound HTTP and the browser is
-// whatever this platform opens pages with; a nil browser leaves the two grants that need one unable
-// to run, which is the honest answer where there is nothing to open.
+// New builds the materializer. A nil browser leaves the two grants that need one unable to run —
+// the honest answer where there is nothing to open.
 func New(client *http.Client, browser Browser) *Materializer {
 	return &Materializer{client: client, exchange: browserExchange(browser),
 		tokens: map[string]issued{}}
@@ -78,9 +75,9 @@ func (m *Materializer) Materialize(
 	return carry(auth, token), nil
 }
 
-// Project is the same answer without asking anybody for anything: a window drawing rows while a
-// person types is not the moment to go and get a token. A scheme that fetches draws the token it
-// already has, and nothing at all while it has none — which is what «Нет токена» says.
+// Project answers without asking anybody for anything: a window drawing rows while a person types
+// is not the moment to go and get a token. A fetched scheme draws nothing until one is held, which
+// is what «Нет токена» says.
 func (m *Materializer) Project(
 	auth domain.Auth,
 	req domain.AuthRequest,
@@ -110,8 +107,8 @@ func (m *Materializer) Obtain(ctx context.Context, auth domain.Auth) error {
 	return err
 }
 
-// Forget drops a token; the next send asks for another one. A scheme that carries what it was given
-// has nothing to drop.
+// Forget drops a token, so the next send asks for another one; a scheme that carries what it was
+// given has nothing to drop.
 func (m *Materializer) Forget(auth domain.Auth) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -130,13 +127,12 @@ func (m *Materializer) Held(auth domain.Auth) domain.AuthToken {
 	return domain.AuthToken{Held: true, ExpiresAt: found.expires.UnixMilli()}
 }
 
-// obtain is the token, from the cache or from whoever issues it.
 func (m *Materializer) obtain(ctx context.Context, auth domain.Auth, entry scheme) (string, error) {
 	if token, held := m.held(auth); held {
 		return token, nil
 	}
-	// The library looks for the client here rather than being handed one, so that a call site does
-	// not have to thread it through everything that touches a token.
+	// The library reads its HTTP client out of the context, so no call site has to thread one through
+	// everything that touches a token.
 	value, expires, err := entry.fetch(context.WithValue(ctx, oauth2.HTTPClient, m.client), auth,
 		m.exchange)
 	if err != nil {
@@ -164,9 +160,8 @@ func (m *Materializer) held(auth domain.Auth) (string, bool) {
 	return found.token, true
 }
 
-// tokenKey names a token by the answers that would fetch it: two requests sharing an authorization
-// share the token, and changing any of the answers asks for another one. Marshalling is what makes
-// that stable — Go writes a map's keys in order, and the same answers are the same string.
+// tokenKey names a token by the answers that would fetch it, so two requests that share an
+// authorization share the token. Marshalling makes it stable: the same answers are the same string.
 func tokenKey(auth domain.Auth) string {
 	encoded, err := json.Marshal(auth)
 	if err != nil {
@@ -190,17 +185,13 @@ func (m *Materializer) Absorb(
 	return entry.absorb(auth, target, name, value)
 }
 
-// scheme is one way of authorizing a request: what it puts on the request, and — where it can — how
-// an edit to that comes back.
-//
-// The two directions live together because they are two halves of one thing: a scheme that can take
-// an edit has to know exactly what it wrote, and one that cannot says so once, here, rather than
-// leaving the window to find out by trying.
+// scheme is how a request is authorized: what it puts on the request, and, where it can, how an
+// edit to that comes back. The two live together because a scheme taking an edit has to know what
+// it wrote.
 type scheme struct {
 	put putter
-	// fetch is a scheme whose credential is not typed in and not computed here either: it is asked
-	// for. A scheme with one is drawn by the window with a button rather than only with fields, and it
-	// is the only kind that has anything to remember between calls.
+	// fetch is a scheme whose credential is asked for. A scheme with one is drawn by the window with a
+	// button rather than only fields, and is the only kind with anything to remember between calls.
 	fetch fetcher
 	// absorb is absent for a scheme whose rows the user may not edit. A credential encoded as a whole
 	// is the case: `Basic dXNlcjpwYXNz` does not come apart into a login and a password, and a
@@ -215,8 +206,7 @@ type putter func(auth domain.Auth, req domain.AuthRequest) (domain.AuthOutput, e
 type absorber func(auth domain.Auth, target domain.RowKind, name, value string) (domain.Auth, error)
 
 // schemes is the other half of the registry in domain.AuthSchemes: a scheme is offered to the
-// window if it is in that table, and it does something if it is in this one. Adding a tenth is a
-// row next to the first and an entry next to these.
+// window if it is in that table, and it does something if it is in this one.
 var schemes = map[domain.AuthType]scheme{
 	domain.AuthBearer: {put: bearer, absorb: absorbBearer},
 	domain.AuthBasic:  {put: basic},
@@ -248,12 +238,10 @@ func absorbBearer(auth domain.Auth, _ domain.RowKind, _, value string) (domain.A
 }
 
 // basic is the credential of RFC 7617: the two halves joined by a colon and the pair encoded. The
-// colon is the join and the first colon is the split, so a password may hold one and a login may
-// not.
+// colon is the split, so a password may hold one and a login may not.
 //
-// There is no absorb beside it. The row is a base64 string, and base64 does not come apart into the
-// two things that went into it — the window shows the row and does not offer to edit it, so that an
-// edit is always an edit to a field and never a guess at one.
+// There is no absorb beside it: base64 does not come apart into the two things that went into it,
+// so an edit is always an edit to a field and never a guess at one.
 func basic(auth domain.Auth, _ domain.AuthRequest) (domain.AuthOutput, error) {
 	username, password := auth.Answer("username"), auth.Answer("password")
 	if username == "" && password == "" {
@@ -279,16 +267,14 @@ func apiKey(auth domain.Auth, _ domain.AuthRequest) (domain.AuthOutput, error) {
 	return domain.AuthOutput{Headers: []domain.HeaderPair{pair}, Editable: true}, nil
 }
 
-// absorbAPIKey takes the edit whatever it was made to — the key's name or its value, in a header or
-// in the query — and answers with the field behind it.
 func absorbAPIKey(
 	auth domain.Auth,
 	target domain.RowKind,
 	name, value string,
 ) (domain.Auth, error) {
 	if target == domain.RowParams {
-		// A parameter named one way and holding another is a query parameter the user is renaming:
-		// the name is the key, unless this is the value of the one that is already there.
+		// A query parameter still holding the key's value is that value being edited; anything else is
+		// the user renaming the key.
 		if name == strings.TrimSpace(auth.Answer("key")) {
 			return auth.With("value", value), nil
 		}
@@ -300,11 +286,9 @@ func absorbAPIKey(
 	return auth.With("value", value), nil
 }
 
-// digest hands the engine the username and the password and nothing else, because there is nothing
-// else to hand over yet: what a Digest request carries is a hash of the password with a nonce the
-// server has not sent. The engine sends the request, is refused, answers what it was told, and
-// sends it again — and this is the one scheme that cannot be finished before that conversation
-// happens.
+// digest hands the engine the credential and nothing else: a Digest request carries a hash of the
+// password with a nonce the server has not sent yet. The engine answers the challenge and sends
+// again — the one scheme that cannot be finished before that conversation.
 //
 // There is no absorb: the row is a hash of a challenge nobody here can see.
 func digest(auth domain.Auth, _ domain.AuthRequest) (domain.AuthOutput, error) {
@@ -321,15 +305,13 @@ func header(name, value string) domain.AuthOutput {
 	return domain.AuthOutput{Headers: []domain.HeaderPair{{Name: name, Value: value}}}
 }
 
-// editable marks an answer whose rows can be turned back into fields.
 func editable(out domain.AuthOutput) domain.AuthOutput {
 	out.Editable = true
 	return out
 }
 
-// withPrefix and withoutPrefix are the one place the prefix is joined to what it prefixes. They are
-// a pair on purpose: a scheme that took the prefix off one way and put it back another would turn
-// an edit into a value nobody typed.
+// withPrefix and withoutPrefix are a pair on purpose: taking the prefix off one way and putting it
+// back another would turn an edit into a value nobody typed.
 func withPrefix(prefix, value string) string {
 	if prefix = strings.TrimSpace(prefix); prefix == "" {
 		return value

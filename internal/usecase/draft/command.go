@@ -1,13 +1,8 @@
 package draft
 
-// Reading a pasted command line: the vocabulary the window reads the answer out of, and the entry
-// point. What the reader builds is in parse.go, and how a line comes apart into words is in lex.go.
-//
-// testdata holds a corpus dumped from the TypeScript this was ported from, before that
-// implementation was deleted, and it is still the oracle — a case that changes has to be looked at
-// rather than re-pinned. One thing has deliberately left it behind, and fixtures_test.go says where
-// and why: this no longer reproduces JavaScript's own rules about whitespace and object key order.
-// Not one fixture noticed.
+// testdata holds a corpus dumped from the TypeScript this was ported from, and it is still the
+// oracle — a case that changes has to be looked at rather than re-pinned. fixtures_test.go says
+// where this deliberately leaves JavaScript's whitespace and key-object-order rules behind.
 
 import (
 	"context"
@@ -36,12 +31,9 @@ const (
 	KindError CommandKind = "error"
 )
 
-// CommandResult is the outcome of reading a pasted command. KindNone is "not a command at all,
-// leave the field alone", which is what most pastes come to; KindError carries the reason the
-// window phrases.
-//
-// A command that was read is a Seed — the same whole request that "открыть в запросе" produces and
-// that the draft already knows how to take.
+// KindNone is "not a command at all, leave the field alone", which is what most pastes come to;
+// KindError carries the reason the window phrases. A command that was read is a Seed — the same
+// whole request "открыть в запросе" produces.
 type CommandResult struct {
 	Kind   CommandKind   `json:"kind"`
 	Seed   Seed          `json:"seed"`
@@ -56,12 +48,9 @@ type Paste struct {
 	State   *State        `json:"state,omitempty"`
 }
 
-// PasteCommand reads a pasted command and, when it is one, hands the draft what it came to. The
-// reading comes back either way: the window has a sentence for a command it could not read, and a
-// paste that was never a command needs no sentence at all.
-//
 // The parse and the draft are applied here rather than by the window, which would otherwise take
-// the request apart only to hand the pieces straight back.
+// the request apart only to hand the pieces straight back. The reading comes back either way: the
+// window has a sentence for a command it could not read.
 func (u *UseCase) PasteCommand(ctx context.Context, id domain.DraftID, text string) (Paste, error) {
 	reading := ParseCommand(text)
 	if reading.Kind != KindOK {

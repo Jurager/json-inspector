@@ -6,8 +6,7 @@
 import * as domain$0 from "../../domain/models.js";
 
 /**
- * CommandFormat is the notation a request is written out in. The reader knows one of them; the
- * writer knows all five.
+ * The reader knows one of them; the writer knows all five.
  */
 export enum CommandFormat {
     /**
@@ -54,12 +53,9 @@ export enum CommandReason {
 };
 
 /**
- * CommandResult is the outcome of reading a pasted command. KindNone is "not a command at all,
- * leave the field alone", which is what most pastes come to; KindError carries the reason the
- * window phrases.
- * 
- * A command that was read is a Seed — the same whole request that "открыть в запросе" produces and
- * that the draft already knows how to take.
+ * KindNone is "not a command at all, leave the field alone", which is what most pastes come to;
+ * KindError carries the reason the window phrases. A command that was read is a Seed — the same
+ * whole request "открыть в запросе" produces.
  */
 export interface CommandResult {
     "kind": CommandKind;
@@ -78,10 +74,8 @@ export interface Paste {
 }
 
 /**
- * Preview is what the command line draws and cannot work out from the draft alone: which of its
- * `{{tokens}}` mean nothing. Whether the request can go out follows from that and from a URL the
- * window itself is holding, so there is no verdict here — only what the window cannot see for
- * itself.
+ * Preview is what the command line cannot work out from the draft alone: which of its `{{tokens}}`
+ * mean nothing. There is no verdict here — the rest follows from this and a URL the window holds.
  */
 export interface Preview {
     "missing": string[] | null;

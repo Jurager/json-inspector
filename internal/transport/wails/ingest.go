@@ -10,8 +10,7 @@ import (
 	"json-inspector/internal/usecase/record"
 )
 
-// captureIngest turns what the extension sends into history and into events for the window. It is
-// deliberately not a bound service: Wails binds every exported method of a service, and these are
+// Deliberately not a bound service: Wails binds every exported method of a service, and these are
 // callbacks rather than an API the frontend may call.
 type captureIngest struct {
 	host    *Host
@@ -22,8 +21,7 @@ func newCaptureIngest(host *Host, records *record.UseCase) bridge.Ingest {
 	return captureIngest{host: host, records: records}
 }
 
-// Captured stores one request the browser made. The window hears about it as `record:added` — the
-// same event, and the same record, as one this app sent itself.
+// The window hears about this as the same event, and the same record, as one this app sent.
 func (c captureIngest) Captured(req bridge.CapturedRequest) {
 	responseHeaders := domain.PairsFromMap(req.ResponseHeaders)
 

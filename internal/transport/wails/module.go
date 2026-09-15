@@ -122,9 +122,8 @@ var Module = fx.Module("wails",
 	fx.Invoke(setup),
 )
 
-// newApplication builds the Wails app. It is the only place application.New is called, and it
-// creates no window: those come after the services are registered, so a window's runtime-ready
-// event cannot arrive before the services that answer it exist.
+// The only place application.New is called, and it creates no window: those come after the services
+// are registered, so a runtime-ready event cannot arrive before the services that answer it.
 func newApplication(host *Host, info platform.BuildInfo, assets Assets) *application.App {
 	app := application.New(application.Options{
 		Name:        info.Name,
@@ -145,13 +144,11 @@ func newApplication(host *Host, info platform.BuildInfo, assets Assets) *applica
 			OnSecondInstanceLaunch: host.OnSecondInstance,
 		},
 	})
-	// The name a window is titled with until its page draws.
 	host.SetAppName(info.Name)
 	host.Attach(app)
 	return app
 }
 
-// setup is the whole desktop side of assembly: services first, then the window, then the menu.
 func setup(
 	app *application.App,
 	host *Host,

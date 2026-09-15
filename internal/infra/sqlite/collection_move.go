@@ -9,19 +9,14 @@ import (
 	"json-inspector/internal/domain"
 )
 
-// Moving a row is one operation in two halves: the row changes where it lives, and the level it
-// left and the level it joined are both renumbered.
-//
-// Renumbering rather than shifting a range is deliberate. A level is a few dozen rows, and a
-// level's requests and the collections inside it share one number line — so a drop in the middle is
-// a renumbering of everything around it, which one pass over the level settles and a range shift
-// has to get right twice.
+// Renumbering the whole level rather than shifting a range is deliberate: a level is a few dozen
+// rows, and requests and collections inside it share one number line, which one pass settles and a
+// range shift has to get right twice.
 //
 // Where the row sits and what the level contains are the store's business: the window says what it
 // dropped and where, and nothing else about it travels.
 
-// child is one row of a level. The two tables are one list on screen, and which of them a row came
-// from is only needed when writing it back.
+// The two tables are one list on screen; which one a row came from is only needed to write it back.
 type child struct {
 	id           string
 	isCollection bool
@@ -72,9 +67,8 @@ func (s *Store) MoveNode(
 	return nil
 }
 
-// MoveCollection puts a collection inside another, or back at the top level when the parent is
-// empty. A collection is a row of its own, so where it sits is its parent and nothing else about it
-// moves.
+// MoveCollection puts a collection inside another, or at the top level when the parent is empty.
+// A collection is a row of its own, so its place is its parent and nothing else about it moves.
 func (s *Store) MoveCollection(
 	ctx context.Context,
 	workspaceID, id string,
@@ -117,10 +111,8 @@ func (s *Store) MoveCollection(
 	return nil
 }
 
-// level reads one level as it is drawn: the requests of a collection and the collections inside it,
-// in position order. The empty id is the top level — and the top level is the workspace's own,
-// which is why the workspace is named here: without it, numbering one space's roots would rewrite
-// the positions of every other space's.
+// The empty id is the top level, and the top level is the workspace's own: without the workspace
+// named here, numbering one space's roots would rewrite every other space's positions.
 func level(ctx context.Context, tx *sql.Tx, workspaceID, collectionID string) ([]child, error) {
 	rows, err := tx.QueryContext(ctx,
 		`SELECT id, 0 AS is_collection, position FROM collection_nodes WHERE collection_id = ?
@@ -147,11 +139,9 @@ func level(ctx context.Context, tx *sql.Tx, workspaceID, collectionID string) ([
 	return out, rows.Err()
 }
 
-// renumber writes a level back with every row numbered by its place in it. The row named by moved
-// is lifted out of the list and put back at the drop index — the level is numbered as it looks now,
-// with the row it just received already in it, which is what makes the index the window drew mean
-// the same thing on both sides. A zero moved id numbers the level as it stands, which is what the
-// level a row left behind needs.
+// A zero moved id numbers the level as it stands, which is what the level a row left behind needs;
+// a named one is lifted out and put back at the drop index, so the index means the same on both
+// sides.
 func (s *Store) renumber(
 	ctx context.Context,
 	tx *sql.Tx,
@@ -159,17 +149,15 @@ func (s *Store) renumber(
 	moved child,
 	at int64,
 ) error {
-	// Named rows rather than `level`: the reader is a function of that name, and a local of it would
-	// shadow the very thing that produced this one.
-	rows, err := level(ctx, tx, workspaceID, collectionID)
+	levelRows, err := level(ctx, tx, workspaceID, collectionID)
 	if err != nil {
 		return err
 	}
 	if moved.id != "" {
-		rows = placeAt(rows, moved, at)
+		levelRows = placeAt(levelRows, moved, at)
 	}
 
-	for i, one := range rows {
+	for i, one := range levelRows {
 		table := "collection_nodes"
 		if one.isCollection {
 			table = "collections"
@@ -182,13 +170,9 @@ func (s *Store) renumber(
 	return nil
 }
 
-// placeAt lifts a row out of a level and puts it back where it was dropped.
-//
-// The index counts the level as it looks now, the row being moved included: 0 is before the first
-// row and the length is after the last. That is what makes "after the row at n" one expression — n
-// + 1 — whether the drop stays in the level or joins another, and it is why the row is discounted
-// here rather than by whoever counted: a row that stood before its own destination would otherwise
-// be counted twice and land one place too far.
+// The index counts the level as it looks now, the moving row included, so "after the row at n" is
+// one expression — n+1 — in the level it left and the one it joined; the row is discounted here or
+// it would be counted twice and land one place too far.
 func placeAt(level []child, moved child, at int64) []child {
 	others := make([]child, 0, len(level))
 	insert := int64(0)

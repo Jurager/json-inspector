@@ -69,12 +69,12 @@ type SearchOpen struct {
 	Scope  string       `json:"scope,omitempty"`
 }
 
-// SearchHit is one row of the palette. Everything the row draws is decided here except the words:
-// the title and the path are the user's own text, and the note is a shape the window words.
+// SearchHit is one row of the palette. Everything it draws is decided here except the words: the
+// title and the path are the user's own text, and the note is a shape the window words.
 //
-// The matched text is not carried, only where it was found (Match). Highlighting is the window's
-// either way — it has the box the text is drawn in — and not shipping the match keeps a variable's
-// value out of the answer even when the value is what answered.
+// Only where the query was found is carried, not the matched text: highlighting is the window's
+// either way, and not shipping the match keeps a variable's value out of the answer even when the
+// value is what answered.
 type SearchHit struct {
 	Kind  SearchKind `json:"kind"`
 	ID    string     `json:"id"`

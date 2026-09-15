@@ -14,13 +14,10 @@ import (
 	_ "modernc.org/sqlite"
 )
 
-// testDB opens an in-memory database that behaves like one database.
-//
-// A bare ":memory:" DSN would hand every pooled connection its own empty database, so the pool
-// is pinned to a single connection; the shared cache and the per-test filename then make that
-// one connection the database everything else sees, while keeping concurrent tests apart. The
-// pin also matters for pragmas: foreign_keys is per-connection, so a second connection would
-// quietly run without it.
+// testDB opens an in-memory database that behaves like one database: a bare ":memory:" DSN hands
+// every pooled connection its own empty database, so the pool is pinned to one connection and the
+// shared cache makes it the database everything else sees. Pinning also matters for pragmas —
+// foreign_keys is per-connection, so a second connection would quietly run without it.
 func testDB(t *testing.T) *sql.DB {
 	t.Helper()
 
@@ -57,7 +54,6 @@ func mustUp(t *testing.T, db *sql.DB, fsys fs.FS) Result {
 	return result
 }
 
-// tableExists reports whether a table of that name is present in the main schema.
 func tableExists(t *testing.T, db *sql.DB, name string) bool {
 	t.Helper()
 
@@ -70,7 +66,6 @@ func tableExists(t *testing.T, db *sql.DB, name string) bool {
 	return count > 0
 }
 
-// ledgerVersions returns the recorded versions, ascending, and skips if the ledger is missing.
 func ledgerVersions(t *testing.T, db *sql.DB) []int {
 	t.Helper()
 
@@ -213,13 +208,10 @@ func TestUpBrokenMigrationRollsBack(t *testing.T) {
 }
 
 // TestUpMultiStatementFile pins the behaviour the runner silently depends on: one .sql file may
-// hold several statements, and a single Exec runs all of them.
-//
-// Verified against modernc.org/sqlite v1.58.0, which prepares and steps the whole statement
-// list itself — so Up needs no splitter. Should a driver change arrive that stops doing this,
-// this test is what fails, and the runner has to grow a statement splitter (naive splitting on
-// ";" would be wrong, since a semicolon inside a string literal or trigger body is not a
-// terminator).
+// hold several statements, and a single Exec runs all of them. Verified against modernc.org/sqlite
+// v1.58.0, which prepares the whole statement list itself — so Up needs no splitter. If a driver
+// change stops doing this, this test fails and Up has to grow one (naive splitting on ";" is wrong:
+// a semicolon inside a string literal or trigger body is not a terminator).
 func TestUpMultiStatementFile(t *testing.T) {
 	db := testDB(t)
 

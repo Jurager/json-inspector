@@ -6,11 +6,8 @@ import (
 	"github.com/wailsapp/wails/v3/pkg/application"
 )
 
-// The windows that are not the main one, and the geometry the design gives them.
-
-// ShowAbout opens the About panel, or brings the one already open to the front. It is bound to the
-// frontend and to the native menu item, and both call it for the same reason: on this platform the
-// panel is a window of its own rather than a system dialog.
+// ShowAbout opens the About panel, or brings the open one forward. It is a window of its own rather
+// than a system dialog, so the native menu item and the frontend both call it.
 func (h *Host) ShowAbout() {
 	app := h.App()
 	if app == nil {
@@ -44,8 +41,6 @@ func (h *Host) ShowAbout() {
 	})
 }
 
-// aboutWindow is the open About window, if there is one — looked up by name every time, since
-// the user can close it and a stored handle would then point at a destroyed window.
 func (h *Host) windowByName(name string) (application.Window, bool) {
 	app := h.App()
 	if app == nil {
@@ -54,8 +49,7 @@ func (h *Host) windowByName(name string) (application.Window, bool) {
 	return app.Window.GetByName(name)
 }
 
-// ShowSettings opens the preferences window, or brings the open one forward. Bound to the frontend
-// and to the rail's gear.
+// ShowSettings opens the preferences window, or brings the open one forward.
 func (h *Host) ShowSettings() {
 	app := h.App()
 	if app == nil {
@@ -94,7 +88,6 @@ func UseCustomTitlebar() bool {
 		application.System.IsPlatform(application.PlatformLinux)
 }
 
-// aboutHeight is the panel's height on this platform.
 func aboutHeight() int {
 	if UseCustomTitlebar() {
 		return aboutHeightBarred

@@ -114,14 +114,9 @@ func authToApply(chosen domain.Auth, inherits *domain.Auth) domain.Auth {
 	return *inherits
 }
 
-// withAuth is where what a scheme answered becomes what the request goes out with: a header of the
-// scheme's own name, or the query parameter it was told to travel as. A row of the same name the
-// user wrote themselves wins — an explicit row is the more precise answer, and two Authorization
-// headers are a request no server reads the way the window drew it.
-//
-// The query side works on the URL being sent and not on the draft's rows: those are what the window
-// edits, and a projection that reached them would be rewritten by the next keystroke in the address
-// bar — the parameters are read back out of the address, and the address is written from them.
+// A row of the same name the user wrote wins: an explicit row is the more precise answer, and two
+// Authorization headers are a request no server reads the way the window drew it. The query side
+// works on the URL being sent — a projection into the draft's rows dies on the next keystroke.
 func withAuth(
 	rawURL string,
 	headers []domain.HeaderPair,
@@ -204,13 +199,9 @@ func withContentType(
 	return append(headers, domain.HeaderPair{Name: "Content-Type", Value: value})
 }
 
-// contentTypeFor is the header a body of this kind declares, and whether it declares one at all.
-//
-// Raw answers with nothing on purpose. Every draft written before there were kinds is raw, and the
-// app has always sent those without a Content-Type; naming one here would change what is already
-// stored puts on the wire. Raw is also the kind that promises nothing — its whole point is to be
-// the escape hatch — and a user who wants text/plain writes it once and it sticks, because a
-// written header wins.
+// Raw answers with nothing on purpose: every draft written before there were kinds is raw and has
+// always gone out without a Content-Type, and naming one would change what already stored requests
+// put on the wire. A written header wins, so a text/plain typed once sticks.
 func contentTypeFor(kind domain.BodyKind, file string, boundary string) (string, bool) {
 	switch kind {
 	case domain.BodyJSON:

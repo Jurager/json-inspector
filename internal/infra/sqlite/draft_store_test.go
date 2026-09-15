@@ -43,7 +43,6 @@ func TestDraftRoundTrip(t *testing.T) {
 	}
 }
 
-// The format travels with the draft, and so does what a body that is not text is made of.
 func TestDraftRoundTripKeepsTheBodyFormat(t *testing.T) {
 	store := newMigratedStore(t)
 	ctx := context.Background()

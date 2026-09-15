@@ -39,14 +39,13 @@ func init() {
 	// Which workspace is on screen moved: every window draws around the same one.
 	application.RegisterEvent[workspace.Changed](workspace.TopicChanged)
 
-	// History and the attempts that fill it. A record is the same type the list draws — and the same
-	// event, whether it came from a request this app sent or from the browser.
+	// History and the attempts that fill it. A record is the same type the list draws and the same
+	// event, whichever side it came from.
 	application.RegisterEvent[domain.Record](record.TopicRecordAdded)
 	application.RegisterEvent[record.RequestFinished](record.TopicRequestFinished)
 	application.RegisterEvent[record.RequestFailed](record.TopicRequestFailed)
 
-	// A run of a collection: one event per request it reaches, and the finished run with its
-	// counters, which is what the overview draws when it opens again.
+	// The finished run's counters are what the overview draws when it opens again.
 	application.RegisterEvent[collection.RunProgress](collection.TopicRunProgress)
 	application.RegisterEvent[domain.CollectionRun](collection.TopicRunFinished)
 }

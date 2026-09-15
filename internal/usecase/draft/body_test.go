@@ -13,8 +13,7 @@ import (
 	"json-inspector/internal/domain"
 )
 
-// loadedWithFiles is the command line with a file system behind it: the case every body that is not
-// text needs.
+// The case every body that is not text needs: a file system behind the command line.
 func loadedWithFiles(t *testing.T) (*UseCase, *fakeFiles) {
 	t.Helper()
 	uc, _, files := newUseCaseWithFiles()
@@ -24,8 +23,7 @@ func loadedWithFiles(t *testing.T) (*UseCase, *fakeFiles) {
 	return uc, files
 }
 
-// valueOf reads a header by name and does not care how it was capitalised, which is what a request
-// with two Content-Type rows written differently must not produce.
+// Case-insensitive: two Content-Type rows written differently must not count as two headers.
 func valueOf(headers []domain.HeaderPair, name string) (string, bool) {
 	for _, header := range headers {
 		if strings.EqualFold(header.Name, name) {
@@ -35,8 +33,7 @@ func valueOf(headers []domain.HeaderPair, name string) (string, bool) {
 	return "", false
 }
 
-// replaced gives the command line a body of a kind, which is what the Body popover does when a
-// segment is clicked.
+// What the Body popover does when a segment is clicked.
 func replaced(t *testing.T, uc *UseCase, kind domain.BodyKind, text string) {
 	t.Helper()
 	ctx := context.Background()
@@ -87,7 +84,7 @@ func TestTheKindBecomesAContentType(t *testing.T) {
 	_ = ctx
 }
 
-// formOf hands the command line a form body whole, which is what opening a saved form request does.
+// What opening a saved form request does.
 func formOf(t *testing.T, uc *UseCase, rows []domain.FormRow) {
 	t.Helper()
 	if _, err := uc.Replace(context.Background(), domain.DraftCommandLine, Seed{
@@ -128,7 +125,7 @@ func TestAWrittenContentTypeIsResolvedAndMasked(t *testing.T) {
 	}
 }
 
-// withHeader appends a header row to the command line's draft, which is what the Headers chip does.
+// What the Headers chip does when a header is added.
 func withHeader(t *testing.T, uc *UseCase, name, value string) {
 	t.Helper()
 	ctx := context.Background()

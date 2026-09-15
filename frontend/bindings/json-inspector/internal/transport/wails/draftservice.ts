@@ -3,12 +3,8 @@
 
 /**
  * DraftService is the request being composed. The window draws it and asks for changes; what those
- * changes mean — which rows a URL has, what a `{{token}}` resolves to, whether the request can go
- * out — is decided here.
- * 
- * Every call names the draft it is about: the command line's, or the node a card is editing. The
- * window holds both at once — switching between them must not lose the other — so nothing here
- * assumes there is one.
+ * changes mean is decided here. Every call names the draft it is about — the command line's or the
+ * node a card is editing — because the window holds both at once and must lose neither.
  * @module
  */
 

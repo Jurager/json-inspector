@@ -76,7 +76,7 @@ func TestJoinURLTextRoundTrip(t *testing.T) {
 		"/a?filter[id][in]=1,2",
 		"/a#frag?no=1",
 	} {
-		got := joinURL(queryOf2(t, raw), paramsFromURL(raw))
+		got := joinURL(baseOf(t, raw), paramsFromURL(raw))
 		if got != raw {
 			t.Errorf("round trip of %q = %q", raw, got)
 		}
@@ -111,9 +111,7 @@ func TestEncodeQueryKeepsWhatTheUrlIsMadeOf(t *testing.T) {
 	}
 }
 
-// queryOf2 is the base half of a URL for the round trip above, named apart from the helper under
-// test so a failure points at the transform and not at its own use.
-func queryOf2(t *testing.T, raw string) string {
+func baseOf(t *testing.T, raw string) string {
 	t.Helper()
 	base, _ := queryOf(raw)
 	return base
@@ -143,7 +141,6 @@ func TestReconcileKeepsIdentity(t *testing.T) {
 		{ID: "p3", Name: "parked", Value: "3", Enabled: false},
 	}
 
-	// The URL now says a=1&c=3: b is gone, c is new, and the parked row is not in the URL at all.
 	parsed := []domain.Row{
 		{Name: "a", Value: "1", Enabled: true},
 		{Name: "c", Value: "3", Enabled: true},

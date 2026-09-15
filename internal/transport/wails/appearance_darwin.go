@@ -83,8 +83,7 @@ const (
 	paletteLight
 )
 
-// setWindowAppearance moves the window, and with it the material behind the webview, to a palette.
-// It is one AppKit call and belongs on the main thread, which the caller's InvokeAsync provides.
+// Belongs on the main thread, which the caller's InvokeAsync provides.
 func setWindowAppearance(nsWindow unsafe.Pointer, theme domain.Theme) {
 	C.setAppearance(nsWindow, C.int(paletteOf(theme)))
 }
@@ -95,9 +94,8 @@ func clearWindowOpaque(nsWindow unsafe.Pointer) {
 	C.setWindowOpaque(nsWindow, C.bool(false))
 }
 
-// setWindowMaterial names the frost behind the webview; see the C side for what it is and why the
-// default will not do. The palette it is given is already resolved — "follow the system" is
-// answered before this call — so the material is one line rather than a second decision.
+// See the C side above for why the default material will not do. The theme it takes is already
+// resolved, so «follow the system» was answered before this call.
 func setWindowMaterial(nsWindow unsafe.Pointer, appearance domain.Theme) {
 	C.setWindowMaterial(nsWindow, C.bool(appearance == domain.ThemeDark))
 }

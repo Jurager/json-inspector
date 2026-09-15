@@ -22,8 +22,6 @@ func TestEverySchemeDescribesItself(t *testing.T) {
 				primary++
 			}
 
-			// A scheme with nothing to fill in has to explain itself instead, and one with fields has
-			// no business being empty either.
 			if len(scheme.Fields) == 0 && scheme.Note == "" {
 				t.Error("a scheme with no fields and nothing to say is a blank panel")
 			}
@@ -105,10 +103,8 @@ func TestWithDoesNotReachThrough(t *testing.T) {
 	}
 }
 
-// The answers to the schemes that are not in use are kept. Switching a request from Bearer to Basic
-// and back is one gesture with a question in the middle, and a token that did not survive it would
-// be a token the user has to paste again. A scheme reads only the fields it declares, so what is
-// kept is carried and not used.
+// The answers to the schemes that are not in use are kept: switching a request from Bearer to
+// Basic and back is one gesture, and a token that did not survive it is one to paste again.
 func TestAnswersToOtherSchemesAreKept(t *testing.T) {
 	switched := Auth{Type: AuthBasic, Fields: map[string]string{
 		"token": "left-over", "username": "user",
@@ -123,7 +119,6 @@ func TestAnswersToOtherSchemesAreKept(t *testing.T) {
 		t.Errorf("username = %q, want the answer that was given", normalized.Answer("username"))
 	}
 
-	// And coming back to that scheme finds it: nothing between the two reads takes it away.
 	back := Auth{Type: AuthBearer, Fields: normalized.Fields}.Normalized()
 	if back.Answer("token") != "left-over" {
 		t.Errorf("token = %q, want what was there before the switch", back.Answer("token"))

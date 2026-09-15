@@ -10,8 +10,6 @@ import (
 	"time"
 )
 
-// The releases endpoint: which asset this build is looking for, and how one is fetched.
-
 func releasesURL() string {
 	return fmt.Sprintf("https://api.github.com/repos/%s/%s/releases", repoOwner, repoName)
 }

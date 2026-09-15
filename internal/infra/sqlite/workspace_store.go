@@ -64,12 +64,10 @@ func (s *Store) SaveWorkspace(ctx context.Context, w domain.Workspace) error {
 	return nil
 }
 
-// DeleteWorkspace removes a workspace and everything in it. One statement is enough: every table
-// that belongs to a workspace carries the foreign key — directly or through the row it hangs off —
-// and the cascade takes history, collections, environments, drafts and script runs with it. The
-// vacuum afterwards is what gives the space back: the database is in incremental mode, so a delete
-// on its own only makes pages reusable, and a workspace is the one thing here big enough to be
-// worth handing back.
+// One statement is enough: every table that belongs to a workspace carries the foreign key, and the
+// cascade takes history, collections, environments, drafts and script runs with it. The vacuum is
+// what gives the space back — incremental mode only makes rows reusable, and a workspace is the one
+// thing here big enough to be worth handing back.
 func (s *Store) DeleteWorkspace(ctx context.Context, id string) error {
 	if _, err := s.db.ExecContext(ctx, `DELETE FROM workspaces WHERE id = ?`, id); err != nil {
 		return fmt.Errorf("deleting workspace %s: %w", id, err)

@@ -84,10 +84,8 @@ func (s *Store) SaveRecord(ctx context.Context, workspaceID string, rec domain.R
 	return nil
 }
 
-// Records lists the newest records of one source, or of both when source is empty. Everything but
-// the bodies travels — the list is what the pane draws, and a moment later it is drawn for a record
-// the window has not selected yet, so a second call would be a second wait. Each body comes as its
-// size alone: the viewer knows what it is asking for before it asks.
+// Everything but the bodies travels: the list is drawn for a record the window has not selected
+// yet, so a second call would be a second wait. Each body comes as its size alone.
 func (s *Store) Records(
 	ctx context.Context,
 	workspaceID string,

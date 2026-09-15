@@ -15,11 +15,6 @@ import (
 	"json-inspector/internal/platform"
 )
 
-// fakeStore is the tree without a database: collections in their order, requests in one flat slice,
-// deleted subtrees marked rather than removed. It keeps the two things the use case relies on — a
-// collection nests by parent and its level is the requests and the collections inside it — and a
-// request reads whole while a tree row is shallow.
-//
 // A run writes to it from its own goroutine while a test reads, so the mutex is the fake standing
 // in for the database's own serialisation.
 type fakeStore struct {
@@ -203,11 +198,9 @@ func (f *fakeStore) DeleteNode(_ context.Context, id string) error {
 	return nil
 }
 
-// Scripts answers the way the table does: an id names a collection or a node — the two share one id
-// space — and an id that names neither is not found. A node keeps its scripts on itself, the way
-// the row does; a collection's live beside the tree, because the struct the list draws has no field
-// for them. A level with nothing of its own answers nothing, which is not the same as an empty
-// script.
+// Scripts answers the way the table does: an id names a collection or a node, and a collection's
+// scripts live beside the tree because the struct the list draws has no field for them. A level
+// with nothing of its own answers nothing, which is not the same as an empty script.
 func (f *fakeStore) Scripts(_ context.Context, _ string, id string) (*domain.Scripts, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
@@ -298,8 +291,8 @@ func (f *fakeStore) MoveNode(
 		}
 		from := f.nodes[i].CollectionID
 		f.nodes[i].CollectionID = collectionID
-		f.number(placeAt(f.levelOf(from), "", 0))
-		f.number(placeAt(f.levelOf(collectionID), id, position))
+		f.renumber(placeAt(f.levelOf(from), "", 0))
+		f.renumber(placeAt(f.levelOf(collectionID), id, position))
 		return nil
 	}
 	return domain.ErrNotFound
@@ -321,8 +314,8 @@ func (f *fakeStore) MoveCollection(
 		}
 		from := f.collections[i].ParentID
 		f.collections[i].ParentID = parentID
-		f.number(placeAt(f.levelOf(from), "", 0))
-		f.number(placeAt(f.levelOf(parentID), id, position))
+		f.renumber(placeAt(f.levelOf(from), "", 0))
+		f.renumber(placeAt(f.levelOf(parentID), id, position))
 		return nil
 	}
 	return domain.ErrNotFound
@@ -383,8 +376,7 @@ func placeAt(level []string, moved string, at int64) []string {
 	return out
 }
 
-// number writes a level back numbered from zero, in whichever table each row lives in.
-func (f *fakeStore) number(level []string) {
+func (f *fakeStore) renumber(level []string) {
 	for i, id := range level {
 		for j := range f.nodes {
 			if f.nodes[j].ID == id {

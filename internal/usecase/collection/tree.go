@@ -1,8 +1,5 @@
 package collection
 
-// The tree and the gestures that change its shape: what a collection and a request are made of,
-// where a row sits, and what renaming or dropping one leaves behind.
-
 import (
 	"context"
 	"fmt"

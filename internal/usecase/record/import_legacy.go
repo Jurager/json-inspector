@@ -87,9 +87,9 @@ func (h *legacyHeaders) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
-// ImportLegacy moves the history the old frontend kept in localStorage into the database. It runs
-// once: the claim in data_imports is what makes it once, and a run that failed is retried on the
-// next launch because its rows are the only copy of that history.
+// ImportLegacy moves the old frontend's localStorage history into the database, once: the claim
+// in data_imports is what makes it once, and a failed run is retried on the next launch — those
+// rows are the only copy of that history.
 func (u *UseCase) ImportLegacy(ctx context.Context, raw string) (ImportReport, error) {
 	var report ImportReport
 
@@ -146,7 +146,7 @@ func (u *UseCase) ImportLegacy(ctx context.Context, raw string) (ImportReport, e
 	return report, nil
 }
 
-// parseLegacy reads the old array. A row without a method or a URL is not a request and is skipped;
+// parseLegacy reads the old array. A row without an id or a URL is not a request and is skipped;
 // everything else is carried over as it was stored.
 func parseLegacy(raw string) ([]domain.Record, int, error) {
 	if raw == "" {

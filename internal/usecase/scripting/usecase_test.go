@@ -277,9 +277,8 @@ func pass(nodeID string) domain.ScriptPass {
 	}
 }
 
-// What runs around a request is everything above it, outermost first — the collection's scripts,
-// then the collection's inside it, then the request's own. A level that runs nothing is not in the
-// chain.
+// What runs around a request is everything above it, outermost first; a level that runs nothing
+// is not in the chain.
 func TestTheChainIsEverythingAboveTheRequest(t *testing.T) {
 	uc, _, _, _, _ := newTest()
 
@@ -614,7 +613,6 @@ func TestTheRunScopeBelongsToTheRun(t *testing.T) {
 			seen)
 	}
 
-	// The same request, another run: nothing the first one wrote is there.
 	other := pass("r-1")
 	other.Run = "run-2"
 	found := false

@@ -31,12 +31,10 @@ type Store struct {
 func NewStore(dataDir platform.DataDir) (*Store, error) {
 	path := dataDir.DatabasePath()
 
-	// Pragmas belong in the DSN, not in a db.Exec: foreign_keys applies per connection, and a
-	// pool hands out whichever one is free, so a pragma set once silently stops holding — which
-	// is how every ON DELETE CASCADE below would quietly stop working.
-	//
-	// auto_vacuum only takes effect before the first table exists, which is why it is here from
-	// the first launch: without it, pruning old records would free rows but not disk space.
+	// Pragmas belong in the DSN, not in a db.Exec: foreign_keys applies per connection and a pool
+	// hands out whichever one is free, so a pragma set once silently stops holding — which is how
+	// every ON DELETE CASCADE below would quietly stop working. auto_vacuum only takes effect before
+	// the first table exists: without it, pruning old records would free rows but not disk space.
 	dsn := "file:" + path + "?" + strings.Join([]string{
 		"_pragma=journal_mode(WAL)",
 		"_pragma=foreign_keys(1)",

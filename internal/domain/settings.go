@@ -84,9 +84,7 @@ type Settings struct {
 	HistoryRetention Retention `json:"historyRetention"`
 }
 
-// DefaultSettings is what the app runs with before anyone has changed anything: the theme and the
-// language follow the system, the inspector is closed at its design width, the list sits on the
-// left where the design draws it, and history is kept as it always was.
+// DefaultSettings is what the app runs with before anyone has changed anything.
 func DefaultSettings() Settings {
 	return Settings{
 		Theme:            ThemeSystem,

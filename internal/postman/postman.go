@@ -1,9 +1,6 @@
 // Package postman reads and writes the Postman v2.1 collection format: bytes in, a
 // domain.Collection out, and back again. It is a pure package — no window, no database — so
 // both directions can be tested against a file.
-//
-// This file is the wire shape and the two directions of a credential; the reading and the
-// writing half are one file each beside it.
 package postman
 
 import "encoding/json"
@@ -12,8 +9,7 @@ import "encoding/json"
 // at the JSON.
 const Schema = "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
 
-// document is a collection file.
-type document struct {
+type collectionFile struct {
 	Info info   `json:"info"`
 	Auth *auth  `json:"auth,omitempty"`
 	Item []item `json:"item"`
@@ -24,10 +20,9 @@ type info struct {
 	Schema string `json:"schema,omitempty"`
 }
 
-// item is a row of a collection: a folder holds more, a request is the thing that gets sent. A
-// folder is what this app calls a collection inside one, auth and all — the format has a place for
-// both, and a group that lost its authorization on the way in would be a group that behaved
-// differently here.
+// item is a row of a collection file: a request is the thing that gets sent, a folder holds more.
+// A folder is this app's "collection inside one" and keeps its own auth: a group that lost it on
+// the way in would behave differently here.
 type item struct {
 	Name    string   `json:"name"`
 	Auth    *auth    `json:"auth,omitempty"`
@@ -81,19 +76,15 @@ type body struct {
 	File       *fileField `json:"file,omitempty"`
 }
 
-// fileField is a binary body: where the file is and nothing else. A path and not the bytes, which
-// is what Postman keeps and what this app keeps — a collection file stays a description of the
-// requests in it rather than a copy of everything they send.
+// A path and not the bytes, which is what Postman keeps and what this app keeps: a collection file
+// stays a description of the requests in it rather than a copy of everything they send.
 type fileField struct {
 	Src string `json:"src,omitempty"`
 }
 
 // auth is an authorization as Postman writes it: the scheme's name, and its fields under a key of
-// that same name — `{"type":"bearer","bearer":[{"key":"token","value":"…"}]}`.
-//
-// The fields are a map here and not a struct because they belong to the scheme, and two of the
-// schemes take different fields from the rest. What each key is called on either side is
-// schemes in auths.go, and it is the only place this format and ours disagree.
+// that same name — `{"type":"bearer","bearer":[{"key":"token","value":"…"}]}`. The fields are a map
+// and not a struct because they belong to the scheme, and two schemes differ from the rest.
 type auth struct {
 	Type  string             `json:"type"`
 	Extra map[string][]field `json:"-"`

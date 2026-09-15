@@ -16,9 +16,8 @@ export interface ImportReport {
 }
 
 /**
- * IngestInput is a request this app did not send: one the browser made, as the extension reported
- * it, or one that never left the machine at all. Source says which, and an empty one means the
- * browser — the extension is the only thing that sends one of these from the outside.
+ * IngestInput is a request this app did not send. An empty Source means the browser — the
+ * extension is the only thing that reports one from the outside.
  */
 export interface IngestInput {
     "source": domain$0.RecordSource;
@@ -63,8 +62,7 @@ export interface RequestFailed {
 }
 
 /**
- * RequestFinished carries the record the attempt produced — the same shape history lists, so the
- * window has one type to draw and one place to put it.
+ * RequestFinished carries the record the attempt produced, in the same shape history lists.
  */
 export interface RequestFinished {
     "id": string;

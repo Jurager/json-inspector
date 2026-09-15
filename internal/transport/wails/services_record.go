@@ -34,15 +34,9 @@ func NewRecordsService(
 }
 
 // Send starts the request a draft holds and answers with its id at once. The draft is read here
-// rather than handed in: sending it means resolving its `{{tokens}}`, and a secret's value is on
-// this side of the boundary — handing the window a request to send would mean handing it the
-// secrets in it.
-//
-// The id names which draft: the command line's, or the collection node whose card asked to send —
-// and sending a card's request does not save it, which is a gesture of its own.
-//
-// What comes of the attempt arrives as an event, which is what lets the spinner belong to an id the
-// window can cancel.
+// rather than handed in: sending it resolves its `{{tokens}}`, and a secret's value never crosses
+// to the window. The id names which draft, and sending a card's request does not save it. What
+// comes of it arrives as an event, which is what lets the spinner belong to a cancellable id.
 func (s *RecordsService) Send(ctx context.Context, draftID domain.DraftID) (string, error) {
 	inherits, err := s.inherited(ctx, draftID)
 	if err != nil {
@@ -54,9 +48,8 @@ func (s *RecordsService) Send(ctx context.Context, draftID domain.DraftID) (stri
 	}
 
 	input := recordInput(prepared)
-	// The draft is where the scripts around this request are found: a node of a collection brings the
-	// ones above it, and the command line's draft brings the code of its own. Sending is the gesture
-	// the scripts belong to, whichever of the two it is.
+	// The draft is where the scripts around this request are found: a node brings the ones above it,
+	// the command line brings its own — so the draft's id is the node the run belongs to.
 	input.Node = string(draftID)
 	return s.records.Send(ctx, input)
 }

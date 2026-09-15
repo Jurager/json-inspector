@@ -11,8 +11,6 @@ import (
 	"strings"
 )
 
-// jsonObject is an object whose keys keep the order they were set in, each value held as the JSON
-// text it will be written out as.
 type jsonObject []jsonField
 
 type jsonField struct {
@@ -20,8 +18,7 @@ type jsonField struct {
 	value json.RawMessage
 }
 
-// set puts a value under a key the way building up a request does: a key that is already there
-// keeps its position and takes the new value.
+// Mirrors a plain JS object: a key already set keeps its position and takes the new value.
 func (o *jsonObject) set(key string, value json.RawMessage) {
 	for i := range *o {
 		if (*o)[i].key == key {
@@ -32,7 +29,6 @@ func (o *jsonObject) set(key string, value json.RawMessage) {
 	*o = append(*o, jsonField{key: key, value: value})
 }
 
-// text writes the object out with its keys in the order they were set.
 func (o jsonObject) text() string {
 	var b strings.Builder
 	b.WriteByte('{')

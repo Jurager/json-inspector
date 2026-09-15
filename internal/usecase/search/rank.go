@@ -8,9 +8,8 @@ import (
 )
 
 const (
-	// How many rows a group shows. Two numbers because the two modes are different: every area at
-	// once is a glance and five rows each is what fits under one heading, while a chosen area is a
-	// list the user asked for and deserves the room.
+	// Two numbers because the two modes differ: every area at once is a glance and five rows fit under
+	// one heading, while a chosen area is a list the user asked for and gets the room.
 	perGroupAll = 5
 	perGroupOne = 20
 )

@@ -9,8 +9,7 @@ import (
 	"json-inspector/internal/usecase/settings"
 )
 
-// engineExecutor adapts the HTTP engine to what the records feature asks of it. The two speak
-// different types on purpose: the feature should not have to know how a request leaves the process.
+// Differ on purpose: the records feature must not know how a request leaves the process.
 type engineExecutor struct {
 	engine *httpx.Engine
 }
@@ -32,7 +31,6 @@ func (e engineExecutor) Cancel(id string) bool {
 	return e.engine.Cancel(id)
 }
 
-// settingsRetention answers the one question history has for the settings screen.
 func settingsRetention(uc *settings.UseCase) record.RetentionSource {
 	return record.RetentionSourceFunc(func(ctx context.Context) (domain.Retention, error) {
 		current, err := uc.Snapshot(ctx)

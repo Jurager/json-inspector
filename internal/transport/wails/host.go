@@ -10,10 +10,6 @@ import (
 	"json-inspector/internal/infra/updater"
 )
 
-// Host is the app itself as the services see it: the application handle, the main window, and
-// the events that reach the frontend. It exists because the graph is built before the app is,
-// so everything that has to be looked up rather than held needs a place to be parked.
-
 const (
 	// Must match `protocols:` in build/config.yml, which is what registers the
 	// scheme with the OS (macOS Info.plist, Windows installer registry).
@@ -61,18 +57,14 @@ type Host struct {
 	theme atomic.Value
 	// The language, for the same reason and by the same route: the first frame is already written.
 	language atomic.Value
-	// What the material behind the window has already been tinted with — the palette, as the platform
-	// spells it — and whether it has been told at all. Both are read and written from the request that
-	// saved the choice, and from startup.
+	// What the material behind the window has already been tinted with, as the platform spells it,
+	// and whether it was told at all.
 	tinted            atomic.Bool
 	appliedAppearance atomic.Value
-	// Events raised before the window can take them: the update check runs at startup and a
-	// deep link can arrive before the frontend has mounted, and both describe state the
-	// window has to be told about anyway. The latest of each wins — an earlier tab doesn't
-	// need reopening — and MarkReady plays them back.
-	pendingTab    int
-	pendingUpdate *updater.Info
-	// A check requested for the About window before it existed; taken by TakeUpdateCheckRequest.
+	// Raised before the window can take an event: a deep link can arrive before the frontend mounts.
+	// The latest of each wins, and MarkReady plays them back.
+	pendingTab         int
+	pendingUpdate      *updater.Info
 	pendingUpdateCheck bool
 }
 
@@ -83,9 +75,9 @@ func NewHost() *Host {
 	return host
 }
 
-// SetLanguage is the one writer of the language. Unlike the theme it has nothing to re-tint: the
-// window that is already open redraws on the broadcast, and this is only what the next window's URL
-// will carry. The choice is stored unresolved — "system" is a question for the webview.
+// SetLanguage has nothing to re-tint, unlike the theme: the open window redraws on the broadcast,
+// and this is only what the next window's URL carries. Stored unresolved — «system» is the
+// webview's.
 func (h *Host) SetLanguage(language domain.Language) {
 	h.language.Store(string(language))
 }

@@ -15,7 +15,7 @@ type Entry struct {
 	Secret bool   `json:"secret"`
 }
 
-// secretHint marks names that usually hold credentials: TOKEN, SECRET, PASSWORD, KEY, AUTH.
+// secretHint guesses, from the name alone, which entries hold credentials.
 var secretHint = regexp.MustCompile(`(?i)(TOKEN|SECRET|PASSWORD|KEY|AUTH)`)
 
 // Parse reads `KEY=value` lines, one per line. Blank lines and `#` comments are skipped, an

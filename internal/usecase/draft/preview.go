@@ -7,10 +7,8 @@ import (
 	"json-inspector/internal/domain"
 )
 
-// Preview is what the command line draws and cannot work out from the draft alone: which of its
-// `{{tokens}}` mean nothing. Whether the request can go out follows from that and from a URL the
-// window itself is holding, so there is no verdict here — only what the window cannot see for
-// itself.
+// Preview is what the command line cannot work out from the draft alone: which of its `{{tokens}}`
+// mean nothing. There is no verdict here — the rest follows from this and a URL the window holds.
 type Preview struct {
 	Missing []string `json:"missing"`
 }
@@ -44,16 +42,11 @@ func collect(d domain.Draft) parts {
 	return out
 }
 
-// texts lists the parts in the order a resolver answers them — a header contributes its name and
-// then its value — which is the same order putBack reads the answers back in.
-//
-// The parameters are not here: they are in the URL, which is where they became rows from in the
-// first place. The answers to the authorization's fields are here last, and they are put back: one
-// of them is what becomes the Authorization header, and a `{{token}}` in any of them has to be
-// filled in like any other text.
-//
-// The fields are walked in the order the scheme declares them and not in map order, which is random
-// in Go: texts and putBack have to agree on the list, and a map would shuffle it under them.
+// The parts in the order a resolver answers them, which is the order putBack reads them back in.
+// Parameters are not here: they live in the URL. Auth fields go in scheme order, not map order —
+// which is random in Go — because texts and putBack have to agree on the list. The answers to the
+// authorization's fields are here last, and they are put back: one of them is what becomes the
+// Authorization header, and a `{{token}}` in any of them has to be filled in like any other text.
 func (p parts) texts() []string {
 	keys := domain.FieldKeys(p.auth.Type)
 	out := make([]string, 0, 4+3*len(p.form)+2*len(p.headers)+len(keys))

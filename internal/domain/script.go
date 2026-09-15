@@ -63,13 +63,12 @@ type ScriptRequest struct {
 	BodyKind BodyKind `json:"bodyKind,omitempty"`
 }
 
-// ScriptPass is one attempt as the scripts around it see it: which run it belongs to — the scope
-// the run's own variables live in — which record the reports are written against, which node of the
-// tree the request came from, and the request itself, which a pre-request script may change.
+// ScriptPass is one attempt as the scripts around it see it: the run it belongs to, the record
+// the reports are written against, the node the request came from, and the request itself, which
+// a pre-request script may change.
 //
-// The type is not the wire's: it is the shape two features hand each other inside the app, which is
-// why it has no tags. The feature that sends a request builds it, the feature that runs scripts
-// reads it, and neither imports the other.
+// No tags: it is the shape two features hand each other inside the app, so neither imports the
+// other.
 type ScriptPass struct {
 	Run      string
 	RecordID string

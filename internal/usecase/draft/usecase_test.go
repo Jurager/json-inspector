@@ -205,7 +205,6 @@ func (f *fakeAuth) Obtain(context.Context, domain.Auth) error { return nil }
 func (f *fakeAuth) Forget(domain.Auth)                        {}
 func (f *fakeAuth) Held(domain.Auth) domain.AuthToken         { return f.token }
 
-// last is the most recent question, which is the once a test that prepares one request has.
 func (f *fakeAuth) last() domain.Auth {
 	if len(f.asked) == 0 {
 		return domain.Auth{}
@@ -271,7 +270,6 @@ func TestSetTextURLDrivesTheRows(t *testing.T) {
 	}
 	first, second := result.Draft.Params[0].ID, result.Draft.Params[1].ID
 
-	// The user edits the text: y becomes z, and x stays where it was.
 	result, err = uc.SetText(ctx, domain.DraftCommandLine,
 		TextInput{Field: FieldURL, Text: "/a?x=1&z=3", Rev: 5})
 	if err != nil {

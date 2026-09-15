@@ -99,9 +99,8 @@ var (
 	preludeOnce sync.Once
 )
 
-// prelude is the pm API, compiled once. It is the same file for every run, and a collection of
-// fifty requests would otherwise parse it fifty times — and a Program is safe to run in many
-// runtimes, because compiling it does not tie it to one.
+// The prelude is compiled once: it is the same file for every run, and a collection of fifty
+// requests would otherwise parse it fifty times. A Program stays safe to run in many runtimes.
 func preludeProgram() (*goja.Program, error) {
 	preludeOnce.Do(func() { prelude, preludeErr = goja.Compile("prelude.js", preludeSource, false) })
 	if preludeErr != nil {

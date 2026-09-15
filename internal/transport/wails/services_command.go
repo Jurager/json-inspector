@@ -7,14 +7,10 @@ import (
 	"json-inspector/internal/usecase/draft"
 )
 
-// CommandService is the one half of the command boundary that does not belong to the draft:
-// writing a recorded request back out as a command a person can carry away. The other half —
-// reading a pasted command and handing it to the draft — is a draft call, because that is what it
-// does.
-//
-// The rendering itself is a pure function of internal/usecase/draft. What cannot be done there is
-// done here: a command resolves `{{tokens}}` with a secret left masked, and the values that would
-// resolve it never reach the window.
+// CommandService is the half of the command boundary that is not the draft: rendering a recorded
+// request as a command a person can carry away. The rendering itself is a pure function of
+// internal/usecase/draft; what cannot be done there is done here, because a command resolves
+// `{{tokens}}` with secrets left masked, and the values behind them never reach the window.
 type CommandService struct {
 	records recordSource
 	vars    variableSource
@@ -66,14 +62,10 @@ func (s *CommandService) Export(
 	return draft.RenderCommand(format, seed), nil
 }
 
-// substitute is the guard the export does not expect to need. A record is written with its secrets
-// already masked — prepare.go stores the hidden half of the substitution, not the raw one — so
-// there is normally no `{{token}}` left in one to resolve. It runs all the same, because what it
-// protects is the one rule this whole path exists for: a value never leaves as itself. A record
-// that somehow still held a token leaves as the mask rather than as `{{token}}`.
-//
-// Every text the command is made of goes at once: resolving them together is what keeps a value
-// that appears in two of them the same value in both.
+// substitute is a guard the export does not expect to need: a record is stored with its secrets
+// already masked — prepare.go stores the hidden half of the substitution — so no `{{token}}` is
+// normally left to resolve. It runs anyway, because a value must never leave as itself. All texts
+// go at once, so a value appearing in two of them stays the same value in both.
 func (s *CommandService) substitute(ctx context.Context, seed *draft.Seed) error {
 	texts := []string{seed.URL, seed.Body}
 	for _, header := range seed.Headers {

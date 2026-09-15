@@ -10,12 +10,11 @@ import (
 	"json-inspector/migrations"
 )
 
-// The fixtures every store test builds on: one workspace's worth of rows, and the two constructors
-// that make a record or a draft look like something a person sent. They live together because they
-// are shared — a test that needed its own would be a test about the fake rather than about SQL.
+// Shared fixtures live together: a test that built its own would be a test about the fake rather
+// than about SQL.
 
-// nested and request build the two rows a level holds the way a use case does, so the fixtures read
-// like a real tree instead of a list of struct literals.
+// nested builds a row the way a use case does, so the fixtures read like a real tree rather than a
+// list of struct literals.
 func nested(id, parentID string, position int64, name string) domain.Collection {
 	return domain.Collection{
 		ID: id, ParentID: parentID, Name: name, Position: position,
@@ -42,9 +41,8 @@ func sampleNode(
 	}
 }
 
-// seedTree writes one collection with a collection inside it, a request inside that one and a
-// request at the top, which is every shape the tree has to keep straight: the nested collection and
-// the request at the top share one number line, which is what makes them one list on screen.
+// The shapes the tree has to keep straight: a nested collection and a top-level request share one
+// number line, which is what makes them one list on screen.
 func seedTree(t *testing.T, store *Store) {
 	t.Helper()
 	ctx := context.Background()
@@ -163,8 +161,7 @@ func ids(rows []domain.Record) []string {
 	return out
 }
 
-// findHit is one row of an answer by its id, so that a test reads as the row it is asking about
-// than as a position in a list the database ordered.
+// A row is found by id, so a test reads as the row it asks about, not as a position in a list.
 func findHit(t *testing.T, hits []domain.SearchHit, id string) domain.SearchHit {
 	t.Helper()
 	for _, h := range hits {

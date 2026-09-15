@@ -17,8 +17,7 @@ type UseCase struct {
 	notifier Notifier
 	ids      platform.IDGen
 
-	// A run holds the tree for as long as it lasts, and only one runs at a time: two of them would
-	// write their rows into the same overview.
+	// Only one run at a time: two of them would write their rows into the same overview.
 	running atomic.Bool
 	stopped atomic.Bool
 }

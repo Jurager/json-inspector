@@ -8,18 +8,13 @@ import (
 	"json-inspector/internal/domain"
 )
 
-// Writing a collection: this app's tree becomes a Postman item tree.
-
-// Export writes what it is given as a collection file: a whole collection, or a single request when
-// the collection holds one — the design exports one from the context menu, and a file with one item
-// is what Postman expects to be handed.
-//
-// Tokens stay tokens: a `{{name}}` is written as the text it is, and no value behind it is written
-// anywhere. That is not a rule this function enforces — the app never gives it a value to write.
+// Export writes a collection as a file: the whole collection, or the one request the context
+// menu exports — one item is what Postman expects to be handed. Tokens are written as written:
+// a `{{name}}` stays text, and no value behind it ever reaches a file.
 func Export(collection domain.Collection) ([]byte, error) {
-	doc := document{
+	doc := collectionFile{
 		Info: info{Name: collection.Name, Schema: Schema},
-		Item: exported(collection),
+		Item: exportLevel(collection),
 	}
 	if collection.Auth != nil {
 		doc.Auth = exportedAuth(*collection.Auth)
@@ -31,9 +26,9 @@ func Export(collection domain.Collection) ([]byte, error) {
 	return append(data, '\n'), nil
 }
 
-// exported writes a level the way the file keeps it: the requests and the collections inside
+// exportLevel writes a level the way the file keeps it: the requests and the collections inside
 // them in one list, in the order the tree draws them.
-func exported(collection domain.Collection) []item {
+func exportLevel(collection domain.Collection) []item {
 	out := make([]item, 0, len(collection.Items)+len(collection.Children))
 	for _, entry := range collection.Level() {
 		if entry.Collection != nil {
@@ -41,7 +36,7 @@ func exported(collection domain.Collection) []item {
 			if entry.Collection.Auth != nil {
 				group.Auth = exportedAuth(*entry.Collection.Auth)
 			}
-			group.Item = exported(*entry.Collection)
+			group.Item = exportLevel(*entry.Collection)
 			out = append(out, group)
 			continue
 		}
@@ -80,12 +75,9 @@ func exportedRequest(node domain.CollectionNode) *request {
 	return out
 }
 
-// exportedBody is the body as the file keeps it, in the mode that describes it.
-//
-// json, xml and raw all leave as `raw`: Postman has nowhere to record which of the three a
-// body was, and writing an `options.raw.language` this reader does not honour would be a promise
-// the next import would break. A form and a file do survive the trip, because Postman has a shape
-// for each.
+// json, xml and raw all leave as `raw`: Postman has nowhere to record which of the three a body
+// was, and an `options.raw.language` this reader does not honour would be a promise the next
+// import breaks. A form and a file survive the trip — Postman has a shape for each.
 func exportedBody(node domain.CollectionNode) *body {
 	switch domain.KindOf(node.BodyKind) {
 	case domain.BodyForm:
@@ -112,12 +104,9 @@ func exportedBody(node domain.CollectionNode) *body {
 	}
 }
 
-// exportedAuth is the app's auth written the way the file format wants it. Every field the scheme
-// declares is written, empty or not: a file is read by other people's tools, and a field that is
-// missing reads as one that does not exist rather than one nobody filled in.
-//
-// The fields are written in the order the scheme declares them, which is the order Postman itself
-// draws them in.
+// Every field the scheme declares is written, empty or not: other people's tools read the file,
+// and a missing field reads as one that does not exist rather than one nobody filled in. The
+// order is the scheme's own, which is the order Postman draws the fields in.
 func exportedAuth(from domain.Auth) *auth {
 	written, ok := schemes[from.Type]
 	if !ok {

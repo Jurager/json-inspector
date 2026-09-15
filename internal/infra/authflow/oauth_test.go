@@ -13,8 +13,7 @@ import (
 )
 
 // spyTokenEndpoint is a provider's token endpoint that remembers what it was asked: half of what
-// these tests are about is what the request carried, and only the endpoint can say. It answers the
-// one shape every provider answers in — an access token and how long it is good for.
+// these tests are about is what the request carried, and only the endpoint can say.
 type spyTokenEndpoint struct {
 	got    []map[string]string
 	auth   []string
@@ -236,7 +235,6 @@ func TestDrawingDoesNotAskForAToken(t *testing.T) {
 		t.Fatalf("the endpoint was asked %d times, want none", len(endpoint.got))
 	}
 
-	// Once there is one, drawing shows it — without asking again.
 	if _, err := materializer.Materialize(context.Background(), auth,
 		domain.AuthRequest{}); err != nil {
 		t.Fatalf("Materialize: %v", err)
@@ -354,7 +352,7 @@ func TestObtainAsksWithoutSendingAnything(t *testing.T) {
 		t.Errorf("the endpoint was asked %d times, want once", len(endpoint.got))
 	}
 
-	// An answer that changed makes the old token stale, so asking again goes and asks again.
+	// An answer that changed makes the old token stale, so the next Obtain reaches the provider.
 	if err := materializer.Obtain(context.Background(), auth.With("scope", "more")); err != nil {
 		t.Fatalf("Obtain: %v", err)
 	}

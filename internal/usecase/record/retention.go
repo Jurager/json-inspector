@@ -8,8 +8,8 @@ import (
 	"json-inspector/internal/domain"
 )
 
-// How much history is kept. The count is what has always applied; the age window is the
-// setting on top of it. Both are per workspace: a busy space must not eat a quiet one.
+// The count is what has always applied; the age window is the setting on top of it. Both are
+// per workspace: a busy space must not eat a quiet one.
 
 // KeepCount is how many records history holds. The design puts the age window in settings; this is
 // the count that has always applied, and it stays because a burst of captures has no age to judge.
@@ -19,9 +19,8 @@ const KeepCount = 200
 // long session cannot grow without bound, rarely enough that it is not a query per request.
 const pruneEvery = 20
 
-// Prune applies the retention rules to the workspace on screen: the count that has always applied,
-// and the age window the settings screen offers on top of it. The rules are per workspace, so a
-// space nobody has opened in a month keeps what it holds until it is opened again.
+// Prune applies the count and the age window to the workspace on screen. The rules are per
+// workspace, so a space nobody has opened in a month keeps what it holds until it is opened.
 func (u *UseCase) Prune(ctx context.Context) (int, error) {
 	workspace, err := u.scope.ActiveWorkspace(ctx)
 	if err != nil {

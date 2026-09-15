@@ -7,8 +7,6 @@ import (
 	"json-inspector/internal/domain"
 )
 
-// fromCurl reads a curl command. It is the richest of the five: curl needs the most flags before
-// the URL, and it is the one that can turn data into a query string, a form body or an upload.
 func fromCurl(tokens []string) (pendingRequest, CommandReason) {
 	var method optString
 	var explicitURL optString
@@ -132,11 +130,9 @@ func fromCurl(tokens []string) (pendingRequest, CommandReason) {
 		}
 	}
 
-	// A credential written as a header is the same request as one written as a flag, and writing it
-	// as a header is what every tool actually does — devtools copies `-H 'Authorization: Bearer …'`
-	// and never `-u`. A header left as a header would mean the Auth chip never learns what a pasted
-	// request authorizes itself with. It wins over a flag, which is the same precedence a written
-	// header has always had over a scheme.
+	// A header is what every tool actually writes — devtools copies `-H 'Authorization: …'` and never
+	// `-u` — and left as a header the chip would never learn what the request authorizes itself with.
+	// It wins over a flag, the precedence a written header has always had over a scheme.
 	entries, auth = writtenAuth(entries, auth)
 
 	body := strings.Join(data, "&")
@@ -166,13 +162,10 @@ func fromCurl(tokens []string) (pendingRequest, CommandReason) {
 	return result, ""
 }
 
-// writtenAuth takes a credential written as an `Authorization` header out of the entries and
-// answers with the scheme it is. The row goes with it: the chip owns the credential from then on,
-// and a row left beside the scheme would win over it — a written header is what goes out — so
-// editing the chip would do nothing.
-//
-// A scheme the app cannot rebuild out of a header stays the header it is: Digest's value holds no
-// password to put in the field, and Negotiate and NTLM have no fields at all.
+// The row goes with the credential: left beside the scheme it would win over it, since a written
+// header is what goes out, and editing the chip would then do nothing. A scheme that cannot be
+// rebuilt from a header — Digest, Negotiate, NTLM — stays the header it is: Digest holds no
+// password to put in a field, and Negotiate and NTLM have no fields at all.
 func writtenAuth(entries []headerEntry, auth *domain.Auth) ([]headerEntry, *domain.Auth) {
 	for i, e := range entries {
 		if !strings.EqualFold(e.name, "Authorization") {
@@ -189,7 +182,6 @@ func writtenAuth(entries []headerEntry, auth *domain.Auth) ([]headerEntry, *doma
 	return entries, auth
 }
 
-// authFromHeader reads one `Authorization` value as a scheme with its answers filled in.
 func authFromHeader(value string) (*domain.Auth, bool) {
 	name, rest, found := strings.Cut(strings.TrimSpace(value), " ")
 	if !found {
@@ -214,8 +206,8 @@ func authFromHeader(value string) (*domain.Auth, bool) {
 	return nil, false
 }
 
-// decodeBase64 reads the credential a Basic header carries. The padding is optional in practice —
-// both spellings are written by clients in the wild — so both are tried.
+// A Basic credential's padding is optional in practice — both spellings are written by clients in
+// the wild — so both are tried.
 func decodeBase64(s string) (string, error) {
 	if raw, err := base64.StdEncoding.DecodeString(s); err == nil {
 		return string(raw), nil
@@ -227,7 +219,6 @@ func decodeBase64(s string) (string, error) {
 	return string(raw), nil
 }
 
-// joinForm writes the -F pairs as one urlencoded body.
 func joinForm(forms []headerEntry) string {
 	parts := make([]string, 0, len(forms))
 	for _, f := range forms {

@@ -215,10 +215,8 @@ func (u *UseCase) attempt(
 	return result
 }
 
-// requestFrom turns a node into what goes out: the rows a person switched on, the jar beside them,
-// and the authorization the levels above it answered with. The URL is the request's own — a query
-// string is a URL's rows, not a second copy of them — so the parameters travel for the record and
-// do not rewrite the address.
+// The URL is the request's own — a query string is a URL's rows, not a second copy of them — so
+// the parameters travel for the record and do not rewrite the address.
 func requestFrom(
 	workspace string,
 	node domain.CollectionNode,
@@ -254,13 +252,9 @@ type runnable struct {
 	auth *domain.Auth
 }
 
-// requestsUnder lists what a run walks, in the order the tree draws it: depth first, so a
-// collection is followed by what is inside it. A request is a list of one, which is why running a
-// single saved request and running a collection are the same call — and a collection inside a
-// collection is run by its own id, which is what running it on its own means.
-//
-// A node the collection does not have is not an empty run: it is a node the window knows and this
-// tree does not, which is a deletion it has not heard about yet.
+// A request is a list of one, so running a saved request and running a collection are the same
+// call. A node the collection does not have is a deletion the window has not heard about yet, not
+// an empty run.
 func requestsUnder(collection domain.Collection, nodeID string) ([]runnable, error) {
 	if nodeID == "" || nodeID == collection.ID {
 		return requestsIn(collection, nil), nil
@@ -275,8 +269,8 @@ func requestsUnder(collection domain.Collection, nodeID string) ([]runnable, err
 	return []runnable{{node: node, auth: answerOf(node.Auth, answerOf(collection.Auth, nil))}}, nil
 }
 
-// requestsIn walks a level in the order it is drawn, carrying the answer of the levels above: a
-// collection's requests come first or after the collections inside it depending on where they sit.
+// The order is the level's own, not requests-then-collections, and the answer of the levels above
+// is carried down.
 func requestsIn(collection domain.Collection, inherited *domain.Auth) []runnable {
 	at := answerOf(collection.Auth, inherited)
 

@@ -1,8 +1,5 @@
 package draft
 
-// What the reader builds and the small rules around it: how a header argument is cut, how a
-// repeated header folds, and what a command's credential comes to.
-
 import (
 	"regexp"
 	"strings"
@@ -26,20 +23,15 @@ type pendingRequest struct {
 	auth    *domain.Auth
 }
 
-// seed is the request as the draft takes one — the same shape a followed link and a saved request
-// come in as.
 func (p pendingRequest) seed() Seed {
 	return Seed{
 		Method: p.method, URL: p.url, Headers: foldHeaders(p.entries), Body: p.body, Auth: p.auth,
 	}
 }
 
-// foldHeaders collapses entries into a header list. A name that repeats keeps the position of its
-// first occurrence and takes the value of its last — the two `-H 'Accept: …'` a command wrote
-// twice are one header, and the last one is the one that would have been sent.
-//
-// Cookie is the exception: those are collected apart and leave as one joined header, appended last,
-// because a request carries one Cookie header however many times it was written.
+// A repeated name keeps the position of its first occurrence and takes the value of its last —
+// the last is the one that would have been sent. Cookie is the exception: a request carries one
+// however many times it was written, so they leave as one joined header, appended last.
 func foldHeaders(entries []headerEntry) []domain.HeaderPair {
 	var order []string
 	byKey := map[string]headerEntry{}
@@ -68,7 +60,6 @@ func foldHeaders(entries []headerEntry) []domain.HeaderPair {
 	return out
 }
 
-// headerSeparatorRe is /[:;]/: a header argument is cut at the first colon or semicolon.
 var headerSeparatorRe = regexp.MustCompile("[:;]")
 
 // parseHeaderArg splits one header argument. A string with no separator is a name with an empty
@@ -107,11 +98,9 @@ func splitCredential(raw string) (string, string) {
 	return login, password
 }
 
-// basicScheme, digestScheme and bearerScheme are what a command's credential is in this app: an
-// answer of a scheme rather than a header it happens to look like, so that the Auth chip shows what
-// the command asked for and the answers stay editable. A command writes a credential either way —
-// `-u`, `--oauth2-bearer`, or an `Authorization` header, which is what a tool copying a request out
-// of a browser writes — and both come to one of these. See writtenAuth for the header.
+// A credential a command carries becomes a scheme rather than the header it looks like, so the Auth
+// chip shows what the command asked for and the answers stay editable. See writtenAuth for a
+// credential written as an `Authorization` header.
 func basicScheme(user, password string) *domain.Auth {
 	auth := domain.NewAuth(domain.AuthBasic).With("username", user).With("password", password)
 	return &auth
@@ -127,7 +116,6 @@ func bearerScheme(token string) *domain.Auth {
 	return &auth
 }
 
-// appendQuery adds a query string to a URL that may already carry one.
 func appendQuery(url, query string) string {
 	if query == "" {
 		return url

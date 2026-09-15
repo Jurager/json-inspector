@@ -289,7 +289,6 @@ func TestRepeatedHeadersBothSurvive(t *testing.T) {
 	}
 }
 
-// TestBodyCap truncates instead of buffering whatever the server sends, and says so.
 func TestBodyCap(t *testing.T) {
 	const cap int64 = 1024
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -314,8 +313,6 @@ func TestBodyCap(t *testing.T) {
 	}
 }
 
-// TestCancelStopsOneRequest checks the per-id cancellation: only the request named is stopped, and
-// the engine forgets it afterwards.
 func TestCancelStopsOneRequest(t *testing.T) {
 	release := make(chan struct{})
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -336,7 +333,6 @@ func TestCancelStopsOneRequest(t *testing.T) {
 		done <- engine.Do(context.Background(), Spec{ID: "slow", Method: http.MethodGet, URL: srv.URL})
 	}()
 
-	// Wait until the request is registered, then cancel it.
 	deadline := time.Now().Add(2 * time.Second)
 	for {
 		engine.mu.Lock()
@@ -465,7 +461,6 @@ func TestCookieJarIsOptIn(t *testing.T) {
 	})
 }
 
-// TestProxyIsUsed puts a proxy in the way and checks the request really goes through it.
 func TestProxyIsUsed(t *testing.T) {
 	var seen atomic.Int32
 	target := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -495,7 +490,6 @@ func TestProxyIsUsed(t *testing.T) {
 	}
 }
 
-// TestRequestHeadersAreSent is the plain contract: what the caller lists is what the server sees.
 func TestRequestHeadersAreSent(t *testing.T) {
 	var got http.Header
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -528,8 +522,6 @@ func TestRequestHeadersAreSent(t *testing.T) {
 	}
 }
 
-// TestBadURLIsReportedNotPanicked keeps a mistyped URL a message in the response rather than a
-// crash in the app.
 func TestBadURLIsReportedNotPanicked(t *testing.T) {
 	res := send(newTestEngine(t, Config{}), http.MethodGet, "not a url at all", nil, "")
 	if res.Error == "" {
@@ -540,10 +532,9 @@ func TestBadURLIsReportedNotPanicked(t *testing.T) {
 	}
 }
 
-// The engine sends the body it is handed and decides nothing else about it. Every Content-Type in
-// this app is chosen a layer up, where the body's format and the user's own header are both
-// visible; an engine that helped would be a second opinion nobody asked for, and one that could not
-// see either of them.
+// Every Content-Type in this app is chosen a layer up, where the body's format and the user's own
+// header are both visible. An engine that helped would be a second opinion nobody asked for — and
+// one that could not see either of them.
 func TestTheEngineSendsTheBodyItIsGiven(t *testing.T) {
 	var (
 		got  string
@@ -571,7 +562,6 @@ func TestTheEngineSendsTheBodyItIsGiven(t *testing.T) {
 		t.Errorf("Content-Type = %q, want the engine to have invented none", kind)
 	}
 
-	// And a header it was given goes out as given, without a second one beside it.
 	res = send(engine, http.MethodPost, srv.URL,
 		map[string]string{"Content-Type": "application/vnd.api+json"}, "{}")
 	if res.Error != "" {

@@ -187,7 +187,8 @@ func TestAssertions(t *testing.T) {
 			message: "у значения нет свойства name",
 		},
 		{
-			// Свойство, которое есть, но не то, — другой разговор, и сообщение говорит именно о нём.
+			// A property that exists but holds another value is a different
+			// failure, and the message says so.
 			what:    "property со значением",
 			passes:  `pm.expect({id: '1'}).to.have.property('id', '1')`,
 			fails:   `pm.expect({id: '1'}).to.have.property('id', '2')`,

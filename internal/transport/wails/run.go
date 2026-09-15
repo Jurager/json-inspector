@@ -9,12 +9,9 @@ import (
 	"json-inspector/internal/usecase/record"
 )
 
-// collectionSender is a saved request of a run, sent the way the command line sends one: through
-// the draft, which fills in the `{{tokens}}` and keeps a secret's value out of what is written
-// down, and then through the history, which records it.
-//
-// This is the whole reason the run feature does not know about either: it hands over a request and
-// gets back what came of it.
+// collectionSender sends a run's request the way the command line does: through the draft, which
+// fills in the `{{tokens}}` and keeps a secret out of what is written down, and then through the
+// history. It is why the run feature knows about neither.
 type collectionSender struct {
 	drafts  *draft.UseCase
 	records *record.UseCase

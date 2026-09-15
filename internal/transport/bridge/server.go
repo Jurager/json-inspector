@@ -96,7 +96,7 @@ func (s *Server) Shutdown(ctx context.Context) error {
 // Broadcast tells every connected window what just happened. The writes happen outside the lock:
 // a socket whose peer has stopped reading blocks until the TCP window fills, and holding the lock
 // across that would stop every other client — and Shutdown, which needs the same lock — until it
-// drained. Sending is best-effort either way, so a client that went away is skipped.
+// drained. Sending is best-effort either way.
 func (s *Server) Broadcast(payload []byte) {
 	s.mu.Lock()
 	clients := make([]*websocket.Conn, 0, len(s.clients))

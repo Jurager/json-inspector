@@ -39,8 +39,6 @@ func TestPlaceAtCountsTheLevelAsItLooks(t *testing.T) {
 			moved: "a", at: 2, want: []string{"b", "a", "c"},
 		},
 		{
-			// Index 1 is the place before the second row: dropped there, the last row lands right after
-			// the first one.
 			name: "a row dropped after the row in front of it", level: at("a", "b", "c"),
 			moved: "c", at: 1, want: []string{"a", "c", "b"},
 		},
@@ -95,8 +93,8 @@ func TestMoveNodeLandsWhereTheIndexPoints(t *testing.T) {
 			t.Fatalf("SaveNode: %v", err)
 		}
 	}
-	// The level is f-1 (0), r-2 (1), r-3 (2). The request stands first among the requests and is
-	// dropped after the one behind it: the index counts the row that is moving.
+	// The level is f-1 (0), r-2 (1), r-3 (2); r-2 is dropped at 3, and the index counts the
+	// moving row.
 	if err := store.MoveNode(ctx, ws, "r-2", "col-1", 3); err != nil {
 		t.Fatalf("MoveNode: %v", err)
 	}

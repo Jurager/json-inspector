@@ -89,14 +89,13 @@ type Record struct {
 	Cancelled bool `json:"cancelled,omitempty"`
 	// The phases, in microseconds, absent when they did not happen: a captured request carries only
 	// what the page could time, and a repeat to a server it is already talking to dials nothing.
-	DNSUs         *int64 `json:"dnsUs,omitempty"`
-	ConnectUs     *int64 `json:"connectUs,omitempty"`
-	TLSUs         *int64 `json:"tlsUs,omitempty"`
-	WaitUs        *int64 `json:"waitUs,omitempty"`
-	DownloadUs    *int64 `json:"downloadUs,omitempty"`
-	RequestBytes  int64  `json:"requestBytes,omitempty"`
-	ResponseBytes int64  `json:"responseBytes,omitempty"`
-	// Headers, cookies and bodies of the request and the answer.
+	DNSUs           *int64       `json:"dnsUs,omitempty"`
+	ConnectUs       *int64       `json:"connectUs,omitempty"`
+	TLSUs           *int64       `json:"tlsUs,omitempty"`
+	WaitUs          *int64       `json:"waitUs,omitempty"`
+	DownloadUs      *int64       `json:"downloadUs,omitempty"`
+	RequestBytes    int64        `json:"requestBytes,omitempty"`
+	ResponseBytes   int64        `json:"responseBytes,omitempty"`
 	RequestHeaders  []HeaderPair `json:"requestHeaders"`
 	ResponseHeaders []HeaderPair `json:"responseHeaders"`
 	RequestCookies  []CookieRow  `json:"requestCookies,omitempty"`

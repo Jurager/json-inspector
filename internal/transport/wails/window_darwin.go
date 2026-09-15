@@ -38,12 +38,10 @@ func appearanceFor(theme domain.Theme) domain.Theme {
 	return domain.ThemeLight
 }
 
-// prepareGlassWindow lets the material through. Wails gives a translucent window its vibrancy view
-// but never clears the window's own opaque flag — only its "transparent" backdrop does that, and
-// this project does not use it — and an opaque window is drawn as a panel, with the material
-// flattened into it: the chrome then sits on the system's window colour instead of on the desktop.
-// That is a gap in the window options, so the flag is cleared here; it goes to the main thread for
-// the same reason the re-tint does.
+// prepareGlassWindow lets the material through: Wails gives a translucent window its vibrancy view
+// but never clears the window's own opaque flag — only its "transparent" backdrop does, which this
+// project does not use — and an opaque window flattens the material into a panel. A gap in the
+// window options, so the flag is cleared here, on the main thread for the same reason retint is.
 func prepareGlassWindow(window *application.WebviewWindow, theme domain.Theme) {
 	if window == nil || !glassShows() {
 		return
@@ -59,13 +57,10 @@ func prepareGlassWindow(window *application.WebviewWindow, theme domain.Theme) {
 	})
 }
 
-// retintWindow moves the material behind a window that already exists to another palette. macOS
-// takes a window's appearance once, when it is created — this version of Wails has no setter for
-// it — so without this a theme switched while the app runs would leave the vibrancy tinted the
-// other way until the next launch, with the page already in the new palette.
-//
-// The native handle is asked for on the main thread rather than here: a window closed in between
-// would otherwise be a dangling pointer by the time the call lands.
+// retintWindow moves the material behind an existing window to another palette: macOS takes a
+// window's appearance once, at creation, and this Wails has no setter — without this a theme
+// switched at runtime would leave the vibrancy tinted the other way until the next launch. The
+// native handle is asked for on the main thread, so a window closed in between cannot dangle.
 func retintWindow(window *application.WebviewWindow, theme domain.Theme) {
 	if window == nil {
 		return

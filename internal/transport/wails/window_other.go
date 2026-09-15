@@ -8,17 +8,14 @@ import (
 	"json-inspector/internal/domain"
 )
 
-// glassShows reports whether this machine draws a material behind the window. Linux has none: a
-// compositor may blur what is behind a window, but nothing here asks it to, and a window showing
-// the desktop through it would read as a mistake rather than as glass. The window stays opaque and
-// the glass is the CSS the chrome paints — the same fill and blur, with nothing real behind it.
+// glassShows is false: Linux has no material to show. A compositor may blur what is behind a
+// window, but nothing here asks it to, and a window showing the desktop through would read as a
+// mistake. The glass here is the CSS the chrome paints.
 func glassShows() bool {
 	return false
 }
 
-// systemIsDark says which way the system's own theme points, for the "follow the system" setting.
-// Only the Windows window needs the answer: the material there has two palettes and has to be told
-// which, while this platform draws no material at all.
+// systemIsDark is false here: only the Windows material has two palettes and has to be told which.
 func systemIsDark() bool {
 	return false
 }

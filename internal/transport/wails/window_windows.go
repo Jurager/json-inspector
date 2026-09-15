@@ -9,11 +9,9 @@ import (
 	"json-inspector/internal/domain"
 )
 
-// glassShows reports whether this machine draws a material behind the window. Acrylic needs Windows
-// 11 22621 or later: below that the platform has only a blur-behind with no tint of its own — a
-// different material, not a degraded one — and a window showing the desktop through it would read
-// as a mistake rather than as glass. There the window stays opaque and the chrome is the CSS
-// material.
+// glassShows reports whether acrylic can be drawn at all: Windows 11 22621 or later. Below that
+// the platform has only a blur-behind with no tint of its own — a different material, not a
+// degraded one — so the window stays opaque and the chrome paints the glass in CSS.
 func glassShows() bool {
 	return w32.SupportsBackdropTypes()
 }

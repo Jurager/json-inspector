@@ -17,9 +17,8 @@ func bearerRef(token string) *domain.Auth {
 	return &auth
 }
 
-// The half of an import and an export that is not a dialog: the bytes on disk. It is tested here
-// because the dialog in front of it cannot be — a native file dialog is the user's, not a test's —
-// and the file is the part that can be wrong in a way nobody sees until a collection is lost.
+// The half of an import and an export that is not a dialog: a native file dialog is the user's and
+// cannot be tested, and the bytes on disk are what can go wrong unseen until a collection is lost.
 func TestCollectionFileRoundTrip(t *testing.T) {
 	dir := t.TempDir()
 	both := filepath.Join(dir, "collection.postman_collection.json")

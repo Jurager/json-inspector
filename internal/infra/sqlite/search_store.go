@@ -8,14 +8,9 @@ import (
 	"json-inspector/internal/domain"
 )
 
-// The index the palette reads. Each method hands over the rows of one area and says nothing about
-// which of them answer: SQLite folds case for ASCII alone, and the names in this app are Russian,
-// so a LIKE here would make «Пользователи» unfindable by «польз». Matching is the search use
-// case's, and every area below answers with its whole set — which the schema keeps small on purpose
-// (a level holds a document, and the history is what retention leaves).
-//
-// What each method does owe is the shape of a row: what it is called, where it sits, and what
-// opening it would reach for.
+// Matching is the search use case's, not this layer's: SQLite folds case for ASCII alone, so a LIKE
+// here would make «Пользователи» unfindable by «польз» — the names in this app are Russian. Each
+// method therefore hands over its whole area, which the schema keeps small on purpose.
 
 // FindRequests reads every saved request with the collections above it, so that a row can name the
 // way down to itself.
@@ -207,7 +202,6 @@ func (s *Store) FindHistory(ctx context.Context, workspaceID string) ([]domain.S
 	return out, rows.Err()
 }
 
-// treeRow is a collection as the search needs it: what it is called and what holds it.
 type treeRow struct {
 	id       string
 	name     string

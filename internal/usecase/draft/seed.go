@@ -1,8 +1,5 @@
 package draft
 
-// A whole request handed to the draft — a followed link, a pasted command, a saved request —
-// and the rows it comes to.
-
 import (
 	"context"
 	"strings"
@@ -42,12 +39,9 @@ func (u *UseCase) formWithIDs(rows []domain.FormRow) []domain.FormRow {
 	return out
 }
 
-// authOf is the seed's authorization as the pipeline holds it: a seed that says nothing about
-// authorization is not one that forgot, it is one with none.
-//
-// It is normalized like one the window sent: a seed comes from outside — a pasted command, a
-// record, a collection — and a scheme that arrived without the answers it starts at would be drawn
-// with a blank where its first choice belongs.
+// A seed that says nothing about authorization is not one that forgot, it is one with none. It is
+// normalized like one the window sent: a seed comes from outside, and a scheme that arrived
+// without its starting answers would be drawn with a blank where its first choice belongs.
 func authOf(seed Seed) domain.Auth {
 	if seed.Auth == nil {
 		return domain.NewAuth(domain.AuthNone)
@@ -154,8 +148,6 @@ func (u *UseCase) cookiesFromSeed(seed Seed) []domain.CookieRow {
 	return out
 }
 
-// cookiesFromHeaders is the fallback for a request that has no jar of its own — a pasted command,
-// whose cookies are only ever a `Cookie` header.
 func cookiesFromHeaders(headers []domain.HeaderPair) []domain.CookieRow {
 	for _, header := range headers {
 		if strings.EqualFold(header.Name, "Cookie") {

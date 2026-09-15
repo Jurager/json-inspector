@@ -54,12 +54,9 @@ func (u *UseCase) Find(ctx context.Context, in Query) (domain.SearchResult, erro
 		if narrowed && area.kind != *in.Kind {
 			continue
 		}
-		// An empty field is not "everything". Over every area at once the palette is offering what
-		// the user was doing last, and only the history keeps a time to offer — the rest would
-		// answer with their whole contents, which is a list nobody asked for.
-		//
-		// An area the user narrowed to is a different question: the chip says "show me these", and
-		// an empty field under it means every one of them rather than none.
+		// An empty field is not "everything": over every area the palette offers what the user was doing
+		// last, and only the history keeps a time. Under a chosen chip the empty field means every row,
+		// because the chip says "show me these".
 		if needle == "" && !narrowed && area.kind != domain.SearchHistory {
 			continue
 		}

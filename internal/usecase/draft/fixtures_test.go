@@ -34,7 +34,6 @@ type wantAuth struct {
 	Fields map[string]string `json:"fields"`
 }
 
-// wantExport is the shape a `.in.json` has.
 type wantExport struct {
 	Format  string     `json:"format"`
 	Method  string     `json:"method"`
@@ -43,7 +42,6 @@ type wantExport struct {
 	Body    string     `json:"body"`
 }
 
-// readJSON reads and parses one fixture file.
 func readJSON(t *testing.T, path string, v any) {
 	t.Helper()
 	data, err := os.ReadFile(path)
@@ -114,7 +112,6 @@ func TestParseFixtures(t *testing.T) {
 	t.Logf("parse fixtures: %d ok, %d none, %d error", counts["ok"], counts["none"], counts["error"])
 }
 
-// assertRequest compares a parsed request against the fixture, field by field.
 func assertRequest(t *testing.T, got Seed, want wantParse) {
 	t.Helper()
 	if got.Method != want.Method {
@@ -130,8 +127,7 @@ func assertRequest(t *testing.T, got Seed, want wantParse) {
 	assertAuth(t, got.Auth, want.Auth)
 }
 
-// assertAuth compares the scheme a command came to. A fixture that says nothing about one is a
-// command with no credential in it, and a parse that invented one fails here.
+// A fixture that names no scheme means no credential; a parse that invents one fails here.
 func assertAuth(t *testing.T, got *domain.Auth, want *wantAuth) {
 	t.Helper()
 	if (got == nil) != (want == nil) {
@@ -150,8 +146,7 @@ func assertAuth(t *testing.T, got *domain.Auth, want *wantAuth) {
 	}
 }
 
-// assertHeaders compares the header sequence as a sequence: two requests with the same headers
-// in a different order are not the same request.
+// Two requests with the same headers in a different order are not the same request.
 func assertHeaders(t *testing.T, got []domain.HeaderPair, want [][]string) {
 	t.Helper()
 	if len(got) != len(want) {
@@ -184,8 +179,7 @@ func formatWantHeaders(hs [][]string) string {
 	return "[" + strings.Join(parts, ", ") + "]"
 }
 
-// TestExportFixtures renders each request in each format and compares the bytes. The expected
-// is taken as it is — no trailing newline is added or trimmed.
+// The expected text is taken as it is — no trailing newline added or trimmed.
 func TestExportFixtures(t *testing.T) {
 	paths, err := filepath.Glob(filepath.Join("testdata", "export", "*.in.json"))
 	if err != nil {
@@ -213,7 +207,7 @@ func TestExportFixtures(t *testing.T) {
 	}
 }
 
-// requestFrom builds the request an export fixture describes, keeping the header order it lists.
+// Keeps the header order the fixture lists.
 func requestFrom(in wantExport) Seed {
 	req := Seed{Method: in.Method, URL: in.URL, Body: in.Body}
 	for _, pair := range in.Headers {
@@ -279,15 +273,11 @@ func TestRoundTrip(t *testing.T) {
 	}
 }
 
-// TestWrittenOrder pins what the corpus cannot reach: header lists and JSON bodies keep the order
-// they were written in.
+// Headers and JSON keys keep the order they were written in: a JS object would enumerate a
+// numeric-looking key first, while the order headers go out in is the order somebody wrote them.
 //
-// This port used to reproduce a JavaScript quirk here instead — an ordinary JS object enumerates a
-// key that looks like an array index before the rest, in ascending numeric order, so `2: x` and
-// `10: y` came out before `1: z`. That was fidelity to a TypeScript implementation that no longer
-// exists, and it was not fidelity to anything else: a request's headers go out in the order
-// somebody wrote them in. The corpus says nothing about the difference — it has no case with a
-// numeric header name — so this test is the only place the rule is written down.
+// The corpus says nothing about the difference — it has no case with a numeric header name — so
+// this test is the only place the rule is written down.
 func TestWrittenOrder(t *testing.T) {
 	parsed := ParseCommand("curl -H '2: x' -H '10: y' -H '1: z' -H 'A: w' " +
 		"https://api.example.com/articles")

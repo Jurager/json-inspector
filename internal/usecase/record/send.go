@@ -7,9 +7,6 @@ import (
 	"json-inspector/internal/domain"
 )
 
-// Sending: a request through the scripts around it, out to the engine, and folded into a
-// record. Everything a send can leave behind passes through here, and nothing else does.
-
 // Send starts a request and returns its id at once. The answer arrives as an event: it has to
 // outlive the call that started it, because it can be cancelled and because a slow endpoint must
 // not hold the window's promise open.
@@ -49,14 +46,12 @@ func (u *UseCase) Send(ctx context.Context, in SendInput) (string, error) {
 	return id, nil
 }
 
-// SendAndWait is Send for a caller that has to see the answer before it can do the next thing: a
-// run of a collection asks for one request, looks at what came back, and moves on. A cancelled
-// attempt comes back saying so rather than as an error — it was stopped on purpose, and that is an
-// answer.
+// SendAndWait is Send for a caller that has to see the answer before it does the next thing. A
+// cancelled attempt comes back saying so rather than as an error — it was stopped on purpose.
 //
 // The workspace is the caller's, not this method's: a run resolves it once and carries it through
-// every request it sends, and a run that asked again here would file its twentieth answer under
-// whatever space the window had been switched to by then.
+// every request it sends, and asking again here would file the twentieth answer under another
+// space.
 func (u *UseCase) SendAndWait(
 	ctx context.Context,
 	workspace string,
@@ -75,10 +70,8 @@ func (u *UseCase) SendAndWait(
 	return rec, nil
 }
 
-// attempt runs one request to the end: through the scripts around it, out to the engine, folded
-// into a record, and saved. It answers with the record, with a cancelled attempt, or with why there
-// is none — a transport failure is the engine's to report inside the response, so an error here is
-// this side failing.
+// attempt runs one request to the end. An error here is this side failing: a transport failure
+// is the engine's to report inside the response.
 func (u *UseCase) attempt(
 	ctx context.Context,
 	workspace, id string,
@@ -176,7 +169,6 @@ func runScope(run string, id string) string {
 	return id
 }
 
-// changed says whether the scripts made the request something else than what was prepared.
 func changed(in SendInput, sent *domain.ScriptRequest) bool {
 	if in.URL != sent.URL || in.Body != sent.Body || len(in.Headers) != len(sent.Headers) {
 		return true
@@ -189,24 +181,18 @@ func changed(in SendInput, sent *domain.ScriptRequest) bool {
 	return false
 }
 
-// Cancel stops an attempt by id. It reports whether anything was still running under it.
+// Cancel stops an attempt by id, reporting whether anything was still running under it.
 func (u *UseCase) Cancel(id string) bool {
 	return u.executor.Cancel(id)
 }
 
-// sentHeaders is what the request carried, as the record keeps it: the masked rows it was prepared
-// with, and whatever the engine itself had to add to get it through.
-//
-// A Digest answer is the case: it is computed from a challenge that had not arrived when the
-// request was prepared, so there is no row anywhere above the engine that could have known it — and
-// a record without it would be a record of the request that was refused rather than of the one that
-// answered.
+// sentHeaders is what the record keeps: the masked rows, plus what the engine had to compute
+// itself — a Digest answer comes from a challenge that had not arrived when the request was
+// prepared, and a record without it would be the record of the request that was refused.
 func sentHeaders(masked []domain.HeaderPair, resp *domain.Response) []domain.HeaderPair {
 	return append(orEmptyPairs(masked), resp.SentHeaders...)
 }
 
-// recordFrom folds a response into the record history keeps: the request that went out, as it can
-// be shown, on one side, and what came back on the other.
 func (u *UseCase) recordFrom(
 	id string,
 	workspace string,

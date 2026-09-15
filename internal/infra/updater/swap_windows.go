@@ -33,6 +33,8 @@ func swapAndRelaunch(archivePath string) error {
 		return fmt.Errorf("archive does not contain json-inspector.exe")
 	}
 
+	// Windows will not let a running .exe be overwritten, so the swap cannot happen here: a shell
+	// waits out this process's exit, then moves the new binary over the old one and starts it.
 	script := fmt.Sprintf(
 		`ping -n 2 127.0.0.1 >nul & move /y "%s" "%s" & start "" "%s"`,
 		newExe, exe, exe,

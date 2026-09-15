@@ -2,17 +2,9 @@ package httpx
 
 import "strings"
 
-// complete turns the address a person wrote into one the wire can take. Somebody types
-// "api.example.com/articles" and means what a browser's address bar would send: the scheme is a
-// detail of the wire rather than part of the address, and the field's own example writes it out
-// only because an empty box has to show something.
-//
-// It lives here, at the one place a request leaves the process, so that every caller gets it: the
-// command line, a card of a collection, a run, a script's own sendRequest.
-//
-// What is already an address is left alone — including one whose scheme this app cannot speak,
-// where the engine's refusal says more than a rewrite would. So is an address that still has a hole
-// where a variable goes: that is not a scheme that is missing.
+// complete turns what a person typed into a wire address, the way a browser's address bar would:
+// a bare host gets a scheme, while an address that has one — or a "{{variable}}" hole where one
+// goes — is left for the engine to refuse. It sits at the one place a request leaves the process.
 func complete(raw string) string {
 	url := strings.TrimSpace(raw)
 	switch {
@@ -33,12 +25,9 @@ func complete(raw string) string {
 	}
 }
 
-// hasScheme says whether the address already names a protocol: "https://…" does, and so does any
-// other "word:" of the shape RFC 3986 allows.
-//
-// A host with a port reads like one from the left — "example.com:8080" is all letters and dots up
-// to the colon — so what decides between the two is the number on the right: a port is digits, and
-// everything else is left for the engine to refuse or to send.
+// hasScheme says whether the address already names a protocol. A host with a port reads like one
+// from the left — "example.com:8080" is letters and dots up to the colon — so the digits on the
+// right are what decides: a port is digits, anything else is a scheme to refuse or to send.
 func hasScheme(url string) bool {
 	colon := strings.IndexByte(url, ':')
 	if colon < 1 {
@@ -68,8 +57,7 @@ func hasScheme(url string) bool {
 	return false
 }
 
-// authority is the part of an address that names the host: everything before the path, the query or
-// the fragment.
+// authority is everything before the path, query or fragment: the address's RFC 3986 authority.
 func authority(url string) string {
 	if end := strings.IndexAny(url, "/?#"); end >= 0 {
 		return url[:end]
@@ -77,8 +65,8 @@ func authority(url string) string {
 	return url
 }
 
-// isLocal says whether the address names this machine — "localhost", "127.0.0.1", "::1" and the
-// names under ".localhost" that resolve to it.
+// isLocal covers the names that resolve to this machine by convention rather than by DNS: anything
+// under ".localhost" (RFC 6761), the whole 127.0.0.0/8 block, and "::1".
 func isLocal(authority string) bool {
 	host := authority
 	// A port is not part of the name, and a bracketed IPv6 address keeps its brackets until here.

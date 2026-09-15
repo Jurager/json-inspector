@@ -1,8 +1,5 @@
 package wails
 
-// The file and browser dialogs. Every one of them is answered with "nothing" when the person closes
-// it: a cancelled dialog is not a failure the window has to explain.
-
 import (
 	"errors"
 	"strings"
@@ -13,12 +10,9 @@ import (
 // The file and browser dialogs. Every one of them is answered with "nothing" when the person
 // closes it: a cancelled dialog is not a failure the window has to explain.
 
-// OpenURL puts a page in front of the person in whatever browser the system has. The app's own
-// window is not that browser: a provider's sign-in page wants a real address bar and a real cookie
-// jar, and the person wants to see where they are being asked to type.
-//
-// The address is named rawURL rather than url because this file parses addresses elsewhere, and a
-// parameter of that name would shadow the package that does it.
+// OpenURL opens the page in the system's browser: a provider's sign-in page wants a real address
+// bar and a real cookie jar. The address is rawURL rather than url — this file parses addresses
+// elsewhere, and the package would be shadowed.
 func (h *Host) OpenURL(rawURL string) error {
 	app := h.App()
 	if app == nil {
@@ -27,11 +21,9 @@ func (h *Host) OpenURL(rawURL string) error {
 	return app.Browser.OpenURL(rawURL)
 }
 
-// OpenFile asks the user for a file to read and answers with its path, or with nothing when the
-// dialog was closed — closing a dialog is not a failure.
-//
-// The dialogs live on the Host because they are the desktop's, and a feature that needs a file asks
-// for one here instead of knowing how this app talks to the system.
+// OpenFile answers with the path, or with nothing when the dialog was closed — a cancelled dialog
+// is not a failure. The dialogs live on the Host: a feature asks for a file instead of knowing how
+// this app talks to the system.
 func (h *Host) OpenFile(title string, filters ...application.FileFilter) (string, error) {
 	app := h.App()
 	if app == nil {
@@ -45,10 +37,9 @@ func (h *Host) OpenFile(title string, filters ...application.FileFilter) (string
 	return path, withoutCancellation(err)
 }
 
-// withoutCancellation turns a closed dialog into "nothing happened". Wails answers a cancelled
-// dialog with an error and not with an empty path, and the sentinel it uses lives in an internal
-// package of the module — so the text is all there is to go by. Getting this wrong is not cosmetic:
-// without it, closing a file dialog reports a failure the user did not have.
+// A closed dialog arrives as an error, not an empty path, and the sentinel Wails uses is internal
+// to the module — the text is all there is to go by. Without this, closing a file dialog reports a
+// failure the user did not have.
 func withoutCancellation(err error) error {
 	if err != nil && strings.Contains(strings.ToLower(err.Error()), "cancel") {
 		return nil
@@ -56,8 +47,7 @@ func withoutCancellation(err error) error {
 	return err
 }
 
-// SaveFile asks where to write a file, offering the name to start from and the filters the caller
-// wants offered, and answers with the path the user chose — or with nothing, when they chose none.
+// SaveFile answers with the path the user chose, or with nothing when they chose none.
 func (h *Host) SaveFile(
 	title string,
 	suggestedName string,
@@ -70,8 +60,7 @@ func (h *Host) SaveFile(
 	path, err := app.Dialog.SaveFileWithOptions(&application.SaveFileDialogOptions{
 		Title:   title,
 		Message: title,
-		// The name is a suggestion: the dialog opens on it, and the user types over it or picks
-		// another place, which is what a save dialog is for.
+		// Filename is only a suggestion: the user types over it or picks another place.
 		Filename: suggestedName,
 		Filters:  filters,
 	}).PromptForSingleSelection()

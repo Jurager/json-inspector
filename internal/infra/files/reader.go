@@ -26,12 +26,10 @@ func NewReader() *Reader {
 	return &Reader{MaxBytes: DefaultMaxBytes}
 }
 
-// Read answers with the file's bytes.
-//
-// A file larger than the limit is an error and not a truncation. A truncated response is still
-// something to read — it says so, and the window draws a partial body — but a truncated upload is a
-// corrupt file at the other end, which is worse than a send that did not happen. The extra byte
-// read past the limit is what tells "ends exactly at the limit" from "was cut there".
+// A file larger than the limit is an error and not a truncation: a truncated response is still
+// something to read, but a truncated upload is a corrupt file at the other end — worse than a send
+// that did not happen. The extra byte read past the limit tells "ends exactly at the limit" apart
+// from "was cut there".
 func (r *Reader) Read(path string) ([]byte, error) {
 	limit := r.MaxBytes
 	if limit <= 0 {

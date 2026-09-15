@@ -18,8 +18,7 @@ func fixture(t *testing.T, name string) []byte {
 	return data
 }
 
-// asRequest is the fixture row that must be a request: a level holds requests and collections, and
-// a test that names one of them by index is easier to read with the index checked here.
+// asRequest is the fixture row that must be a request, with the index checked here.
 func asRequest(t *testing.T, collection domain.Collection, i int) domain.CollectionNode {
 	t.Helper()
 	if i >= len(collection.Items) {
@@ -138,7 +137,7 @@ func TestImportReadsTheAuthOfANestedCollection(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Export: %v", err)
 	}
-	var doc document
+	var doc collectionFile
 	if err := json.Unmarshal(data, &doc); err != nil {
 		t.Fatalf("the export does not read back: %v", err)
 	}
@@ -250,7 +249,7 @@ func TestExportWritesASingleRequest(t *testing.T) {
 		t.Fatalf("Export: %v", err)
 	}
 
-	var doc document
+	var doc collectionFile
 	if err := json.Unmarshal(data, &doc); err != nil {
 		t.Fatalf("the export does not read back: %v", err)
 	}
@@ -302,12 +301,11 @@ func TestAFormBodyTravelsBothWays(t *testing.T) {
 		t.Errorf("form[2] = %+v, want the file row and its path", node.Form[2])
 	}
 
-	// And back out again, with the rows, the switch and the path where they were.
 	data, err := Export(collection)
 	if err != nil {
 		t.Fatalf("Export: %v", err)
 	}
-	var doc document
+	var doc collectionFile
 	if err := json.Unmarshal(data, &doc); err != nil {
 		t.Fatalf("the export does not read back: %v", err)
 	}
@@ -345,7 +343,7 @@ func TestABinaryBodyTravelsBothWays(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Export: %v", err)
 	}
-	var doc document
+	var doc collectionFile
 	if err := json.Unmarshal(data, &doc); err != nil {
 		t.Fatalf("the export does not read back: %v", err)
 	}
