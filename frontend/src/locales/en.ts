@@ -65,6 +65,39 @@ const en = {
     maximise: 'Maximise',
   },
 
+  // The palette. Everything here is a word *about* the search — a heading, a hint, a command the
+  // window runs itself. The rows themselves are the user's own names and addresses and are never
+  // translated.
+  search: {
+    everything: 'All',
+    // What the empty field calls the history it answers with.
+    recent: 'Recent',
+    placeholder: 'Search requests, collections, environments…',
+    kinds: {
+      request: 'Requests',
+      collection: 'Collections',
+      environment: 'Environments',
+      history: 'History',
+      action: 'Actions',
+    },
+    // The line on the right of a row. Which shape travels from Go; the words are these.
+    notes: {
+      active: 'current',
+    },
+    hint: {
+      move: 'Navigate',
+      open: 'Open',
+      background: 'In the background',
+      close: 'Close',
+    },
+    commands: {
+      newRequest: 'Create a new request',
+      importCollection: 'Import a collection',
+      environments: 'Environments',
+      settings: 'Open settings',
+    },
+  },
+
   rail: {
     request: 'Request',
     browser: 'Browser',
@@ -388,7 +421,6 @@ const en = {
     duplicate: 'Duplicate',
     exportRequest: 'Export the request',
     export: 'Export',
-    changeMethod: 'Change the method',
     treeSearch: 'Search the collection…',
     savedToFile: 'The collection was saved to a file',
     savedToFileNamed: '“{name}” was saved to a file',

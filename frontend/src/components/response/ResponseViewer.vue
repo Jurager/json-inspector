@@ -277,7 +277,8 @@ async function copyUrl() {
 }
 
 function onWindowKeydown(e: KeyboardEvent) {
-  if (e.altKey && (e.key === 'i' || e.key === 'I')) {
+  // The physical key rather than the letter: on a Russian layout this key carries «ш».
+  if (e.altKey && e.code === 'KeyI') {
     e.preventDefault()
     toggleInspector()
     return

@@ -620,6 +620,18 @@ html.window-translucent body {
   @apply w-[280px] p-1.5 rounded-[11px];
 }
 
+/* The palette is a panel of a fixed width whose height follows what it found, and the fixed width is
+   the point: without it every chip the user clicks would resize the window under their hands as the
+   widest row changes. It is written here rather than in the component for the reason the tooltip's
+   plate is: `class` lands on the element reka-ui builds inside its portal, and no scope of the
+   palette reaches there — a scoped rule would match nothing and the width would fall to the content. */
+.dialog.search-palette {
+  width: 620px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
 .params-menu {
   @apply w-[560px] max-h-[420px] p-2.5 overflow-auto;
 }
@@ -706,6 +718,15 @@ button {
 .badge-status-5xx {
   color: var(--red-text);
   @apply bg-red-soft;
+}
+
+/* Where the query was found in a row of the palette. The highlighter hands this back as HTML and the
+   row draws it with `v-html`, so there is no component scope for it to compile into — the same
+   reason the tooltip's plate lives here rather than in its component. Inside a trail, which is drawn
+   in the muted colour, the match is also the darker one. */
+.search-match {
+  font-weight: 600;
+  color: var(--text);
 }
 
 .keycap {

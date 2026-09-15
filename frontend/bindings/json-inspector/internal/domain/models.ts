@@ -599,6 +599,151 @@ export interface Scripts {
 }
 
 /**
+ * SearchGroup is one area's answer: the rows the window draws, and how many the area found before
+ * the list was cut. The two are separate because the heading counts matches, not shown rows —
+ * "Запросы · 8" over a list of five is the design's own wording.
+ */
+export interface SearchGroup {
+    "kind": SearchKind;
+    "total": number;
+    "hits": SearchHit[] | null;
+}
+
+/**
+ * SearchHit is one row of the palette. Everything the row draws is decided here except the words:
+ * the title and the path are the user's own text, and the note is a shape the window words.
+ * 
+ * The matched text is not carried, only where it was found (Match). Highlighting is the window's
+ * either way — it has the box the text is drawn in — and not shipping the match keeps a variable's
+ * value out of the answer even when the value is what answered.
+ */
+export interface SearchHit {
+    "kind": SearchKind;
+    "id": string;
+    "title": string;
+
+    /**
+     * Path is what the row sits inside, outermost first: the collections above a request. The window
+     * joins it with the separator the design draws, so the separator is not a word Go has to own.
+     */
+    "path": string[] | null;
+    "badge"?: string;
+    "note": SearchNote;
+    "match": SearchMatch;
+
+    /**
+     * At is when the row happened, in milliseconds, or 0 for a row that did not happen — a saved
+     * request has no time, and the window draws none rather than one it made up.
+     */
+    "at": number;
+    "open": SearchOpen;
+}
+
+/**
+ * SearchKind names one area of the index. The window draws a group and a chip per kind, and the
+ * words for both come from its catalogue: a kind is a word Go can say, a heading is not.
+ * 
+ * The set is open on purpose — an area is a method on the index and a value here, and nothing else in
+ * the domain or in the transport learns about it.
+ */
+export enum SearchKind {
+    /**
+     * The Go zero value for the underlying type of the enum.
+     */
+    $zero = "",
+
+    SearchRequest = "request",
+    SearchCollection = "collection",
+    SearchEnvironment = "environment",
+    SearchHistory = "history",
+    SearchAction = "action",
+};
+
+/**
+ * SearchMatch is where the query was found, which is what the order is built on: the design puts an
+ * exact name first, then a name, then an address, and a variable that merely holds the word last.
+ * 
+ * It is a tier rather than a score because the tiers are the design's, while a score would be a
+ * number nobody could argue with. What breaks a tie inside a tier is SearchHit.At.
+ */
+export enum SearchMatch {
+    /**
+     * The Go zero value for the underlying type of the enum.
+     */
+    $zero = 0,
+
+    /**
+     * MatchExact is the whole name, character for character. It is separated from MatchName because
+     * it is the one case where the user has already typed what they want and the row is the answer.
+     */
+    MatchExact = 0,
+    MatchName = 1,
+    MatchPath = 2,
+    MatchValue = 3,
+};
+
+/**
+ * SearchNote is that line: which shape it is, and the number it counts when it counts one.
+ */
+export interface SearchNote {
+    "kind": SearchNoteKind;
+    "count"?: number;
+}
+
+/**
+ * SearchNoteKind is what a row says on the right, as a shape rather than a sentence. The window words
+ * it from its catalogue — "текущее", "8 запросов" — because the words are the catalogue's and the
+ * counting is not.
+ */
+export enum SearchNoteKind {
+    /**
+     * The Go zero value for the underlying type of the enum.
+     */
+    $zero = "",
+
+    NoteNone = "",
+    NoteActive = "active",
+    NoteRequests = "requests",
+};
+
+/**
+ * SearchOpen is where a row takes the window: the verb, the id, and — for a variable, which is the
+ * one thing that is addressed through the environment holding it — the scope to open.
+ */
+export interface SearchOpen {
+    "target": SearchTarget;
+    "id": string;
+    "scope"?: string;
+}
+
+/**
+ * SearchResult is the whole answer, one group per area that found something, in the order the design
+ * draws them. An area that found nothing is absent rather than empty: a heading over no rows is a
+ * heading the window would have to know to skip.
+ */
+export interface SearchResult {
+    "groups": SearchGroup[] | null;
+}
+
+/**
+ * SearchTarget names what activating a row does. The window switches on it, so it is a fixed
+ * vocabulary and not a sentence: a target this build does not know is a row that does nothing, which
+ * is what a newer build's answer should be to an older window.
+ */
+export enum SearchTarget {
+    /**
+     * The Go zero value for the underlying type of the enum.
+     */
+    $zero = "",
+
+    TargetRequest = "request",
+    TargetCollection = "collection",
+    TargetEnvironment = "environment",
+    TargetVariable = "variable",
+    TargetHistory = "history",
+};
+
+/**
  * Settings is everything the app remembers about how it is set up, in the order the screen shows
  * it. Defaults live in one place — the use case's — so a fresh database and a missing row agree.
  */

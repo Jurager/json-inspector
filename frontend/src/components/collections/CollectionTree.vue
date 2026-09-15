@@ -336,10 +336,26 @@ function onRenameKeydown(e: KeyboardEvent) {
 
 // The row being named right now: the design creates straight in the tree, the way the environments
 // sheet does, so the name is typed where the row will be.
-const creating = ref<{ collectionId: string; method: string } | null>(null)
+const creating = ref<{ collectionId: string } | null>(null)
 const creatingName = ref('')
 const creatingInput = ref<HTMLInputElement | null>(null)
 const creatingInvalid = ref(false)
+
+// Where that row is drawn: at the end of the level the request is about to join, which is where it
+// will actually be. "After the collection's own row" would be a different place whenever the
+// collection has rows of its own — and it is opened as the naming starts, so it always shows them.
+const creatingAt = computed<{ after: string; depth: number } | null>(() => {
+  const target = creating.value?.collectionId
+  if (!target) return null
+
+  const rows = visible.value
+  const at = rows.findIndex((row) => row.id === target)
+  if (at < 0) return null
+
+  let end = at
+  while (end + 1 < rows.length && rows[end + 1].depth > rows[at].depth) end += 1
+  return { after: rows[end].id, depth: rows[at].depth + 1 }
+})
 
 function setCreatingInput(el: Element | ComponentPublicInstance | null) {
   creatingInput.value = (el as HTMLInputElement | null) ?? null
@@ -355,8 +371,11 @@ function focusNextFrame(el: HTMLInputElement | null) {
 // A request is created in the collection it will live in — the one that was right-clicked. A
 // collection is not made here: the «+» in the head makes one at the top, and a drop is what puts it
 // inside another.
-function startCreating(row: Row, method = 'GET') {
-  creating.value = { collectionId: row.collectionId, method }
+//
+// What is typed here is the name and nothing else: the row carries no method, and the request is made
+// as GET — the method is chosen in the card the row opens, where the address is filled in too.
+function startCreating(row: Row) {
+  creating.value = { collectionId: row.collectionId }
   creatingName.value = t('collections.newRequest')
   creatingInvalid.value = false
   store.expanded[row.collectionId] = true
@@ -377,7 +396,7 @@ async function commitCreating() {
   }
   creating.value = null
   creatingInvalid.value = false
-  await store.createNode(pending.collectionId, name, pending.method)
+  await store.createNode(pending.collectionId, name, 'GET')
 }
 
 function cancelCreating() {
@@ -394,14 +413,6 @@ function onCreatingKeydown(e: KeyboardEvent) {
     e.preventDefault()
     cancelCreating()
   }
-}
-
-const METHODS = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE']
-
-function nextMethod() {
-  const pending = creating.value
-  if (!pending) return
-  pending.method = METHODS[(METHODS.indexOf(pending.method) + 1) % METHODS.length]
 }
 
 async function addCollection() {
@@ -492,102 +503,97 @@ function cancelTop(): boolean {
     </div>
 
     <div ref="treeEl" class="tree-scroll" @click.capture="onClickCapture">
-      <ContextMenu v-for="row in visible" :key="row.id">
-        <ContextMenuTrigger as-child>
-          <div
-            class="row"
-            :data-id="row.id"
-            :class="{
-              'row-collection': row.kind === 'collection',
-              'row-divider': row.divider,
-              active: row.id === store.selectedId,
-              'row-carried': drag?.row.id === row.id,
-              ...dropClass(row),
-            }"
-            :style="{ paddingLeft: indentDepth(row.depth) }"
-            role="button"
-            tabindex="0"
-            @pointerdown="press($event, row)"
-            @click="pick(row)"
-            @keydown.enter="pick(row)"
-            @dblclick="startRename(row)"
-          >
-            <span
-              v-if="row.expandable"
-              class="caret"
-              :class="{ open: row.expanded }"
-              @pointerdown.stop
-              @click.stop="store.toggleExpand(row.id)"
+      <template v-for="row in visible" :key="row.id">
+        <ContextMenu>
+          <ContextMenuTrigger as-child>
+            <div
+              class="row"
+              :data-id="row.id"
+              :class="{
+                'row-collection': row.kind === 'collection',
+                'row-divider': row.divider,
+                active: row.id === store.selectedId,
+                'row-carried': drag?.row.id === row.id,
+                ...dropClass(row),
+              }"
+              :style="{ paddingLeft: indentDepth(row.depth) }"
+              role="button"
+              tabindex="0"
+              @pointerdown="press($event, row)"
+              @click="pick(row)"
+              @keydown.enter="pick(row)"
+              @dblclick="startRename(row)"
             >
-              <Icon name="chevron-right" :size="10" />
-            </span>
-            <span v-else class="caret-space"></span>
+              <span
+                v-if="row.expandable"
+                class="caret"
+                :class="{ open: row.expanded }"
+                @pointerdown.stop
+                @click.stop="store.toggleExpand(row.id)"
+              >
+                <Icon name="chevron-right" :size="10" />
+              </span>
+              <span v-else class="caret-space"></span>
 
-            <span v-if="row.kind === 'collection'" class="row-icon">
-              <Icon name="folder" :size="14" />
-            </span>
+              <span v-if="row.kind === 'collection'" class="row-icon">
+                <Icon name="folder" :size="14" />
+              </span>
 
-            <span v-if="row.kind === 'request'" class="row-method mono">{{ row.method }}</span>
+              <span v-if="row.kind === 'request'" class="row-method mono">{{ row.method }}</span>
 
-            <input
-              v-if="renamingId === row.id"
-              :ref="setNameInput"
-              v-model="nameDraft"
-              class="row-rename"
-              :class="{ invalid: renameInvalid }"
-              spellcheck="false"
-              @pointerdown.stop
-              @click.stop
-              @dblclick.stop
-              @keydown="onRenameKeydown"
-              @blur="commitRenameFrom(row.id)"
-            />
-            <span v-else class="row-name" :title="row.name">{{ row.name }}</span>
+              <input
+                v-if="renamingId === row.id"
+                :ref="setNameInput"
+                v-model="nameDraft"
+                class="row-rename"
+                :class="{ invalid: renameInvalid }"
+                spellcheck="false"
+                @pointerdown.stop
+                @click.stop
+                @dblclick.stop
+                @keydown="onRenameKeydown"
+                @blur="commitRenameFrom(row.id)"
+              />
+              <span v-else class="row-name" :title="row.name">{{ row.name }}</span>
 
-            <span v-if="row.kind === 'collection'" class="row-count mono">{{ row.count }}</span>
-          </div>
-        </ContextMenuTrigger>
+              <span v-if="row.kind === 'collection'" class="row-count mono">{{ row.count }}</span>
+            </div>
+          </ContextMenuTrigger>
 
-        <ContextMenuContent>
-          <template v-if="row.kind === 'collection'">
-            <ContextMenuItem @select="startCreating(row)">
-              {{ t('collections.newRequest') }}
+          <ContextMenuContent>
+            <template v-if="row.kind === 'collection'">
+              <ContextMenuItem @select="startCreating(row)">
+                {{ t('collections.newRequest') }}
+              </ContextMenuItem>
+              <ContextMenuSeparator />
+            </template>
+            <ContextMenuItem @select="startRename(row)">{{ t('collections.rename') }}</ContextMenuItem>
+            <ContextMenuItem @select="store.duplicate(row.id)">{{ t('collections.duplicate') }}</ContextMenuItem>
+            <ContextMenuItem @select="exportNode(row)">
+              {{ row.kind === 'request' ? t('collections.exportRequest') : t('collections.export') }}
             </ContextMenuItem>
             <ContextMenuSeparator />
-          </template>
-          <ContextMenuItem @select="startRename(row)">{{ t('collections.rename') }}</ContextMenuItem>
-          <ContextMenuItem @select="store.duplicate(row.id)">{{ t('collections.duplicate') }}</ContextMenuItem>
-          <ContextMenuItem @select="exportNode(row)">
-            {{ row.kind === 'request' ? t('collections.exportRequest') : t('collections.export') }}
-          </ContextMenuItem>
-          <ContextMenuSeparator />
-          <ContextMenuItem class="danger" @select="askRemove(row)">{{ t('common.delete') }}</ContextMenuItem>
-        </ContextMenuContent>
-      </ContextMenu>
+            <ContextMenuItem class="danger" @select="askRemove(row)">{{ t('common.delete') }}</ContextMenuItem>
+          </ContextMenuContent>
+        </ContextMenu>
 
-      <div
-        v-if="creating"
-        class="row row-creating"
-        :style="{ paddingLeft: indentDepth((visible.find((r) => r.id === creating?.collectionId)?.depth ?? -1) + 1) }"
-      >
-        <span class="caret-space"></span>
-        <button
-          class="row-method mono method-chip"
-          :title="t('collections.changeMethod')"
-          @click="nextMethod"
+        <div
+          v-if="creatingAt && creatingAt.after === row.id"
+          class="row row-creating"
+          :style="{ paddingLeft: indentDepth(creatingAt.depth) }"
         >
-          {{ creating.method }}
-        </button>
-        <input
-          :ref="setCreatingInput"
-          v-model="creatingName"
-          class="row-rename"
-          :class="{ invalid: creatingInvalid }"
-          spellcheck="false"
-          @keydown="onCreatingKeydown"
-          @blur="commitCreating"
-        />
-      </div>
+          <span class="caret-space"></span>
+          <input
+            :ref="setCreatingInput"
+            v-model="creatingName"
+            class="row-rename"
+            :class="{ invalid: creatingInvalid }"
+            spellcheck="false"
+            @keydown="onCreatingKeydown"
+            @blur="commitCreating"
+          />
+        </div>
+      </template>
 
       <div v-if="visible.length === 0 && store.tree.length > 0" class="no-results">{{ t('common.nothingFound') }}</div>
     </div>
@@ -691,10 +697,6 @@ function cancelTop(): boolean {
 .row-method {
   @apply flex-none text-[10px] font-semibold text-text-secondary;
   min-width: 40px;
-}
-
-.method-chip {
-  @apply bg-transparent border border-border rounded-sm py-px px-1 text-text-secondary cursor-pointer;
 }
 
 .row-name {

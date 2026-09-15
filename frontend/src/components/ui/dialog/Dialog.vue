@@ -5,7 +5,11 @@ import { DialogContent, DialogOverlay, DialogPortal, DialogRoot, DialogTitle, ty
 // unless the caller prevents it — the environments sheet does, for its own cascade.
 defineOptions({ inheritAttrs: false })
 
-const props = defineProps<DialogRootProps & { title?: string }>()
+// `center` is a dialog asking something, which stands in the middle of the window. `top` is a panel
+// the user is working in while the window stays visible under it — the palette — and it hangs from
+// the top edge where the design puts it. Both are the same primitive: what changes is where the
+// panel is and which way it grows.
+const props = defineProps<DialogRootProps & { title?: string; placement?: 'center' | 'top' }>()
 
 const emit = defineEmits<{ (e: 'update:open'): void }>()
 </script>
@@ -14,7 +18,7 @@ const emit = defineEmits<{ (e: 'update:open'): void }>()
   <DialogRoot :open="props.open" @update:open="emit('update:open')">
     <DialogPortal>
       <DialogOverlay class="dialog-overlay" />
-      <DialogContent v-bind="$attrs" class="dialog">
+      <DialogContent v-bind="$attrs" :class="['dialog', { 'dialog-top': props.placement === 'top' }]">
         <!-- A DialogTitle names the dialog for screen readers; a caller with its
              own header renders one itself inside the slot. -->
         <DialogTitle v-if="props.title" class="dialog-title">{{ props.title }}</DialogTitle>
@@ -60,6 +64,40 @@ const emit = defineEmits<{ (e: 'update:open'): void }>()
 
 .dialog[data-state='closed'] {
   animation: dialog-out 0.12s ease-in forwards;
+}
+
+/* The palette hangs from the top edge and grows downward, so its transform is the centring alone —
+   the same one the keyframes below carry, for the same reason: transform is already spoken for. */
+.dialog-top {
+  top: 92px;
+  transform: translateX(-50%);
+  animation: palette-in 0.16s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.dialog-top[data-state='closed'] {
+  animation: palette-out 0.12s ease-in forwards;
+}
+
+@keyframes palette-in {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) translateY(-8px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0) scale(1);
+  }
+}
+
+@keyframes palette-out {
+  from {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0) scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: translateX(-50%) translateY(-6px) scale(0.99);
+  }
 }
 
 @keyframes dialog-overlay-in {

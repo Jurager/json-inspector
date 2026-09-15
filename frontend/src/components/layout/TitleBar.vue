@@ -3,7 +3,7 @@ import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { Application, Window } from '@wailsio/runtime'
 import { SystemService } from '../../../bindings/json-inspector/internal/transport/wails'
 import { useEnvironmentsStore } from '../../stores/environments'
-import { useRequestsStore } from '../../stores/requests'
+import { useSearchStore } from '../../stores/search'
 import { useMessages } from '../../i18n'
 import { usePlatform } from '../../composables/usePlatform'
 import EnvironmentMenu from '../environments/EnvironmentMenu.vue'
@@ -16,8 +16,8 @@ import { DropdownMenu, DropdownMenuTrigger } from '../ui/dropdown-menu'
 
 const { t } = useMessages()
 
-const store = useRequestsStore()
 const envStore = useEnvironmentsStore()
+const search = useSearchStore()
 const { customTitlebar, shortcut } = usePlatform()
 
 const appName = ref('')
@@ -109,7 +109,7 @@ onBeforeUnmount(() => {
       <Button
         class="titlebar-search"
         :title="t('titlebar.searchHint', { shortcut: searchHint })"
-        @click="store.focusSearch()"
+        @click="search.openPalette()"
       >
         <span>{{ t('common.search') }}</span>
         <kbd class="titlebar-key">{{ searchHint }}</kbd>

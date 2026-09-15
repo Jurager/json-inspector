@@ -19,6 +19,7 @@ import (
 	"json-inspector/internal/usecase/environment"
 	"json-inspector/internal/usecase/record"
 	"json-inspector/internal/usecase/scripting"
+	"json-inspector/internal/usecase/search"
 	"json-inspector/internal/usecase/settings"
 	"json-inspector/internal/usecase/workspace"
 )
@@ -44,6 +45,7 @@ type ServicesIn struct {
 	Scripting    *ScriptingService
 	Bridge       *BridgeService
 	Workspaces   *WorkspaceService
+	Search       *SearchService
 }
 
 var Module = fx.Module("wails",
@@ -70,6 +72,11 @@ var Module = fx.Module("wails",
 		func(store *sqlite.Store) scripting.Tree { return store },
 		func(store *sqlite.Store) scripting.Store { return store },
 		func(uc *environment.UseCase) scripting.Variables { return uc },
+		// The palette reads across the aggregates instead of asking each feature: a search is one
+		// query over the whole database, and a feature made to answer it would have to grow a search
+		// of its own.
+		func(store *sqlite.Store) search.Index { return store },
+		func(store *sqlite.Store) search.Scope { return store },
 
 		// Every feature that keeps something per space asks the same question of the same adapter:
 		// which workspace is on screen. It is one port per feature and one implementation here, which
@@ -97,6 +104,7 @@ var Module = fx.Module("wails",
 		NewScriptingService,
 		NewBridgeService,
 		NewWorkspaceService,
+		NewSearchService,
 		newCaptureIngest,
 		newApplication,
 	),
@@ -165,6 +173,7 @@ func setup(
 	scripting := application.NewService(in.Scripting)
 	bridgeService := application.NewService(in.Bridge)
 	workspaces := application.NewService(in.Workspaces)
+	searchService := application.NewService(in.Search)
 
 	app.RegisterService(system)
 	app.RegisterService(settingsService)
@@ -179,6 +188,7 @@ func setup(
 		app.RegisterService(scripting)
 		app.RegisterService(bridgeService)
 		app.RegisterService(workspaces)
+		app.RegisterService(searchService)
 	}
 
 	// The window is translucent: what the chrome and the overlays paint is a glass material, and the

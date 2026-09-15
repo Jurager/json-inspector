@@ -7,6 +7,7 @@ import * as DraftService from "./draftservice.js";
 import * as EnvironmentsService from "./environmentsservice.js";
 import * as RecordsService from "./recordsservice.js";
 import * as ScriptingService from "./scriptingservice.js";
+import * as SearchService from "./searchservice.js";
 import * as SettingsService from "./settingsservice.js";
 import * as SystemService from "./systemservice.js";
 import * as WorkspaceService from "./workspaceservice.js";
@@ -17,6 +18,7 @@ export {
     EnvironmentsService,
     RecordsService,
     ScriptingService,
+    SearchService,
     SettingsService,
     SystemService,
     WorkspaceService

@@ -52,6 +52,34 @@ const ru = {
     maximise: 'Развернуть',
   },
 
+  search: {
+    everything: 'Всё',
+    recent: 'Недавнее',
+    placeholder: 'Поиск по запросам, коллекциям, окружениям…',
+    kinds: {
+      request: 'Запросы',
+      collection: 'Коллекции',
+      environment: 'Окружения',
+      history: 'История',
+      action: 'Действия',
+    },
+    notes: {
+      active: 'текущее',
+    },
+    hint: {
+      move: 'Навигация',
+      open: 'Открыть',
+      background: 'В фоне',
+      close: 'Закрыть',
+    },
+    commands: {
+      newRequest: 'Создать новый запрос',
+      importCollection: 'Импортировать коллекцию',
+      environments: 'Окружения',
+      settings: 'Открыть настройки',
+    },
+  },
+
   rail: {
     request: 'Запрос',
     browser: 'Браузер',
@@ -370,7 +398,6 @@ const ru = {
     duplicate: 'Дублировать',
     exportRequest: 'Экспорт запроса',
     export: 'Экспорт',
-    changeMethod: 'Сменить метод',
     treeSearch: 'Поиск по коллекции…',
     savedToFile: 'Коллекция сохранена в файл',
     savedToFileNamed: '«{name}» сохранён в файл',

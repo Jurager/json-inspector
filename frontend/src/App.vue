@@ -3,6 +3,7 @@ import { computed, onMounted, ref } from 'vue'
 import { useEnvironmentsStore } from './stores/environments'
 import { useRequestsStore } from './stores/requests'
 import { useCollectionsStore } from './stores/collections'
+import { useSearchStore } from './stores/search'
 import { useWorkspacesStore } from './stores/workspaces'
 import { useCaptureEvents } from './composables/useCaptureEvents'
 import { useRecordEvents } from './composables/useRecordEvents'
@@ -20,6 +21,7 @@ import Rail from './components/layout/Rail.vue'
 import Workspace from './components/layout/Workspace.vue'
 import StatusBar from './components/layout/StatusBar.vue'
 import EnvironmentsSheet from './components/environments/EnvironmentsSheet.vue'
+import SearchPalette from './components/search/SearchPalette.vue'
 import WorkspaceCreateDialog from './components/workspaces/WorkspaceCreateDialog.vue'
 import WorkspaceSettingsDialog from './components/workspaces/WorkspaceSettingsDialog.vue'
 import UnsavedChangesDialog from './components/collections/UnsavedChangesDialog.vue'
@@ -33,6 +35,7 @@ const { t, te } = useMessages()
 const store = useRequestsStore()
 const collections = useCollectionsStore()
 const envStore = useEnvironmentsStore()
+const search = useSearchStore()
 const workspaces = useWorkspacesStore()
 const { availableUpdate } = useUpdates()
 
@@ -75,7 +78,7 @@ useWorkspaceEvents()
 useWorkspaceTint()
 useCaptureEvents(store)
 useRecordEvents(store, collections)
-useGlobalShortcuts(store, envStore)
+useGlobalShortcuts(envStore)
 
 // The sheet overlays the window with the command line still mounted underneath,
 // so closing hands the caret back to it.
@@ -114,6 +117,10 @@ function closeSheet() {
   </div>
 
   <EnvironmentsSheet v-if="startup?.ready && envStore.sheetOpen" @close="closeSheet" />
+
+  <!-- The palette is mounted for the window's whole life and opens by its own flag: a dialog that
+       comes and goes with a `v-if` loses the animation that closes it. -->
+  <SearchPalette v-if="startup?.ready" :open="search.open" @close="search.close()" />
 
   <!-- The two workspace cards float over the window, as the mockup draws them: same fields, same
        segment and same destructive link as the sheets the app already has. -->
