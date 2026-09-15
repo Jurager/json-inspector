@@ -191,7 +191,10 @@ func TestStorePathIsInsideTheDataDir(t *testing.T) {
 	}
 	t.Cleanup(func() { _ = store.Close() })
 
-	if filepath.Dir(store.Path()) != string(dir) {
+	// Both sides are cleaned before they are compared: the store's path is built with filepath.Join
+	// and carries the separator of the platform, while the directory is the string t.TempDir()
+	// answered with — which is mixed when GOTMPDIR itself has a forward slash in it.
+	if filepath.Dir(store.Path()) != filepath.Clean(string(dir)) {
 		t.Errorf("database at %q, want it inside %q", store.Path(), dir)
 	}
 }
