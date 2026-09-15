@@ -11,7 +11,8 @@ import (
 // and the tree the row lives in.
 //
 // It is assembled in this layer because this is the only one that knows both features — collections
-// own the tree, the draft owns the editing — and neither of them has any business knowing the other.
+// own the tree, the draft owns the editing — and neither of them has any business knowing the
+// other.
 type NodeEditor struct {
 	Tree  []domain.Collection   `json:"tree"`
 	Node  domain.CollectionNode `json:"node"`
@@ -56,8 +57,12 @@ func (s *CollectionsService) SaveNode(ctx context.Context, id string) (NodeEdito
 
 // editor is the answer both calls give: the node, the draft opened on it, and the tree. Opening
 // does not go through the draft service, so the state is completed here as well — a card is drawn
-// from this one answer, and would otherwise show a request that inherits nothing until it is edited.
-func (s *CollectionsService) editor(ctx context.Context, node domain.CollectionNode) (NodeEditor, error) {
+// from this one answer, and would otherwise show a request that inherits nothing until it is
+// edited.
+func (s *CollectionsService) editor(
+	ctx context.Context,
+	node domain.CollectionNode,
+) (NodeEditor, error) {
 	state, err := s.drafts.Open(ctx, draftOfNode(node))
 	if err != nil {
 		return NodeEditor{}, err
@@ -66,7 +71,8 @@ func (s *CollectionsService) editor(ctx context.Context, node domain.CollectionN
 	if err != nil {
 		return NodeEditor{}, err
 	}
-	return NodeEditor{Tree: tree, Node: node, State: completed(ctx, s.drafts, s.collections, state)}, nil
+	return NodeEditor{Tree: tree, Node: node,
+		State: completed(ctx, s.drafts, s.collections, state)}, nil
 }
 
 // draftOfNode is a saved request seen as something to edit. Rows keep their ids, so an editor that

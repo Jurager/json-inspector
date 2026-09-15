@@ -8,8 +8,9 @@ import (
 )
 
 // WorkspaceService is the switcher: which spaces exist, which one the window is showing, and what a
-// new one is called. Every call answers with the whole set, the way the environments and the tree do
-// — the window draws all of it at once, and a partial answer would only be a second thing to keep.
+// new one is called. Every call answers with the whole set, the way the environments and the tree
+// do — the window draws all of it at once, and a partial answer would only be a second thing to
+// keep.
 type WorkspaceService struct {
 	workspaces *workspace.UseCase
 }
@@ -28,11 +29,18 @@ func (s *WorkspaceService) Switch(ctx context.Context, id string) (domain.Worksp
 	return s.workspaces.Switch(ctx, id)
 }
 
-func (s *WorkspaceService) Create(ctx context.Context, in workspace.CreateInput) (domain.WorkspaceState, error) {
+func (s *WorkspaceService) Create(
+	ctx context.Context,
+	in workspace.CreateInput,
+) (domain.WorkspaceState, error) {
 	return s.workspaces.Create(ctx, in)
 }
 
-func (s *WorkspaceService) Update(ctx context.Context, id string, patch workspace.Patch) (domain.WorkspaceState, error) {
+func (s *WorkspaceService) Update(
+	ctx context.Context,
+	id string,
+	patch workspace.Patch,
+) (domain.WorkspaceState, error) {
 	return s.workspaces.Update(ctx, id, patch)
 }
 

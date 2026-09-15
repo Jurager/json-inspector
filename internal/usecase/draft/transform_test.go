@@ -169,7 +169,8 @@ func TestCookieHeaderAndJar(t *testing.T) {
 	if len(rows) != 3 {
 		t.Fatalf("cookiesFromHeader = %+v, want three", rows)
 	}
-	if rows[0].Name != "session" || rows[0].Value != "abc" || rows[2].Name != "broken" || rows[2].Value != "" {
+	if rows[0].Name != "session" || rows[0].Value != "abc" || rows[2].Name != "broken" ||
+		rows[2].Value != "" {
 		t.Errorf("rows = %+v, want name=value pairs and a bare name kept", rows)
 	}
 	if rows[0].Path != "/" {
@@ -179,7 +180,8 @@ func TestCookieHeaderAndJar(t *testing.T) {
 	if got := headerFromCookies(rows); got != "session=abc; theme=dark; broken=" {
 		t.Errorf("headerFromCookies = %q", got)
 	}
-	if got := headerFromCookies([]domain.CookieRow{{Name: "  "}, {Name: "a", Value: "b"}}); got != "a=b" {
+	cookies := []domain.CookieRow{{Name: "  "}, {Name: "a", Value: "b"}}
+	if got := headerFromCookies(cookies); got != "a=b" {
 		t.Errorf("headerFromCookies = %q, want the nameless row skipped", got)
 	}
 	if got := headerFromCookies(nil); got != "" {

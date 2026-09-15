@@ -15,9 +15,9 @@ const (
 	BodyBinary BodyKind = "binary"
 )
 
-// KindOf is the kind a body actually goes out as, with the empty value read as raw. It is applied at
-// every boundary a kind can enter by — a column, a seed, a node — so that the rest of the app never
-// has to ask whether a kind was set.
+// KindOf is the kind a body actually goes out as, with the empty value read as raw. It is applied
+// at every boundary a kind can enter by — a column, a seed, a node — so that the rest of the app
+// never has to ask whether a kind was set.
 //
 // There is deliberately no kind for "no body": an empty text already says that, and it is what lets
 // the columns written before this type existed keep their meaning.

@@ -18,8 +18,8 @@ func fixture(t *testing.T, name string) []byte {
 	return data
 }
 
-// asRequest is the fixture row that must be a request: a level holds requests and collections, and a
-// test that names one of them by index is easier to read with the index checked here.
+// asRequest is the fixture row that must be a request: a level holds requests and collections, and
+// a test that names one of them by index is easier to read with the index checked here.
 func asRequest(t *testing.T, collection domain.Collection, i int) domain.CollectionNode {
 	t.Helper()
 	if i >= len(collection.Items) {
@@ -62,7 +62,8 @@ func TestImportReadsNestedCollectionsAndRequests(t *testing.T) {
 	}
 
 	list := asRequest(t, nested, 0)
-	if list.Method != "GET" || list.URL != "https://api.example.com/users?include=author,comments&page[size]=25" {
+	if list.Method != "GET" ||
+		list.URL != "https://api.example.com/users?include=author,comments&page[size]=25" {
 		t.Errorf("request = %+v, want the method and the address", list)
 	}
 	// A row the file switched off stays switched off: it is a thing about the request.
@@ -74,7 +75,8 @@ func TestImportReadsNestedCollectionsAndRequests(t *testing.T) {
 	if len(list.Params) != 3 || list.Params[2].Name != "filter[state]" || list.Params[2].Enabled {
 		t.Errorf("params = %+v, want the disabled one kept", list.Params)
 	}
-	if list.Auth == nil || list.Auth.Type != domain.AuthBearer || list.Auth.Get("token") != "{{token}}" {
+	if list.Auth == nil || list.Auth.Type != domain.AuthBearer ||
+		list.Auth.Answer("token") != "{{token}}" {
 		t.Errorf("auth = %+v, want the bearer token as it was written", list.Auth)
 	}
 
@@ -104,18 +106,20 @@ func TestImportReadsAFormBody(t *testing.T) {
 	}
 	// Basic carries two values, and both of them are the request's: a login is not a secret and a
 	// password is, and they have to come back the way they were written.
-	if report.Auth == nil || report.Auth.Type != domain.AuthBasic || report.Auth.Get("username") != "reader" ||
-		report.Auth.Get("password") != "{{secret}}" {
+	if report.Auth == nil || report.Auth.Type != domain.AuthBasic ||
+		report.Auth.Answer("username") != "reader" ||
+		report.Auth.Answer("password") != "{{secret}}" {
 		t.Errorf("auth = %+v, want both halves of the pair", report.Auth)
 	}
 }
 
-// A folder's authorization is what everything inside it inherits, and the format has a place for it:
-// a group that lost its auth on the way in would be a group that behaved differently here.
+// A folder's authorization is what everything inside it inherits, and the format has a place for
+// it: a group that lost its auth on the way in would be a group that behaved differently here.
 func TestImportReadsTheAuthOfANestedCollection(t *testing.T) {
 	file := []byte(`{"info":{"name":"Магазин","schema":"` + Schema + `"},"item":[
 		{"name":"Админ","auth":{"type":"bearer","bearer":[{"key":"token","value":"{{admin}}"}]},
-		 "item":[{"name":"Список","request":{"method":"GET","url":{"raw":"https://api.example.com/admins"}}}]}]}`)
+		 "item":[{"name":"Список",
+		          "request":{"method":"GET","url":{"raw":"https://api.example.com/admins"}}}]}]}`)
 
 	collection, err := Import(file)
 	if err != nil {
@@ -125,7 +129,7 @@ func TestImportReadsTheAuthOfANestedCollection(t *testing.T) {
 		t.Fatalf("children = %+v, want the group", collection.Children)
 	}
 	nested := collection.Children[0]
-	if nested.Auth == nil || nested.Auth.Get("token") != "{{admin}}" {
+	if nested.Auth == nil || nested.Auth.Answer("token") != "{{admin}}" {
 		t.Errorf("auth = %+v, want the group's own", nested.Auth)
 	}
 
@@ -226,7 +230,7 @@ func sameAuth(got domain.Auth, want domain.Auth) bool {
 		return false
 	}
 	for key, value := range want.Fields {
-		if got.Get(key) != value {
+		if got.Answer(key) != value {
 			return false
 		}
 	}
@@ -264,7 +268,8 @@ func TestExportWritesASingleRequest(t *testing.T) {
 // A form body survives the trip: Postman has a shape for rows, and the app has one too.
 func TestAFormBodyTravelsBothWays(t *testing.T) {
 	file := []byte(`{"info":{"name":"Загрузка","schema":"` + Schema + `"},"item":[
-		{"name":"Создать товар","request":{"method":"POST","url":{"raw":"https://api.example.com/products"},
+		{"name":"Создать товар",
+		 "request":{"method":"POST","url":{"raw":"https://api.example.com/products"},
 		 "body":{"mode":"formdata","formdata":[
 			{"key":"title","value":"Кофемолка Orion"},
 			{"key":"off","value":"нет","disabled":true},
@@ -285,7 +290,8 @@ func TestAFormBodyTravelsBothWays(t *testing.T) {
 	if len(node.Form) != 3 {
 		t.Fatalf("form = %+v, want all three rows", node.Form)
 	}
-	if node.Form[0].Name != "title" || node.Form[0].Value != "Кофемолка Orion" || !node.Form[0].Enabled {
+	if node.Form[0].Name != "title" || node.Form[0].Value != "Кофемолка Orion" ||
+		!node.Form[0].Enabled {
 		t.Errorf("form[0] = %+v", node.Form[0])
 	}
 	if node.Form[1].Enabled {
@@ -349,8 +355,8 @@ func TestABinaryBodyTravelsBothWays(t *testing.T) {
 	}
 }
 
-// The three text kinds leave as raw, because Postman has nowhere to record which of them a body was.
-// Writing a language this reader does not honour would be a promise the next import breaks.
+// The three text kinds leave as raw, because Postman has nowhere to record which of them a body
+// was. Writing a language this reader does not honour would be a promise the next import breaks.
 func TestAJsonBodyLeavesAsRaw(t *testing.T) {
 	node := domain.CollectionNode{
 		Name: "Создать", Method: "POST",

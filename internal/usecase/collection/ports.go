@@ -38,24 +38,37 @@ type Store interface {
 
 	SaveRun(ctx context.Context, run domain.CollectionRun) error
 	AppendRunResult(ctx context.Context, runID string, result domain.CollectionRunResult) error
-	LastRun(ctx context.Context, collectionID string, nodeID string) (domain.CollectionRun, bool, error)
+	LastRun(ctx context.Context, collectionID string, nodeID string) (domain.CollectionRun, bool,
+		error)
 }
 
 // RunRequest is one saved request on its way out: what a node asks for, with its rows already
 // narrowed to the ones that are switched on and its jar carried as rows.
 //
 // The run and the node travel with it although a run does not use them itself: a request that came
-// from a collection has the scripts of everything above it around it, and whoever sends it has to be
-// able to say which node it was.
+// from a collection has the scripts of everything above it around it, and whoever sends it has to
+// be able to say which node it was.
 type RunRequest struct {
 	Run    string
 	NodeID string
+
+	// Workspace is the space the run resolved once, at the moment it started, and carried here as a
+	// value. The sender must not ask for it again: a run outlives the call that started it, and the
+	// user may well have switched spaces by the time the twentieth request goes out.
+	Workspace string
 
 	Method  string
 	URL     string
 	Body    string
 	Headers []domain.HeaderPair
 	Cookies []domain.CookieRow
+
+	// The body travels with what it was rendered from, exactly as a draft's does: a form or a file
+	// body cannot be sent from its text alone, and a node that has one would otherwise go out as raw
+	// text with no Content-Type. See draft.Prepared.
+	BodyKind domain.BodyKind
+	Form     []domain.FormRow
+	BodyFile string
 
 	// Auth is what the request inherits: the answer of the nearest level above it that gave one, or
 	// nothing when none did. It travels resolved because the walk up the tree is the run's own —
@@ -66,15 +79,15 @@ type RunRequest struct {
 // Sender sends one saved request and answers with what it produced. A run does not know how a
 // request leaves the process — it goes out the way the command line's does, through the draft that
 // fills in its `{{tokens}}` and keeps a secret's value out of what is written down.
+type Sender interface {
+	Send(ctx context.Context, req RunRequest) (domain.Record, error)
+}
+
 // Scope answers which workspace the window is showing. It is a port of this feature's own rather
 // than a call into the workspace use case: features never import each other, and this one only
 // needs the name of the space it is working in.
 type Scope interface {
 	ActiveWorkspace(ctx context.Context) (string, error)
-}
-
-type Sender interface {
-	Send(ctx context.Context, req RunRequest) (domain.Record, error)
 }
 
 // Notifier publishes what happened to whoever is listening.

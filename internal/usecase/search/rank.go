@@ -15,9 +15,9 @@ const (
 	perGroupOne = 20
 )
 
-// rank orders one area's answer and cuts it to what the group draws, answering the rows and how many
-// were found. The rows are sorted where they lie: the slice is the area's own and nobody else holds
-// it.
+// rank orders one area's answer and cuts it to what the group draws, answering the rows and how
+// many were found. The rows are sorted where they lie: the slice is the area's own and nobody else
+// holds it.
 //
 // The order is the design's: the best kind of match first, and inside a kind the newest. A row with
 // no time at all — a saved request, which never happened — keeps the order the area stored it in,

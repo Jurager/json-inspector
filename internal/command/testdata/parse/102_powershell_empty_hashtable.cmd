@@ -1,0 +1,1 @@
+Invoke-RestMethod 'https://api.example.com/articles' -Headers '@{'

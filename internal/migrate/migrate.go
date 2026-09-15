@@ -196,7 +196,8 @@ func apply(ctx context.Context, db *sql.DB, m Migration) error {
 	elapsed := time.Since(started).Milliseconds()
 
 	_, err = tx.ExecContext(ctx,
-		`INSERT INTO schema_migrations (version, name, checksum, applied_at, execution_ms) VALUES (?, ?, ?, ?, ?)`,
+		`INSERT INTO schema_migrations (version, name, checksum, applied_at, execution_ms) VALUES (?, ?,
+			?, ?, ?)`,
 		m.Version, m.Name, m.Checksum, time.Now().UnixMilli(), elapsed,
 	)
 	if err != nil {

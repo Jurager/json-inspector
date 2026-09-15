@@ -19,8 +19,8 @@ import type { ChipName, RequestSource } from '../../lib/requestSource'
 import { usePlatform } from '../../composables/usePlatform'
 import { registerUrlField } from '../../composables/urlFocus'
 import { tokenSegments } from '../../lib/vars'
-import { parseRequestCommand, type ParseErrorReason } from '../../lib/parseRequest'
-import type { ExportFormat } from '../../lib/export'
+import { CommandService } from '../../../bindings/json-inspector/internal/transport/wails'
+import { Format, Kind } from '../../../bindings/json-inspector/internal/command'
 import { useToast } from '../../composables/useToast'
 import { describeFailure, useMessages } from '../../i18n'
 
@@ -38,13 +38,15 @@ const { shortcut } = usePlatform()
 const envStore = useEnvironmentsStore()
 const toast = useToast()
 
-// Wire formats, not words: a cURL command is called cURL in every language.
-const FORMAT_LABELS: Record<ExportFormat, string> = {
-  curl: 'cURL',
-  fetch: 'fetch',
-  wget: 'wget',
-  httpie: 'HTTPie',
-  powershell: 'PowerShell',
+// Wire formats, not words: a cURL command is called cURL in every language. An index signature
+// rather than Record<Format, …>: the enum's `$zero` is not a format, and the map is only ever read
+// with one that is.
+const FORMAT_LABELS: { [format: string]: string } = {
+  [Format.FormatCurl]: 'cURL',
+  [Format.FormatFetch]: 'fetch',
+  [Format.FormatWget]: 'wget',
+  [Format.FormatHTTPie]: 'HTTPie',
+  [Format.FormatPowerShell]: 'PowerShell',
 }
 
 const sendShortcut = computed(() => shortcut('↵'))
@@ -170,13 +172,28 @@ function onWindowKeydown(e: KeyboardEvent) {
   }
 }
 
-function onUrlPaste(e: ClipboardEvent) {
+// A paste is read by the parser in Go, and the answer arrives after the browser has already decided
+// what to do with the event — so the paste is taken from it up front and, when the text turns out
+// not to be a command at all, put into the field here. The alternative is deciding in this window
+// whether the text is a command, which is the parser over again.
+async function onUrlPaste(e: ClipboardEvent) {
+  const input = e.target as HTMLInputElement
   const text = e.clipboardData?.getData('text/plain') ?? ''
-  const result = parseRequestCommand(text)
-  if (result.kind === 'none') return
-
   e.preventDefault()
-  if (result.kind === 'error') {
+
+  let result
+  try {
+    result = await CommandService.Parse(text)
+  } catch {
+    insertAtCaret(input, text)
+    return
+  }
+
+  if (result.kind === Kind.KindNone) {
+    insertAtCaret(input, text)
+    return
+  }
+  if (result.kind === Kind.KindError) {
     toast.show(t('request.pasteFailed', { reason: t(`request.parseError.${result.reason}`) }), 'error')
     return
   }
@@ -187,14 +204,24 @@ function onUrlPaste(e: ClipboardEvent) {
   void store.replace({
     method: result.request.method,
     url: result.request.url,
-    headers: Object.entries(result.request.requestHeaders).map(([name, value]) => ({ name, value })),
-    body: result.request.requestBody,
+    headers: (result.request.headers ?? []).map((h) => ({ name: h.name, value: h.value })),
+    body: result.request.body,
     cookies: [],
     auth: result.request.auth ?? undefined,
   })
   store.setOpenChip(null)
   void nextTick(syncUrlScroll)
   toast.show(t('request.pasteRecognised', { format: FORMAT_LABELS[result.format] }))
+}
+
+// insertAtCaret is the paste the browser was not allowed to make itself: the same text where the
+// caret was, with an input event so the store hears about it. `end` puts the caret after it, which
+// is where a paste leaves it.
+function insertAtCaret(input: HTMLInputElement, text: string) {
+  const from = input.selectionStart ?? input.value.length
+  const to = input.selectionEnd ?? from
+  input.setRangeText(text, from, to, 'end')
+  input.dispatchEvent(new Event('input', { bubbles: true }))
 }
 
 onMounted(() => window.addEventListener('keydown', onWindowKeydown))

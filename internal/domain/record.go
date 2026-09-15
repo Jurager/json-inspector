@@ -48,11 +48,6 @@ type BodyRef struct {
 	Truncated bool   `json:"truncated,omitempty"`
 }
 
-// Inline reports whether the body came with the record.
-func (b BodyRef) IsInline() bool {
-	return b.Size <= InlineBodyLimit && !b.Truncated
-}
-
 // PruneOptions is how much history is kept: at most MaxCount rows, and none older than MaxAge when
 // that is set. Both apply — the count has always been capped; this adds age on top of it.
 type PruneOptions struct {

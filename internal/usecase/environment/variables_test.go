@@ -114,8 +114,8 @@ func placeOf(variables []domain.Variable, name string) int {
 	return -1
 }
 
-// What a script cannot do, it says so about: there is no environment selected to write into, there is
-// no scope called that, and a name no `{{token}}` can carry is a name nobody can read back.
+// What a script cannot do, it says so about: there is no environment selected to write into, there
+// is no scope called that, and a name no `{{token}}` can carry is a name nobody can read back.
 func TestVariableRefusesWhatItCannotDo(t *testing.T) {
 	u, _ := newUseCase(t)
 	ctx := context.Background()
@@ -138,7 +138,8 @@ func TestVariableRefusesWhatItCannotDo(t *testing.T) {
 	}
 
 	for _, name := range []string{"", "  ", "a b", "{{x}}"} {
-		if err := u.SetVariable(ctx, domain.ScopeGlobals, name, "1"); !errors.Is(err, domain.ErrNotAllowed) {
+		if err := u.SetVariable(ctx, domain.ScopeGlobals, name, "1"); !errors.Is(err,
+			domain.ErrNotAllowed) {
 			t.Errorf("writing %q = %v, want ErrNotAllowed", name, err)
 		}
 	}

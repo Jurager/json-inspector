@@ -12,13 +12,14 @@ import (
 	"json-inspector/internal/postman"
 )
 
-// A collection travels as a file, and reading and writing one happens on this side of the boundary: a
-// collection is a document, and the window has no business holding one — it asks for an import, is
-// told whether one happened, and draws the tree it gets back.
+// A collection travels as a file, and reading and writing one happens on this side of the boundary:
+// a collection is a document, and the window has no business holding one — it asks for an import,
+// is told whether one happened, and draws the tree it gets back.
 //
-// The file is JSON, and what is inside it is a Postman collection. The dialog offers the kind of file
-// — JSON is what a user picks, and which tool wrote it is what the file turns out to be — while the
-// shape is named where it matters: in the message about a file that turned out to be something else.
+// The file is JSON, and what is inside it is a Postman collection. The dialog offers the kind of
+// file — JSON is what a user picks, and which tool wrote it is what the file turns out to be —
+// while the shape is named where it matters: in the message about a file that turned out to be
+// something else.
 const (
 	fileKindName = "JSON"
 	filePattern  = "*.json"
@@ -32,11 +33,14 @@ var jsonFilter = []application.FileFilter{{DisplayName: fileKindName, Pattern: f
 // ImportFile asks for a file, reads it and writes what is in it into the tree. A nil tree is a
 // cancelled dialog: nothing happened, and it is not a failure.
 //
-// There is one shape, and nothing is guessed: a file that is not a Postman collection is told that it
-// is not. When a second shape arrives, the window offers them by name and the user says which one
-// they are handing over — a file read as something it is not is worse than a wrong choice that says
-// so out loud.
-func (s *CollectionsService) ImportFile(ctx context.Context, title string) ([]domain.Collection, error) {
+// There is one shape, and nothing is guessed: a file that is not a Postman collection is told that
+// it is not. When a second shape arrives, the window offers them by name and the user says which
+// one they are handing over — a file read as something it is not is worse than a wrong choice that
+// says so out loud.
+func (s *CollectionsService) ImportFile(
+	ctx context.Context,
+	title string,
+) ([]domain.Collection, error) {
 	path, err := s.host.OpenFile(title, jsonFilter...)
 	if err != nil {
 		return nil, err
@@ -55,7 +59,11 @@ func (s *CollectionsService) ImportFile(ctx context.Context, title string) ([]do
 // ExportFile writes a collection — or one request, when the id names one — into a file the user
 // picks. It answers whether anything was written: a cancelled save dialog is not an error, and the
 // window says nothing about it.
-func (s *CollectionsService) ExportFile(ctx context.Context, title string, id string) (bool, error) {
+func (s *CollectionsService) ExportFile(
+	ctx context.Context,
+	title string,
+	id string,
+) (bool, error) {
 	contents, err := s.collections.Full(ctx, id)
 	if err != nil {
 		return false, err
@@ -74,9 +82,9 @@ func (s *CollectionsService) ExportFile(ctx context.Context, title string, id st
 	return true, nil
 }
 
-// readCollection is the file half of an import, apart from the dialog that names the file: the bytes
-// on disk are a Postman collection, or they are not — and a file that is not says so itself, which is
-// better than a reader that guesses at what it might be.
+// readCollection is the file half of an import, apart from the dialog that names the file: the
+// bytes on disk are a Postman collection, or they are not — and a file that is not says so itself,
+// which is better than a reader that guesses at what it might be.
 func readCollection(path string) (domain.Collection, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
@@ -85,8 +93,8 @@ func readCollection(path string) (domain.Collection, error) {
 	return postman.Import(data)
 }
 
-// writeCollection is the file half of an export: a collection written where it was asked for. What it
-// writes is the whole of it — the collections inside it are the file's folders.
+// writeCollection is the file half of an export: a collection written where it was asked for. What
+// it writes is the whole of it — the collections inside it are the file's folders.
 func writeCollection(path string, contents domain.Collection) error {
 	data, err := postman.Export(contents)
 	if err != nil {
@@ -101,8 +109,8 @@ func writeCollection(path string, contents domain.Collection) error {
 }
 
 // fileNameFor is the name a save dialog opens on: the collection's own, made safe for a file system
-// and ending the way a Postman collection file does. `/` and `:` are legal in a collection's name and
-// not in a file's.
+// and ending the way a Postman collection file does. `/` and `:` are legal in a collection's name
+// and not in a file's.
 func fileNameFor(name string) string {
 	safe := strings.Map(func(r rune) rune {
 		if strings.ContainsRune(`/\:*?"<>|`, r) {

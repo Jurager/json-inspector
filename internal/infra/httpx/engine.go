@@ -52,8 +52,8 @@ func NewEngine(cfg Config, ids platform.IDGen) *Engine {
 
 // Client is the client every user request goes out through, for the one thing that is not a user
 // request and still leaves the process the same way: an identity provider's token endpoint. It
-// carries the proxy, the timeout and the TLS settings the user configured, which is the whole reason
-// to hand it over rather than build a second one that quietly ignores them.
+// carries the proxy, the timeout and the TLS settings the user configured, which is the whole
+// reason to hand it over rather than build a second one that quietly ignores them.
 func (e *Engine) Client() *http.Client { return e.client }
 
 // Spec is one request to send.
@@ -72,10 +72,12 @@ type Spec struct {
 	Digest *domain.DigestCredentials
 }
 
-// newRequest builds the request a spec describes. Both halves of Digest are built from the same spec
-// and differ only in the header the second one carries, which is why this is a function and not two.
+// newRequest builds the request a spec describes. Both halves of Digest are built from the same
+// spec and differ only in the header the second one carries, which is why this is a function and
+// not two.
 func (e *Engine) newRequest(ctx context.Context, spec Spec) (*http.Request, error) {
-	req, err := http.NewRequestWithContext(ctx, spec.Method, complete(spec.URL), strings.NewReader(spec.Body))
+	req, err := http.NewRequestWithContext(ctx, spec.Method, complete(spec.URL),
+		strings.NewReader(spec.Body))
 	if err != nil {
 		return nil, err
 	}
@@ -96,7 +98,11 @@ func (e *Engine) newRequest(ctx context.Context, spec Spec) (*http.Request, erro
 // The address the answer is computed over is the one the request is actually going to — the engine
 // completes a bare host into a scheme and a path, and a response computed over what the user typed
 // rather than over what was sent is one the server refuses.
-func (e *Engine) answerChallenge(ctx context.Context, spec Spec, refused *http.Response) (*http.Response, []domain.HeaderPair, error) {
+func (e *Engine) answerChallenge(
+	ctx context.Context,
+	spec Spec,
+	refused *http.Response,
+) (*http.Response, []domain.HeaderPair, error) {
 	challenge, err := digest.FindChallenge(refused.Header)
 	if err != nil {
 		return nil, nil, err

@@ -1,10 +1,10 @@
 // Package scriptengine runs a user's script in a sandbox: goja, the `pm` API, no network, no files,
 // no timers, and a few seconds to finish.
 //
-// What a script can reach is the whole of its world: the request it is running around, the answer if
-// there is one, and the three scopes its variables live in. There is no `pm.sendRequest`, and that is
-// not a gap to be filled later — a script that could send a request would need a callback to come
-// back through, and five seconds of sandbox would stop meaning anything.
+// What a script can reach is the whole of its world: the request it is running around, the answer
+// if there is one, and the three scopes its variables live in. There is no `pm.sendRequest`, and
+// that is not a gap to be filled later — a script that could send a request would need a callback
+// to come back through, and five seconds of sandbox would stop meaning anything.
 package scriptengine
 
 import (
@@ -18,8 +18,8 @@ import (
 	"json-inspector/internal/domain"
 )
 
-// The prelude is embedded rather than read: it is part of the program, and a file next to the binary
-// is a file that can go missing.
+// The prelude is embedded rather than read: it is part of the program, and a file next to
+// the binary is a file that can go missing.
 //
 //go:embed prelude.js
 var preludeSource string
@@ -43,12 +43,12 @@ func NewEngine() *Engine {
 	return &Engine{within: maxScriptDuration}
 }
 
-// Run executes one script and answers with its report. A script that throws, or that never finishes,
-// is a report as well: the caller is not left to guess what a failure means, and the tab draws the
-// same shape either way.
+// Run executes one script and answers with its report. A script that throws, or that never
+// finishes, is a report as well: the caller is not left to guess what a failure means, and the tab
+// draws the same shape either way.
 //
-// The report carries no ids and no timestamps — who ran, for which record, and when — because that is
-// what the caller knows and this does not.
+// The report carries no ids and no timestamps — who ran, for which record, and when — because that
+// is what the caller knows and this does not.
 func (e *Engine) Run(in domain.ScriptInput) domain.ScriptRun {
 	started := time.Now()
 	run := domain.ScriptRun{
@@ -99,9 +99,9 @@ var (
 	preludeOnce sync.Once
 )
 
-// prelude is the pm API, compiled once. It is the same file for every run, and a collection of fifty
-// requests would otherwise parse it fifty times — and a Program is safe to run in many runtimes,
-// because compiling it does not tie it to one.
+// prelude is the pm API, compiled once. It is the same file for every run, and a collection of
+// fifty requests would otherwise parse it fifty times — and a Program is safe to run in many
+// runtimes, because compiling it does not tie it to one.
 func preludeProgram() (*goja.Program, error) {
 	preludeOnce.Do(func() { prelude, preludeErr = goja.Compile("prelude.js", preludeSource, false) })
 	if preludeErr != nil {

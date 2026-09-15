@@ -12,8 +12,8 @@ import (
 )
 
 // browserThatFollows is a browser as far as this package can tell: it is handed the provider's page
-// and does what a person would do there — say yes and be sent back. What it is sent back with is the
-// test's to choose, which is the whole point: the provider is the one party a test cannot be.
+// and does what a person would do there — say yes and be sent back. What it is sent back with is
+// the test's to choose, which is the whole point: the provider is the one party a test cannot be.
 type browserThatFollows struct {
 	t      *testing.T
 	answer func(authorize url.URL) (redirect string, fragment string)
@@ -71,7 +71,7 @@ func formOf(fragment string) url.Values {
 // the app exchanges it — with a PKCE verifier, so that a code read off the redirect is useless to
 // anybody else.
 func TestTheCodeGrantSignsInAndExchanges(t *testing.T) {
-	endpoint := &tokenEndpoint{token: "issued-for-a-code", expiry: 3600}
+	endpoint := &spyTokenEndpoint{token: "issued-for-a-code", expiry: 3600}
 	srv := endpoint.server(t)
 
 	browser := &browserThatFollows{t: t, answer: func(authorize url.URL) (string, string) {
@@ -122,9 +122,11 @@ func TestTheImplicitGrantTakesTheTokenFromTheFragment(t *testing.T) {
 	browser := &browserThatFollows{t: t, answer: func(authorize url.URL) (string, string) {
 		query := authorize.Query()
 		if query.Get("response_type") != "token" {
-			t.Errorf("response_type = %q, want the grant that gets the token itself", query.Get("response_type"))
+			t.Errorf("response_type = %q, want the grant that gets the token itself",
+				query.Get("response_type"))
 		}
-		return query.Get("redirect_uri"), "access_token=from-the-fragment&expires_in=60&state=" + query.Get("state")
+		return query.Get("redirect_uri"),
+			"access_token=from-the-fragment&expires_in=60&state=" + query.Get("state")
 	}}
 
 	auth := oauthAuth(map[string]string{
@@ -171,10 +173,12 @@ func TestAnAnswerFromAnotherSignInIsNotTaken(t *testing.T) {
 	}
 }
 
-// A person who says no is not a failure of the app, and the provider's own word for it travels back.
+// A person who says no is not a failure of the app, and the provider's own word for it travels
+// back.
 func TestARefusalAtTheProviderTravelsBack(t *testing.T) {
 	browser := &browserThatFollows{t: t, answer: func(authorize url.URL) (string, string) {
-		return authorize.Query().Get("redirect_uri") + "?error=access_denied&state=" + authorize.Query().Get("state"), ""
+		return authorize.Query().Get("redirect_uri") + "?error=access_denied&state=" +
+			authorize.Query().Get("state"), ""
 	}}
 	auth := oauthAuth(map[string]string{
 		"grant": "authorization_code", "authUrl": "https://idp.example.com/authorize",

@@ -32,8 +32,8 @@ export interface Failure {
 }
 
 /**
- * MenuLabels are the few words the native menu needs. They arrive from the window, because the menu is
- * drawn by the system and only the page knows the language — the alternative would be a second
+ * MenuLabels are the few words the native menu needs. They arrive from the window, because the menu
+ * is drawn by the system and only the page knows the language — the alternative would be a second
  * catalogue here, in one language, drifting away from the one the rest of the app reads.
  */
 export interface MenuLabels {
@@ -47,7 +47,8 @@ export interface MenuLabels {
  * and the tree the row lives in.
  * 
  * It is assembled in this layer because this is the only one that knows both features — collections
- * own the tree, the draft owns the editing — and neither of them has any business knowing the other.
+ * own the tree, the draft owns the editing — and neither of them has any business knowing the
+ * other.
  */
 export interface NodeEditor {
     "tree": domain$0.Collection[] | null;

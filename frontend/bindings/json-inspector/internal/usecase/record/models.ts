@@ -47,8 +47,8 @@ export interface IngestInput {
 }
 
 /**
- * RequestFailed is an attempt that produced no record at all, which is a failure of this side rather
- * than of the network: a request that never reached the server still has a record.
+ * RequestFailed is an attempt that produced no record at all, which is a failure of this side
+ * rather than of the network: a request that never reached the server still has a record.
  */
 export interface RequestFailed {
     "id": string;

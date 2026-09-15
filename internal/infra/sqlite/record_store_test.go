@@ -10,43 +10,6 @@ import (
 	"json-inspector/internal/domain"
 )
 
-func sampleRecord(id string, source domain.RecordSource) domain.Record {
-	return domain.Record{
-		RecordSummary: domain.RecordSummary{
-			ID:         id,
-			Source:     source,
-			Method:     "GET",
-			URL:        "https://api.example.com/articles",
-			Status:     200,
-			StatusText: "200 OK",
-			DurationUs: 42000,
-			StartedAt:  time.Now().UnixMilli(),
-			TabID:      7,
-			TabTitle:   "Example",
-		},
-		DNSUs:      micros(1000),
-		ConnectUs:  micros(2000),
-		TLSUs:      micros(3000),
-		WaitUs:     micros(4000),
-		DownloadUs: micros(5000),
-		RequestHeaders: []domain.HeaderPair{
-			{Name: "Accept", Value: "application/vnd.api+json"},
-		},
-		ResponseHeaders: []domain.HeaderPair{
-			{Name: "Content-Type", Value: "application/vnd.api+json"},
-			{Name: "Set-Cookie", Value: "a=1"},
-			{Name: "Set-Cookie", Value: "b=2"},
-		},
-		RequestCookies: []domain.CookieRow{{Name: "session", Value: "abc", Path: "/"}},
-		RequestBody:    &domain.BodyRef{Inline: `{"a":1}`, Size: 7},
-		ResponseBody:   &domain.BodyRef{Inline: `{"data":[]}`, Size: 11},
-	}
-}
-
-// micros is a phase length for the fixtures: the field is a pointer, because a phase that did not
-// happen is not the same as one that took no time.
-func micros(us int64) *int64 { return &us }
-
 func TestRecordRoundTrip(t *testing.T) {
 	store := newMigratedStore(t)
 	ctx := context.Background()
@@ -130,7 +93,8 @@ func TestBodyIsReadBackWhole(t *testing.T) {
 		t.Errorf("responseBody = %+v, want its size", list[0].ResponseBody)
 	}
 	if list[0].RequestBody != nil {
-		t.Errorf("requestBody = %+v, want none for a record that had no request body", list[0].RequestBody)
+		t.Errorf("requestBody = %+v, want none for a record that had no request body",
+			list[0].RequestBody)
 	}
 
 	text, err := store.ReadBody(ctx, "rec-big", domain.SideResponse)
@@ -140,7 +104,8 @@ func TestBodyIsReadBackWhole(t *testing.T) {
 	if len(text) != len(big) {
 		t.Errorf("ReadBody returned %d bytes, want %d", len(text), len(big))
 	}
-	if _, err := store.ReadBody(ctx, "rec-big", domain.SideRequest); !errors.Is(err, domain.ErrNotFound) {
+	if _, err := store.ReadBody(ctx, "rec-big", domain.SideRequest); !errors.Is(err,
+		domain.ErrNotFound) {
 		t.Errorf("a body that was never saved = %v, want ErrNotFound", err)
 	}
 }
@@ -284,7 +249,8 @@ func TestDeleteRecordsTakesTheirBodies(t *testing.T) {
 	}
 
 	// The cascade is what proves the foreign key is enforced on the connection the pool hands out.
-	if _, err := store.ReadBody(ctx, "rec-1", domain.SideResponse); !errors.Is(err, domain.ErrNotFound) {
+	if _, err := store.ReadBody(ctx, "rec-1",
+		domain.SideResponse); !errors.Is(err, domain.ErrNotFound) {
 		t.Errorf("the body outlived its record: %v", err)
 	}
 	list, _ := store.Records(ctx, ws, "", 0)
@@ -377,12 +343,4 @@ func TestPruneTakesOnlyItsOwnWorkspace(t *testing.T) {
 	if len(theirs) != 3 {
 		t.Errorf("the space beside it holds %d record(s), want all three untouched", len(theirs))
 	}
-}
-
-func ids(rows []domain.Record) []string {
-	out := make([]string, len(rows))
-	for i, row := range rows {
-		out[i] = row.ID
-	}
-	return out
 }

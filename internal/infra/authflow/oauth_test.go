@@ -12,17 +12,17 @@ import (
 	"json-inspector/internal/domain"
 )
 
-// tokenEndpoint is a provider's token endpoint, and what it was asked. It answers the one shape
-// every provider answers in — an access token and how long it is good for — and records the form it
-// was sent so a test can say what the request carried.
-type tokenEndpoint struct {
+// spyTokenEndpoint is a provider's token endpoint that remembers what it was asked: half of what
+// these tests are about is what the request carried, and only the endpoint can say. It answers the
+// one shape every provider answers in — an access token and how long it is good for.
+type spyTokenEndpoint struct {
 	got    []map[string]string
 	auth   []string
 	token  string
 	expiry int
 }
 
-func (e *tokenEndpoint) server(t *testing.T) *httptest.Server {
+func (e *spyTokenEndpoint) server(t *testing.T) *httptest.Server {
 	t.Helper()
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		_ = r.ParseForm()
@@ -60,7 +60,7 @@ func oauthAuth(fields map[string]string) domain.Auth {
 // A client credentials grant is the client asking for a token as itself: the answers the user gave
 // go out in the form the provider expects, and what comes back is what the request carries.
 func TestClientCredentialsGrant(t *testing.T) {
-	endpoint := &tokenEndpoint{token: "issued-by-client", expiry: 3600}
+	endpoint := &spyTokenEndpoint{token: "issued-by-client", expiry: 3600}
 	srv := endpoint.server(t)
 
 	auth := oauthAuth(map[string]string{
@@ -92,24 +92,26 @@ func TestClientCredentialsGrant(t *testing.T) {
 	// The default for how the client authenticates is the header, and the client's own credential is
 	// not in the form as well: two credentials is a request some providers refuse.
 	if !strings.HasPrefix(endpoint.auth[0], "Basic ") {
-		t.Errorf("client authentication = %q, want the basic header the default asks for", endpoint.auth[0])
+		t.Errorf("client authentication = %q, want the basic header the default asks for",
+			endpoint.auth[0])
 	}
 	if _, present := form["client_secret"]; present {
 		t.Errorf("form = %+v, want the secret in the header and not twice", form)
 	}
 }
 
-// The other answer to «Client Authentication» puts the client's credential in the form instead, which
-// some providers want and no provider can be guessed about.
+// The other answer to «Client Authentication» puts the client's credential in the form instead,
+// which some providers want and no provider can be guessed about.
 func TestClientCredentialsInTheBody(t *testing.T) {
-	endpoint := &tokenEndpoint{token: "issued-in-body", expiry: 3600}
+	endpoint := &spyTokenEndpoint{token: "issued-in-body", expiry: 3600}
 	srv := endpoint.server(t)
 
 	auth := oauthAuth(map[string]string{
 		"grant": "client_credentials", "tokenUrl": srv.URL, "clientId": "id",
 		"clientSecret": "secret", "clientAuth": "body",
 	})
-	if _, err := New(srv.Client(), nil).Materialize(context.Background(), auth, domain.AuthRequest{}); err != nil {
+	if _, err := New(srv.Client(), nil).Materialize(context.Background(), auth,
+		domain.AuthRequest{}); err != nil {
 		t.Fatalf("Materialize: %v", err)
 	}
 
@@ -121,10 +123,10 @@ func TestClientCredentialsInTheBody(t *testing.T) {
 	}
 }
 
-// The password grant is the person asking for a token as themselves, and the login they gave goes out
-// beside the client's own.
+// The password grant is the person asking for a token as themselves, and the login they gave goes
+// out beside the client's own.
 func TestPasswordGrant(t *testing.T) {
-	endpoint := &tokenEndpoint{token: "issued-by-user", expiry: 3600}
+	endpoint := &spyTokenEndpoint{token: "issued-by-user", expiry: 3600}
 	srv := endpoint.server(t)
 
 	auth := oauthAuth(map[string]string{
@@ -148,10 +150,10 @@ func TestPasswordGrant(t *testing.T) {
 	}
 }
 
-// A token is asked for once and used until it dies: two sends sharing an authorization share what was
-// issued for it, which is the whole reason to keep one.
+// A token is asked for once and used until it dies: two sends sharing an authorization share what
+// was issued for it, which is the whole reason to keep one.
 func TestATokenIsAskedForOnceAndKept(t *testing.T) {
-	endpoint := &tokenEndpoint{token: "issued-once", expiry: 3600}
+	endpoint := &spyTokenEndpoint{token: "issued-once", expiry: 3600}
 	srv := endpoint.server(t)
 	materializer := New(srv.Client(), nil)
 
@@ -159,7 +161,8 @@ func TestATokenIsAskedForOnceAndKept(t *testing.T) {
 		"grant": "client_credentials", "tokenUrl": srv.URL, "clientId": "id", "clientSecret": "secret",
 	})
 	for i := 0; i < 3; i++ {
-		if _, err := materializer.Materialize(context.Background(), auth, domain.AuthRequest{}); err != nil {
+		if _, err := materializer.Materialize(context.Background(), auth,
+			domain.AuthRequest{}); err != nil {
 			t.Fatalf("Materialize: %v", err)
 		}
 	}
@@ -181,7 +184,8 @@ func TestATokenIsAskedForOnceAndKept(t *testing.T) {
 	if materializer.Held(auth).Held {
 		t.Error("the token survived being dropped")
 	}
-	if _, err := materializer.Materialize(context.Background(), auth, domain.AuthRequest{}); err != nil {
+	if _, err := materializer.Materialize(context.Background(), auth,
+		domain.AuthRequest{}); err != nil {
 		t.Fatalf("Materialize: %v", err)
 	}
 	if len(endpoint.got) != 2 {
@@ -193,7 +197,7 @@ func TestATokenIsAskedForOnceAndKept(t *testing.T) {
 // sent once more: asking is cheaper than the refusal a token that expired in flight would get.
 func TestATokenAboutToDieIsAskedForAgain(t *testing.T) {
 	// Five seconds is inside the ten the materializer treats as "already dead".
-	endpoint := &tokenEndpoint{token: "short-lived", expiry: 5}
+	endpoint := &spyTokenEndpoint{token: "short-lived", expiry: 5}
 	srv := endpoint.server(t)
 	materializer := New(srv.Client(), nil)
 
@@ -201,7 +205,8 @@ func TestATokenAboutToDieIsAskedForAgain(t *testing.T) {
 		"grant": "client_credentials", "tokenUrl": srv.URL, "clientId": "id", "clientSecret": "secret",
 	})
 	for i := 0; i < 2; i++ {
-		if _, err := materializer.Materialize(context.Background(), auth, domain.AuthRequest{}); err != nil {
+		if _, err := materializer.Materialize(context.Background(), auth,
+			domain.AuthRequest{}); err != nil {
 			t.Fatalf("Materialize: %v", err)
 		}
 	}
@@ -210,10 +215,10 @@ func TestATokenAboutToDieIsAskedForAgain(t *testing.T) {
 	}
 }
 
-// Drawing is not asking. A window painting rows while a person types must not send anything anywhere,
-// and «Нет токена» is what it says until there is one.
+// Drawing is not asking. A window painting rows while a person types must not send anything
+// anywhere, and «Нет токена» is what it says until there is one.
 func TestDrawingDoesNotAskForAToken(t *testing.T) {
-	endpoint := &tokenEndpoint{token: "issued", expiry: 3600}
+	endpoint := &spyTokenEndpoint{token: "issued", expiry: 3600}
 	srv := endpoint.server(t)
 	materializer := New(srv.Client(), nil)
 
@@ -232,7 +237,8 @@ func TestDrawingDoesNotAskForAToken(t *testing.T) {
 	}
 
 	// Once there is one, drawing shows it — without asking again.
-	if _, err := materializer.Materialize(context.Background(), auth, domain.AuthRequest{}); err != nil {
+	if _, err := materializer.Materialize(context.Background(), auth,
+		domain.AuthRequest{}); err != nil {
 		t.Fatalf("Materialize: %v", err)
 	}
 	out, err = materializer.Project(auth, domain.AuthRequest{})
@@ -247,17 +253,18 @@ func TestDrawingDoesNotAskForAToken(t *testing.T) {
 	}
 }
 
-// Changing an answer asks for another token: the key a token is kept under is the answers that would
-// fetch it, and a token issued for one client is not another client's.
+// Changing an answer asks for another token: the key a token is kept under is the answers that
+// would fetch it, and a token issued for one client is not another client's.
 func TestTheTokenFollowsTheAnswers(t *testing.T) {
-	endpoint := &tokenEndpoint{token: "issued", expiry: 3600}
+	endpoint := &spyTokenEndpoint{token: "issued", expiry: 3600}
 	srv := endpoint.server(t)
 	materializer := New(srv.Client(), nil)
 
 	auth := oauthAuth(map[string]string{
 		"grant": "client_credentials", "tokenUrl": srv.URL, "clientId": "one", "clientSecret": "secret",
 	})
-	if _, err := materializer.Materialize(context.Background(), auth, domain.AuthRequest{}); err != nil {
+	if _, err := materializer.Materialize(context.Background(), auth,
+		domain.AuthRequest{}); err != nil {
 		t.Fatalf("Materialize: %v", err)
 	}
 	if materializer.Held(auth.With("clientId", "two")).Held {
@@ -265,29 +272,31 @@ func TestTheTokenFollowsTheAnswers(t *testing.T) {
 	}
 }
 
-// A provider that refuses is a refusal the user asked for in so many words, so it travels back rather
-// than being swallowed into a request that goes out with nothing.
+// A provider that refuses is a refusal the user asked for in so many words, so it travels back
+// rather than being swallowed into a request that goes out with nothing.
 func TestARefusalTravelsBack(t *testing.T) {
-	endpoint := &tokenEndpoint{} // no token: the endpoint answers with an error
+	endpoint := &spyTokenEndpoint{} // no token: the endpoint answers with an error
 	srv := endpoint.server(t)
 
 	auth := oauthAuth(map[string]string{
 		"grant": "client_credentials", "tokenUrl": srv.URL, "clientId": "id", "clientSecret": "bad",
 	})
-	if _, err := New(srv.Client(), nil).Materialize(context.Background(), auth, domain.AuthRequest{}); err == nil {
+	if _, err := New(srv.Client(), nil).Materialize(context.Background(), auth,
+		domain.AuthRequest{}); err == nil {
 		t.Error("a refused token was not reported")
 	}
 }
 
-// The two grants that need a person need a browser. Without one they say so rather than waiting five
-// minutes for somebody who was never sent anywhere.
+// The two grants that need a person need a browser. Without one they say so rather than waiting
+// five minutes for somebody who was never sent anywhere.
 func TestTheBrowserGrantsNeedABrowser(t *testing.T) {
 	for _, grant := range []string{"authorization_code", "implicit"} {
 		auth := oauthAuth(map[string]string{
 			"grant": grant, "authUrl": "https://idp.example.com/authorize",
 			"tokenUrl": "https://idp.example.com/token", "clientId": "id",
 		})
-		if _, err := New(nil, nil).Materialize(context.Background(), auth, domain.AuthRequest{}); err == nil {
+		if _, err := New(nil, nil).Materialize(context.Background(), auth,
+			domain.AuthRequest{}); err == nil {
 			t.Errorf("%s: a grant that needs a browser ran without one", grant)
 		}
 	}
@@ -295,15 +304,18 @@ func TestTheBrowserGrantsNeedABrowser(t *testing.T) {
 
 // A grant nobody implements is not one to fall back from.
 func TestAnUnknownGrantIsRefused(t *testing.T) {
-	auth := oauthAuth(map[string]string{"grant": "device_code", "tokenUrl": "https://idp.example.com/token"})
-	if _, err := New(nil, nil).Materialize(context.Background(), auth, domain.AuthRequest{}); err == nil {
+	auth := oauthAuth(map[string]string{
+		"grant": "device_code", "tokenUrl": "https://idp.example.com/token",
+	})
+	if _, err := New(nil, nil).Materialize(context.Background(), auth,
+		domain.AuthRequest{}); err == nil {
 		t.Error("an unknown grant was attempted anyway")
 	}
 }
 
 // A token the user asked to carry in the query travels there, the same as any other credential.
 func TestAFetchedTokenCanTravelInTheQuery(t *testing.T) {
-	endpoint := &tokenEndpoint{token: "issued", expiry: 3600}
+	endpoint := &spyTokenEndpoint{token: "issued", expiry: 3600}
 	srv := endpoint.server(t)
 
 	auth := oauthAuth(map[string]string{
@@ -325,7 +337,7 @@ func TestAFetchedTokenCanTravelInTheQuery(t *testing.T) {
 // Obtain is what «Получить токен» does, and it reaches the provider even though nothing has been
 // sent: the user asked for it in so many words.
 func TestObtainAsksWithoutSendingAnything(t *testing.T) {
-	endpoint := &tokenEndpoint{token: "issued-by-hand", expiry: 3600}
+	endpoint := &spyTokenEndpoint{token: "issued-by-hand", expiry: 3600}
 	srv := endpoint.server(t)
 	materializer := New(srv.Client(), nil)
 
@@ -347,6 +359,7 @@ func TestObtainAsksWithoutSendingAnything(t *testing.T) {
 		t.Fatalf("Obtain: %v", err)
 	}
 	if len(endpoint.got) != 2 {
-		t.Errorf("the endpoint was asked %d times, want a second one for the new answers", len(endpoint.got))
+		t.Errorf("the endpoint was asked %d times, want a second one for the new answers",
+			len(endpoint.got))
 	}
 }

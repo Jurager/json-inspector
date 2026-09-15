@@ -81,15 +81,15 @@ func TestPlaceAtCountsTheLevelAsItLooks(t *testing.T) {
 	}
 }
 
-// TestMoveNodeLandsWhereTheIndexPoints is the same rule through the store, where the level is rows of
-// two tables and the numbers are written rather than returned.
+// TestMoveNodeLandsWhereTheIndexPoints is the same rule through the store, where the level is rows
+// of two tables and the numbers are written rather than returned.
 func TestMoveNodeLandsWhereTheIndexPoints(t *testing.T) {
 	store := newMigratedStore(t)
 	ctx := context.Background()
 	seedTree(t, store)
 
 	for _, node := range []domain.CollectionNode{
-		request("r-3", "col-1", 2, "Три", "GET", "https://api.example.com/3"),
+		sampleNode("r-3", "col-1", 2, "Три", "GET", "https://api.example.com/3"),
 	} {
 		if err := store.SaveNode(ctx, node); err != nil {
 			t.Fatalf("SaveNode: %v", err)

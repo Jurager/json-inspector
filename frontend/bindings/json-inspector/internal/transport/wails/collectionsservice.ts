@@ -29,7 +29,7 @@ export function CreateCollection(name: string, description: string): $Cancellabl
     return $Call.ByID(2119561358, name, description);
 }
 
-export function CreateNode($in: collection$0.NewNode): $CancellablePromise<$models.CreatedNode> {
+export function CreateNode($in: collection$0.NodeDraft): $CancellablePromise<$models.CreatedNode> {
     return $Call.ByID(2020879810, $in);
 }
 
@@ -38,16 +38,16 @@ export function Delete(id: string): $CancellablePromise<domain$0.Collection[] | 
 }
 
 /**
- * Describe writes what a collection is for — the line the overview draws above its tabs. Empty is an
- * answer there: the header then shows the placeholder that invites one.
+ * Describe writes what a collection is for — the line the overview draws above its tabs. Empty is
+ * an answer there: the header then shows the placeholder that invites one.
  */
 export function Describe(id: string, description: string): $CancellablePromise<domain$0.Collection[] | null> {
     return $Call.ByID(4022716643, id, description);
 }
 
 /**
- * Duplicate copies a node under a name the window composes: the suffix that says what the copy is is
- * a word, and words belong to the side that knows the language.
+ * Duplicate copies a node under a name the window composes: the suffix that says what the copy is
+ * is a word, and words belong to the side that knows the language.
  */
 export function Duplicate(id: string, suffix: string): $CancellablePromise<domain$0.Collection[] | null> {
     return $Call.ByID(1426855475, id, suffix);
@@ -66,10 +66,10 @@ export function ExportFile(title: string, id: string): $CancellablePromise<boole
  * ImportFile asks for a file, reads it and writes what is in it into the tree. A nil tree is a
  * cancelled dialog: nothing happened, and it is not a failure.
  * 
- * There is one shape, and nothing is guessed: a file that is not a Postman collection is told that it
- * is not. When a second shape arrives, the window offers them by name and the user says which one
- * they are handing over — a file read as something it is not is worse than a wrong choice that says
- * so out loud.
+ * There is one shape, and nothing is guessed: a file that is not a Postman collection is told that
+ * it is not. When a second shape arrives, the window offers them by name and the user says which
+ * one they are handing over — a file read as something it is not is worse than a wrong choice that
+ * says so out loud.
  */
 export function ImportFile(title: string): $CancellablePromise<domain$0.Collection[] | null> {
     return $Call.ByID(548291153, title);
@@ -87,9 +87,9 @@ export function MoveCollection(id: string, parentID: string, position: number): 
 }
 
 /**
- * MoveNode and MoveCollection are what a drop in the tree calls. The position is an index in the level
- * the row was dropped into, counted the way the window drew it — the requests of a collection and the
- * collections inside it are one list on screen and one number line here.
+ * MoveNode and MoveCollection are what a drop in the tree calls. The position is an index in the
+ * level the row was dropped into, counted the way the window drew it — the requests of a collection
+ * and the collections inside it are one list on screen and one number line here.
  */
 export function MoveNode(id: string, collectionID: string, position: number): $CancellablePromise<domain$0.Collection[] | null> {
     return $Call.ByID(2249490431, id, collectionID, position);
@@ -126,8 +126,8 @@ export function Run(collectionID: string, nodeID: string): $CancellablePromise<s
 
 /**
  * SaveAuth writes what a collection authorizes its requests with. «Нет» is the same call with an
- * empty auth: a level that has none is a level the ones below it inherit past, and the overview then
- * draws the tab the way a collection without one looks.
+ * empty auth: a level that has none is a level the ones below it inherit past, and the overview
+ * then draws the tab the way a collection without one looks.
  */
 export function SaveAuth(id: string, auth: domain$0.Auth): $CancellablePromise<domain$0.Collection[] | null> {
     return $Call.ByID(3442193257, id, auth);
@@ -137,9 +137,9 @@ export function SaveAuth(id: string, auth: domain$0.Auth): $CancellablePromise<d
  * SaveDraft copies what the command line is composing into a collection as a new request. The draft
  * is not touched: saving a copy is not a move, and what is being composed stays where it is.
  * 
- * The request arrives whole — method, address, rows, body, and the auth the chip chose — because the
- * node is written once: an empty request filled in by a second call would be a saved request with no
- * address if that call failed.
+ * The request arrives whole — method, address, rows, body, and the auth the chip chose — because
+ * the node is written once: an empty request filled in by a second call would be a saved request
+ * with no address if that call failed.
  */
 export function SaveDraft(collectionID: string, name: string): $CancellablePromise<$models.CreatedNode> {
     return $Call.ByID(1665422330, collectionID, name);

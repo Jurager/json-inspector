@@ -6,11 +6,11 @@ import "github.com/google/uuid"
 type IDGen func() string
 
 func NewIDGen() IDGen {
-	return NewID
+	return newID
 }
 
-// NewID returns a UUID v7, providing time-ordered ids.
-func NewID() string {
+// newID returns a UUID v7, providing time-ordered ids.
+func newID() string {
 	id, err := uuid.NewV7()
 	if err != nil {
 		// Fall back to UUID v4 if UUID v7 generation fails.

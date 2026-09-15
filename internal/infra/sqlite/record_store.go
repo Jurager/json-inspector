@@ -41,11 +41,13 @@ func (s *Store) SaveRecord(ctx context.Context, workspaceID string, rec domain.R
 		                      response_headers_json, request_cookies_json, started_at, finished_at,
 		                      tab_id, tab_title, tab_url, favicon_url)
 		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-		rec.ID, workspaceID, string(rec.Source), rec.Method, rec.URL, rec.Status, rec.StatusText, rec.ContentType,
+		rec.ID, workspaceID, string(rec.Source), rec.Method, rec.URL, rec.Status, rec.StatusText,
+		rec.ContentType,
 		rec.Error, boolToInt(rec.Cancelled), rec.DurationUs, rec.DNSUs, rec.ConnectUs, rec.TLSUs,
 		rec.WaitUs, rec.DownloadUs, rec.RequestBytes, rec.ResponseBytes,
 		string(requestHeaders), string(responseHeaders), string(cookies), rec.StartedAt, finishedAt,
-		nullIfZero(rec.TabID), nullIfEmpty(rec.TabTitle), nullIfEmpty(rec.TabURL), nullIfEmpty(rec.FavIconURL))
+		nullIfZero(rec.TabID), nullIfEmpty(rec.TabTitle), nullIfEmpty(rec.TabURL),
+		nullIfEmpty(rec.FavIconURL))
 	if err != nil {
 		if isUniqueViolation(err) {
 			return fmt.Errorf("record %s: %w", rec.ID, domain.ErrConflict)
@@ -70,7 +72,8 @@ func (s *Store) SaveRecord(ctx context.Context, workspaceID string, rec domain.R
 		if _, err := tx.ExecContext(ctx,
 			`INSERT INTO record_bodies (record_seq, side, content, encoding, size, truncated)
 			 VALUES (?, ?, ?, 'utf8', ?, ?)`,
-			seq, string(side.kind), []byte(side.body.Inline), side.body.Size, boolToInt(side.body.Truncated)); err != nil {
+			seq, string(side.kind), []byte(side.body.Inline), side.body.Size,
+			boolToInt(side.body.Truncated)); err != nil {
 			return fmt.Errorf("saving the %s body of %s: %w", side.kind, rec.ID, err)
 		}
 	}
@@ -85,7 +88,12 @@ func (s *Store) SaveRecord(ctx context.Context, workspaceID string, rec domain.R
 // the bodies travels — the list is what the pane draws, and a moment later it is drawn for a record
 // the window has not selected yet, so a second call would be a second wait. Each body comes as its
 // size alone: the viewer knows what it is asking for before it asks.
-func (s *Store) Records(ctx context.Context, workspaceID string, source domain.RecordSource, limit int) ([]domain.Record, error) {
+func (s *Store) Records(
+	ctx context.Context,
+	workspaceID string,
+	source domain.RecordSource,
+	limit int,
+) ([]domain.Record, error) {
 	scope, args := listScope(workspaceID, source, limit)
 
 	rows, err := s.db.QueryContext(ctx,
@@ -142,8 +150,8 @@ func (s *Store) Records(ctx context.Context, workspaceID string, source domain.R
 	return out, nil
 }
 
-// Record reads one record by id, with its body references and nothing in them: a run's row opens the
-// record it produced, and the window asks for the bodies only once the viewer is on screen.
+// Record reads one record by id, with its body references and nothing in them: a run's row opens
+// the record it produced, and the window asks for the bodies only once the viewer is on screen.
 func (s *Store) Record(ctx context.Context, id string) (domain.Record, error) {
 	var (
 		rec                                      domain.Record
@@ -183,8 +191,8 @@ func (s *Store) Record(ctx context.Context, id string) (domain.Record, error) {
 			return domain.Record{}, fmt.Errorf("reading the %s of %s: %w", part.what, id, err)
 		}
 	}
-	// The same call the list makes, for a list of one: it fills the record in place, which is where the
-	// body references come from.
+	// The same call the list makes, for a list of one: it fills the record in place, which is where
+	// the body references come from.
 	records := []domain.Record{rec}
 	if err := s.attachBodyRefs(ctx, records, []int64{seq}, ` WHERE id = ?`, []any{id}); err != nil {
 		return domain.Record{}, err
@@ -195,7 +203,13 @@ func (s *Store) Record(ctx context.Context, id string) (domain.Record, error) {
 // attachBodyRefs says which bodies the listed records have and how big they are, without reading
 // any of them. It is a second query rather than a join because a record has two bodies: a join
 // would repeat every row of the list, and a LIMIT over it would count bodies instead of records.
-func (s *Store) attachBodyRefs(ctx context.Context, records []domain.Record, seqs []int64, scope string, args []any) error {
+func (s *Store) attachBodyRefs(
+	ctx context.Context,
+	records []domain.Record,
+	seqs []int64,
+	scope string,
+	args []any,
+) error {
 	if len(seqs) == 0 {
 		return nil
 	}
@@ -298,7 +312,11 @@ func (s *Store) DeleteRecords(ctx context.Context, ids []string) error {
 // Prune drops what one workspace's retention rules no longer keep and reports how many rows went.
 // SQLite's `LIMIT -1 OFFSET n` is the way to say "everything after the newest n", and the count is
 // spent inside the workspace: a busy space must not eat the history of the quiet one beside it.
-func (s *Store) Prune(ctx context.Context, workspaceID string, opts domain.PruneOptions) (int, error) {
+func (s *Store) Prune(
+	ctx context.Context,
+	workspaceID string,
+	opts domain.PruneOptions,
+) (int, error) {
 	total := 0
 
 	if opts.MaxAge > 0 {
@@ -308,7 +326,10 @@ func (s *Store) Prune(ctx context.Context, workspaceID string, opts domain.Prune
 		if err != nil {
 			return total, fmt.Errorf("pruning records older than %s: %w", opts.MaxAge, err)
 		}
-		count, _ := res.RowsAffected()
+		count, err := res.RowsAffected()
+		if err != nil {
+			return total, fmt.Errorf("counting records pruned by age: %w", err)
+		}
 		total += int(count)
 	}
 
@@ -321,7 +342,10 @@ func (s *Store) Prune(ctx context.Context, workspaceID string, opts domain.Prune
 		if err != nil {
 			return total, fmt.Errorf("pruning records beyond %d: %w", opts.MaxCount, err)
 		}
-		count, _ := res.RowsAffected()
+		count, err := res.RowsAffected()
+		if err != nil {
+			return total, fmt.Errorf("counting records pruned by count: %w", err)
+		}
 		total += int(count)
 	}
 

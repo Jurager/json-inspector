@@ -7,9 +7,9 @@ import (
 )
 
 // FuzzParse feeds arbitrary pastes to the parser. It asserts only what has to hold whatever the
-// input is — no panic, and an `ok` result that carries a method and a URL — because everything else,
-// down to the byte, is pinned by the corpus in testdata/parse. A fuzz-only assertion about, say, the
-// header list would be a second, weaker specification of the same thing.
+// input is — no panic, and an `ok` result that carries a method and a URL — because everything
+// else, down to the byte, is pinned by the corpus in testdata/parse. A fuzz-only assertion about,
+// say, the header list would be a second, weaker specification of the same thing.
 //
 // The second half is what the fuzzer earned its keep on: `fetch("")` and `curl -X "" URL` used to
 // come back as `ok` with an empty field, exactly as the TypeScript does. Parse now answers both

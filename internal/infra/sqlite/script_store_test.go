@@ -8,9 +8,9 @@ import (
 	"json-inspector/internal/domain"
 )
 
-// A script belongs to a level — a collection, a node of one, or the draft the command line composes —
-// and "not set here" is not the same as "nothing to run": the first is NULL and inherits, the second
-// is an empty answer.
+// A script belongs to a level — a collection, a node of one, or the draft the command line composes
+// — and "not set here" is not the same as "nothing to run": the first is NULL and inherits, the
+// second is an empty answer.
 func TestScriptsRoundTrip(t *testing.T) {
 	store := newMigratedStore(t)
 	ctx := context.Background()
@@ -20,11 +20,13 @@ func TestScriptsRoundTrip(t *testing.T) {
 		t.Fatalf("a collection with no scripts = %+v, %v, want nothing", scripts, err)
 	}
 
-	written := &domain.Scripts{Pre: "pm.environment.set('started', Date.now());", Post: "pm.test('ok', () => pm.expect(pm.response.code).to.equal(200));"}
+	written := &domain.Scripts{Pre: "pm.environment.set('started', Date.now());",
+		Post: "pm.test('ok', () => pm.expect(pm.response.code).to.equal(200));"}
 	if err := store.SaveScripts(ctx, ws, "col-1", written); err != nil {
 		t.Fatalf("SaveScripts: %v", err)
 	}
-	if err := store.SaveScripts(ctx, ws, "r-1", &domain.Scripts{Post: "console.log('свой');"}); err != nil {
+	if err := store.SaveScripts(ctx, ws, "r-1",
+		&domain.Scripts{Post: "console.log('свой');"}); err != nil {
 		t.Fatalf("SaveScripts: %v", err)
 	}
 
@@ -32,7 +34,8 @@ func TestScriptsRoundTrip(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Scripts: %v", err)
 	}
-	if fromCollection == nil || fromCollection.Pre != written.Pre || fromCollection.Post != written.Post {
+	if fromCollection == nil || fromCollection.Pre != written.Pre ||
+		fromCollection.Post != written.Post {
 		t.Errorf("collection scripts = %+v, want what was written", fromCollection)
 	}
 
@@ -78,15 +81,18 @@ func TestScriptsRoundTrip(t *testing.T) {
 		t.Errorf("empty scripts = %+v, want an answer that says there is nothing to run", empty)
 	}
 
-	// The command line's request is a level too, and its code lives with the draft it is: nobody has to
-	// save a collection for the code around a request to exist.
-	if err := store.SaveDraft(ctx, ws, domain.Draft{ID: domain.DraftCommandLine, Method: "GET"}); err != nil {
+	// The command line's request is a level too, and its code lives with the draft it is: nobody has
+	// to save a collection for the code around a request to exist.
+	if err := store.SaveDraft(ctx, ws,
+		domain.Draft{ID: domain.DraftCommandLine, Method: "GET"}); err != nil {
 		t.Fatalf("SaveDraft: %v", err)
 	}
-	if scripts, err := store.Scripts(ctx, ws, string(domain.DraftCommandLine)); err != nil || scripts != nil {
+	if scripts, err := store.Scripts(ctx, ws,
+		string(domain.DraftCommandLine)); err != nil || scripts != nil {
 		t.Errorf("a fresh draft's scripts = %+v, %v, want nothing", scripts, err)
 	}
-	if err := store.SaveScripts(ctx, ws, string(domain.DraftCommandLine), &domain.Scripts{Pre: "console.log('черновик');"}); err != nil {
+	if err := store.SaveScripts(ctx, ws, string(domain.DraftCommandLine),
+		&domain.Scripts{Pre: "console.log('черновик');"}); err != nil {
 		t.Fatalf("SaveScripts: %v", err)
 	}
 	fromDraft, err := store.Scripts(ctx, ws, string(domain.DraftCommandLine))
@@ -97,10 +103,13 @@ func TestScriptsRoundTrip(t *testing.T) {
 		t.Errorf("draft scripts = %+v, want what was written", fromDraft)
 	}
 	// Saving the draft itself — every keystroke in the command line does — leaves its code alone.
-	if err := store.SaveDraft(ctx, ws, domain.Draft{ID: domain.DraftCommandLine, Method: "POST", URL: "https://api.example.com"}); err != nil {
+	if err := store.SaveDraft(ctx, ws,
+		domain.Draft{ID: domain.DraftCommandLine, Method: "POST",
+			URL: "https://api.example.com"}); err != nil {
 		t.Fatalf("SaveDraft: %v", err)
 	}
-	if scripts, err := store.Scripts(ctx, ws, string(domain.DraftCommandLine)); err != nil || scripts == nil {
+	if scripts, err := store.Scripts(ctx, ws,
+		string(domain.DraftCommandLine)); err != nil || scripts == nil {
 		t.Errorf("draft scripts after a save = %+v, %v, want them where they were", scripts, err)
 	}
 
@@ -119,7 +128,8 @@ func TestScriptRunRoundTrip(t *testing.T) {
 
 	// A run hangs off a record, and the window names records by id.
 	if err := store.SaveRecord(ctx, ws, domain.Record{
-		RecordSummary: domain.RecordSummary{ID: "rec-1", Source: domain.SourceManual, Method: "GET", URL: "https://api.example.com"},
+		RecordSummary: domain.RecordSummary{ID: "rec-1", Source: domain.SourceManual, Method: "GET",
+			URL: "https://api.example.com"},
 	}); err != nil {
 		t.Fatalf("SaveRecord: %v", err)
 	}
@@ -137,8 +147,10 @@ func TestScriptRunRoundTrip(t *testing.T) {
 		{
 			ID: "run-2", RecordID: "rec-1", NodeID: "r-1", Scope: domain.ScriptPost,
 			OK: false, Error: "pm.expect: 404 не 200", DurationUs: 340, CreatedAt: 2,
-			Logs:  []domain.ScriptLog{{Level: "error", Message: "упало"}},
-			Tests: []domain.TestResult{{Name: "статус 200", Passed: false, Error: "получен 404", DurationUs: 5}},
+			Logs: []domain.ScriptLog{{Level: "error", Message: "упало"}},
+			Tests: []domain.TestResult{
+				{Name: "статус 200", Passed: false, Error: "получен 404", DurationUs: 5},
+			},
 		},
 	} {
 		if err := store.SaveScriptRun(ctx, ws, run); err != nil {

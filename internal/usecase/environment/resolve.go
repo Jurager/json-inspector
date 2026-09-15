@@ -13,7 +13,11 @@ import (
 //
 // mask is the difference between the request that goes out and everything that outlives it: the
 // preview, an export, the record. A secret leaves those as its mask.
-func (u *UseCase) SubstituteTexts(ctx context.Context, texts []string, mask bool) ([]string, error) {
+func (u *UseCase) SubstituteTexts(
+	ctx context.Context,
+	texts []string,
+	mask bool,
+) ([]string, error) {
 	resolver, err := u.resolver(ctx, !mask)
 	if err != nil {
 		return nil, err

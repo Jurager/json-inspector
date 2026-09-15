@@ -12,8 +12,9 @@ import (
 
 // fakeStore is the switcher's two tables without a database: the workspaces in their order, and the
 // pointer that names the one on screen. It keeps the rules the SQL keeps — the default space exists
-// from the first launch, Personal is read back out of the id rather than written down, and a pointer
-// at a row that is gone answers with the default — so the tests below are about the use case.
+// from the first launch, Personal is read back out of the id rather than written down, and a
+// pointer at a row that is gone answers with the default — so the tests below are about the use
+// case.
 type fakeStore struct {
 	workspaces []domain.Workspace
 	active     string
@@ -105,7 +106,8 @@ func newUseCase() (*UseCase, *fakeStore, *fakeNotifier) {
 	return NewUseCase(store, platform.NewIDGen(), notifier), store, notifier
 }
 
-// made is the workspace a test just created, which is the one after the default the store starts with.
+// made is the workspace a test just created, which is the one after the default the store starts
+// with.
 func made(t *testing.T, state domain.WorkspaceState) domain.Workspace {
 	t.Helper()
 	if len(state.Workspaces) < 2 {
@@ -319,7 +321,8 @@ func TestNameValidation(t *testing.T) {
 		t.Errorf("an empty name = %q, want %q", domain.CodeOf(err), domain.CodeNameEmpty)
 	}
 	tooLong := strings.Repeat("x", maxNameLength+1)
-	if _, err := u.Create(ctx, CreateInput{Name: tooLong}); domain.CodeOf(err) != domain.CodeNameTooLong {
+	if _, err := u.Create(ctx,
+		CreateInput{Name: tooLong}); domain.CodeOf(err) != domain.CodeNameTooLong {
 		t.Errorf("a name past the limit = %q, want %q", domain.CodeOf(err), domain.CodeNameTooLong)
 	}
 	// Nothing was made by any of the refusals.
@@ -342,7 +345,8 @@ func TestNameValidation(t *testing.T) {
 
 	// A patch is held to the same rule as a create.
 	empty := "   "
-	if _, err := u.Update(ctx, domain.WorkspacePersonalID, Patch{Name: &empty}); domain.CodeOf(err) != domain.CodeNameEmpty {
+	if _, err := u.Update(ctx, domain.WorkspacePersonalID,
+		Patch{Name: &empty}); domain.CodeOf(err) != domain.CodeNameEmpty {
 		t.Errorf("renaming to an empty name = %q, want %q", domain.CodeOf(err), domain.CodeNameEmpty)
 	}
 }

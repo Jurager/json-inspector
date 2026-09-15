@@ -20,8 +20,8 @@ import (
 // collection nests by parent and its level is the requests and the collections inside it — and a
 // request reads whole while a tree row is shallow.
 //
-// A run writes to it from its own goroutine while a test reads, so the mutex is the fake standing in
-// for the database's own serialisation.
+// A run writes to it from its own goroutine while a test reads, so the mutex is the fake standing
+// in for the database's own serialisation.
 type fakeStore struct {
 	mu          sync.Mutex
 	collections []domain.Collection
@@ -46,8 +46,8 @@ func (f *fakeStore) hidden(id string) bool {
 	return f.gone[id]
 }
 
-// bury marks a request gone, and buryCollection a collection with everything inside it — the way the
-// schema's two cascades would: the nesting one, and the collection a request belongs to.
+// bury marks a request gone, and buryCollection a collection with everything inside it — the way
+// the schema's two cascades would: the nesting one, and the collection a request belongs to.
 func (f *fakeStore) bury(id string) {
 	f.gone[id] = true
 }
@@ -70,8 +70,8 @@ func (f *fakeStore) buryCollection(id string) {
 }
 
 // fakeScope answers with the workspace the test is working in. The store below keeps one tree and
-// ignores the id: what is being tested here is the use case, and the split between workspaces is the
-// SQL's own test.
+// ignores the id: what is being tested here is the use case, and the split between workspaces is
+// the SQL's own test.
 type fakeScope struct{ id string }
 
 // ws is the workspace the tests below call the store in directly — the one the app is born with,
@@ -93,8 +93,8 @@ func (f *fakeStore) Collections(context.Context, string) ([]domain.Collection, e
 }
 
 // tree is the shape the use case reads: collections nested by parent, and inside each one its own
-// requests, shallow and in position order — which is the order the store's own query returns them in,
-// and the order both the level merge and the run walk depend on.
+// requests, shallow and in position order — which is the order the store's own query returns them
+// in, and the order both the level merge and the run walk depend on.
 func (f *fakeStore) tree() []domain.Collection {
 	byParent := map[string][]domain.Collection{}
 	for _, collection := range f.collections {
@@ -107,7 +107,8 @@ func (f *fakeStore) tree() []domain.Collection {
 	var build func(parent string) []domain.Collection
 	build = func(parent string) []domain.Collection {
 		children := byParent[parent]
-		sort.SliceStable(children, func(i, j int) bool { return children[i].Position < children[j].Position })
+		sort.SliceStable(children,
+			func(i, j int) bool { return children[i].Position < children[j].Position })
 
 		out := []domain.Collection{}
 		for _, collection := range children {
@@ -150,7 +151,11 @@ func (f *fakeStore) Node(_ context.Context, id string) (domain.CollectionNode, e
 	return domain.CollectionNode{}, domain.ErrNotFound
 }
 
-func (f *fakeStore) SaveCollection(_ context.Context, _ string, collection domain.Collection) error {
+func (f *fakeStore) SaveCollection(
+	_ context.Context,
+	_ string,
+	collection domain.Collection,
+) error {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 
@@ -199,9 +204,10 @@ func (f *fakeStore) DeleteNode(_ context.Context, id string) error {
 }
 
 // Scripts answers the way the table does: an id names a collection or a node — the two share one id
-// space — and an id that names neither is not found. A node keeps its scripts on itself, the way the
-// row does; a collection's live beside the tree, because the struct the list draws has no field for
-// them. A level with nothing of its own answers nothing, which is not the same as an empty script.
+// space — and an id that names neither is not found. A node keeps its scripts on itself, the way
+// the row does; a collection's live beside the tree, because the struct the list draws has no field
+// for them. A level with nothing of its own answers nothing, which is not the same as an empty
+// script.
 func (f *fakeStore) Scripts(_ context.Context, _ string, id string) (*domain.Scripts, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
@@ -222,7 +228,12 @@ func (f *fakeStore) Scripts(_ context.Context, _ string, id string) (*domain.Scr
 	return nil, domain.ErrNotFound
 }
 
-func (f *fakeStore) SaveScripts(_ context.Context, _ string, id string, scripts *domain.Scripts) error {
+func (f *fakeStore) SaveScripts(
+	_ context.Context,
+	_ string,
+	id string,
+	scripts *domain.Scripts,
+) error {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 
@@ -269,9 +280,15 @@ func (f *fakeStore) NextPosition(_ context.Context, _ string, collectionID strin
 	return next, nil
 }
 
-// MoveNode and MoveCollection are the store's own two moves: the row changes where it lives, and both
-// the level it left and the level it joined are numbered again with it in place.
-func (f *fakeStore) MoveNode(_ context.Context, _ string, id string, collectionID string, position int64) error {
+// MoveNode and MoveCollection are the store's own two moves: the row changes where it lives, and
+// both the level it left and the level it joined are numbered again with it in place.
+func (f *fakeStore) MoveNode(
+	_ context.Context,
+	_ string,
+	id string,
+	collectionID string,
+	position int64,
+) error {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 
@@ -288,7 +305,13 @@ func (f *fakeStore) MoveNode(_ context.Context, _ string, id string, collectionI
 	return domain.ErrNotFound
 }
 
-func (f *fakeStore) MoveCollection(_ context.Context, _ string, id string, parentID string, position int64) error {
+func (f *fakeStore) MoveCollection(
+	_ context.Context,
+	_ string,
+	id string,
+	parentID string,
+	position int64,
+) error {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 
@@ -332,8 +355,8 @@ func (f *fakeStore) levelOf(collectionID string) []string {
 	return out
 }
 
-// placeAt lifts a row out of a level and puts it back at the dropped index, which counts the level as
-// it looks now — the row being moved included — the way the store's own does.
+// placeAt lifts a row out of a level and puts it back at the dropped index, which counts the level
+// as it looks now — the row being moved included — the way the store's own does.
 func placeAt(level []string, moved string, at int64) []string {
 	others := make([]string, 0, len(level))
 	insert := int64(0)
@@ -391,7 +414,11 @@ func (f *fakeStore) SaveRun(_ context.Context, run domain.CollectionRun) error {
 	return nil
 }
 
-func (f *fakeStore) AppendRunResult(_ context.Context, runID string, result domain.CollectionRunResult) error {
+func (f *fakeStore) AppendRunResult(
+	_ context.Context,
+	runID string,
+	result domain.CollectionRunResult,
+) error {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 
@@ -399,7 +426,11 @@ func (f *fakeStore) AppendRunResult(_ context.Context, runID string, result doma
 	return nil
 }
 
-func (f *fakeStore) LastRun(_ context.Context, collectionID string, nodeID string) (domain.CollectionRun, bool, error) {
+func (f *fakeStore) LastRun(
+	_ context.Context,
+	collectionID string,
+	nodeID string,
+) (domain.CollectionRun, bool, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 
@@ -444,8 +475,8 @@ func (f *fakeSender) fail(url string) *fakeSender {
 	return f
 }
 
-// skip is a request a pre-request script kept from going out: nothing is sent, and the answer says so
-// rather than pretending the server said something.
+// skip is a request a pre-request script kept from going out: nothing is sent, and the answer says
+// so rather than pretending the server said something.
 func (f *fakeSender) skip(url string) *fakeSender {
 	f.answers[url] = answer{skipped: true}
 	return f
@@ -495,6 +526,15 @@ func (f *fakeSender) urls() []string {
 		out = append(out, req.URL)
 	}
 	return out
+}
+
+// requests is everything that was sent, whole: what a run hands the sender is what this feature is
+// responsible for, and a test that only looked at the URLs could not see the rest of it.
+func (f *fakeSender) requests() []RunRequest {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+
+	return append([]RunRequest{}, f.sent...)
 }
 
 // fakeNotifier keeps what was published and lets a test wait for the end of a run instead of
@@ -569,7 +609,8 @@ func newTestRun() (*UseCase, *fakeStore, *fakeSender, *fakeNotifier) {
 	store := newFakeStore()
 	sender := newFakeSender()
 	notifier := newFakeNotifier()
-	return NewUseCase(store, fakeScope{}, sender, notifier, platform.NewIDGen()), store, sender, notifier
+	return NewUseCase(store, fakeScope{}, sender, notifier,
+		platform.NewIDGen()), store, sender, notifier
 }
 
 func only(t *testing.T, tree []domain.Collection) domain.Collection {
@@ -610,7 +651,8 @@ func TestCreateCollectionAppends(t *testing.T) {
 func TestCreateCollectionRejectsAnEmptyName(t *testing.T) {
 	uc, _ := newTestUseCase()
 
-	if _, err := uc.CreateCollection(context.Background(), "   ", ""); !errors.Is(err, domain.ErrNotAllowed) {
+	if _, err := uc.CreateCollection(context.Background(), "   ", ""); !errors.Is(err,
+		domain.ErrNotAllowed) {
 		t.Fatalf("empty name = %v, want ErrNotAllowed", err)
 	}
 }
@@ -625,13 +667,13 @@ func TestCreateNodeLandsAtTheEndOfItsLevel(t *testing.T) {
 	}
 	id := only(t, tree).ID
 
-	if _, tree, err = uc.CreateNode(ctx, NewNode{CollectionID: id, Name: "Первый"}); err != nil {
+	if _, _, err = uc.CreateNode(ctx, NodeDraft{CollectionID: id, Name: "Первый"}); err != nil {
 		t.Fatalf("CreateNode: %v", err)
 	}
 	// Dropped in at the top of the level, so the request that was there is now second.
 	nestedID := nestCollection(t, uc, "Вложенная", id)
 
-	_, tree, err = uc.CreateNode(ctx, NewNode{CollectionID: id, Name: "Второй", Method: "post"})
+	_, tree, err = uc.CreateNode(ctx, NodeDraft{CollectionID: id, Name: "Второй", Method: "post"})
 	if err != nil {
 		t.Fatalf("CreateNode: %v", err)
 	}
@@ -685,7 +727,8 @@ func nestCollectionAt(t *testing.T, uc *UseCase, name string, parentID string, a
 }
 
 // A request saved from a composer is written whole: the row that comes back is the one that
-// appeared, with everything the request already had, so nothing depends on finding it again by name.
+// appeared, with everything the request already had, so nothing depends on finding it again by
+// name.
 func TestCreateNodeTakesAWholeRequest(t *testing.T) {
 	uc, store := newTestUseCase()
 	ctx := context.Background()
@@ -696,14 +739,16 @@ func TestCreateNodeTakesAWholeRequest(t *testing.T) {
 	}
 	collectionID := only(t, tree).ID
 
-	created, tree, err := uc.CreateNode(ctx, NewNode{
+	created, tree, err := uc.CreateNode(ctx, NodeDraft{
 		CollectionID: collectionID,
 		Name:         "Сохранённый",
 		Method:       "patch",
 		URL:          "https://api.example.com/users/1?page=2",
-		Headers:      []domain.Row{{ID: "h1", Name: "Accept", Value: "application/vnd.api+json", Enabled: true}},
-		Body:         `{"data": 1}`,
-		Auth:         bearerRef("{{token}}"),
+		Headers: []domain.Row{
+			{ID: "h1", Name: "Accept", Value: "application/vnd.api+json", Enabled: true},
+		},
+		Body: `{"data": 1}`,
+		Auth: bearerRef("{{token}}"),
 	})
 	if err != nil {
 		t.Fatalf("CreateNode: %v", err)
@@ -726,7 +771,7 @@ func TestCreateNodeTakesAWholeRequest(t *testing.T) {
 	if len(stored.Headers) != 1 || stored.Body != `{"data": 1}` {
 		t.Errorf("stored = %+v, want its headers and body", stored)
 	}
-	if stored.Auth == nil || stored.Auth.Get("token") != "{{token}}" {
+	if stored.Auth == nil || stored.Auth.Answer("token") != "{{token}}" {
 		t.Errorf("auth = %+v, want the choice the composer made", stored.Auth)
 	}
 }
@@ -737,7 +782,7 @@ func TestRenameReachesBothKinds(t *testing.T) {
 
 	tree, _ := uc.CreateCollection(ctx, "Коллекция", "")
 	collectionID := only(t, tree).ID
-	_, tree, _ = uc.CreateNode(ctx, NewNode{CollectionID: collectionID, Name: "Запрос"})
+	_, tree, _ = uc.CreateNode(ctx, NodeDraft{CollectionID: collectionID, Name: "Запрос"})
 	requestID := only(t, tree).Items[0].ID
 
 	tree, err := uc.Rename(ctx, collectionID, "Переименована")
@@ -757,8 +802,8 @@ func TestRenameReachesBothKinds(t *testing.T) {
 	}
 }
 
-// Renaming a collection inside another one is the same gesture, and it leaves the row where it is: a
-// rename saves the row it read, and where a row sits is not part of what a rename edits.
+// Renaming a collection inside another one is the same gesture, and it leaves the row where it is:
+// a rename saves the row it read, and where a row sits is not part of what a rename edits.
 func TestRenameKeepsANestedCollectionNested(t *testing.T) {
 	uc, _ := newTestUseCase()
 	ctx := context.Background()
@@ -835,7 +880,8 @@ func TestDuplicateCopiesTheSubtree(t *testing.T) {
 	tree, _ := uc.CreateCollection(ctx, "Коллекция", "")
 	collectionID := only(t, tree).ID
 	nestedID := nestCollection(t, uc, "Вложенная", collectionID)
-	_, tree, _ = uc.CreateNode(ctx, NewNode{CollectionID: nestedID, Name: "Внутри"})
+	// The tree is read again: the row looked up on the next line is the one this call adds.
+	_, tree, _ = uc.CreateNode(ctx, NodeDraft{CollectionID: nestedID, Name: "Внутри"})
 	requestID := findIn(t, tree, nestedID).Items[0].ID
 
 	// A request inside a collection is more than the tree row the copy starts from, and a copy that
@@ -895,15 +941,15 @@ func findIn(t *testing.T, tree []domain.Collection, id string) domain.Collection
 	return collection
 }
 
-// A copy of a request is the request, not its name: the tree row a duplicate starts from carries the
-// method and nothing else, and taking that for the content is how a copy comes out empty.
+// A copy of a request is the request, not its name: the tree row a duplicate starts from carries
+// the method and nothing else, and taking that for the content is how a copy comes out empty.
 func TestDuplicateCopiesTheRequestItself(t *testing.T) {
 	uc, store := newTestUseCase()
 	ctx := context.Background()
 
 	tree, _ := uc.CreateCollection(ctx, "Коллекция", "")
 	collectionID := only(t, tree).ID
-	_, tree, _ = uc.CreateNode(ctx, NewNode{CollectionID: collectionID, Name: "Запрос"})
+	_, tree, _ = uc.CreateNode(ctx, NodeDraft{CollectionID: collectionID, Name: "Запрос"})
 	requestID := only(t, tree).Items[0].ID
 
 	bearer := bearerRef("{{token}}")
@@ -911,16 +957,21 @@ func TestDuplicateCopiesTheRequestItself(t *testing.T) {
 		ID: requestID, Name: "Запрос", Method: "PATCH", URL: "https://api.example.com/users/1?page=2",
 		Description: "про пользователя",
 		Params:      []domain.Row{{ID: "p1", Name: "page", Value: "2", Enabled: true}},
-		Headers:     []domain.Row{{ID: "h1", Name: "Accept", Value: "application/vnd.api+json", Enabled: true}},
-		Body:        `{"data": {"type": "users"}}`,
-		Cookies:     []domain.CookieRow{{ID: "c1", Name: "session", Value: "abc", Path: "/", HTTPOnly: true}},
-		Auth:        bearer,
+		Headers: []domain.Row{
+			{ID: "h1", Name: "Accept", Value: "application/vnd.api+json", Enabled: true},
+		},
+		Body: `{"data": {"type": "users"}}`,
+		Cookies: []domain.CookieRow{
+			{ID: "c1", Name: "session", Value: "abc", Path: "/", HTTPOnly: true},
+		},
+		Auth: bearer,
 	}); err != nil {
 		t.Fatalf("SaveNode: %v", err)
 	}
 
 	// A copy runs the same code the original did: its scripts come with it, the way its rows do.
-	if err := store.SaveScripts(ctx, ws, requestID, &domain.Scripts{Post: "console.log('свой');"}); err != nil {
+	if err := store.SaveScripts(ctx, ws, requestID,
+		&domain.Scripts{Post: "console.log('свой');"}); err != nil {
 		t.Fatalf("SaveScripts: %v", err)
 	}
 
@@ -947,7 +998,7 @@ func TestDuplicateCopiesTheRequestItself(t *testing.T) {
 	if copied.Description != "про пользователя" {
 		t.Errorf("description = %q, want it carried over", copied.Description)
 	}
-	if copied.Auth == nil || copied.Auth.Get("token") != "{{token}}" {
+	if copied.Auth == nil || copied.Auth.Answer("token") != "{{token}}" {
 		t.Errorf("auth = %+v, want it carried over", copied.Auth)
 	}
 	// The copy is a second thing: its own rows, so editing one does not edit the other.
@@ -959,18 +1010,19 @@ func TestDuplicateCopiesTheRequestItself(t *testing.T) {
 	}
 }
 
-// The card edits a request — its address, its rows, its body — and knows nothing about its scripts: a
-// save that dropped them would take the code off a request every time it was touched.
+// The card edits a request — its address, its rows, its body — and knows nothing about its scripts:
+// a save that dropped them would take the code off a request every time it was touched.
 func TestSavingARequestKeepsItsScripts(t *testing.T) {
 	uc, store := newTestUseCase()
 	ctx := context.Background()
 
 	tree, _ := uc.CreateCollection(ctx, "Коллекция", "")
 	collectionID := only(t, tree).ID
-	_, tree, _ = uc.CreateNode(ctx, NewNode{CollectionID: collectionID, Name: "Запрос"})
+	_, tree, _ = uc.CreateNode(ctx, NodeDraft{CollectionID: collectionID, Name: "Запрос"})
 	requestID := only(t, tree).Items[0].ID
 
-	if err := store.SaveScripts(ctx, ws, requestID, &domain.Scripts{Post: "console.log('свой');"}); err != nil {
+	if err := store.SaveScripts(ctx, ws, requestID,
+		&domain.Scripts{Post: "console.log('свой');"}); err != nil {
 		t.Fatalf("SaveScripts: %v", err)
 	}
 	if _, err := uc.SaveNode(ctx, domain.CollectionNode{
@@ -997,7 +1049,8 @@ func TestDuplicateCopiesTheCollectionScripts(t *testing.T) {
 
 	tree, _ := uc.CreateCollection(ctx, "Коллекция", "")
 	collectionID := only(t, tree).ID
-	if err := store.SaveScripts(ctx, ws, collectionID, &domain.Scripts{Pre: "console.log('пошли');"}); err != nil {
+	if err := store.SaveScripts(ctx, ws, collectionID,
+		&domain.Scripts{Pre: "console.log('пошли');"}); err != nil {
 		t.Fatalf("SaveScripts: %v", err)
 	}
 
@@ -1023,12 +1076,13 @@ func TestDuplicateCopiesACollection(t *testing.T) {
 
 	tree, _ := uc.CreateCollection(ctx, "Коллекция", "описание")
 	collectionID := only(t, tree).ID
-	_, tree, _ = uc.CreateNode(ctx, NewNode{CollectionID: collectionID, Name: "Первый"})
+	_, tree, _ = uc.CreateNode(ctx, NodeDraft{CollectionID: collectionID, Name: "Первый"})
 	nestedID := nestCollection(t, uc, "Вложенная", collectionID)
 	// A request is a tree row too, and a copy that took the row for the content would lose the
 	// request behind it — the same trap the request duplicate had.
 	if _, err := uc.SaveNode(ctx, domain.CollectionNode{
-		ID: only(t, tree).Items[0].ID, Name: "Первый", Method: "GET", URL: "https://api.example.com/first",
+		ID: only(t,
+			tree).Items[0].ID, Name: "Первый", Method: "GET", URL: "https://api.example.com/first",
 	}); err != nil {
 		t.Fatalf("SaveNode: %v", err)
 	}
@@ -1043,7 +1097,8 @@ func TestDuplicateCopiesACollection(t *testing.T) {
 	copied := tree[1]
 	// The copy lands at the end of the level the original is in: the requests of a collection and the
 	// collections inside it are one list, and that list is three long here.
-	if copied.Name != "Коллекция"+copySuffix || copied.Description != "описание" || copied.Position != 2 {
+	if copied.Name != "Коллекция"+copySuffix || copied.Description != "описание" ||
+		copied.Position != 2 {
 		t.Errorf("copy = %+v, want it named and placed after the original", copied)
 	}
 	if len(copied.Items) != 1 || len(copied.Children) != 1 {
@@ -1102,7 +1157,11 @@ func TestDeleteTakesTheWholeSubtree(t *testing.T) {
 	tree, _ := uc.CreateCollection(ctx, "Коллекция", "")
 	collectionID := only(t, tree).ID
 	nestedID := nestCollection(t, uc, "Вложенная", collectionID)
-	_, tree, _ = uc.CreateNode(ctx, NewNode{CollectionID: nestedID, Name: "Внутри"})
+	// The node has to exist for the cascade below to have something to take: what the tree looks like
+	// after this call is what Delete reads.
+	if _, _, err := uc.CreateNode(ctx, NodeDraft{CollectionID: nestedID, Name: "Внутри"}); err != nil {
+		t.Fatalf("CreateNode: %v", err)
+	}
 
 	// A collection inside another is a row of its own, so removing it is what takes its requests with
 	// it — through both cascades: the nesting one, and the collection the request belongs to.
@@ -1130,7 +1189,7 @@ func TestSaveNodeKeepsWhereItLives(t *testing.T) {
 	tree, _ := uc.CreateCollection(ctx, "Коллекция", "")
 	collectionID := only(t, tree).ID
 	nestedID := nestCollection(t, uc, "Вложенная", collectionID)
-	_, tree, _ = uc.CreateNode(ctx, NewNode{CollectionID: nestedID, Name: "Запрос"})
+	_, tree, _ = uc.CreateNode(ctx, NodeDraft{CollectionID: nestedID, Name: "Запрос"})
 	requestID := findIn(t, tree, nestedID).Items[0].ID
 
 	before, err := store.Node(ctx, requestID)
@@ -1172,7 +1231,7 @@ func TestSaveNodeRejectsAnEmptyName(t *testing.T) {
 
 	tree, _ := uc.CreateCollection(ctx, "Коллекция", "")
 	collectionID := only(t, tree).ID
-	_, tree, _ = uc.CreateNode(ctx, NewNode{CollectionID: collectionID, Name: "Запрос"})
+	_, tree, _ = uc.CreateNode(ctx, NodeDraft{CollectionID: collectionID, Name: "Запрос"})
 	requestID := only(t, tree).Items[0].ID
 
 	_, err := uc.SaveNode(ctx, domain.CollectionNode{ID: requestID, Name: "   "})
@@ -1191,7 +1250,8 @@ func TestMoveNodeTakesTheDropIndex(t *testing.T) {
 	}
 	collectionID := only(t, tree).ID
 	for _, name := range []string{"Первый", "Второй", "Третий"} {
-		if _, tree, err = uc.CreateNode(ctx, NewNode{CollectionID: collectionID, Name: name}); err != nil {
+		if _, tree, err = uc.CreateNode(ctx,
+			NodeDraft{CollectionID: collectionID, Name: name}); err != nil {
 			t.Fatalf("CreateNode %s: %v", name, err)
 		}
 	}
@@ -1236,7 +1296,7 @@ func TestMoveNodeBetweenCollections(t *testing.T) {
 	tree, _ := uc.CreateCollection(ctx, "Коллекция", "")
 	collectionID := only(t, tree).ID
 	nestedID := nestCollection(t, uc, "Вложенная", collectionID)
-	_, tree, _ = uc.CreateNode(ctx, NewNode{CollectionID: collectionID, Name: "Снаружи"})
+	_, tree, _ = uc.CreateNode(ctx, NodeDraft{CollectionID: collectionID, Name: "Снаружи"})
 	requestID := only(t, tree).Items[0].ID
 
 	if _, err := uc.MoveNode(ctx, requestID, nestedID, 0); err != nil {
@@ -1394,7 +1454,7 @@ func TestFullReadsTheRequestsWhole(t *testing.T) {
 		t.Fatalf("CreateCollection: %v", err)
 	}
 	collectionID := only(t, tree).ID
-	_, tree, err = uc.CreateNode(ctx, NewNode{
+	_, tree, err = uc.CreateNode(ctx, NodeDraft{
 		CollectionID: collectionID, Name: "Запрос", Method: "GET",
 		URL: "https://api.example.com/users", Body: `{"a": 1}`,
 		Headers: []domain.Row{{Name: "Accept", Value: "application/vnd.api+json", Enabled: true}},
@@ -1419,7 +1479,8 @@ func TestFullReadsTheRequestsWhole(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Full: %v", err)
 	}
-	if single.Name != "Запрос" || len(single.Items) != 1 || single.Items[0].URL != "https://api.example.com/users" {
+	if single.Name != "Запрос" || len(single.Items) != 1 ||
+		single.Items[0].URL != "https://api.example.com/users" {
 		t.Errorf("single = %+v, want a collection of the one request", single)
 	}
 }
@@ -1433,7 +1494,7 @@ func TestFullReadsNestedCollectionsWhole(t *testing.T) {
 	tree, _ := uc.CreateCollection(ctx, "Коллекция", "")
 	collectionID := only(t, tree).ID
 	nestedID := nestCollection(t, uc, "Вложенная", collectionID)
-	if _, _, err := uc.CreateNode(ctx, NewNode{
+	if _, _, err := uc.CreateNode(ctx, NodeDraft{
 		CollectionID: nestedID, Name: "Внутри", Method: "GET", URL: "https://api.example.com/inside",
 		Body: `{"b": 2}`,
 	}); err != nil {

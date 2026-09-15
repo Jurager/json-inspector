@@ -3,8 +3,8 @@ package domain
 // SearchKind names one area of the index. The window draws a group and a chip per kind, and the
 // words for both come from its catalogue: a kind is a word Go can say, a heading is not.
 //
-// The set is open on purpose — an area is a method on the index and a value here, and nothing else in
-// the domain or in the transport learns about it.
+// The set is open on purpose — an area is a method on the index and a value here, and nothing else
+// in the domain or in the transport learns about it.
 type SearchKind string
 
 const (
@@ -31,9 +31,9 @@ const (
 	MatchValue
 )
 
-// SearchNoteKind is what a row says on the right, as a shape rather than a sentence. The window words
-// it from its catalogue — "текущее", "8 запросов" — because the words are the catalogue's and the
-// counting is not.
+// SearchNoteKind is what a row says on the right, as a shape rather than a sentence. The window
+// words it from its catalogue — "текущее", "8 запросов" — because the words are the catalogue's and
+// the counting is not.
 type SearchNoteKind string
 
 const (
@@ -49,8 +49,8 @@ type SearchNote struct {
 }
 
 // SearchTarget names what activating a row does. The window switches on it, so it is a fixed
-// vocabulary and not a sentence: a target this build does not know is a row that does nothing, which
-// is what a newer build's answer should be to an older window.
+// vocabulary and not a sentence: a target this build does not know is a row that does nothing,
+// which is what a newer build's answer should be to an older window.
 type SearchTarget string
 
 const (
@@ -105,9 +105,9 @@ type SearchGroup struct {
 	Hits  []SearchHit `json:"hits"`
 }
 
-// SearchResult is the whole answer, one group per area that found something, in the order the design
-// draws them. An area that found nothing is absent rather than empty: a heading over no rows is a
-// heading the window would have to know to skip.
+// SearchResult is the whole answer, one group per area that found something, in the order the
+// design draws them. An area that found nothing is absent rather than empty: a heading over no rows
+// is a heading the window would have to know to skip.
 type SearchResult struct {
 	Groups []SearchGroup `json:"groups"`
 }

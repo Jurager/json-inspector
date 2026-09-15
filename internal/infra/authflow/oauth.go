@@ -23,26 +23,26 @@ const (
 	grantPassword          = "password"
 )
 
-// oauthConfig is what every grant needs and none of them differs about. The endpoint the token comes
-// from is the same one in all four.
+// oauthConfig is what every grant needs and none of them differs about. The endpoint the token
+// comes from is the same one in all four.
 //
-// The client's own authentication is the one thing the user chooses and no server can be guessed at:
-// the design gives it a field, and the two answers are the two styles the library knows.
+// The client's own authentication is the one thing the user chooses and no server can be guessed
+// at: the design gives it a field, and the two answers are the two styles the library knows.
 func oauthConfig(auth domain.Auth) oauth2.Config {
 	return oauth2.Config{
-		ClientID:     strings.TrimSpace(auth.Get("clientId")),
-		ClientSecret: auth.Get("clientSecret"),
+		ClientID:     strings.TrimSpace(auth.Answer("clientId")),
+		ClientSecret: auth.Answer("clientSecret"),
 		Endpoint: oauth2.Endpoint{
-			AuthURL:   strings.TrimSpace(auth.Get("authUrl")),
-			TokenURL:  strings.TrimSpace(auth.Get("tokenUrl")),
+			AuthURL:   strings.TrimSpace(auth.Answer("authUrl")),
+			TokenURL:  strings.TrimSpace(auth.Answer("tokenUrl")),
 			AuthStyle: authStyle(auth),
 		},
-		Scopes: scope(auth.Get("scope")),
+		Scopes: scope(auth.Answer("scope")),
 	}
 }
 
 func authStyle(auth domain.Auth) oauth2.AuthStyle {
-	if auth.GetOrDefault("clientAuth") == clientAuthBody {
+	if auth.OrDefault("clientAuth") == clientAuthBody {
 		return oauth2.AuthStyleInParams
 	}
 	return oauth2.AuthStyleInHeader
@@ -52,21 +52,18 @@ func authStyle(auth domain.Auth) oauth2.AuthStyle {
 // the form rather than in a header.
 const clientAuthBody = "body"
 
-// scope splits what the user typed into the scopes a provider expects. They are written the way OAuth
-// writes them — space-separated — and a provider that wanted them some other way would be the first.
+// scope splits what the user typed into the scopes a provider expects. They are written the way
+// OAuth writes them — space-separated — and a provider that wanted them some other way would be the
+// first.
 func scope(raw string) []string {
-	out := []string{}
-	for _, part := range strings.Fields(raw) {
-		out = append(out, part)
-	}
-	return out
+	return strings.Fields(raw)
 }
 
 // endpointParams is what the token request carries besides the grant: a provider that issues tokens
 // for a named audience is told which one, and the ones that do not care never see the word.
 func endpointParams(auth domain.Auth) url.Values {
 	params := url.Values{}
-	if audience := strings.TrimSpace(auth.Get("audience")); audience != "" {
+	if audience := strings.TrimSpace(auth.Answer("audience")); audience != "" {
 		params.Set("audience", audience)
 	}
 	return params
@@ -75,18 +72,22 @@ func endpointParams(auth domain.Auth) url.Values {
 // oauthToken asks the provider for a token by whichever grant the user chose.
 //
 // Three of the four are the library's: it knows what the parameters are called, how the client
-// authenticates itself, and which of the several shapes a token endpoint may answer in is the one it
-// got. The fourth — the code grant — needs a browser, and lives in browser.go.
-func oauthToken(ctx context.Context, auth domain.Auth, exchange codeExchange) (string, time.Time, error) {
-	grant := auth.GetOrDefault("grant")
+// authenticates itself, and which of the several shapes a token endpoint may answer in is the one
+// it got. The fourth — the code grant — needs a browser, and lives in browser.go.
+func oauthToken(
+	ctx context.Context,
+	auth domain.Auth,
+	exchange codeExchange,
+) (string, time.Time, error) {
+	grant := auth.OrDefault("grant")
 
 	switch grant {
 	case grantClientCredentials:
 		config := clientcredentials.Config{
-			ClientID:       strings.TrimSpace(auth.Get("clientId")),
-			ClientSecret:   auth.Get("clientSecret"),
-			TokenURL:       strings.TrimSpace(auth.Get("tokenUrl")),
-			Scopes:         scope(auth.Get("scope")),
+			ClientID:       strings.TrimSpace(auth.Answer("clientId")),
+			ClientSecret:   auth.Answer("clientSecret"),
+			TokenURL:       strings.TrimSpace(auth.Answer("tokenUrl")),
+			Scopes:         scope(auth.Answer("scope")),
 			EndpointParams: endpointParams(auth),
 			AuthStyle:      authStyle(auth),
 		}
@@ -98,7 +99,8 @@ func oauthToken(ctx context.Context, auth domain.Auth, exchange codeExchange) (s
 
 	case grantPassword:
 		config := oauthConfig(auth)
-		token, err := config.PasswordCredentialsToken(ctx, auth.Get("owner"), auth.Get("ownerPassword"))
+		token, err := config.PasswordCredentialsToken(ctx, auth.Answer("owner"),
+			auth.Answer("ownerPassword"))
 		if err != nil {
 			return "", time.Time{}, fmt.Errorf("asking for a token as the user: %w", err)
 		}
@@ -109,13 +111,15 @@ func oauthToken(ctx context.Context, auth domain.Auth, exchange codeExchange) (s
 		// handed here. Without one to open — a test, or a platform the app cannot reach a browser on
 		// — there is no token, and saying so is better than a request that would hang.
 		if exchange == nil {
-			return "", time.Time{}, fmt.Errorf("asking for a token with the %s grant: %w", grant, domain.ErrNotAllowed)
+			return "", time.Time{}, fmt.Errorf("asking for a token with the %s grant: %w", grant,
+				domain.ErrNotAllowed)
 		}
 		return exchange(ctx, auth)
 
 	default:
 		// A grant nobody implements is not one to guess at by falling back to another.
-		return "", time.Time{}, fmt.Errorf("asking for a token with the %q grant: %w", grant, domain.ErrNotAllowed)
+		return "", time.Time{}, fmt.Errorf("asking for a token with the %q grant: %w", grant,
+			domain.ErrNotAllowed)
 	}
 }
 
@@ -124,7 +128,8 @@ func oauthToken(ctx context.Context, auth domain.Auth, exchange codeExchange) (s
 //
 // The exchange is handed in rather than looked up because the registry is one table for every
 // materializer, and only some of them were built with a browser to open.
-type fetcher func(ctx context.Context, auth domain.Auth, exchange codeExchange) (token string, expires time.Time, err error)
+type fetcher func(ctx context.Context, auth domain.Auth, exchange codeExchange) (token string,
+	expires time.Time, err error)
 
 // codeExchange is the two grants that need a browser: the user is sent to the provider to say yes,
 // and what they come back with is a token. It is a function rather than a method so that the

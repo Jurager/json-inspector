@@ -2,8 +2,8 @@ package wails
 
 import "github.com/wailsapp/wails/v3/pkg/application"
 
-// MenuLabels are the few words the native menu needs. They arrive from the window, because the menu is
-// drawn by the system and only the page knows the language — the alternative would be a second
+// MenuLabels are the few words the native menu needs. They arrive from the window, because the menu
+// is drawn by the system and only the page knows the language — the alternative would be a second
 // catalogue here, in one language, drifting away from the one the rest of the app reads.
 type MenuLabels struct {
 	About        string `json:"about"`
@@ -37,4 +37,27 @@ func BuildMenu(host *Host, name string, labels MenuLabels) *application.Menu {
 	menu.AddRole(application.WindowMenu)
 
 	return menu
+}
+
+// ApplyMenu rebuilds the native menu in the language the window settled on, with the words the
+// window sent. Go cannot resolve "system" and has nowhere to keep a second catalogue, so the menu
+// is built twice: once with the fallback when the app starts, and once here.
+func (h *Host) ApplyMenu(labels MenuLabels) {
+	app := h.App()
+	if app == nil || UseCustomTitlebar() {
+		return
+	}
+	app.Menu.Set(BuildMenu(h, h.windowTitle(), labels))
+}
+
+func (h *Host) FocusMain() {
+	if win := h.MainWindow(); win != nil {
+		bringToFront(win)
+	}
+}
+
+func (h *Host) ToggleMaximize() {
+	if win := h.MainWindow(); win != nil {
+		win.ToggleMaximise()
+	}
 }

@@ -1,11 +1,10 @@
 // Package command reads a pasted command line as a request and renders a request back as a command
-// line. It is the Go side of frontend/src/lib/parseRequest.ts and frontend/src/lib/export.ts, ported
-// statement for statement: internal/command/testdata was dumped from that implementation before it
-// was deleted, so anything here that "improves" on it fails the corpus.
+// line. It is the Go side of frontend/src/lib/parseRequest.ts and frontend/src/lib/export.ts,
+// ported statement for statement: internal/command/testdata was dumped from that implementation
+// before it was deleted, so anything here that "improves" on it fails the corpus.
 package command
 
 import (
-	"encoding/base64"
 	"regexp"
 	"strings"
 
@@ -26,24 +25,24 @@ const (
 
 // Header is one request header, name and value as written.
 type Header struct {
-	Name  string
-	Value string
+	Name  string `json:"name"`
+	Value string `json:"value"`
 }
 
 // Request is a parsed command. Headers keep the order they were written in; a repeated name keeps
 // the position of its first occurrence and the value of its last, which is what the TS gets from
 // collapsing them into an object.
 type Request struct {
-	Method  string
-	URL     string
-	Headers []Header
-	Body    string
+	Method  string   `json:"method"`
+	URL     string   `json:"url"`
+	Headers []Header `json:"headers"`
+	Body    string   `json:"body"`
 	// Auth is the credential the command carried, as the scheme it *is* rather than as the header it
 	// comes to. `curl -u` and `-H 'Authorization: Basic …'` are the same request on the wire and
 	// different things in the app: one is an answer the Auth chip can edit afterwards, the other a
 	// header somebody wrote and meant to keep. Only flags become a scheme; a written header stays a
 	// header, and being written it wins over any scheme anyway.
-	Auth *domain.Auth
+	Auth *domain.Auth `json:"auth,omitempty"`
 }
 
 // Reason is why a command was recognised but could not be read; the UI phrases these.
@@ -71,10 +70,10 @@ const (
 // Result is a parse outcome. KindNone means "not a command, leave the field alone"; KindError
 // carries the reason the UI phrases.
 type Result struct {
-	Kind    Kind
-	Format  Format
-	Request Request
-	Reason  Reason
+	Kind    Kind    `json:"kind"`
+	Format  Format  `json:"format"`
+	Request Request `json:"request"`
+	Reason  Reason  `json:"reason"`
 }
 
 // ExportOptions says what an export does with `{{tokens}}`. The zero value writes them out as they
@@ -165,8 +164,8 @@ func (p pendingRequest) request() Request {
 	}
 }
 
-// defaultMethod is the TS's `method ?? (body ? 'POST' : 'GET')`: an explicit method stands even when
-// it is empty, and a body implies POST.
+// defaultMethod is the TS's `method ?? (body ? 'POST' : 'GET')`: an explicit method stands even
+// when it is empty, and a body implies POST.
 func defaultMethod(method optString, body string) string {
 	if method.set {
 		return method.value
@@ -239,12 +238,6 @@ func withFormType(entries []headerEntry, hasBody bool) []headerEntry {
 	return append(out, headerEntry{name: "Content-Type", value: "application/x-www-form-urlencoded"})
 }
 
-// basicAuth is the TS's TextEncoder + btoa chain, which is plain base64 of the UTF-8 bytes: btoa
-// over a byte-per-character string encodes exactly those bytes.
-func basicAuth(user, password string) string {
-	return "Basic " + base64.StdEncoding.EncodeToString([]byte(user+":"+password))
-}
-
 // splitCredential is `login:password` cut at the first colon, which is where a Basic credential is
 // cut and the only rule there is: a password may hold a colon and a login may not.
 func splitCredential(raw string) (string, string) {
@@ -270,16 +263,6 @@ func digestScheme(user, password string) *domain.Auth {
 func bearerScheme(token string) *domain.Auth {
 	auth := domain.NewAuth(domain.AuthBearer).With("token", token)
 	return &auth
-}
-
-// basicAuthEntry is what curl's -u and httpie's --auth have in common: a value without a colon is a
-// user with no password.
-func basicAuthEntry(user string) headerEntry {
-	colon := strings.Index(user, ":")
-	if colon == -1 {
-		return headerEntry{name: "Authorization", value: basicAuth(user, "")}
-	}
-	return headerEntry{name: "Authorization", value: basicAuth(user[:colon], user[colon+1:])}
 }
 
 // appendQuery adds a query string to a URL that may already carry one.

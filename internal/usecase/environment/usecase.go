@@ -1,16 +1,15 @@
-// Package environment owns the environments and their variables: what is stored, which scope wins
-// when a name exists twice, and what a `{{token}}` resolves to.
+// Package environment owns the environments and the variables that resolve against them: what a
+// request interpolates, in which scope, and which of the values are secrets.
 package environment
 
 import (
 	"context"
 	"fmt"
-	"json-inspector/internal/domain"
-	"json-inspector/internal/dotenv"
-	"json-inspector/internal/platform"
-	"json-inspector/internal/vars"
 	"strconv"
 	"strings"
+
+	"json-inspector/internal/domain"
+	"json-inspector/internal/platform"
 )
 
 // maxNameLength is the design's limit for an environment's name: long enough for "Prod · EU-West",
@@ -49,8 +48,8 @@ func (u *UseCase) snapshot(ctx context.Context, workspace string) (domain.EnvSta
 	return hideSecretValues(state), nil
 }
 
-// Patch is a partial update: a nil field is left as it is.
-type Patch struct {
+// EnvironmentPatch is a partial update: a nil field is left as it is.
+type EnvironmentPatch struct {
 	Name     *string `json:"name,omitempty"`
 	Color    *string `json:"color,omitempty"`
 	Readonly *bool   `json:"readonly,omitempty"`
@@ -64,13 +63,9 @@ func (u *UseCase) Create(ctx context.Context, name string) (domain.EnvState, err
 		return domain.EnvState{}, err
 	}
 
-	name = strings.TrimSpace(name)
-	if name == "" {
-		return domain.EnvState{}, domain.Refuse(domain.CodeNameEmpty, domain.ErrNotAllowed, nil)
-	}
-	if len([]rune(name)) > maxNameLength {
-		return domain.EnvState{}, domain.Refuse(domain.CodeNameTooLong, domain.ErrNotAllowed,
-			domain.Args{"max": strconv.Itoa(maxNameLength)})
+	name, err = validEnvironmentName(name)
+	if err != nil {
+		return domain.EnvState{}, err
 	}
 
 	current, err := u.store.EnvState(ctx, workspace)
@@ -96,7 +91,11 @@ func (u *UseCase) Create(ctx context.Context, name string) (domain.EnvState, err
 
 // Update applies a patch. The readonly flag is what the design calls "Prod": it locks the
 // variables until the user unlocks them for this session.
-func (u *UseCase) Update(ctx context.Context, id string, patch Patch) (domain.EnvState, error) {
+func (u *UseCase) Update(
+	ctx context.Context,
+	id string,
+	patch EnvironmentPatch,
+) (domain.EnvState, error) {
 	workspace, err := u.scope.ActiveWorkspace(ctx)
 	if err != nil {
 		return domain.EnvState{}, err
@@ -112,9 +111,11 @@ func (u *UseCase) Update(ctx context.Context, id string, patch Patch) (domain.En
 	}
 
 	if patch.Name != nil {
-		name := strings.TrimSpace(*patch.Name)
-		if name == "" || len([]rune(name)) > maxNameLength {
-			return domain.EnvState{}, fmt.Errorf("environment name: %w", domain.ErrNotAllowed)
+		// Refused the way a new one is: an empty name and a name that is too long are two different
+		// things to say, and a bare sentinel leaves the window nothing to say either of them with.
+		name, err := validEnvironmentName(*patch.Name)
+		if err != nil {
+			return domain.EnvState{}, err
 		}
 		env.Name = name
 	}
@@ -181,52 +182,6 @@ func (u *UseCase) Activate(ctx context.Context, id string) (domain.EnvState, err
 	return u.snapshot(ctx, workspace)
 }
 
-// VariableDraft is a variable on its way in: the sheet's "add row" leaves it empty, the .env
-// dialog fills it in, and both go through one call.
-type VariableDraft struct {
-	Name  string              `json:"name"`
-	Kind  domain.VariableKind `json:"kind"`
-	Value string              `json:"value,omitempty"`
-}
-
-// AddVariable appends a variable to a scope.
-func (u *UseCase) AddVariable(ctx context.Context, scope domain.EnvScope, draft VariableDraft) (domain.EnvState, error) {
-	workspace, err := u.scope.ActiveWorkspace(ctx)
-	if err != nil {
-		return domain.EnvState{}, err
-	}
-
-	state, err := u.store.EnvState(ctx, workspace)
-	if err != nil {
-		return domain.EnvState{}, err
-	}
-	position, err := nextVariablePosition(state, scope)
-	if err != nil {
-		return domain.EnvState{}, err
-	}
-
-	name := strings.TrimSpace(draft.Name)
-	if name != "" && !vars.ValidName(name) {
-		return domain.EnvState{}, fmt.Errorf("variable name: %w", domain.ErrNotAllowed)
-	}
-	if draft.Kind != domain.VariableSecret {
-		draft.Kind = domain.VariableText
-	}
-
-	v := domain.Variable{
-		ID:       u.ids(),
-		Name:     name,
-		Value:    draft.Value,
-		Kind:     draft.Kind,
-		Enabled:  true,
-		Position: position,
-	}
-	if err := u.store.SaveVariable(ctx, workspace, scope, v); err != nil {
-		return domain.EnvState{}, err
-	}
-	return u.snapshot(ctx, workspace)
-}
-
 // EnsureDefaults gives a workspace the one environment the app has always started with, so a space
 // the user has just made has somewhere to type a base URL instead of an empty screen. It only ever
 // acts on an empty state: as soon as anything exists, the user's own setup is the answer.
@@ -257,147 +212,14 @@ func (u *UseCase) EnsureDefaults(ctx context.Context) (domain.EnvState, error) {
 		// One-based to match the environment above: positions are ordered, not indexed.
 		Position: 1,
 	}
-	if err := u.store.SaveVariable(ctx, workspace, domain.EnvScope{Environment: env.ID}, baseURL); err != nil {
+	if err := u.store.SaveVariable(ctx, workspace, domain.EnvScope{Environment: env.ID},
+		baseURL); err != nil {
 		return domain.EnvState{}, err
 	}
 	if err := u.store.SetActiveEnvironment(ctx, workspace, env.ID); err != nil {
 		return domain.EnvState{}, err
 	}
 	return u.snapshot(ctx, workspace)
-}
-
-// VariablePatch edits one variable. SetValue is what keeps a secret's value when only its name or
-// its enabled flag is being changed: the sheet never has the old value to send back.
-type VariablePatch struct {
-	ID       string              `json:"id"`
-	Name     string              `json:"name"`
-	Kind     domain.VariableKind `json:"kind"`
-	Enabled  bool                `json:"enabled"`
-	Value    string              `json:"value,omitempty"`
-	SetValue bool                `json:"setValue"`
-}
-
-func (u *UseCase) UpdateVariable(ctx context.Context, scope domain.EnvScope, patch VariablePatch) (domain.EnvState, error) {
-	workspace, err := u.scope.ActiveWorkspace(ctx)
-	if err != nil {
-		return domain.EnvState{}, err
-	}
-
-	state, err := u.store.EnvState(ctx, workspace)
-	if err != nil {
-		return domain.EnvState{}, err
-	}
-	existing, ok := findVariable(state, scope, patch.ID)
-	if !ok {
-		return domain.EnvState{}, fmt.Errorf("variable %s: %w", patch.ID, domain.ErrNotFound)
-	}
-
-	name := strings.TrimSpace(patch.Name)
-	if name != "" && !vars.ValidName(name) {
-		return domain.EnvState{}, fmt.Errorf("variable name: %w", domain.ErrNotAllowed)
-	}
-
-	value := existing.Value
-	if patch.SetValue {
-		value = patch.Value
-	}
-	kind := patch.Kind
-	if kind != domain.VariableSecret {
-		kind = domain.VariableText
-	}
-
-	updated := domain.Variable{
-		ID:       patch.ID,
-		Name:     name,
-		Value:    value,
-		Kind:     kind,
-		Enabled:  patch.Enabled,
-		Position: existing.Position,
-	}
-	if err := u.store.SaveVariable(ctx, workspace, scope, updated); err != nil {
-		return domain.EnvState{}, err
-	}
-	return u.snapshot(ctx, workspace)
-}
-
-func (u *UseCase) RemoveVariable(ctx context.Context, scope domain.EnvScope, id string) (domain.EnvState, error) {
-	workspace, err := u.scope.ActiveWorkspace(ctx)
-	if err != nil {
-		return domain.EnvState{}, err
-	}
-
-	state, err := u.store.EnvState(ctx, workspace)
-	if err != nil {
-		return domain.EnvState{}, err
-	}
-	if _, ok := findVariable(state, scope, id); !ok {
-		return domain.EnvState{}, fmt.Errorf("variable %s: %w", id, domain.ErrNotFound)
-	}
-	if err := u.store.DeleteVariable(ctx, workspace, id); err != nil {
-		return domain.EnvState{}, err
-	}
-	return u.snapshot(ctx, workspace)
-}
-
-// ImportEntries merges a parsed .env file into a scope: a name that is already there is replaced,
-// one that is not is appended. It is the same rule the import dialog offers, without the question.
-func (u *UseCase) ImportEntries(ctx context.Context, scope domain.EnvScope, entries []dotenv.Entry) (domain.EnvState, error) {
-	workspace, err := u.scope.ActiveWorkspace(ctx)
-	if err != nil {
-		return domain.EnvState{}, err
-	}
-
-	state, err := u.store.EnvState(ctx, workspace)
-	if err != nil {
-		return domain.EnvState{}, err
-	}
-	position, err := nextVariablePosition(state, scope)
-	if err != nil {
-		return domain.EnvState{}, err
-	}
-
-	existing := map[string]domain.Variable{}
-	for _, v := range scopeVariables(state, scope) {
-		existing[v.Name] = v
-	}
-
-	for _, entry := range entries {
-		kind := domain.VariableText
-		if entry.Secret {
-			kind = domain.VariableSecret
-		}
-
-		v, seen := existing[entry.Name]
-		if seen {
-			v.Value = entry.Value
-			v.Kind = kind
-			v.Enabled = true
-		} else {
-			v = domain.Variable{
-				ID:       u.ids(),
-				Name:     entry.Name,
-				Value:    entry.Value,
-				Kind:     kind,
-				Enabled:  true,
-				Position: position,
-			}
-			position++
-		}
-		if err := u.store.SaveVariable(ctx, workspace, scope, v); err != nil {
-			return domain.EnvState{}, err
-		}
-	}
-	return u.snapshot(ctx, workspace)
-}
-
-// Reveal is the deliberate "show me" behind the sheet's eye button, and the only way a secret's
-// value leaves the database.
-func (u *UseCase) Reveal(ctx context.Context, id string) (string, error) {
-	workspace, err := u.scope.ActiveWorkspace(ctx)
-	if err != nil {
-		return "", err
-	}
-	return u.store.VariableValue(ctx, workspace, id)
 }
 
 func findEnvironment(state domain.EnvState, id string) (domain.Environment, bool) {
@@ -409,52 +231,16 @@ func findEnvironment(state domain.EnvState, id string) (domain.Environment, bool
 	return domain.Environment{}, false
 }
 
-// scopeVariables lists what a scope holds right now; an empty scope is the globals.
-func scopeVariables(state domain.EnvState, scope domain.EnvScope) []domain.Variable {
-	if scope.Environment == "" {
-		return state.Globals
+// validEnvironmentName is a name an environment may carry, trimmed, or the refusal that says why it
+// may not. Creating one and renaming one ask the same question, so they answer it the same way.
+func validEnvironmentName(raw string) (string, error) {
+	name := strings.TrimSpace(raw)
+	if name == "" {
+		return "", domain.Refuse(domain.CodeNameEmpty, domain.ErrNotAllowed, nil)
 	}
-	for _, env := range state.Environments {
-		if env.ID == scope.Environment {
-			return env.Vars
-		}
+	if len([]rune(name)) > maxNameLength {
+		return "", domain.Refuse(domain.CodeNameTooLong, domain.ErrNotAllowed,
+			domain.Args{"max": strconv.Itoa(maxNameLength)})
 	}
-	return nil
-}
-
-func nextVariablePosition(state domain.EnvState, scope domain.EnvScope) (int, error) {
-	if scope.Environment != "" {
-		if _, ok := findEnvironment(state, scope.Environment); !ok {
-			return 0, fmt.Errorf("environment %s: %w", scope.Environment, domain.ErrNotFound)
-		}
-	}
-	position := 0
-	for _, v := range scopeVariables(state, scope) {
-		if v.Position >= position {
-			position = v.Position + 1
-		}
-	}
-	return position, nil
-}
-
-// hideSecretValues copies the state without the secrets' values. The variables themselves stay:
-// the sheet lists them, shows their kind and needs their ids to reveal one.
-func hideSecretValues(state domain.EnvState) domain.EnvState {
-	hide := func(vars []domain.Variable) []domain.Variable {
-		out := make([]domain.Variable, len(vars))
-		for i, v := range vars {
-			if v.Kind == domain.VariableSecret {
-				v.HasValue = v.Value != ""
-				v.Value = ""
-			}
-			out[i] = v
-		}
-		return out
-	}
-
-	for i := range state.Environments {
-		state.Environments[i].Vars = hide(state.Environments[i].Vars)
-	}
-	state.Globals = hide(state.Globals)
-	return state
+	return name, nil
 }

@@ -3,6 +3,7 @@
 
 import * as BridgeService from "./bridgeservice.js";
 import * as CollectionsService from "./collectionsservice.js";
+import * as CommandService from "./commandservice.js";
 import * as DraftService from "./draftservice.js";
 import * as EnvironmentsService from "./environmentsservice.js";
 import * as RecordsService from "./recordsservice.js";
@@ -14,6 +15,7 @@ import * as WorkspaceService from "./workspaceservice.js";
 export {
     BridgeService,
     CollectionsService,
+    CommandService,
     DraftService,
     EnvironmentsService,
     RecordsService,

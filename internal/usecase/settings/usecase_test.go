@@ -117,7 +117,8 @@ func TestSetThemeStoresAndPublishes(t *testing.T) {
 		t.Errorf("payload = %#v, want a ThemeChanged carrying dark", event.payload)
 	}
 
-	if _, err := uc.SetTheme(context.Background(), "solarized"); !errors.Is(err, domain.ErrNotAllowed) {
+	if _, err := uc.SetTheme(context.Background(),
+		"solarized"); !errors.Is(err, domain.ErrNotAllowed) {
 		t.Errorf("unknown theme = %v, want ErrNotAllowed", err)
 	}
 	if len(notifier.seen) != 1 {
@@ -217,7 +218,8 @@ func TestSetLayoutRefusesAnUnknownListSide(t *testing.T) {
 		t.Errorf("code = %q, want %q", code, domain.CodeUnknownListSide)
 	}
 	if store[domain.SettingListSide] != "right" {
-		t.Errorf("stored listSide = %q, want the refusal to leave it alone", store[domain.SettingListSide])
+		t.Errorf("stored listSide = %q, want the refusal to leave it alone",
+			store[domain.SettingListSide])
 	}
 }
 

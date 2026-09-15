@@ -7,8 +7,8 @@ import (
 )
 
 // Code names a failure the window can word itself. It is not a message: the catalogue holds one
-// sentence per code per language, and the window picks it — which is why the app can refuse in words
-// it does not know.
+// sentence per code per language, and the window picks it — which is why the app can refuse in
+// words it does not know.
 //
 // A code travels to the window beside the error, not inside it: Wails marshals a rejected call's
 // error through the app's own marshaller, and the window reads the code off that. The error's own
@@ -47,19 +47,19 @@ const (
 	CodeWorkspaceMissing   Code = "workspaceMissing"
 )
 
-// Args are the values a code's sentence interpolates. They are strings because that is what a message
-// interpolates, and because a value that is a number is formatted where it is known to be one — a file
-// limit is counted in the unit its sentence names, not in bytes.
+// Args are the values a code's sentence interpolates. They are strings because that is what a
+// message interpolates, and because a value that is a number is formatted where it is known to be
+// one — a file limit is counted in the unit its sentence names, not in bytes.
 //
-// The same values make the error's own text, so an arg is read twice: by the sentence, which uses the
-// ones it names, and by a log, which prints all of them.
+// The same values make the error's own text, so an arg is read twice: by the sentence, which uses
+// the ones it names, and by a log, which prints all of them.
 type Args map[string]string
 
 // Failure is an error the window can word itself: a code, the values its sentence needs, and the
 // sentinel a caller above asks `errors.Is` about.
 //
-// It marshals to exactly what the window needs and nothing more, which is what makes it worth a type
-// of its own rather than a formatted string.
+// It marshals to exactly what the window needs and nothing more, which is what makes it worth a
+// type of its own rather than a formatted string.
 type Failure struct {
 	Code Code `json:"code"`
 	Args Args `json:"args,omitempty"`
@@ -67,8 +67,9 @@ type Failure struct {
 	sentinel error
 }
 
-// Error is the machine's account of the refusal: the code, and the values it was given. It is stable
-// and greppable, which is what a log wants, and it is never shown as if it were the app's own words.
+// Error is the machine's account of the refusal: the code, and the values it was given. It is
+// stable and greppable, which is what a log wants, and it is never shown as if it were the app's
+// own words.
 func (f *Failure) Error() string {
 	if len(f.Args) == 0 {
 		return string(f.Code)
@@ -88,8 +89,8 @@ func (f *Failure) Error() string {
 func (f *Failure) Unwrap() error { return f.sentinel }
 
 // Refuse is the app saying no: a code the window words, the sentinel a caller above recognises, and
-// the values the sentence needs. A nil sentinel is a refusal that maps onto none of the domain's own —
-// it will not answer `errors.Is`, and only the code will describe it.
+// the values the sentence needs. A nil sentinel is a refusal that maps onto none of the domain's
+// own — it will not answer `errors.Is`, and only the code will describe it.
 func Refuse(code Code, sentinel error, args Args) error {
 	return &Failure{Code: code, Args: args, sentinel: sentinel}
 }
@@ -116,8 +117,9 @@ var sentinelCodes = []struct {
 	{ErrStaleRevision, CodeStaleRevision},
 }
 
-// CodeOf names what an error is. An error the app did not build has no code, and the window shows the
-// machine's message for it — which is the honest thing to do with a failure nobody has words for.
+// CodeOf names what an error is. An error the app did not build has no code, and the window shows
+// the machine's message for it — which is the honest thing to do with a failure nobody has words
+// for.
 func CodeOf(err error) Code {
 	if failure := AsFailure(err); failure != nil {
 		return failure.Code

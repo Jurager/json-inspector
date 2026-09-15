@@ -51,7 +51,9 @@ export function ImportEntries(scope: domain$0.EnvScope, entries: dotenv$0.Entry[
 
 /**
  * ImportLegacy moves what the old frontend kept in localStorage into the database, once. The
- * payload is the raw string: parsing the old shape is this side's job, not the window's.
+ * payload is the raw string: parsing the old shape is this side's job, not the window's. A secret
+ * arrives without its value, which lived in the keychain and is not read any more — the report says
+ * so, and the value is one the user enters again.
  */
 export function ImportLegacy(raw: string): $CancellablePromise<environment$0.ImportReport> {
     return $Call.ByID(3560788915, raw);
@@ -84,7 +86,7 @@ export function Snapshot(): $CancellablePromise<domain$0.EnvState> {
     return $Call.ByID(2070616517);
 }
 
-export function UpdateEnvironment(id: string, patch: environment$0.Patch): $CancellablePromise<domain$0.EnvState> {
+export function UpdateEnvironment(id: string, patch: environment$0.EnvironmentPatch): $CancellablePromise<domain$0.EnvState> {
     return $Call.ByID(2674046333, id, patch);
 }
 

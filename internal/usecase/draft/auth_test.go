@@ -45,7 +45,11 @@ func (l preparedLine) setAuth(t *testing.T, auth domain.Auth) {
 	}
 }
 
-func rowOf(rows []domain.ProjectedRow, target domain.RowKind, name string) (domain.ProjectedRow, bool) {
+func rowOf(
+	rows []domain.ProjectedRow,
+	target domain.RowKind,
+	name string,
+) (domain.ProjectedRow, bool) {
 	for _, row := range rows {
 		if row.Target == target && row.Name == name {
 			return row, true
@@ -54,9 +58,9 @@ func rowOf(rows []domain.ProjectedRow, target domain.RowKind, name string) (doma
 	return domain.ProjectedRow{}, false
 }
 
-// A row the authorization put in a list travels in the answer beside the rows a person wrote, and it
-// says which list it belongs to and which scheme put it there: the window has nowhere else to learn
-// either of those.
+// A row the authorization put in a list travels in the answer beside the rows a person wrote, and
+// it says which list it belongs to and which scheme put it there: the window has nowhere else to
+// learn either of those.
 func TestProjectedRowsTravelWithTheDraft(t *testing.T) {
 	line := newLine(t)
 	line.auth.answer = domain.AuthOutput{
@@ -156,7 +160,7 @@ func TestEditingAProjectedRowEditsTheField(t *testing.T) {
 		t.Fatalf("PatchDerived: %v", err)
 	}
 
-	if got := line.state(t).Draft.Auth.Get("token"); got != "second" {
+	if got := line.state(t).Draft.Auth.Answer("token"); got != "second" {
 		t.Errorf("token = %q, want the edit to have reached the field", got)
 	}
 }
@@ -172,7 +176,7 @@ func TestASchemeThatCannotAbsorbRefuses(t *testing.T) {
 	if !errors.Is(err, domain.ErrNotAllowed) {
 		t.Fatalf("PatchDerived: %v, want the refusal the window does not offer an edit for", err)
 	}
-	if got := line.state(t).Draft.Auth.Get("username"); got != "user" {
+	if got := line.state(t).Draft.Auth.Answer("username"); got != "user" {
 		t.Errorf("username = %q, want the refusal to have changed nothing", got)
 	}
 }
@@ -244,7 +248,7 @@ func TestAnInheritedAuthorizationIsProjectedFromWhatIsHandedIn(t *testing.T) {
 	if !ok || row.Value != "Bearer from-above" {
 		t.Errorf("projected = %+v, want the row the inherited answer comes to", projected)
 	}
-	if got := line.auth.shown[len(line.auth.shown)-1].Get("token"); got != "from-above" {
+	if got := line.auth.shown[len(line.auth.shown)-1].Answer("token"); got != "from-above" {
 		t.Errorf("the scheme was asked with %q, want what the level above answered", got)
 	}
 }

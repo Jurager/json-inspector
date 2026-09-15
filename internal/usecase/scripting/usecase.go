@@ -1,10 +1,10 @@
 // Package scripting runs the code a collection keeps around its requests: before a request goes out
 // and after the answer came back.
 //
-// What runs is a chain and not a single script: the collection's scripts, then every folder's on the
-// way down, then the request's own. A level does not replace what is above it — all of it runs, in
-// that order, which is what lets a collection count its requests while one request asserts about its
-// own answer.
+// What runs is a chain and not a single script: the collection's scripts, then every folder's on
+// the way down, then the request's own. A level does not replace what is above it — all of it runs,
+// in that order, which is what lets a collection count its requests while one request asserts about
+// its own answer.
 package scripting
 
 import (
@@ -18,9 +18,9 @@ import (
 	"json-inspector/internal/platform"
 )
 
-// KindCollection is what a level calls a collection — the one being run, or one inside it, which is a
-// level of the chain like any other. KindRequest is the request itself, the last level of a chain.
-// KindDraft is a request that is not in a tree at all — the command line's.
+// KindCollection is what a level calls a collection — the one being run, or one inside it, which is
+// a level of the chain like any other. KindRequest is the request itself, the last level of a
+// chain. KindDraft is a request that is not in a tree at all — the command line's.
 const (
 	KindCollection = "collection"
 	KindRequest    = "request"
@@ -43,14 +43,22 @@ type UseCase struct {
 	runs map[string]map[string]string
 }
 
-func NewUseCase(engine Engine, tree Tree, store Store, vars Variables, scope Scope, ids platform.IDGen) *UseCase {
+func NewUseCase(
+	engine Engine,
+	tree Tree,
+	store Store,
+	vars Variables,
+	scope Scope,
+	ids platform.IDGen,
+) *UseCase {
 	return &UseCase{
 		engine: engine, tree: tree, store: store, vars: vars, scope: scope, ids: ids,
 		runs: map[string]map[string]string{},
 	}
 }
 
-// Level is one step of a chain: a collection, a collection inside one, or a request, and what it runs.
+// Level is one step of a chain: a collection, a collection inside one, or a request, and what it
+// runs.
 type Level struct {
 	NodeID  string         `json:"nodeId"`
 	Name    string         `json:"name"`
@@ -59,8 +67,8 @@ type Level struct {
 }
 
 // Chain is what runs around a request, outermost first — the collection's scripts, then each
-// collection inside it on the way down, then the request's own. A level with nothing to run is not in
-// it: this is what runs, not the places it could have run from.
+// collection inside it on the way down, then the request's own. A level with nothing to run is not
+// in it: this is what runs, not the places it could have run from.
 func (u *UseCase) Chain(ctx context.Context, nodeID string) ([]Level, error) {
 	workspace, err := u.scope.ActiveWorkspace(ctx)
 	if err != nil {
@@ -90,8 +98,8 @@ func (u *UseCase) chain(ctx context.Context, workspace, nodeID string) ([]Level,
 		}
 	}
 
-	// Not in any tree: the command line's request, whose code lives with the draft it is. It is a chain
-	// of one, and it has no name to be drawn with — nobody named it.
+	// Not in any tree: the command line's request, whose code lives with the draft it is. It is a
+	// chain of one, and it has no name to be drawn with — nobody named it.
 	//
 	// An id nothing knows is the same answer: a request whose level is gone — a card open on a node
 	// deleted beside it — has nothing around it, and saying so is better than failing a send over code
@@ -109,9 +117,9 @@ func (u *UseCase) chain(ctx context.Context, workspace, nodeID string) ([]Level,
 	return []Level{{NodeID: nodeID, Kind: KindDraft, Scripts: *scripts}}, nil
 }
 
-// Scripts is what a level runs of its own: a collection's, a collection's inside it, a request's — or
-// the command line's. Nil is "not set here", which is a different answer from a script that is simply
-// empty.
+// Scripts is what a level runs of its own: a collection's, a collection's inside it, a request's —
+// or the command line's. Nil is "not set here", which is a different answer from a script that is
+// simply empty.
 func (u *UseCase) Scripts(ctx context.Context, id string) (*domain.Scripts, error) {
 	workspace, err := u.scope.ActiveWorkspace(ctx)
 	if err != nil {
@@ -120,8 +128,8 @@ func (u *UseCase) Scripts(ctx context.Context, id string) (*domain.Scripts, erro
 	return u.store.Scripts(ctx, workspace, id)
 }
 
-// SaveScripts writes what a level has to say about the requests it runs around, and nil puts it back
-// to "not set here" — the state a level returns to when its code is taken off it.
+// SaveScripts writes what a level has to say about the requests it runs around, and nil puts it
+// back to "not set here" — the state a level returns to when its code is taken off it.
 func (u *UseCase) SaveScripts(ctx context.Context, id string, scripts *domain.Scripts) error {
 	workspace, err := u.scope.ActiveWorkspace(ctx)
 	if err != nil {
@@ -136,9 +144,13 @@ func (u *UseCase) SaveScripts(ctx context.Context, id string, scripts *domain.Sc
 // What the scripts do to the request is on the pass, and they all see the same one: a collection's
 // script changes what a folder's is handed, and the folder's changes what the request's own sees.
 //
-// What they did goes back in the pass rather than into the store: a report hangs off the record it ran
-// around, and that record is written only after the request has been answered.
-func (u *UseCase) Before(ctx context.Context, workspace string, pass *domain.ScriptPass) (bool, error) {
+// What they did goes back in the pass rather than into the store: a report hangs off the record it
+// ran around, and that record is written only after the request has been answered.
+func (u *UseCase) Before(
+	ctx context.Context,
+	workspace string,
+	pass *domain.ScriptPass,
+) (bool, error) {
 	chain, err := u.chain(ctx, workspace, pass.NodeID)
 	if err != nil {
 		return false, err
@@ -162,10 +174,10 @@ func (u *UseCase) Before(ctx context.Context, workspace string, pass *domain.Scr
 // After writes down what the first half did — the record it belongs to exists by now — and runs the
 // second half, in the same order.
 //
-// It answers with nothing because there is nothing left to say: the answer came back and the request
-// is a record already. A report that cannot be written is lost — the alternative is a request that
-// failed after it had worked — and the ones behind it are lost with it, because a store that refuses
-// one will refuse the next.
+// It answers with nothing because there is nothing left to say: the answer came back and the
+// request is a record already. A report that cannot be written is lost — the alternative is a
+// request that failed after it had worked — and the ones behind it are lost with it, because a
+// store that refuses one will refuse the next.
 func (u *UseCase) After(ctx context.Context, workspace string, pass domain.ScriptPass) {
 	for _, report := range pass.Ran {
 		if err := u.store.SaveScriptRun(ctx, workspace, report); err != nil {
@@ -189,15 +201,15 @@ func (u *UseCase) After(ctx context.Context, workspace string, pass domain.Scrip
 	}
 }
 
-// Runs is what the response viewer draws: every script that ran around one record, in the order they
-// ran. An empty answer is a request whose collection has no scripts, which is most of them.
+// Runs is what the response viewer draws: every script that ran around one record, in the order
+// they ran. An empty answer is a request whose collection has no scripts, which is most of them.
 func (u *UseCase) Runs(ctx context.Context, recordID string) ([]domain.ScriptRun, error) {
 	return u.store.ScriptRuns(ctx, recordID)
 }
 
-// scriptSource is what a level has to run for one scope. A script of nothing but whitespace is a level
-// with nothing to say, and a level with nothing to say is not a level that throws the ones above it
-// away: it simply is not in the pass.
+// scriptSource is what a level has to run for one scope. A script of nothing but whitespace is a
+// level with nothing to say, and a level with nothing to say is not a level that throws the ones
+// above it away: it simply is not in the pass.
 func scriptSource(level Level, scope domain.ScriptScope) string {
 	if scope == domain.ScriptPost {
 		return strings.TrimSpace(level.Scripts.Post)
@@ -205,8 +217,8 @@ func scriptSource(level Level, scope domain.ScriptScope) string {
 	return strings.TrimSpace(level.Scripts.Pre)
 }
 
-// script executes one level's script. Everything that says who ran — which record, which node, when —
-// is stamped here: the sandbox knows none of it, and the tab draws all of it.
+// script executes one level's script. Everything that says who ran — which record, which node, when
+// — is stamped here: the sandbox knows none of it, and the tab draws all of it.
 func (u *UseCase) script(
 	ctx context.Context,
 	at domain.ScriptPass,
@@ -240,9 +252,9 @@ var _ domain.VarStore = scriptVariables{}
 
 // Get answers the run's own scope first and the environment and the globals after it — the order a
 // request is resolved in, so a script asking for a name gets what the next request of the run will
-// get. Reading either of the other two asks for that one alone, which is what tells a script whether
-// a name is set in the environment or only borrowed from the run.
-func (v scriptVariables) Get(scope domain.VarScope, name string) (string, bool, error) {
+// get. Reading either of the other two asks for that one alone, which is what tells a script
+// whether a name is set in the environment or only borrowed from the run.
+func (v scriptVariables) Lookup(scope domain.VarScope, name string) (string, bool, error) {
 	if scope != domain.ScopeRun {
 		return v.owner.vars.Variable(v.ctx, scope, name)
 	}
@@ -256,10 +268,10 @@ func (v scriptVariables) Get(scope domain.VarScope, name string) (string, bool, 
 	return v.owner.vars.Variable(v.ctx, domain.ScopeGlobals, name)
 }
 
-// Set writes where the scope says it goes. A value a script puts in the run's own scope is this run's
-// and nobody else's: the next request of the same run sees it, another run does not, and a restart
-// forgets it. The other two are stored, which is the point of them — and a secret written here is
-// stored like any other value, because the app has nowhere else to keep it.
+// Set writes where the scope says it goes. A value a script puts in the run's own scope is this
+// run's and nobody else's: the next request of the same run sees it, another run does not, and a
+// restart forgets it. The other two are stored, which is the point of them — and a secret written
+// here is stored like any other value, because the app has nowhere else to keep it.
 func (v scriptVariables) Set(scope domain.VarScope, name string, value string) error {
 	if scope != domain.ScopeRun {
 		return v.owner.vars.SetVariable(v.ctx, scope, name, value)
@@ -286,12 +298,17 @@ func (u *UseCase) setRunVariable(run string, name string, value string) {
 	u.runs[run][name] = value
 }
 
-// pathTo is the way down from a collection to one id, collections inside it included. What is above a
-// request is what runs before it does, so the order of this walk is the order of the chain.
+// pathTo is the way down from a collection to one id, collections inside it included. What is above
+// a request is what runs before it does, so the order of this walk is the order of the chain.
 //
-// A collection that is the id itself is a chain of one: what it runs is its own code, and nothing is
-// above it because there is nothing above it.
-func (u *UseCase) pathTo(ctx context.Context, workspace string, from domain.Collection, id string) ([]Level, bool, error) {
+// A collection that is the id itself is a chain of one: what it runs is its own code, and nothing
+// is above it because there is nothing above it.
+func (u *UseCase) pathTo(
+	ctx context.Context,
+	workspace string,
+	from domain.Collection,
+	id string,
+) ([]Level, bool, error) {
 	own, err := u.levelOf(ctx, workspace, from.ID, from.Name, KindCollection)
 	if err != nil {
 		return nil, false, err
@@ -326,7 +343,12 @@ func (u *UseCase) pathTo(ctx context.Context, workspace string, from domain.Coll
 
 // levelOf is one step of a chain, or nothing when the level has no code of its own to run: a level
 // that runs nothing is not a step, it is a collection on the way.
-func (u *UseCase) levelOf(ctx context.Context, workspace, id string, name string, kind string) (*Level, error) {
+func (u *UseCase) levelOf(
+	ctx context.Context,
+	workspace, id string,
+	name string,
+	kind string,
+) (*Level, error) {
 	scripts, err := u.tree.Scripts(ctx, workspace, id)
 	if err != nil {
 		return nil, err

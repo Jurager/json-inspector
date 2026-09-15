@@ -1,3 +1,11 @@
+// Package command reads a pasted command line as a request and renders a request back as a
+// command line. It is the Go side of frontend/src/lib/parseRequest.ts and
+// frontend/src/lib/export.ts, ported statement for statement: internal/command/testdata was
+// dumped from that implementation before it was deleted, so anything here that "improves" on
+// it fails the corpus.
+//
+// This file is the lexer: the dialect each tool is quoted in, and the words a line comes apart
+// into. The per-tool readers are one file each beside it.
 package command
 
 import (
@@ -171,52 +179,6 @@ func readDouble(input string, at int, d dialect) (readResult, bool) {
 	return readResult{}, false
 }
 
-// readAnsiC reads $'…', where the backslash escapes are C's. Only the four the TS knows are
-// translated; anything else stands for the character that follows the backslash.
-func readAnsiC(input string, at int) (readResult, bool) {
-	i := at + 2
-	var text strings.Builder
-	for i < len(input) {
-		c := input[i]
-		if c == '\'' {
-			return readResult{text: text.String(), next: i + 1}, true
-		}
-		if c != '\\' {
-			size := runeSize(input, i)
-			text.WriteString(input[i : i+size])
-			i += size
-			continue
-		}
-		if i+1 >= len(input) {
-			return readResult{}, false
-		}
-		nx := input[i+1]
-		switch nx {
-		case 'n':
-			text.WriteByte('\n')
-		case 't':
-			text.WriteByte('\t')
-		case 'r':
-			text.WriteByte('\r')
-		case 'u':
-			// `input.slice(i + 2, i + 6)` clamps at the end of the string.
-			end := i + 6
-			if end > len(input) {
-				end = len(input)
-			}
-			text.WriteString(codeUnit(ansiCodeUnit(input[i+2 : end])))
-		default:
-			text.WriteByte(nx)
-		}
-		if nx == 'u' {
-			i += 6
-		} else {
-			i += 2
-		}
-	}
-	return readResult{}, false
-}
-
 // readHashtable reads a PowerShell @{…} whole, quotes and nesting included, so that the header
 // table arrives as one token and its inner `;` does not split the command.
 func readHashtable(input string, at int) (readResult, bool) {
@@ -315,147 +277,3 @@ func tokenize(input string, d dialect) ([]string, bool) {
 	}
 	return out, true
 }
-
-// splitTopLevel splits on a separator that is not inside quotes or brackets, which is how a
-// PowerShell hashtable and a fetch init are taken apart.
-func splitTopLevel(text string, sep byte, d dialect) []string {
-	out := []string{}
-	depth := 0
-	start := 0
-	i := 0
-	for i < len(text) {
-		c := text[i]
-		if c == '\'' || c == '"' {
-			if r, ok := readQuoted(text, i, d); ok {
-				i = r.next
-			} else {
-				i++
-			}
-			continue
-		}
-		switch {
-		case c == '(' || c == '[' || c == '{':
-			depth++
-		case c == ')' || c == ']' || c == '}':
-			depth--
-		case c == sep && depth == 0:
-			out = append(out, text[start:i])
-			start = i + 1
-		}
-		i++
-	}
-	out = append(out, text[start:])
-	return out
-}
-
-// matchBracket finds the index just past the bracket that closes the one at open. A backtick is
-// skipped as a quoted pair, which is how the TS reads a PowerShell line that hides a paren in a
-// regex or in a comment.
-func matchBracket(text string, open int, d dialect) (int, bool) {
-	depth := 0
-	i := open
-	for i < len(text) {
-		c := text[i]
-		if c == '\'' || c == '"' || c == '`' {
-			if c == '`' {
-				j := i + 1
-				for j < len(text) && text[j] != '`' {
-					if text[j] == '\\' {
-						j += 2
-					} else {
-						j++
-					}
-				}
-				if j >= len(text) {
-					return 0, false
-				}
-				i = j + 1
-				continue
-			}
-			r, ok := readQuoted(text, i, d)
-			if !ok {
-				return 0, false
-			}
-			i = r.next
-			continue
-		}
-		switch c {
-		case '(', '[', '{':
-			depth++
-		case ')', ']', '}':
-			depth--
-			if depth == 0 {
-				return i + 1, true
-			}
-		}
-		i++
-	}
-	return 0, false
-}
-
-// jsString reads a JS string literal that is the whole argument, quotes included. `fetch(url, …)`
-// is an identifier the port cannot resolve, and the TS reports it rather than guessing.
-func jsString(raw string) (string, bool) {
-	t := jsTrim(raw)
-	if t == "" {
-		return "", false
-	}
-	if strings.HasPrefix(t, "'") {
-		r, ok := readSingle(t, 0, posixDialect)
-		return r.text, ok && r.next == len(t)
-	}
-	if strings.HasPrefix(t, `"`) {
-		r, ok := readDouble(t, 0, posixDialect)
-		return r.text, ok && r.next == len(t)
-	}
-	return "", false
-}
-
-// runeSize is the width of the character at i, so that a reader can copy text through without
-// splitting a multi-byte character. A byte that is not valid UTF-8 comes through as itself.
-func runeSize(s string, i int) int {
-	if s[i] < utf8.RuneSelf {
-		return 1
-	}
-	_, size := utf8.DecodeRuneInString(s[i:])
-	return size
-}
-
-// ansiCodeUnit is `parseInt(s, 16) || 0` followed by String.fromCharCode: JS skips leading
-// whitespace, accepts a sign and a 0x prefix, takes the longest run of hex digits it finds, and
-// turns the NaN of a failed parse into zero. fromCharCode then reads the value modulo 2^16.
-func ansiCodeUnit(s string) uint16 {
-	t := strings.TrimLeft(s, jsSpace)
-	negative := false
-	if strings.HasPrefix(t, "+") {
-		t = t[1:]
-	} else if strings.HasPrefix(t, "-") {
-		negative = true
-		t = t[1:]
-	}
-	if len(t) >= 2 && t[0] == '0' && (t[1] == 'x' || t[1] == 'X') {
-		t = t[2:]
-	}
-	n := 0
-	digits := 0
-	for i := 0; i < len(t); i++ {
-		d := hexDigit(t[i])
-		if d < 0 {
-			break
-		}
-		n = n*16 + d
-		digits++
-	}
-	if digits == 0 {
-		return 0
-	}
-	if negative {
-		n = -n
-	}
-	return uint16(n)
-}
-
-// codeUnit is String.fromCharCode: one UTF-16 code unit. A Go string cannot hold a lone surrogate,
-// so one becomes U+FFFD — the only place this port cannot follow the TS, and nothing produces it
-// on purpose.
-func codeUnit(v uint16) string { return string(rune(v)) }

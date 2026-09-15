@@ -15,7 +15,8 @@ type Store interface {
 	EnvState(ctx context.Context, workspaceID string) (domain.EnvState, error)
 	SaveEnvironment(ctx context.Context, workspaceID string, env domain.Environment) error
 	DeleteEnvironment(ctx context.Context, workspaceID, id string) error
-	SaveVariable(ctx context.Context, workspaceID string, scope domain.EnvScope, v domain.Variable) error
+	SaveVariable(ctx context.Context, workspaceID string, scope domain.EnvScope,
+		v domain.Variable) error
 	DeleteVariable(ctx context.Context, workspaceID, id string) error
 	VariableValue(ctx context.Context, workspaceID, id string) (string, error)
 
@@ -33,10 +34,4 @@ type Store interface {
 // needs to know the name of the space it is working in.
 type Scope interface {
 	ActiveWorkspace(ctx context.Context) (string, error)
-}
-
-// SecretSource is the OS keychain, which is where secrets lived before they moved into the
-// database. Only the import reads from it, and only until that import has run everywhere.
-type SecretSource interface {
-	Get(ctx context.Context, scope, name string) (string, error)
 }

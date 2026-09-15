@@ -3,9 +3,11 @@ package collection
 import (
 	"context"
 	"errors"
+	"fmt"
 	"testing"
 
 	"json-inspector/internal/domain"
+	"json-inspector/internal/platform"
 )
 
 // runFixture is a collection with a request, a collection inside it holding two more, and a request
@@ -34,7 +36,7 @@ func setupRunnable(t *testing.T) *runFixture {
 	requests := map[string]string{}
 	add := func(collectionID, name, url string) string {
 		t.Helper()
-		_, tree, err := uc.CreateNode(ctx, NewNode{
+		_, tree, err := uc.CreateNode(ctx, NodeDraft{
 			CollectionID: collectionID, Name: name, Method: "GET",
 		})
 		if err != nil {
@@ -71,8 +73,7 @@ func setupRunnable(t *testing.T) *runFixture {
 
 func findInTree(t *testing.T, tree []domain.Collection, name string) domain.CollectionNode {
 	t.Helper()
-	var walk func([]domain.CollectionNode) (domain.CollectionNode, bool)
-	walk = func(nodes []domain.CollectionNode) (domain.CollectionNode, bool) {
+	walk := func(nodes []domain.CollectionNode) (domain.CollectionNode, bool) {
 		for _, node := range nodes {
 			if node.Name == name {
 				return node, true
@@ -119,7 +120,8 @@ func TestRunWalksTheSubtreeDepthFirst(t *testing.T) {
 	}
 	for i := range want {
 		if got[i] != want[i] {
-			t.Errorf("request %d = %s, want %s — the run walks the tree in the order it is drawn", i, got[i], want[i])
+			t.Errorf("request %d = %s, want %s — the run walks the tree in the order it is drawn", i, got[i],
+				want[i])
 		}
 	}
 
@@ -194,8 +196,8 @@ func TestRunOfASingleRequest(t *testing.T) {
 }
 
 // What a run hands over is a request with the authorization of the level above it already resolved:
-// the walk up the tree is the run's own, and by the time a request leaves, where it sat is no longer
-// known to whoever sends it.
+// the walk up the tree is the run's own, and by the time a request leaves, where it sat is no
+// longer known to whoever sends it.
 func TestRunSendsTheInheritedAuth(t *testing.T) {
 	r := setupRunnable(t)
 	ctx := context.Background()
@@ -221,7 +223,7 @@ func TestRunSendsTheInheritedAuth(t *testing.T) {
 	want := []string{"коллекция", "вложенная", "вложенная", "коллекция"}
 	for i, token := range want {
 		auth := sent[i].Auth
-		if auth == nil || auth.Get("token") != token {
+		if auth == nil || auth.Answer("token") != token {
 			t.Errorf("request %d went out with %+v, want %q", i, auth, token)
 		}
 	}
@@ -253,8 +255,8 @@ func TestRunGoesOnAfterAFailure(t *testing.T) {
 }
 
 // A request a pre-request script kept from going out is neither a pass nor a failure: the row says
-// which of the three happened, so a run that skipped half its requests is not a run that failed half
-// of them.
+// which of the three happened, so a run that skipped half its requests is not a run that failed
+// half of them.
 func TestRunCountsASkippedRequestAsNeither(t *testing.T) {
 	r := setupRunnable(t)
 	r.sender.skip(r.requests["Второй"])
@@ -265,7 +267,8 @@ func TestRunCountsASkippedRequestAsNeither(t *testing.T) {
 	run := r.notifier.runFinished(t)
 
 	if run.Passed != 3 || run.Failed != 0 {
-		t.Errorf("run = %d passed, %d failed, want 3 and none: the skipped one is neither", run.Passed, run.Failed)
+		t.Errorf("run = %d passed, %d failed, want 3 and none: the skipped one is neither", run.Passed,
+			run.Failed)
 	}
 	skipped := run.Results[1]
 	if !skipped.Skipped || skipped.Status != nil || skipped.OK {
@@ -360,7 +363,8 @@ func TestRunRefusesASecondOne(t *testing.T) {
 	}
 	<-held
 
-	if _, err := r.uc.Run(context.Background(), r.collectionID, r.nestedID); !errors.Is(err, domain.ErrNotAllowed) {
+	if _, err := r.uc.Run(context.Background(), r.collectionID, r.nestedID); !errors.Is(err,
+		domain.ErrNotAllowed) {
 		t.Errorf("a second run = %v, want ErrNotAllowed", err)
 	}
 	if stopped := r.uc.Stop(); !stopped {
@@ -413,7 +417,7 @@ func TestRunRefusesAnEmptySubtree(t *testing.T) {
 		t.Fatal("the second collection is not in the tree")
 	}
 	otherID := otherCollection.ID
-	_, tree, err = uc.CreateNode(ctx, NewNode{CollectionID: otherID, Name: "Чужой"})
+	_, tree, err = uc.CreateNode(ctx, NodeDraft{CollectionID: otherID, Name: "Чужой"})
 	if err != nil {
 		t.Fatalf("CreateNode: %v", err)
 	}
@@ -451,8 +455,8 @@ func TestLastRunReadsWhatTheRunWrote(t *testing.T) {
 		t.Errorf("first result = %+v, want the nested collection's first request", last.Results[0])
 	}
 
-	// A run of a nested collection is not a run of the one around it: the overview of one must not draw the
-	// other's summary.
+	// A run of a nested collection is not a run of the one around it: the overview of one must not
+	// draw the other's summary.
 	collection, err := r.uc.LastRun(ctx, r.collectionID, "")
 	if err != nil {
 		t.Fatalf("LastRun: %v", err)
@@ -491,7 +495,8 @@ func TestRunPublishesEveryRequestAsItGoes(t *testing.T) {
 		// The row itself travels with the count: the pane draws each finished request as it comes, and
 		// the level the run was started from is what tells a window looking elsewhere that it is not
 		// this run's.
-		if event.Result.NodeID == "" || event.CollectionID != r.collectionID || event.NodeID != r.nestedID {
+		if event.Result.NodeID == "" || event.CollectionID != r.collectionID ||
+			event.NodeID != r.nestedID {
 			t.Errorf("progress %d = %+v, want the row and the level it came from", i, event)
 		}
 	}
@@ -507,4 +512,119 @@ func mustTree(t *testing.T, r *runFixture) []domain.Collection {
 		t.Fatalf("Tree: %v", err)
 	}
 	return tree
+}
+
+// switchingScope answers with a different space every time it is asked, and counts the asks, so a
+// test can name the space a call was made in without knowing how many calls came before it. A run
+// that reads the pointer again mid-flight is what this catches.
+type switchingScope struct{ asked int }
+
+func (s *switchingScope) ActiveWorkspace(context.Context) (string, error) {
+	s.asked++
+	return fmt.Sprintf("space-%d", s.asked), nil
+}
+
+// A run resolves the workspace once, when it starts, and hands it to the sender with every request.
+// A user who switches spaces while fifty requests are going out must not have the last of them
+// filed under the other one — and the space is the run's own decision, so the sender is told it
+// rather than left to ask.
+func TestEveryRequestOfARunCarriesTheSpaceTheRunStartedIn(t *testing.T) {
+	store := newFakeStore()
+	sender := newFakeSender()
+	notifier := newFakeNotifier()
+	scope := &switchingScope{}
+	uc := NewUseCase(store, scope, sender, notifier, platform.NewIDGen())
+	ctx := context.Background()
+
+	tree, err := uc.CreateCollection(ctx, "Коллекция", "")
+	if err != nil {
+		t.Fatalf("CreateCollection: %v", err)
+	}
+	collectionID := only(t, tree).ID
+	for _, name := range []string{"Первый", "Второй"} {
+		if _, tree, err = uc.CreateNode(ctx, NodeDraft{
+			CollectionID: collectionID, Name: name, Method: "GET",
+		}); err != nil {
+			t.Fatalf("CreateNode %s: %v", name, err)
+		}
+		url := "https://api.example.com/" + name
+		node := findInTree(t, tree, name)
+		if _, err := uc.SaveNode(ctx, domain.CollectionNode{
+			ID: node.ID, Name: name, Method: "GET", URL: url,
+		}); err != nil {
+			t.Fatalf("SaveNode %s: %v", name, err)
+		}
+		sender.reply(url, 200, 1000)
+	}
+
+	// The space the run itself will be handed: every call above has taken one of its own.
+	runSpace := fmt.Sprintf("space-%d", scope.asked+1)
+	if _, err := uc.Run(ctx, collectionID, ""); err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+	notifier.runFinished(t)
+
+	requests := sender.requests()
+	if len(requests) != 2 {
+		t.Fatalf("sent %d requests, want 2", len(requests))
+	}
+	for i, req := range requests {
+		if req.Workspace != runSpace {
+			t.Errorf("request %d went out in %q, want %q — the run resolves the space once",
+				i, req.Workspace, runSpace)
+		}
+	}
+}
+
+// A saved request whose body is a form or a file goes out as that form or file: the node's
+// BodyKind, its rows and its path travel with it, because the text alone cannot be sent as a
+// multipart body.
+func TestARunsRequestCarriesWhatItsBodyWasMadeOf(t *testing.T) {
+	store := newFakeStore()
+	sender := newFakeSender()
+	notifier := newFakeNotifier()
+	uc := NewUseCase(store, fakeScope{}, sender, notifier, platform.NewIDGen())
+	ctx := context.Background()
+
+	tree, err := uc.CreateCollection(ctx, "Коллекция", "")
+	if err != nil {
+		t.Fatalf("CreateCollection: %v", err)
+	}
+	collectionID := only(t, tree).ID
+	if _, tree, err = uc.CreateNode(ctx, NodeDraft{
+		CollectionID: collectionID, Name: "Загрузка", Method: "POST",
+	}); err != nil {
+		t.Fatalf("CreateNode: %v", err)
+	}
+	const url = "https://api.example.com/upload"
+	node := findInTree(t, tree, "Загрузка")
+	form := []domain.FormRow{{ID: "row-1", Name: "field", Value: "значение", Enabled: true}}
+	if _, err := uc.SaveNode(ctx, domain.CollectionNode{
+		ID: node.ID, Name: "Загрузка", Method: "POST", URL: url,
+		Body: "field=значение", BodyKind: domain.BodyForm, Form: form, BodyFile: "/tmp/report.pdf",
+	}); err != nil {
+		t.Fatalf("SaveNode: %v", err)
+	}
+	sender.reply(url, 200, 1000)
+
+	if _, err := uc.Run(ctx, collectionID, ""); err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+	notifier.runFinished(t)
+
+	requests := sender.requests()
+	if len(requests) != 1 {
+		t.Fatalf("sent %d requests, want 1", len(requests))
+	}
+	got := requests[0]
+	if got.BodyKind != domain.BodyForm {
+		t.Errorf("body kind = %q, want %q — a form body sent as text goes out as the wrong thing",
+			got.BodyKind, domain.BodyForm)
+	}
+	if len(got.Form) != 1 || got.Form[0].Name != "field" || got.Form[0].Value != "значение" {
+		t.Errorf("form rows = %+v, want the one the node holds", got.Form)
+	}
+	if got.BodyFile != "/tmp/report.pdf" {
+		t.Errorf("body file = %q, want the node's path", got.BodyFile)
+	}
 }

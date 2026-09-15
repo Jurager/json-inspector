@@ -52,7 +52,8 @@ func TestAForeignErrorHasNoCode(t *testing.T) {
 	}
 }
 
-// The window reads the code and the args off this; the sentinel is Go's business and must not travel.
+// The window reads the code and the args off this; the sentinel is Go's business and must not
+// travel.
 func TestTheFailureMarshalsToWhatTheWindowReads(t *testing.T) {
 	encoded, err := json.Marshal(Refuse(CodeNameTooLong, ErrNotAllowed, Args{"max": "40"}))
 	if err != nil {
@@ -63,7 +64,8 @@ func TestTheFailureMarshalsToWhatTheWindowReads(t *testing.T) {
 	}
 }
 
-// Two refusals with the same values must read the same in a log, whatever order the map was built in.
+// Two refusals with the same values must read the same in a log, whatever order the map was built
+// in.
 func TestAFailureReadsTheSameTwice(t *testing.T) {
 	first := Refuse(CodeFileTooLarge, ErrNotAllowed, Args{"path": "/x", "limit": "8"})
 	second := Refuse(CodeFileTooLarge, ErrNotAllowed, Args{"limit": "8", "path": "/x"})

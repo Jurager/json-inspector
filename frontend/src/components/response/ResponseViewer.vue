@@ -27,10 +27,10 @@ import ScriptsTab from './ScriptsTab.vue'
 import { RecordSource } from '../../../bindings/json-inspector/internal/domain'
 import { useRequestsStore } from '../../stores/requests'
 import { useCollectionsStore } from '../../stores/collections'
-import { useEnvironmentsStore } from '../../stores/environments'
 import type { InspectorHost } from '../../lib/requestSource'
 import { copyToClipboard } from '../../lib/clipboard'
-import { exportRequest, type ExportFormat } from '../../lib/export'
+import { CommandService } from '../../../bindings/json-inspector/internal/transport/wails'
+import { Format } from '../../../bindings/json-inspector/internal/command'
 import { usePlatform } from '../../composables/usePlatform'
 import { useMessages } from '../../i18n'
 import { focusUrlField } from '../../composables/urlFocus'
@@ -51,7 +51,6 @@ const store: InspectorHost = props.source === 'collection' ? collections : reque
 const hasHistory = computed(() => props.source !== 'collection')
 const { t } = useMessages()
 const { shortcut } = usePlatform()
-const envStore = useEnvironmentsStore()
 
 type Tab = 'body' | 'map' | 'raw' | 'headers' | 'cookies' | 'timings' | 'scripts' | 'request'
 const activeTab = ref<Tab>('body')
@@ -296,20 +295,21 @@ function onWindowKeydown(e: KeyboardEvent) {
 onMounted(() => window.addEventListener('keydown', onWindowKeydown))
 onBeforeUnmount(() => window.removeEventListener('keydown', onWindowKeydown))
 
-const COPY_FORMATS: { id: ExportFormat; label: string }[] = [
-  { id: 'curl', label: 'cURL' },
-  { id: 'fetch', label: 'fetch (JS)' },
-  { id: 'wget', label: 'wget' },
-  { id: 'httpie', label: 'HTTPie' },
-  { id: 'powershell', label: 'PowerShell' },
+const COPY_FORMATS: { id: Format; label: string }[] = [
+  { id: Format.FormatCurl, label: 'cURL' },
+  { id: Format.FormatFetch, label: 'fetch (JS)' },
+  { id: Format.FormatWget, label: 'wget' },
+  { id: Format.FormatHTTPie, label: 'HTTPie' },
+  { id: Format.FormatPowerShell, label: 'PowerShell' },
 ]
 
 const copied = ref(false)
 
-// A secret only ever leaves as dots (see lib/export.ts); `keepTokens` shares a snippet
-// with the `{{tokens}}` intact instead of the values they stand for.
-async function copyAs(format: ExportFormat, { keepTokens = false } = {}) {
-  const text = exportRequest(format, props.record, { resolve: envStore.resolveVariable, keepTokens })
+// The command is written on the side that holds the values: a secret leaves as dots, and the values
+// of the other `{{tokens}}` are resolved where they live rather than in this window. `keepTokens`
+// asks for the snippet with the tokens intact instead of the values they stand for.
+async function copyAs(format: Format, { keepTokens = false } = {}) {
+  const text = await CommandService.Export(props.record.id, format, keepTokens)
   if (await copyToClipboard(text)) {
     copied.value = true
     setTimeout(() => (copied.value = false), 1500)
@@ -391,7 +391,7 @@ async function copyAs(format: ExportFormat, { keepTokens = false } = {}) {
             {{ f.label }}
           </DropdownMenuItem>
           <DropdownMenuSeparator />
-          <DropdownMenuItem @select="copyAs('curl', { keepTokens: true })">{{ t('response.copyAsCurlTokens') }}</DropdownMenuItem>
+          <DropdownMenuItem @select="copyAs(Format.FormatCurl, { keepTokens: true })">{{ t('response.copyAsCurlTokens') }}</DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
     </div>

@@ -25,8 +25,8 @@ func headerOf(headers []domain.HeaderPair, name string) (string, bool) {
 }
 
 // The answers in the Auth chip are texts like any other: a variable in one of them is filled in on
-// the way out and left as a mask in the copy that is written down, and what the scheme makes of them
-// is what the request goes out with.
+// the way out and left as a mask in the copy that is written down, and what the scheme makes of
+// them is what the request goes out with.
 func TestTheAuthFieldsReachTheSchemeResolved(t *testing.T) {
 	ctx := context.Background()
 	uc, _, auth := newUseCaseWithAuth()
@@ -41,18 +41,20 @@ func TestTheAuthFieldsReachTheSchemeResolved(t *testing.T) {
 		t.Fatalf("Replace: %v", err)
 	}
 
-	auth.answer = domain.AuthOutput{Headers: []domain.HeaderPair{{Name: "Authorization", Value: "given"}}}
+	auth.answer = domain.AuthOutput{
+		Headers: []domain.HeaderPair{{Name: "Authorization", Value: "given"}},
+	}
 	authWith(t, uc, domain.NewAuth(domain.AuthBearer).With("token", "{{token}}"))
 
 	prepared, err := uc.Prepared(ctx, domain.DraftCommandLine, nil)
 	if err != nil {
 		t.Fatalf("Prepared: %v", err)
 	}
-	if got := auth.asked[0].Get("token"); got != "abc123" {
+	if got := auth.asked[0].Answer("token"); got != "abc123" {
 		t.Errorf("the scheme was asked with %q, want the resolved variable", got)
 	}
 	// The record outlives the send, so the secret it carries is the mask the environment gave.
-	if got := auth.asked[1].Get("token"); got != "••••" {
+	if got := auth.asked[1].Answer("token"); got != "••••" {
 		t.Errorf("the second pass asked with %q, want the mask rather than the value", got)
 	}
 	if value, ok := headerOf(prepared.Headers, "Authorization"); !ok || value != "given" {
@@ -71,7 +73,9 @@ func TestAWrittenAuthorizationHeaderWins(t *testing.T) {
 	if err := uc.Load(ctx); err != nil {
 		t.Fatalf("Load: %v", err)
 	}
-	auth.answer = domain.AuthOutput{Headers: []domain.HeaderPair{{Name: "Authorization", Value: "from-the-chip"}}}
+	auth.answer = domain.AuthOutput{
+		Headers: []domain.HeaderPair{{Name: "Authorization", Value: "from-the-chip"}},
+	}
 
 	if _, err := uc.Replace(ctx, domain.DraftCommandLine, Seed{
 		Method:  "GET",
@@ -94,9 +98,9 @@ func TestAWrittenAuthorizationHeaderWins(t *testing.T) {
 	}
 }
 
-// A scheme told to travel in the query string puts its parameter on the address being sent — and not
-// among the draft's rows, which are what the window edits and what the next keystroke in the address
-// bar would rewrite out of it.
+// A scheme told to travel in the query string puts its parameter on the address being sent — and
+// not among the draft's rows, which are what the window edits and what the next keystroke in the
+// address bar would rewrite out of it.
 func TestAQueryParameterGoesOnTheAddressAndNotInTheRows(t *testing.T) {
 	ctx := context.Background()
 	uc, _, auth := newUseCaseWithAuth()
@@ -139,7 +143,9 @@ func TestAWrittenParameterWins(t *testing.T) {
 	if err := uc.Load(ctx); err != nil {
 		t.Fatalf("Load: %v", err)
 	}
-	auth.answer = domain.AuthOutput{Query: []domain.HeaderPair{{Name: "X-API-Key", Value: "from-the-chip"}}}
+	auth.answer = domain.AuthOutput{
+		Query: []domain.HeaderPair{{Name: "X-API-Key", Value: "from-the-chip"}},
+	}
 
 	if _, err := uc.Replace(ctx, domain.DraftCommandLine, Seed{
 		Method: "GET",
@@ -212,7 +218,9 @@ func TestInheritedAuthIsWhatTheCallerResolved(t *testing.T) {
 	if err := uc.Load(ctx); err != nil {
 		t.Fatalf("Load: %v", err)
 	}
-	auth.answer = domain.AuthOutput{Headers: []domain.HeaderPair{{Name: "Authorization", Value: "from-the-collection"}}}
+	auth.answer = domain.AuthOutput{
+		Headers: []domain.HeaderPair{{Name: "Authorization", Value: "from-the-collection"}},
+	}
 
 	if _, err := uc.Replace(ctx, domain.DraftCommandLine, Seed{
 		Method: "GET",
@@ -227,10 +235,11 @@ func TestInheritedAuthIsWhatTheCallerResolved(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Prepared: %v", err)
 	}
-	if got := auth.asked[0].Get("token"); got != "from-the-collection" {
+	if got := auth.asked[0].Answer("token"); got != "from-the-collection" {
 		t.Errorf("the scheme was asked with %q, want what the level above answered", got)
 	}
-	if value, ok := headerOf(prepared.Headers, "Authorization"); !ok || value != "from-the-collection" {
+	if value, ok := headerOf(prepared.Headers,
+		"Authorization"); !ok || value != "from-the-collection" {
 		t.Errorf("headers = %+v, want the inherited authorization in them", prepared.Headers)
 	}
 
@@ -244,6 +253,7 @@ func TestInheritedAuthIsWhatTheCallerResolved(t *testing.T) {
 		t.Errorf("auth = %q, want «нет» when there is nothing above to inherit", auth.last().Type)
 	}
 	if _, ok := headerOf(prepared.Headers, "Authorization"); ok {
-		t.Errorf("headers = %+v, want no authorization when there is nothing above to inherit", prepared.Headers)
+		t.Errorf("headers = %+v, want no authorization when there is nothing above to inherit",
+			prepared.Headers)
 	}
 }

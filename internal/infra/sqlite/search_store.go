@@ -9,10 +9,10 @@ import (
 )
 
 // The index the palette reads. Each method hands over the rows of one area and says nothing about
-// which of them answer: SQLite folds case for ASCII alone, and the names in this app are Russian, so
-// a LIKE here would make «Пользователи» unfindable by «польз». Matching is the search use case's,
-// and every area below answers with its whole set — which the schema keeps small on purpose (a level
-// holds a document, and the history is what retention leaves).
+// which of them answer: SQLite folds case for ASCII alone, and the names in this app are Russian,
+// so a LIKE here would make «Пользователи» unfindable by «польз». Matching is the search use
+// case's, and every area below answers with its whole set — which the schema keeps small on purpose
+// (a level holds a document, and the history is what retention leaves).
 //
 // What each method does owe is the shape of a row: what it is called, where it sits, and what
 // opening it would reach for.
@@ -66,9 +66,12 @@ func (s *Store) FindRequests(ctx context.Context, workspaceID string) ([]domain.
 	return out, rows.Err()
 }
 
-// FindCollections reads every collection and the collections above it. A folder is a collection with
-// a parent — the schema has never told the two apart — so both are one area here.
-func (s *Store) FindCollections(ctx context.Context, workspaceID string) ([]domain.SearchHit, error) {
+// FindCollections reads every collection and the collections above it. A folder is a collection
+// with a parent — the schema has never told the two apart — so both are one area here.
+func (s *Store) FindCollections(
+	ctx context.Context,
+	workspaceID string,
+) ([]domain.SearchHit, error) {
 	rows, err := s.treeRows(ctx, workspaceID)
 	if err != nil {
 		return nil, err
@@ -89,14 +92,18 @@ func (s *Store) FindCollections(ctx context.Context, workspaceID string) ([]doma
 	return out, nil
 }
 
-// FindEnvironments reads the environments and the variables inside them. A variable answers with the
-// name it is drawn by, and is matched against its value as well — but only when it is text: a
+// FindEnvironments reads the environments and the variables inside them. A variable answers with
+// the name it is drawn by, and is matched against its value as well — but only when it is text: a
 // secret's value is not put next to a query, not even to compare it, so a secret is found by its
 // name and never by what it holds.
-func (s *Store) FindEnvironments(ctx context.Context, workspaceID string) ([]domain.SearchHit, error) {
+func (s *Store) FindEnvironments(
+	ctx context.Context,
+	workspaceID string,
+) ([]domain.SearchHit, error) {
 	var active string
 	if err := s.db.QueryRowContext(ctx,
-		`SELECT active_environment_id FROM workspaces WHERE id = ?`, workspaceID).Scan(&active); err != nil {
+		`SELECT active_environment_id FROM workspaces WHERE id = ?`,
+		workspaceID).Scan(&active); err != nil {
 		return nil, fmt.Errorf("reading the active environment: %w", err)
 	}
 
@@ -162,11 +169,11 @@ func (s *Store) FindEnvironments(ctx context.Context, workspaceID string) ([]dom
 	return out, variables.Err()
 }
 
-// FindHistory reads the calls that were made, newest first. It is the one area that answers an empty
-// field — "what was I just doing" — which is why the order it keeps is the one that matters.
+// FindHistory reads the calls that were made, newest first. It is the one area that answers an
+// empty field — "what was I just doing" — which is why the order it keeps is the one that matters.
 //
-// The bodies are not read: a history row is drawn from its address alone, and a body is the one thing
-// in this database that is worth not pulling across for a keystroke.
+// The bodies are not read: a history row is drawn from its address alone, and a body is the one
+// thing in this database that is worth not pulling across for a keystroke.
 func (s *Store) FindHistory(ctx context.Context, workspaceID string) ([]domain.SearchHit, error) {
 	rows, err := s.db.QueryContext(ctx,
 		`SELECT id, method, url, started_at, ifnull(tab_title, '')
@@ -207,9 +214,9 @@ type treeRow struct {
 	parentID string
 }
 
-// treeRows reads every collection of a workspace in the order the tree keeps them. The order is what
-// the caller draws when nothing else separates two rows, so it is read here rather than left to a
-// map — which would shuffle equal rows between one keystroke and the next.
+// treeRows reads every collection of a workspace in the order the tree keeps them. The order is
+// what the caller draws when nothing else separates two rows, so it is read here rather than left
+// to a map — which would shuffle equal rows between one keystroke and the next.
 func (s *Store) treeRows(ctx context.Context, workspaceID string) ([]treeRow, error) {
 	rows, err := s.db.QueryContext(ctx,
 		`SELECT id, name, ifnull(parent_id, '') FROM collections

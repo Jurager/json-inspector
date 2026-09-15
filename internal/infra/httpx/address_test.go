@@ -15,7 +15,8 @@ func TestCompleteReadsAnAddressTheWayABrowserWould(t *testing.T) {
 		raw  string
 		want string
 	}{
-		{"a host alone", "api.example.com/articles?include=author", "https://api.example.com/articles?include=author"},
+		{"a host alone", "api.example.com/articles?include=author",
+			"https://api.example.com/articles?include=author"},
 		{"a port", "example.com:8080/users", "https://example.com:8080/users"},
 		{"a scheme is left as it is", "http://example.com/x", "http://example.com/x"},
 		{"so is one this app cannot speak", "ftp://example.com/x", "ftp://example.com/x"},

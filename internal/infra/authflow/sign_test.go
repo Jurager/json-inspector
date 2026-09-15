@@ -11,10 +11,10 @@ import (
 	"json-inspector/internal/domain"
 )
 
-// What is tested here is the wiring and not the cryptography: the signature itself is the library's,
-// and a signature this app computed correctly would still be a broken request if the wrong secret,
-// the wrong service or the wrong place on the wire went into it. Those are the things that can be
-// wrong on this side, so those are the things these tests look at.
+// What is tested here is the wiring and not the cryptography: the signature itself is the
+// library's, and a signature this app computed correctly would still be a broken request if the
+// wrong secret, the wrong service or the wrong place on the wire went into it. Those are the things
+// that can be wrong on this side, so those are the things these tests look at.
 
 func bearerToken(t *testing.T, out domain.AuthOutput) string {
 	t.Helper()
@@ -74,7 +74,8 @@ func TestJWTKeepsTheClaimsItWasGiven(t *testing.T) {
 		With("payload", `{"exp":1,"iat":2}`)
 
 	token := bearerToken(t, materialize(t, auth))
-	parsed, err := jwt.Parse(token, func(*jwt.Token) (any, error) { return []byte("s3cret"), nil }, jwt.WithoutClaimsValidation())
+	parsed, err := jwt.Parse(token, func(*jwt.Token) (any, error) { return []byte("s3cret"), nil },
+		jwt.WithoutClaimsValidation())
 	if err != nil {
 		t.Fatalf("the token does not verify: %v", err)
 	}
@@ -103,7 +104,8 @@ func TestJWTReadsABase64Secret(t *testing.T) {
 		With("secret", base64.StdEncoding.EncodeToString([]byte(raw)))
 
 	token := bearerToken(t, materialize(t, auth))
-	if _, err := jwt.Parse(token, func(*jwt.Token) (any, error) { return []byte(raw), nil }); err != nil {
+	if _, err := jwt.Parse(token,
+		func(*jwt.Token) (any, error) { return []byte(raw), nil }); err != nil {
 		t.Errorf("the token does not verify against the decoded secret: %v", err)
 	}
 }
@@ -198,7 +200,8 @@ func TestAWSSessionTokenIsOptional(t *testing.T) {
 		With("region", "eu-west-1").
 		With("service", "s3")
 
-	out, err := New(nil, nil).Project(auth, domain.AuthRequest{Method: "GET", URL: "https://example.com/a"})
+	out, err := New(nil, nil).Project(auth,
+		domain.AuthRequest{Method: "GET", URL: "https://example.com/a"})
 	if err != nil {
 		t.Fatalf("Project: %v", err)
 	}
@@ -206,7 +209,8 @@ func TestAWSSessionTokenIsOptional(t *testing.T) {
 		t.Errorf("headers = %+v, want no session token header without one", out.Headers)
 	}
 
-	withSession, err := New(nil, nil).Project(auth.With("sessionToken", "sts"), domain.AuthRequest{Method: "GET", URL: "https://example.com/a"})
+	withSession, err := New(nil, nil).Project(auth.With("sessionToken", "sts"),
+		domain.AuthRequest{Method: "GET", URL: "https://example.com/a"})
 	if err != nil {
 		t.Fatalf("Project: %v", err)
 	}
@@ -225,7 +229,8 @@ func TestAWSSignsTheBody(t *testing.T) {
 		With("service", "execute-api")
 
 	sign := func(body string) string {
-		out, err := New(nil, nil).Project(auth, domain.AuthRequest{Method: "POST", URL: "https://example.com/a", Body: []byte(body)})
+		out, err := New(nil, nil).Project(auth,
+			domain.AuthRequest{Method: "POST", URL: "https://example.com/a", Body: []byte(body)})
 		if err != nil {
 			t.Fatalf("Project: %v", err)
 		}

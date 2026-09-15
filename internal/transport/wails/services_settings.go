@@ -23,7 +23,10 @@ func (s *SettingsService) Snapshot(ctx context.Context) (domain.Settings, error)
 
 // SetTheme stores the choice and broadcasts it, so every window follows — the About window is not
 // told by whoever changed it.
-func (s *SettingsService) SetTheme(ctx context.Context, theme domain.Theme) (domain.Settings, error) {
+func (s *SettingsService) SetTheme(
+	ctx context.Context,
+	theme domain.Theme,
+) (domain.Settings, error) {
 	saved, err := s.settings.SetTheme(ctx, theme)
 	if err != nil {
 		return saved, err
@@ -34,9 +37,12 @@ func (s *SettingsService) SetTheme(ctx context.Context, theme domain.Theme) (dom
 	return saved, nil
 }
 
-// SetLanguage stores the choice and broadcasts it, the same way the theme is broadcast — and for the
-// same reason: no window is the one that tells the others.
-func (s *SettingsService) SetLanguage(ctx context.Context, language domain.Language) (domain.Settings, error) {
+// SetLanguage stores the choice and broadcasts it, the same way the theme is broadcast — and for
+// the same reason: no window is the one that tells the others.
+func (s *SettingsService) SetLanguage(
+	ctx context.Context,
+	language domain.Language,
+) (domain.Settings, error) {
 	saved, err := s.settings.SetLanguage(ctx, language)
 	if err != nil {
 		return saved, err
@@ -47,10 +53,16 @@ func (s *SettingsService) SetLanguage(ctx context.Context, language domain.Langu
 	return saved, nil
 }
 
-func (s *SettingsService) SetLayout(ctx context.Context, patch settings.LayoutPatch) (domain.Settings, error) {
+func (s *SettingsService) SetLayout(
+	ctx context.Context,
+	patch settings.LayoutPatch,
+) (domain.Settings, error) {
 	return s.settings.SetLayout(ctx, patch)
 }
 
-func (s *SettingsService) SetRetention(ctx context.Context, retention domain.Retention) (domain.Settings, error) {
+func (s *SettingsService) SetRetention(
+	ctx context.Context,
+	retention domain.Retention,
+) (domain.Settings, error) {
 	return s.settings.SetRetention(ctx, retention)
 }

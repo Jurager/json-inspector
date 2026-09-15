@@ -6,6 +6,8 @@ import (
 	"log"
 	"os"
 	"os/signal"
+	"syscall"
+	"time"
 
 	"github.com/wailsapp/wails/v3/pkg/application"
 	"go.uber.org/fx"
@@ -37,7 +39,12 @@ const (
 	// The bundle's own description. It is a single field of the platform's manifest, set once at build
 	// time, so it cannot follow the language the window is in — the app's name cannot either. Of the
 	// two languages it could be written in, English is the one the manifest is read in.
-	appDescription = "A JSON:API viewer: environment variables, a schema map, and captured browser requests."
+	appDescription = "A JSON:API viewer: environment variables, a schema map, and captured " +
+		"browser requests."
+
+	// How long stopping the graph gets before the process leaves anyway: a hook that hangs — the
+	// bridge socket waiting on a client — must not hold the window open after the user closed it.
+	shutdownTimeout = 5 * time.Second
 )
 
 func main() {
@@ -84,7 +91,10 @@ func run() int {
 	updater.CurrentVersion = version
 	updater.CurrentBuild = build
 
-	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
+	// SIGTERM is how a session manager stops the app — systemd, a container, a logout — and it is
+	// not os.Interrupt, which is only what Ctrl-C sends. On Windows the signal is never delivered,
+	// and asking for it costs nothing.
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
 	var app *application.App
@@ -93,7 +103,9 @@ func run() int {
 	// Stopping after Run returns is what puts the database close last: fx hooks run on the way
 	// out, and by then every service has already been shut down.
 	defer func() {
-		if err := graph.Stop(context.Background()); err != nil {
+		shutdown, cancel := context.WithTimeout(context.Background(), shutdownTimeout)
+		defer cancel()
+		if err := graph.Stop(shutdown); err != nil {
 			log.Printf("[app] shutdown: %v", err)
 		}
 	}()

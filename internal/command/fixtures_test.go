@@ -56,10 +56,10 @@ func readJSON(t *testing.T, path string, v any) {
 	}
 }
 
-// TestParseFixtures reads every paste in testdata/parse and compares the whole result: the kind, and
-// on `ok` the format, method, URL, body and the header sequence — names, values and order together,
-// so a header that was lost, renamed or moved fails here rather than in a request that quietly goes
-// somewhere else.
+// TestParseFixtures reads every paste in testdata/parse and compares the whole result: the kind,
+// and on `ok` the format, method, URL, body and the header sequence — names, values and order
+// together, so a header that was lost, renamed or moved fails here rather than in a request that
+// quietly goes somewhere else.
 func TestParseFixtures(t *testing.T) {
 	paths, err := filepath.Glob(filepath.Join("testdata", "parse", "*.cmd"))
 	if err != nil {
@@ -142,8 +142,8 @@ func assertAuth(t *testing.T, got *domain.Auth, want *wantAuth) {
 		t.Errorf("auth type = %q, want %q", got.Type, want.Type)
 	}
 	for key, value := range want.Fields {
-		if got.Get(key) != value {
-			t.Errorf("auth %s = %q, want %q", key, got.Get(key), value)
+		if got.Answer(key) != value {
+			t.Errorf("auth %s = %q, want %q", key, got.Answer(key), value)
 		}
 	}
 }
@@ -311,7 +311,8 @@ func TestExportSubstitutesTokens(t *testing.T) {
 	}
 
 	// keepTokens wins over the resolver: the editor writes out what the user typed.
-	if got := Export(FormatCurl, req, ExportOptions{Resolve: opts.Resolve, KeepTokens: true}); got != kept {
+	if got := Export(FormatCurl, req,
+		ExportOptions{Resolve: opts.Resolve, KeepTokens: true}); got != kept {
 		t.Errorf("Export with keepTokens = %q, want %q", got, kept)
 	}
 }

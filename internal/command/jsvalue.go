@@ -1,99 +1,20 @@
+// Package command reads a pasted command line as a request and renders a request back as a
+// command line. It is the Go side of frontend/src/lib/parseRequest.ts and
+// frontend/src/lib/export.ts, ported statement for statement: internal/command/testdata was
+// dumped from that implementation before it was deleted, so anything here that "improves" on
+// it fails the corpus.
+//
+// This file is the value model those two halves share, and the reading half: JSON.parse as
+// JavaScript does it, which is what a pasted `fetch(…, {body: …})` has to be read with.
 package command
 
 import (
 	"errors"
-	"fmt"
-	"math"
-	"sort"
 	"strconv"
 	"strings"
 	"unicode/utf16"
 	"unicode/utf8"
 )
-
-// This file holds the pieces of JavaScript the TS leans on without saying so: what counts as
-// whitespace, what JSON.stringify writes, what String(x) produces, and what encodeURIComponent
-// escapes. Each of them is reachable from an exported command, so the Go standard library is only
-// used where it agrees exactly.
-
-// jsSpaceRunes is JavaScript's WhiteSpace ∪ LineTerminator set by code point. It is not Go's
-// unicode.IsSpace: JS counts U+FEFF (so a BOM between tokens separates them) and does not count
-// U+0085. The tokenizer, the trimming and every `\s` in a ported regex use this set.
-var jsSpaceRunes = []rune{
-	0x0009, 0x000a, 0x000b, 0x000c, 0x000d, 0x0020, 0x00a0, 0x1680,
-	0x2000, 0x2001, 0x2002, 0x2003, 0x2004, 0x2005, 0x2006, 0x2007,
-	0x2008, 0x2009, 0x200a, 0x2028, 0x2029, 0x202f, 0x205f, 0x3000, 0xfeff,
-}
-
-// jsSpace is that set as text, for trimming.
-var jsSpace = string(jsSpaceRunes)
-
-// jsTrim is String.prototype.trim.
-func jsTrim(s string) string { return strings.Trim(s, jsSpace) }
-
-// isJSSpace is /\s/.test(c). The TS tests one UTF-16 code unit at a time, which gives the same
-// answer for every character here and for both halves of a surrogate pair.
-func isJSSpace(r rune) bool { return strings.ContainsRune(jsSpace, r) }
-
-// reClass renders code points as the body of a regexp character class. Spelling the characters out
-// would put tabs, newlines and non-breaking spaces into the pattern source where they are invisible;
-// `\x{…}` keeps the set reviewable.
-func reClass(runes []rune) string {
-	var b strings.Builder
-	for _, r := range runes {
-		b.WriteString(fmt.Sprintf("\\x{%04X}", r))
-	}
-	return b.String()
-}
-
-// jsArrayIndex reports whether a key is an array index, the keys a JS object enumerates first. A
-// canonical index has no leading zeros and is below 2^32-1, so "01", "-1", "1e2" and "4294967295"
-// are ordinary string keys.
-func jsArrayIndex(s string) (uint32, bool) {
-	if s == "0" {
-		return 0, true
-	}
-	if len(s) == 0 || len(s) > 10 || s[0] == '0' {
-		return 0, false
-	}
-	var n uint64
-	for i := 0; i < len(s); i++ {
-		if !isASCIIDigit(s[i]) {
-			return 0, false
-		}
-		n = n*10 + uint64(s[i]-'0')
-	}
-	if n > 4294967294 {
-		return 0, false
-	}
-	return uint32(n), true
-}
-
-// jsPropOrder enumerates keys the way an ordinary JS object does: the array-index-like ones first in
-// ascending order, then the rest in insertion order. It is not decoration — it decides the header
-// order of a parsed request, the order a fetch init's headers come out in, and the text
-// JSON.stringify writes for a body with numeric keys, all of which are compared byte for byte.
-func jsPropOrder(names []string) []string {
-	type numbered struct {
-		name  string
-		index uint32
-	}
-	var indices []numbered
-	rest := []string{}
-	for _, name := range names {
-		if n, ok := jsArrayIndex(name); ok {
-			indices = append(indices, numbered{name: name, index: n})
-			continue
-		}
-		rest = append(rest, name)
-	}
-	sort.Slice(indices, func(a, b int) bool { return indices[a].index < indices[b].index })
-	out := make([]string, 0, len(names))
-	for _, k := range indices {
-		out = append(out, k.name)
-	}
-	return append(out, rest...)
-}
 
 // jsValueKind is what a parsed JSON value is. Object members keep the order they were written in,
 // because the TS goes JSON.parse → JSON.stringify and both preserve it.
@@ -173,8 +94,8 @@ func (v jsValue) members() []jsMember {
 }
 
 // jsJSONParse is JSON.parse: strict, because a fetch init has to be a literal. `{ method: 'POST' }`
-// and `JSON.stringify(…)` are identifiers rather than JSON and are reported as unreadable instead of
-// guessed at.
+// and `JSON.stringify(…)` are identifiers rather than JSON and are reported as unreadable instead
+// of guessed at.
 func jsJSONParse(s string) (jsValue, bool) {
 	r := &jsonReader{s: s}
 	v, ok := r.value()
@@ -434,223 +355,4 @@ func (r *jsonReader) readHex4() (uint16, bool) {
 	}
 	r.i += 4
 	return unit, true
-}
-
-// jsJSONStringify renders a value the way JSON.stringify does. Go's encoder is not a substitute: it
-// escapes <, > and & as < and friends, which would change an exported command.
-func jsJSONStringify(v jsValue) string {
-	var b strings.Builder
-	writeJSJSON(&b, v)
-	return b.String()
-}
-
-func writeJSJSON(b *strings.Builder, v jsValue) {
-	switch v.kind {
-	case jsNull:
-		b.WriteString("null")
-	case jsBool:
-		if v.bl {
-			b.WriteString("true")
-		} else {
-			b.WriteString("false")
-		}
-	case jsNum:
-		b.WriteString(jsNumberString(v.num))
-	case jsStr:
-		writeJSJSONString(b, v.str)
-	case jsArr:
-		b.WriteByte('[')
-		for i, e := range v.arr {
-			if i > 0 {
-				b.WriteByte(',')
-			}
-			writeJSJSON(b, e)
-		}
-		b.WriteByte(']')
-	case jsObj:
-		b.WriteByte('{')
-		for i, m := range v.members() {
-			if i > 0 {
-				b.WriteByte(',')
-			}
-			writeJSJSONString(b, m.key)
-			b.WriteByte(':')
-			writeJSJSON(b, m.val)
-		}
-		b.WriteByte('}')
-	}
-}
-
-// writeJSJSONString escapes what JSON.stringify escapes and nothing else: the quote, the backslash,
-// the short forms of the usual controls, and \u00xx for the rest.
-func writeJSJSONString(b *strings.Builder, s string) {
-	b.WriteByte('"')
-	for _, r := range s {
-		switch r {
-		case '"':
-			b.WriteString("\\\"")
-		case '\\':
-			b.WriteString("\\\\")
-		case '\b':
-			b.WriteString("\\b")
-		case '\f':
-			b.WriteString("\\f")
-		case '\n':
-			b.WriteString("\\n")
-		case '\r':
-			b.WriteString("\\r")
-		case '\t':
-			b.WriteString("\\t")
-		default:
-			if r < 0x20 {
-				b.WriteString(fmt.Sprintf("\\u%04x", r))
-				continue
-			}
-			b.WriteRune(r)
-		}
-	}
-	b.WriteByte('"')
-}
-
-// jsToString is String(value) for a header value that is not a string. A null never reaches here —
-// the TS writes the empty string for those first — but an object or an array does, and String
-// renders those as `[object Object]` and a comma-joined list, not as JSON.
-func jsToString(v jsValue) string {
-	switch v.kind {
-	case jsStr:
-		return v.str
-	case jsNum:
-		return jsNumberString(v.num)
-	case jsBool:
-		if v.bl {
-			return "true"
-		}
-		return "false"
-	case jsArr:
-		parts := make([]string, 0, len(v.arr))
-		for _, e := range v.arr {
-			// Array.prototype.join writes null and undefined as nothing at all.
-			if e.kind == jsNull {
-				parts = append(parts, "")
-				continue
-			}
-			parts = append(parts, jsToString(e))
-		}
-		return strings.Join(parts, ",")
-	default:
-		return "[object Object]"
-	}
-}
-
-// jsNumberString is ECMAScript's Number::toString: the shortest digits that round-trip, written
-// positionally while the exponent of the first digit is in (-7, 21) and exponentially outside it.
-// Go's %g has its own thresholds, so JSON.stringify output would drift on a body like 1e21.
-func jsNumberString(f float64) string {
-	switch {
-	case math.IsNaN(f):
-		return "NaN"
-	case math.IsInf(f, 1):
-		return "Infinity"
-	case math.IsInf(f, -1):
-		return "-Infinity"
-	case f == 0:
-		return "0" // covers -0 as well, which String(-0) also writes as "0"
-	case f < 0:
-		return "-" + jsNumberString(-f)
-	}
-
-	e := strconv.FormatFloat(f, 'e', -1, 64)
-	mantissa, exponent := e, ""
-	if idx := strings.IndexByte(e, 'e'); idx >= 0 {
-		mantissa, exponent = e[:idx], e[idx+1:]
-	}
-	digits := strings.Replace(mantissa, ".", "", 1)
-	exp, _ := strconv.Atoi(exponent)
-	k := len(digits)
-	n := exp + 1
-
-	switch {
-	case k <= n && n <= 21:
-		return digits + strings.Repeat("0", n-k)
-	case 0 < n && n <= 21:
-		return digits[:n] + "." + digits[n:]
-	case -6 < n && n <= 0:
-		return "0." + strings.Repeat("0", -n) + digits
-	case k == 1:
-		return digits + "e" + jsExponentSign(n-1)
-	default:
-		return digits[:1] + "." + digits[1:] + "e" + jsExponentSign(n-1)
-	}
-}
-
-// jsExponentSign writes the exponent the way JS does, always with a sign.
-func jsExponentSign(e int) string {
-	if e < 0 {
-		return "-" + strconv.Itoa(-e)
-	}
-	return "+" + strconv.Itoa(e)
-}
-
-// jsEncodeURIComponent is encodeURIComponent. url.QueryEscape is not it: that writes `+` for a
-// space and leaves ! ' ( ) * alone, and either difference changes the query that is sent.
-func jsEncodeURIComponent(s string) string {
-	const hex = "0123456789ABCDEF"
-	var b strings.Builder
-	for i := 0; i < len(s); i++ {
-		c := s[i]
-		if isURIUnreserved(c) {
-			b.WriteByte(c)
-			continue
-		}
-		// Everything else is percent-encoded byte by byte, so non-ASCII travels as UTF-8.
-		b.WriteByte('%')
-		b.WriteByte(hex[c>>4])
-		b.WriteByte(hex[c&0x0f])
-	}
-	return b.String()
-}
-
-// isURIUnreserved is encodeURIComponent's keep-list.
-func isURIUnreserved(c byte) bool {
-	switch {
-	case c >= 'A' && c <= 'Z', c >= 'a' && c <= 'z', c >= '0' && c <= '9':
-		return true
-	}
-	switch c {
-	case '-', '_', '.', '!', '~', '*', '\'', '(', ')':
-		return true
-	}
-	return false
-}
-
-// isASCIIDigit is JS's \d, which is ASCII only.
-func isASCIIDigit(c byte) bool { return c >= '0' && c <= '9' }
-
-// hex4 reads exactly four hex digits.
-func hex4(s string) (uint16, bool) {
-	if len(s) < 4 {
-		return 0, false
-	}
-	n := 0
-	for i := 0; i < 4; i++ {
-		d := hexDigit(s[i])
-		if d < 0 {
-			return 0, false
-		}
-		n = n*16 + d
-	}
-	return uint16(n), true
-}
-
-// hexDigit is the value of one hex digit, or -1.
-func hexDigit(c byte) int {
-	switch {
-	case c >= '0' && c <= '9':
-		return int(c - '0')
-	case c >= 'a' && c <= 'f':
-		return int(c-'a') + 10
-	case c >= 'A' && c <= 'F':
-		return int(c-'A') + 10
-	}
-	return -1
 }

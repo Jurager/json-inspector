@@ -50,9 +50,9 @@ export function ObtainAuth(draftID: domain$0.DraftID): $CancellablePromise<draft
 }
 
 /**
- * PatchDerived and RemoveDerived are the same edits made to a row the authorization projected rather
- * than to one a person wrote. Such a row has no id — it is not stored — so it is named by what it is:
- * which list it is in, what it is called, and for an edit, what it now says.
+ * PatchDerived and RemoveDerived are the same edits made to a row the authorization projected
+ * rather than to one a person wrote. Such a row has no id — it is not stored — so it is named by
+ * what it is: which list it is in, what it is called, and for an edit, what it now says.
  */
 export function PatchDerived(draftID: domain$0.DraftID, target: domain$0.RowKind, name: string, value: string): $CancellablePromise<draft$0.State> {
     return $Call.ByID(1683248839, draftID, target, name, value);

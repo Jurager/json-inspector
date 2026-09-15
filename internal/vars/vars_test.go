@@ -1,9 +1,10 @@
 package vars
 
 import (
-	"json-inspector/internal/domain"
 	"strings"
 	"testing"
+
+	"json-inspector/internal/domain"
 )
 
 // fakeResolver is the environment these tests resolve against: one plain variable, one global and
@@ -77,8 +78,8 @@ func TestParseTokens(t *testing.T) {
 	}
 }
 
-// assertTokens compares the whole token sequence: offsets decide where the highlight layer draws, so
-// a token that is found but misplaced is a failure too.
+// assertTokens compares the whole token sequence: offsets decide where the highlight layer draws,
+// so a token that is found but misplaced is a failure too.
 func assertTokens(t *testing.T, got, want []Token) {
 	t.Helper()
 	if len(got) != len(want) {

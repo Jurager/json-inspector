@@ -7,8 +7,8 @@ import (
 )
 
 // Store keeps drafts between runs: a window that is closed mid-request opens on what it was
-// composing. It is keyed by draft id, because a collection node will get a draft of its own — and by
-// workspace, because the command line's id is the same word in every one of them.
+// composing. It is keyed by draft id, because a collection node will get a draft of its own — and
+// by workspace, because the command line's id is the same word in every one of them.
 type Store interface {
 	Draft(ctx context.Context, workspaceID string, id domain.DraftID) (domain.Draft, error)
 	SaveDraft(ctx context.Context, workspaceID string, draft domain.Draft) error
@@ -21,9 +21,9 @@ type Scope interface {
 	ActiveWorkspace(ctx context.Context) (string, error)
 }
 
-// FileSource reads the bytes a request carries. A file body keeps a path and not the bytes — the way
-// Postman keeps it — and the read happens at the moment of sending: a draft holding megabytes would
-// be a megabyte in every snapshot, and a copy of a file that has changed since it was picked.
+// FileSource reads the bytes a request carries. A file body keeps a path and not the bytes — the
+// way Postman keeps it — and the read happens at the moment of sending: a draft holding megabytes
+// would be a megabyte in every snapshot, and a copy of a file that has changed since it was picked.
 //
 // The size limit belongs to the port and not to the caller: a caller that forgets to check is
 // exactly the failure this exists to prevent.
@@ -52,7 +52,8 @@ type VariableSource interface {
 // what the window draws while a person is typing, and it answers with nothing where the
 // conversation has not happened yet.
 type AuthMaterializer interface {
-	Materialize(ctx context.Context, auth domain.Auth, req domain.AuthRequest) (domain.AuthOutput, error)
+	Materialize(ctx context.Context, auth domain.Auth, req domain.AuthRequest) (domain.AuthOutput,
+		error)
 	// Project is the same answer without the network: what the window draws as a derived row.
 	Project(auth domain.Auth, req domain.AuthRequest) (domain.AuthOutput, error)
 	// Absorb is the other direction: an edit to one of those rows, turned back into the scheme's

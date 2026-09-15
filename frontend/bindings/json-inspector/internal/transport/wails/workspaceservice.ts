@@ -3,8 +3,9 @@
 
 /**
  * WorkspaceService is the switcher: which spaces exist, which one the window is showing, and what a
- * new one is called. Every call answers with the whole set, the way the environments and the tree do
- * — the window draws all of it at once, and a partial answer would only be a second thing to keep.
+ * new one is called. Every call answers with the whole set, the way the environments and the tree
+ * do — the window draws all of it at once, and a partial answer would only be a second thing to
+ * keep.
  * @module
  */
 

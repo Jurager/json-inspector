@@ -56,7 +56,8 @@ type WorkspaceState struct {
 	ActiveID   string      `json:"activeId"`
 }
 
-// NewWorkspace is a workspace on its way in: the id it will have, and the two things the user chose.
+// NewWorkspace is a workspace on its way in: the id it will have, and the two things the user
+// chose.
 func NewWorkspace(id string, name string, kind WorkspaceKind, color string, now int64) Workspace {
 	return Workspace{
 		ID:        id,

@@ -11,7 +11,11 @@ import (
 // prepare fills the draft's variables in twice: once with their values, which is what goes out, and
 // once with a secret left as its mask, which is what everything that outlives the send gets to see.
 // The window never holds either — a secret's value has not left this side since it was typed in.
-func (u *UseCase) prepare(ctx context.Context, draft domain.Draft, inherits *domain.Auth) (Prepared, error) {
+func (u *UseCase) prepare(
+	ctx context.Context,
+	draft domain.Draft,
+	inherits *domain.Auth,
+) (Prepared, error) {
 	auth := authToApply(draft.Auth, inherits)
 
 	raw := collect(draft)
@@ -49,11 +53,13 @@ func (u *UseCase) prepare(ctx context.Context, draft domain.Draft, inherits *dom
 	// down carries masked credentials rather than the ones that went out. A scheme that has to hold a
 	// conversation to answer — a token to fetch, a challenge to meet — has to recognise the second
 	// call as the same one and not hold it twice: same scheme, same answers, same request.
-	sentAuth, err := u.auth.Materialize(ctx, sent.auth, authRequest(draft.Method, sent.url, sent.headers, body))
+	sentAuth, err := u.auth.Materialize(ctx, sent.auth,
+		authRequest(draft.Method, sent.url, sent.headers, body))
 	if err != nil {
 		return Prepared{}, err
 	}
-	storedAuth, err := u.auth.Materialize(ctx, stored.auth, authRequest(draft.Method, stored.url, stored.headers, masked))
+	storedAuth, err := u.auth.Materialize(ctx, stored.auth,
+		authRequest(draft.Method, stored.url, stored.headers, masked))
 	if err != nil {
 		return Prepared{}, err
 	}
@@ -70,22 +76,28 @@ func (u *UseCase) prepare(ctx context.Context, draft domain.Draft, inherits *dom
 	storedURL, storedHeaders := withAuth(stored.url, stored.headers, storedAuth)
 
 	return Prepared{
-		Method:        draft.Method,
-		URL:           sentURL,
-		Headers:       withContentType(withCookie(sentHeaders, sent.cookie), kind, draft.BodyFile, boundary),
-		Body:          body,
-		BodyKind:      kind,
-		Form:          sent.form,
-		BodyFile:      draft.BodyFile,
-		MaskedURL:     storedURL,
-		MaskedHeaders: withContentType(withCookie(storedHeaders, stored.cookie), kind, draft.BodyFile, boundary),
-		MaskedBody:    masked,
-		Cookies:       draft.Cookies,
-		Digest:        digest,
+		Method: draft.Method,
+		URL:    sentURL,
+		Headers: withContentType(withCookie(sentHeaders, sent.cookie), kind, draft.BodyFile,
+			boundary),
+		Body:      body,
+		BodyKind:  kind,
+		Form:      sent.form,
+		BodyFile:  draft.BodyFile,
+		MaskedURL: storedURL,
+		MaskedHeaders: withContentType(withCookie(storedHeaders, stored.cookie), kind, draft.BodyFile,
+			boundary),
+		MaskedBody: masked,
+		Cookies:    draft.Cookies,
+		Digest:     digest,
 	}, nil
 }
 
-func authRequest(method, rawURL string, headers []domain.HeaderPair, body string) domain.AuthRequest {
+func authRequest(
+	method, rawURL string,
+	headers []domain.HeaderPair,
+	body string,
+) domain.AuthRequest {
 	return domain.AuthRequest{Method: method, URL: rawURL, Headers: headers, Body: []byte(body)}
 }
 
@@ -110,7 +122,11 @@ func authToApply(chosen domain.Auth, inherits *domain.Auth) domain.Auth {
 // The query side works on the URL being sent and not on the draft's rows: those are what the window
 // edits, and a projection that reached them would be rewritten by the next keystroke in the address
 // bar — the parameters are read back out of the address, and the address is written from them.
-func withAuth(rawURL string, headers []domain.HeaderPair, out domain.AuthOutput) (string, []domain.HeaderPair) {
+func withAuth(
+	rawURL string,
+	headers []domain.HeaderPair,
+	out domain.AuthOutput,
+) (string, []domain.HeaderPair) {
 	for _, pair := range out.Headers {
 		if hasHeader(headers, pair.Name) {
 			continue
@@ -169,9 +185,15 @@ func withCookie(headers []domain.HeaderPair, cookie string) []domain.HeaderPair 
 
 // withContentType is where the format chosen in the Body popover becomes the header that declares
 // it. A row of the same name the user wrote themselves wins, for the reason it wins over the Auth
-// chip and one more: a written Content-Type is the only way to send a type the kind cannot name, and
-// this app's own Accept is a vendor one, so that is the expected case rather than the exotic one.
-func withContentType(headers []domain.HeaderPair, kind domain.BodyKind, file string, boundary string) []domain.HeaderPair {
+// chip and one more: a written Content-Type is the only way to send a type the kind cannot name,
+// and this app's own Accept is a vendor one, so that is the expected case rather than the exotic
+// one.
+func withContentType(
+	headers []domain.HeaderPair,
+	kind domain.BodyKind,
+	file string,
+	boundary string,
+) []domain.HeaderPair {
 	value, ok := contentTypeFor(kind, file, boundary)
 	if !ok {
 		return headers
@@ -186,9 +208,9 @@ func withContentType(headers []domain.HeaderPair, kind domain.BodyKind, file str
 //
 // Raw answers with nothing on purpose. Every draft written before there were kinds is raw, and the
 // app has always sent those without a Content-Type; naming one here would change what is already
-// stored puts on the wire. Raw is also the kind that promises nothing — its whole point is to be the
-// escape hatch — and a user who wants text/plain writes it once and it sticks, because a written
-// header wins.
+// stored puts on the wire. Raw is also the kind that promises nothing — its whole point is to be
+// the escape hatch — and a user who wants text/plain writes it once and it sticks, because a
+// written header wins.
 func contentTypeFor(kind domain.BodyKind, file string, boundary string) (string, bool) {
 	switch kind {
 	case domain.BodyJSON:

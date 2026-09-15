@@ -11,9 +11,9 @@ import (
 	"json-inspector/internal/domain"
 )
 
-// Collections reads every collection with its tree. Requests and nested collections come in flat and
-// are placed here rather than in the window: the order they are drawn in is the order this table
-// keeps, and a tree assembled in two places is a tree that can disagree with itself.
+// Collections reads every collection with its tree. Requests and nested collections come in flat
+// and are placed here rather than in the window: the order they are drawn in is the order this
+// table keeps, and a tree assembled in two places is a tree that can disagree with itself.
 func (s *Store) Collections(ctx context.Context, workspaceID string) ([]domain.Collection, error) {
 	rows, err := s.db.QueryContext(ctx,
 		`SELECT id, name, description, position, created_at, updated_at, auth_json, ifnull(parent_id, '')
@@ -29,8 +29,8 @@ func (s *Store) Collections(ctx context.Context, workspaceID string) ([]domain.C
 			c    domain.Collection
 			auth sql.NullString
 		)
-		if err := rows.Scan(&c.ID, &c.Name, &c.Description, &c.Position, &c.CreatedAt, &c.UpdatedAt, &auth,
-			&c.ParentID); err != nil {
+		if err := rows.Scan(&c.ID, &c.Name, &c.Description, &c.Position, &c.CreatedAt, &c.UpdatedAt,
+			&auth, &c.ParentID); err != nil {
 			return nil, fmt.Errorf("listing collections: %w", err)
 		}
 		if auth.Valid {
@@ -214,8 +214,8 @@ func (s *Store) nodes(ctx context.Context, workspaceID string) ([]domain.Collect
 // SaveCollection writes a collection's own row: its name, its description, its place, and the auth
 // everything inside it inherits.
 //
-// Where it sits is written by the insert and left alone by the update, the way a node's collection is:
-// a rename or a new auth saves the row it read, and moving is a gesture of its own.
+// Where it sits is written by the insert and left alone by the update, the way a node's collection
+// is: a rename or a new auth saves the row it read, and moving is a gesture of its own.
 func (s *Store) SaveCollection(ctx context.Context, workspaceID string, c domain.Collection) error {
 	auth, err := encodeAuth(c.Auth)
 	if err != nil {
@@ -231,7 +231,8 @@ func (s *Store) SaveCollection(ctx context.Context, workspaceID string, c domain
 		   name = excluded.name, description = excluded.description,
 		   position = excluded.position, auth_json = excluded.auth_json,
 		   updated_at = excluded.updated_at`,
-		c.ID, workspaceID, c.Name, c.Description, c.Position, nullIfEmpty(c.ParentID), auth, now, now); err != nil {
+		c.ID, workspaceID, c.Name, c.Description, c.Position, nullIfEmpty(c.ParentID), auth, now,
+		now); err != nil {
 		return fmt.Errorf("saving collection %s: %w", c.ID, err)
 	}
 	return nil
@@ -250,8 +251,8 @@ func encodeAuth(auth *domain.Auth) (sql.NullString, error) {
 	return sql.NullString{String: string(encoded), Valid: true}, nil
 }
 
-// SaveNode writes one node whole. Everything a request is made of is here because everything about a
-// node is edited in one place — the card in "Коллекциях" — and saved by one gesture.
+// SaveNode writes one node whole. Everything a request is made of is here because everything about
+// a node is edited in one place — the card in "Коллекциях" — and saved by one gesture.
 func (s *Store) SaveNode(ctx context.Context, node domain.CollectionNode) error {
 	params, err := json.Marshal(orEmptyRows(node.Params))
 	if err != nil {
@@ -341,7 +342,11 @@ func (s *Store) SaveRun(ctx context.Context, run domain.CollectionRun) error {
 
 // AppendRunResult adds one row to a run. Rows go in one at a time because that is how a run makes
 // them: a fifty-request run whose window is closed after the tenth keeps the ten.
-func (s *Store) AppendRunResult(ctx context.Context, runID string, result domain.CollectionRunResult) error {
+func (s *Store) AppendRunResult(
+	ctx context.Context,
+	runID string,
+	result domain.CollectionRunResult,
+) error {
 	_, err := s.db.ExecContext(ctx,
 		`INSERT INTO collection_run_results (run_id, node_id, position, status, ok, duration_us, error,
 		                                     record_id)
@@ -361,7 +366,11 @@ func (s *Store) AppendRunResult(ctx context.Context, runID string, result domain
 // LastRun reads the newest run of a node, or of the whole collection when the node is empty. The
 // rows come with it in the order they were run: the overview draws them in the tree's order, and
 // that is the order the run walked.
-func (s *Store) LastRun(ctx context.Context, collectionID string, nodeID string) (domain.CollectionRun, bool, error) {
+func (s *Store) LastRun(
+	ctx context.Context,
+	collectionID string,
+	nodeID string,
+) (domain.CollectionRun, bool, error) {
 	var run domain.CollectionRun
 	err := s.db.QueryRowContext(ctx,
 		`SELECT id, collection_id, node_id, started_at, finished_at, passed, failed, duration_us
@@ -375,7 +384,8 @@ func (s *Store) LastRun(ctx context.Context, collectionID string, nodeID string)
 		return domain.CollectionRun{}, false, nil
 	}
 	if err != nil {
-		return domain.CollectionRun{}, false, fmt.Errorf("reading the last run of %s: %w", collectionID, err)
+		return domain.CollectionRun{}, false, fmt.Errorf("reading the last run of %s: %w", collectionID,
+			err)
 	}
 
 	rows, err := s.db.QueryContext(ctx,
@@ -405,9 +415,9 @@ func (s *Store) LastRun(ctx context.Context, collectionID string, nodeID string)
 	return run, true, rows.Err()
 }
 
-// NextPosition is one past the last child of a collection, which is where a new row lands: the end of
-// its level, the way a new row lands in a list. The empty id is the top level — the collections that
-// have no parent.
+// NextPosition is one past the last child of a collection, which is where a new row lands: the end
+// of its level, the way a new row lands in a list. The empty id is the top level — the collections
+// that have no parent.
 //
 // A level's requests and the collections inside it are numbered in one sequence, so both tables are
 // asked and the larger answer wins; a new collection then lands after the request it follows rather

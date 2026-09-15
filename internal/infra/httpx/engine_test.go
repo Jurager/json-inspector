@@ -27,7 +27,12 @@ func newTestEngine(t *testing.T, cfg Config) *Engine {
 
 // send is the shortest way to make one request from a spec: a method, a URL, and headers as a map.
 // A map has no order, so it is sorted here — a test that cares about the order passes pairs itself.
-func send(engine *Engine, method, url string, headers map[string]string, body string) *domain.Response {
+func send(
+	engine *Engine,
+	method, url string,
+	headers map[string]string,
+	body string,
+) *domain.Response {
 	return engine.Do(context.Background(), Spec{
 		Method:  method,
 		URL:     url,
@@ -143,7 +148,8 @@ func TestKeepingConnectionsReusesThem(t *testing.T) {
 		t.Fatalf("second send failed: %s", second.Error)
 	}
 	if second.ConnectUs != nil {
-		t.Errorf("connectUs = %v on a reused connection, want none — nothing was dialled", *second.ConnectUs)
+		t.Errorf("connectUs = %v on a reused connection, want none — nothing was dialled",
+			*second.ConnectUs)
 	}
 	if second.WaitUs == nil {
 		t.Error("waitUs is absent: the request did happen, only the dial did not")
@@ -154,7 +160,8 @@ func TestKeepingConnectionsReusesThem(t *testing.T) {
 // zeroes that look like measurements are the thing this replaced.
 func TestAFailedRequestHasNoPhases(t *testing.T) {
 	// A port nothing listens on: the connect fails, so there is no first byte to measure from.
-	res := send(newTestEngine(t, Config{Timeout: 2 * time.Second}), http.MethodGet, "http://127.0.0.1:1/", nil, "")
+	res := send(newTestEngine(t, Config{Timeout: 2 * time.Second}), http.MethodGet,
+		"http://127.0.0.1:1/", nil, "")
 
 	if res.Error == "" {
 		t.Fatal("a request to a dead port reported no error")
@@ -534,9 +541,9 @@ func TestBadURLIsReportedNotPanicked(t *testing.T) {
 }
 
 // The engine sends the body it is handed and decides nothing else about it. Every Content-Type in
-// this app is chosen a layer up, where the body's format and the user's own header are both visible;
-// an engine that helped would be a second opinion nobody asked for, and one that could not see
-// either of them.
+// this app is chosen a layer up, where the body's format and the user's own header are both
+// visible; an engine that helped would be a second opinion nobody asked for, and one that could not
+// see either of them.
 func TestTheEngineSendsTheBodyItIsGiven(t *testing.T) {
 	var (
 		got  string
@@ -551,7 +558,8 @@ func TestTheEngineSendsTheBodyItIsGiven(t *testing.T) {
 
 	engine := newTestEngine(t, Config{})
 	// A body a form would produce, sent with no Content-Type at all: it must arrive byte for byte.
-	multipart := "--BOUNDARY\r\nContent-Disposition: form-data; name=\"a\"\r\n\r\n1\r\n--BOUNDARY--\r\n"
+	multipart := "--BOUNDARY\r\nContent-Disposition: form-data; name=\"a\"\r\n\r\n1\r\n" +
+		"--BOUNDARY--\r\n"
 	res := send(engine, http.MethodPost, srv.URL, nil, multipart)
 	if res.Error != "" {
 		t.Fatalf("send failed: %s", res.Error)

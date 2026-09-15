@@ -12,7 +12,8 @@ import (
 
 func materialize(t *testing.T, auth domain.Auth) domain.AuthOutput {
 	t.Helper()
-	out, err := New(nil, nil).Materialize(context.Background(), auth, domain.AuthRequest{Method: "GET", URL: "https://api.example.com/a"})
+	out, err := New(nil, nil).Materialize(context.Background(), auth,
+		domain.AuthRequest{Method: "GET", URL: "https://api.example.com/a"})
 	if err != nil {
 		t.Fatalf("Materialize: %v", err)
 	}
@@ -31,12 +32,14 @@ func headerOf(out domain.AuthOutput, name string) (string, bool) {
 // The prefix is a field rather than the word «Bearer», because not every server says Bearer and the
 // one this app talks to is not its to decide.
 func TestBearer(t *testing.T) {
-	out := materialize(t, domain.NewAuth(domain.AuthBearer).With("prefix", "Bearer").With("token", "abc123"))
+	out := materialize(t,
+		domain.NewAuth(domain.AuthBearer).With("prefix", "Bearer").With("token", "abc123"))
 	if value, ok := headerOf(out, "Authorization"); !ok || value != "Bearer abc123" {
 		t.Errorf("authorization = %q, want the prefix and the token", value)
 	}
 
-	out = materialize(t, domain.NewAuth(domain.AuthBearer).With("prefix", "Token").With("token", "abc123"))
+	out = materialize(t,
+		domain.NewAuth(domain.AuthBearer).With("prefix", "Token").With("token", "abc123"))
 	if value, _ := headerOf(out, "Authorization"); value != "Token abc123" {
 		t.Errorf("authorization = %q, want the prefix the user named", value)
 	}
@@ -62,7 +65,8 @@ func TestBasic(t *testing.T) {
 
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			out := materialize(t, domain.NewAuth(domain.AuthBasic).With("username", c.username).With("password", c.password))
+			out := materialize(t,
+				domain.NewAuth(domain.AuthBasic).With("username", c.username).With("password", c.password))
 			value, ok := headerOf(out, "Authorization")
 			if !ok {
 				t.Fatalf("headers = %+v, want an authorization", out.Headers)
@@ -133,11 +137,11 @@ func TestEditsComeBackToTheFields(t *testing.T) {
 		if err != nil {
 			t.Fatalf("Absorb: %v", err)
 		}
-		if got.Get("token") != "new" {
-			t.Errorf("token = %q, want the value without the prefix", got.Get("token"))
+		if got.Answer("token") != "new" {
+			t.Errorf("token = %q, want the value without the prefix", got.Answer("token"))
 		}
-		if got.Get("prefix") != "Token" {
-			t.Errorf("prefix = %q, want the prefix left alone", got.Get("prefix"))
+		if got.Answer("prefix") != "Token" {
+			t.Errorf("prefix = %q, want the prefix left alone", got.Answer("prefix"))
 		}
 	})
 
@@ -147,7 +151,7 @@ func TestEditsComeBackToTheFields(t *testing.T) {
 		if err != nil {
 			t.Fatalf("Absorb: %v", err)
 		}
-		if got.Get("value") != "new" || got.Get("key") != "X-API-Key" {
+		if got.Answer("value") != "new" || got.Answer("key") != "X-API-Key" {
 			t.Errorf("auth = %+v, want the value changed and the name kept", got.Fields)
 		}
 	})
@@ -158,14 +162,16 @@ func TestEditsComeBackToTheFields(t *testing.T) {
 		if err != nil {
 			t.Fatalf("Absorb: %v", err)
 		}
-		if got.Get("key") != "X-Other-Key" {
-			t.Errorf("key = %q, want the name the row now has", got.Get("key"))
+		if got.Answer("key") != "X-Other-Key" {
+			t.Errorf("key = %q, want the name the row now has", got.Answer("key"))
 		}
 	})
 
 	t.Run("a basic credential cannot", func(t *testing.T) {
 		auth := domain.NewAuth(domain.AuthBasic).With("username", "user").With("password", "pass")
-		if _, err := absorb(t, auth, domain.RowHeaders, "Authorization", "Basic b3RoZXI="); !errors.Is(err, domain.ErrNotAllowed) {
+		if _, err := absorb(t, auth, domain.RowHeaders, "Authorization",
+			"Basic b3RoZXI="); !errors.Is(err,
+			domain.ErrNotAllowed) {
 			t.Errorf("Absorb: %v, want a refusal", err)
 		}
 		// And the scheme says so before it is asked: the window shows the row and offers no edit.
@@ -199,7 +205,8 @@ func TestASchemeReadsOnlyItsOwnFields(t *testing.T) {
 
 // Digest puts nothing on the request: what it carries is a hash of the password with a nonce the
 // server has not sent yet. The credential goes to the engine, which is the side that will be there
-// when the server says how — so this is the one scheme whose output is empty and meaningful at once.
+// when the server says how — so this is the one scheme whose output is empty and meaningful at
+// once.
 func TestDigestHandsTheCredentialToTheEngine(t *testing.T) {
 	auth := domain.WithDefaults(domain.AuthDigest).With("username", "user").With("password", "pass")
 	out := materialize(t, auth)
@@ -216,7 +223,12 @@ func TestDigestHandsTheCredentialToTheEngine(t *testing.T) {
 	}
 }
 
-func absorb(t *testing.T, auth domain.Auth, target domain.RowKind, name, value string) (domain.Auth, error) {
+func absorb(
+	t *testing.T,
+	auth domain.Auth,
+	target domain.RowKind,
+	name, value string,
+) (domain.Auth, error) {
 	t.Helper()
 	return New(nil, nil).Absorb(auth, target, name, value)
 }

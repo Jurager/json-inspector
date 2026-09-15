@@ -14,7 +14,7 @@ const port = ref('')
 
 onMounted(async () => {
   try {
-    port.value = String(await BridgeService.BridgePort())
+    port.value = String(await BridgeService.Port())
   } catch {
     // Runtime not ready yet.
   }

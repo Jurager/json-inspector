@@ -79,9 +79,10 @@ export const useEnvironmentsStore = defineStore('environments', {
       this.importReport = null
     },
 
-    // The old build kept environments in localStorage and their secrets in the OS keychain; both
-    // move into the database on the first launch of this one. The raw string goes over as it is —
-    // reading that shape is Go's job — and the key is dropped only once the import is through.
+    // The old build kept environments and their secrets in localStorage, apart from the secret
+    // values themselves, which lived in the OS keychain — those do not come over, and the import
+    // reports them by name. The raw string goes over as it is, reading that shape being Go's job,
+    // and the key is dropped only once the import is through.
     async importLegacyOnce() {
       const raw = localStorage.getItem(LEGACY_KEY)
       if (raw === null) return

@@ -8,11 +8,15 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"net"
 	"net/http"
+	"net/url"
 	"strings"
 	"sync"
 
 	"github.com/gorilla/websocket"
+
+	"json-inspector/internal/platform"
 )
 
 // Port is the local port used by the extension.
@@ -21,6 +25,7 @@ type Port int
 type Server struct {
 	ingest   Ingest
 	port     Port
+	build    platform.BuildInfo
 	upgrader websocket.Upgrader
 	http     *http.Server
 
@@ -28,7 +33,7 @@ type Server struct {
 	clients map[*websocket.Conn]struct{}
 }
 
-func NewServer(ingest Ingest, port Port) *Server {
+func NewServer(ingest Ingest, port Port, build platform.BuildInfo) *Server {
 	if ingest == nil {
 		ingest = nopIngest{}
 	}
@@ -36,6 +41,7 @@ func NewServer(ingest Ingest, port Port) *Server {
 	s := &Server{
 		ingest:  ingest,
 		port:    port,
+		build:   build,
 		clients: make(map[*websocket.Conn]struct{}),
 	}
 
@@ -57,15 +63,22 @@ func (s *Server) Port() int {
 	return int(s.port)
 }
 
-// Start starts the server without blocking the caller.
-func (s *Server) Start() {
+// Start binds the port and serves on it without blocking the caller. The listen happens here rather
+// than in the goroutine because a taken port is a fact the caller has to hear: the window shows the
+// address it is listening on, and an address nothing owns is a worse answer than a failure.
+func (s *Server) Start() error {
+	listener, err := net.Listen("tcp", s.http.Addr)
+	if err != nil {
+		return fmt.Errorf("listening on %s: %w", s.http.Addr, err)
+	}
 	log.Printf("[bridge] listening on ws://%s", s.http.Addr)
 
 	go func() {
-		if err := s.http.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+		if err := s.http.Serve(listener); err != nil && !errors.Is(err, http.ErrServerClosed) {
 			log.Printf("[bridge] error: %v", err)
 		}
 	}()
+	return nil
 }
 
 // Shutdown closes active connections and stops the server.
@@ -80,32 +93,41 @@ func (s *Server) Shutdown(ctx context.Context) error {
 	return s.http.Shutdown(ctx)
 }
 
+// Broadcast tells every connected window what just happened. The writes happen outside the lock:
+// a socket whose peer has stopped reading blocks until the TCP window fills, and holding the lock
+// across that would stop every other client — and Shutdown, which needs the same lock — until it
+// drained. Sending is best-effort either way, so a client that went away is skipped.
 func (s *Server) Broadcast(payload []byte) {
 	s.mu.Lock()
-	defer s.mu.Unlock()
-
+	clients := make([]*websocket.Conn, 0, len(s.clients))
 	for c := range s.clients {
+		clients = append(clients, c)
+	}
+	s.mu.Unlock()
+
+	for _, c := range clients {
 		_ = c.WriteMessage(websocket.TextMessage, payload)
 	}
 }
 
+// checkOrigin decides which pages may open a socket. A browser sends the origin of the page that
+// asked, so this is what stands between a page on the web and the app's capture: the host is parsed
+// rather than matched as a prefix, because `http://localhost.evil.com` is not this machine.
 func (s *Server) checkOrigin(r *http.Request) bool {
 	origin := r.Header.Get("Origin")
-
 	if origin == "" {
 		return true
 	}
-
 	if strings.HasPrefix(origin, "chrome-extension://") {
 		return true
 	}
 
-	if strings.HasPrefix(origin, "http://localhost") ||
-		strings.HasPrefix(origin, "http://127.0.0.1") {
-		return true
+	parsed, err := url.Parse(origin)
+	if err != nil || parsed.Scheme != "http" {
+		return false
 	}
-
-	return false
+	host := parsed.Hostname()
+	return host == "localhost" || net.ParseIP(host).IsLoopback()
 }
 
 func (s *Server) handleHealth(w http.ResponseWriter, r *http.Request) {
@@ -120,10 +142,12 @@ func (s *Server) handleHealth(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// The version is the running build's, not a constant: the extension probes this endpoint to
+	// decide whether the app is up, and a version nobody can act on is worse than none.
 	_ = json.NewEncoder(w).Encode(map[string]string{
 		"status":  "ok",
 		"name":    "json-inspector",
-		"version": "0.1.0",
+		"version": s.build.Version,
 	})
 }
 

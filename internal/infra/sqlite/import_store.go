@@ -20,7 +20,8 @@ const (
 // is the one that owns it. An import that already finished is never repeated.
 func (s *Store) ClaimImport(ctx context.Context, source string) (bool, error) {
 	var status string
-	err := s.db.QueryRowContext(ctx, `SELECT status FROM data_imports WHERE source = ?`, source).Scan(&status)
+	err := s.db.QueryRowContext(ctx, `SELECT status FROM data_imports WHERE source = ?`,
+		source).Scan(&status)
 	switch {
 	case errors.Is(err, sql.ErrNoRows):
 		_, err := s.db.ExecContext(ctx,

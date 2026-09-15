@@ -10,9 +10,9 @@ import (
 	"json-inspector/internal/domain"
 )
 
-// runState is one script's run: the runtime, what the script was given, and the report being written
-// as it goes. The prelude builds `pm` out of the bridge and then deletes the bridge, so this is the
-// only way in or out of the sandbox.
+// runState is one script's run: the runtime, what the script was given, and the report being
+// written as it goes. The prelude builds `pm` out of the bridge and then deletes the bridge, so
+// this is the only way in or out of the sandbox.
 type runState struct {
 	vm  *goja.Runtime
 	in  domain.ScriptInput
@@ -25,8 +25,9 @@ type runState struct {
 }
 
 // bridge installs the way out of the sandbox and runs the prelude over it. A prelude that does not
-// compile or does not run is a bug in this package rather than in a user's script, and it comes back
-// as a failed run: an app that answers with a broken report beats one that answers with a crash.
+// compile or does not run is a bug in this package rather than in a user's script, and it comes
+// back as a failed run: an app that answers with a broken report beats one that answers with a
+// crash.
 func (s *runState) bridge() error {
 	program, err := preludeProgram()
 	if err != nil {
@@ -60,14 +61,15 @@ func (s *runState) bridge() error {
 	return nil
 }
 
-// get reads a variable. The scope decides how far the search goes: `variables` is the run's own scope
-// and looks through the environment and the globals after it, while the other two are read alone —
-// which is what tells a script whether a name is set in the environment or only borrowed.
+// get reads a variable. The scope decides how far the search goes: `variables` is the run's own
+// scope and looks through the environment and the globals after it, while the other two are read
+// alone — which is what tells a script whether a name is set in the environment or only borrowed.
 func (s *runState) get(call goja.FunctionCall) goja.Value {
 	if s.in.Variables == nil {
 		return goja.Undefined()
 	}
-	value, ok, err := s.in.Variables.Get(domain.VarScope(text(call.Argument(0))), text(call.Argument(1)))
+	value, ok, err := s.in.Variables.Lookup(domain.VarScope(text(call.Argument(0))),
+		text(call.Argument(1)))
 	if err != nil {
 		// A scope that cannot be read is thrown and not answered with nothing: a script that checks a
 		// token has to be able to tell "его нет" from "его не прочитали".
@@ -85,7 +87,8 @@ func (s *runState) set(call goja.FunctionCall) goja.Value {
 	if s.in.Variables == nil {
 		panic(s.vm.NewTypeError("this script has no variables"))
 	}
-	if err := s.in.Variables.Set(domain.VarScope(text(call.Argument(0))), text(call.Argument(1)), text(call.Argument(2))); err != nil {
+	if err := s.in.Variables.Set(domain.VarScope(text(call.Argument(0))), text(call.Argument(1)),
+		text(call.Argument(2))); err != nil {
 		// A variable that cannot be written — a read-only environment, a name that is not a name — is
 		// the script's business to see, so it is thrown rather than logged.
 		panic(s.vm.NewGoError(err))
@@ -108,8 +111,8 @@ func (s *runState) log(call goja.FunctionCall) goja.Value {
 	return goja.Undefined()
 }
 
-// test runs one named check. A check that throws is a failed check and not a failed script: the rest
-// of the script runs on, which is what makes a script with five checks report all five.
+// test runs one named check. A check that throws is a failed check and not a failed script: the
+// rest of the script runs on, which is what makes a script with five checks report all five.
 func (s *runState) test(call goja.FunctionCall) goja.Value {
 	check, ok := goja.AssertFunction(call.Argument(1))
 	if !ok {
@@ -133,7 +136,8 @@ func (s *runState) test(call goja.FunctionCall) goja.Value {
 		// assertion inside an async function throws into a promise nobody is waiting for, and there is
 		// nothing in the sandbox to wait with.
 		result.Passed = false
-		result.Error = "the test waits for a promise, and there is nothing to wait for in the sandbox: no timers, no network"
+		result.Error = "the test waits for a promise, and there is nothing to wait for in the " +
+			"sandbox: no timers, no network"
 	}
 	result.DurationUs = time.Since(started).Microseconds()
 	s.run.Tests = append(s.run.Tests, result)
@@ -146,9 +150,9 @@ func (s *runState) skip(goja.FunctionCall) goja.Value {
 	return goja.Undefined()
 }
 
-// readBack takes what the script left the request in. A field it never touched reads as undefined and
-// leaves the request as it was — which is not the same as the empty string, and a script that sets a
-// body to nothing means it.
+// readBack takes what the script left the request in. A field it never touched reads as undefined
+// and leaves the request as it was — which is not the same as the empty string, and a script that
+// sets a body to nothing means it.
 func (s *runState) readBack(request *domain.ScriptRequest) {
 	if request == nil {
 		return
@@ -192,10 +196,10 @@ func messageOf(err error) string {
 	return value.String()
 }
 
-// failure is what a broken script says about itself: the message it threw and where it was — there the
-// place does matter, because the script's own line is what has to be fixed. A script that ran out of
-// time says that instead: running out of time is not a mistake in the script, it is the sandbox
-// closing.
+// failure is what a broken script says about itself: the message it threw and where it was — there
+// the place does matter, because the script's own line is what has to be fixed. A script that ran
+// out of time says that instead: running out of time is not a mistake in the script, it is the
+// sandbox closing.
 func (s *runState) failure(err error) string {
 	var interrupted *goja.InterruptedError
 	if errors.As(err, &interrupted) {
@@ -204,8 +208,8 @@ func (s *runState) failure(err error) string {
 	return err.Error()
 }
 
-// closeReport says what the caps hid. Without it a report that stops at the two-hundredth line reads
-// as a script that printed two hundred lines.
+// closeReport says what the caps hid. Without it a report that stops at the two-hundredth line
+// reads as a script that printed two hundred lines.
 func (s *runState) closeReport() {
 	if s.logsCapped {
 		s.run.Logs = append(s.run.Logs, domain.ScriptLog{
@@ -219,9 +223,9 @@ func (s *runState) closeReport() {
 	}
 }
 
-// member walks a path through the globals — `pm`, then `request` — and answers nothing when the script
-// has replaced one of them with something that is not an object. A script is free to do that, and the
-// report says so by keeping the request as it was.
+// member walks a path through the globals — `pm`, then `request` — and answers nothing when the
+// script has replaced one of them with something that is not an object. A script is free to do
+// that, and the report says so by keeping the request as it was.
 func (s *runState) member(names ...string) *goja.Object {
 	var value goja.Value = s.vm.GlobalObject()
 	for _, name := range names {
@@ -239,10 +243,10 @@ func (s *runState) member(names ...string) *goja.Object {
 
 // scriptBody is the body a script is shown.
 //
-// The text kinds are their text, which a script may rewrite. The byte kinds are nothing: a multipart
-// body is a wire encoding and not a text a script can meaningfully edit, and a file's own bytes in a
-// JavaScript string come back corrupted. The encoding itself is untouched either way — a script sees
-// less than the request carries, and what goes out is what was prepared.
+// The text kinds are their text, which a script may rewrite. The byte kinds are nothing: a
+// multipart body is a wire encoding and not a text a script can meaningfully edit, and a file's own
+// bytes in a JavaScript string come back corrupted. The encoding itself is untouched either way — a
+// script sees less than the request carries, and what goes out is what was prepared.
 func scriptBody(request *domain.ScriptRequest) string {
 	if isByteKind(request.BodyKind) {
 		return ""
@@ -251,8 +255,8 @@ func scriptBody(request *domain.ScriptRequest) string {
 }
 
 // isByteKind says whether a body is an encoding rather than a text. The two questions — what a
-// script is shown, and whether what it leaves can be read back — are the same question, which is why
-// they are asked in one place.
+// script is shown, and whether what it leaves can be read back — are the same question, which is
+// why they are asked in one place.
 func isByteKind(kind domain.BodyKind) bool {
 	switch domain.KindOf(kind) {
 	case domain.BodyForm, domain.BodyBinary:
@@ -262,9 +266,9 @@ func isByteKind(kind domain.BodyKind) bool {
 	}
 }
 
-// requestValue is the request as a script sees it: plain fields it may assign to. `key` is the name a
-// header carries here because that is what Postman calls it, and a script written there is the script
-// being ported here.
+// requestValue is the request as a script sees it: plain fields it may assign to. `key` is the name
+// a header carries here because that is what Postman calls it, and a script written there is the
+// script being ported here.
 func requestValue(request *domain.ScriptRequest) map[string]any {
 	value := map[string]any{"method": "", "url": "", "body": "", "headers": []any{}}
 	if request == nil {
@@ -279,9 +283,9 @@ func requestValue(request *domain.ScriptRequest) map[string]any {
 	return value
 }
 
-// responseValue is the answer as a script sees it. `responseTime` is in milliseconds because that is
-// the unit Postman counts it in, and a script that asserts on a slow response should not have to know
-// that this app keeps microseconds.
+// responseValue is the answer as a script sees it. `responseTime` is in milliseconds because that
+// is the unit Postman counts it in, and a script that asserts on a slow response should not have to
+// know that this app keeps microseconds.
 func responseValue(response *domain.Response) map[string]any {
 	headers := make([]any, 0, len(response.Headers))
 	for _, header := range response.Headers {
@@ -338,8 +342,8 @@ func text(value goja.Value) string {
 	return value.String()
 }
 
-// isText says whether the script put something here. A field it never touched reads as undefined, and
-// undefined is not a value a request can be given.
+// isText says whether the script put something here. A field it never touched reads as undefined,
+// and undefined is not a value a request can be given.
 func isText(value goja.Value) bool {
 	return value != nil && !goja.IsUndefined(value) && !goja.IsNull(value)
 }

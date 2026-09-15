@@ -8,39 +8,7 @@ import (
 
 	"json-inspector/internal/domain"
 	"json-inspector/internal/platform"
-	"json-inspector/migrations"
 )
-
-// ws is the workspace these tests work in — the one the schema seeds, since none of them is about a
-// second space.
-const ws = domain.WorkspacePersonalID
-
-// bearerAuth is an authorization of the scheme these tests round-trip through the database. What a
-// scheme asks for is the scheme's business; what these tests are about is that the answers survive
-// being written down and read back.
-func bearerAuth(token string) domain.Auth {
-	return domain.NewAuth(domain.AuthBearer).With("token", token)
-}
-
-// newMigratedStore is a store on a migrated database in a temporary directory: the environment
-// tables only exist after the migrations, so anything reading them needs this.
-func newMigratedStore(t *testing.T) *Store {
-	t.Helper()
-	store, err := NewStore(platform.DataDir(t.TempDir()))
-	if err != nil {
-		t.Fatalf("NewStore: %v", err)
-	}
-	t.Cleanup(func() { _ = store.Close() })
-
-	ctx := context.Background()
-	if err := store.Open(ctx); err != nil {
-		t.Fatalf("Open: %v", err)
-	}
-	if _, err := store.Migrate(ctx, migrations.FS); err != nil {
-		t.Fatalf("Migrate: %v", err)
-	}
-	return store
-}
 
 func TestEnvStateRoundTrip(t *testing.T) {
 	store := newMigratedStore(t)
@@ -50,12 +18,14 @@ func TestEnvStateRoundTrip(t *testing.T) {
 	if err := store.SaveEnvironment(ctx, ws, env); err != nil {
 		t.Fatalf("SaveEnvironment: %v", err)
 	}
-	if err := store.SaveEnvironment(ctx, ws, domain.Environment{ID: "env-2", Name: "Prod", Readonly: true, Position: 2}); err != nil {
+	if err := store.SaveEnvironment(ctx, ws,
+		domain.Environment{ID: "env-2", Name: "Prod", Readonly: true, Position: 2}); err != nil {
 		t.Fatalf("SaveEnvironment: %v", err)
 	}
 
 	if err := store.SaveVariable(ctx, ws, domain.EnvScope{Environment: "env-1"}, domain.Variable{
-		ID: "v1", Name: "base_url", Value: "https://api.example.com", Kind: domain.VariableText, Enabled: true, Position: 1,
+		ID: "v1", Name: "base_url", Value: "https://api.example.com", Kind: domain.VariableText,
+		Enabled: true, Position: 1,
 	}); err != nil {
 		t.Fatalf("SaveVariable: %v", err)
 	}
@@ -107,7 +77,8 @@ func TestVariablesMigrateBetweenScopes(t *testing.T) {
 
 	// The same name may exist in an environment and in the globals: that is how an override works.
 	for _, scope := range []domain.EnvScope{{Environment: "env-1"}, {}} {
-		v := domain.Variable{ID: "v-" + scope.Environment, Name: "token", Value: "x", Kind: domain.VariableText, Enabled: true}
+		v := domain.Variable{ID: "v-" + scope.Environment, Name: "token", Value: "x",
+			Kind: domain.VariableText, Enabled: true}
 		if err := store.SaveVariable(ctx, ws, scope, v); err != nil {
 			t.Fatalf("SaveVariable in %q: %v", scope.Environment, err)
 		}
@@ -136,7 +107,8 @@ func TestDeleteEnvironmentTakesItsVariables(t *testing.T) {
 	store := newMigratedStore(t)
 	ctx := context.Background()
 
-	if err := store.SaveEnvironment(ctx, ws, domain.Environment{ID: "env-1", Name: "Local"}); err != nil {
+	if err := store.SaveEnvironment(ctx, ws,
+		domain.Environment{ID: "env-1", Name: "Local"}); err != nil {
 		t.Fatalf("SaveEnvironment: %v", err)
 	}
 	if err := store.SaveVariable(ctx, ws, domain.EnvScope{Environment: "env-1"}, domain.Variable{

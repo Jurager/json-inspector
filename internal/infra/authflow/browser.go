@@ -16,17 +16,17 @@ import (
 	"json-inspector/internal/domain"
 )
 
-// Browser is what the two grants that send the person somewhere need and cannot do themselves: put a
-// page in front of them. It is declared here rather than imported — the window this app draws
+// Browser is what the two grants that send the person somewhere need and cannot do themselves: put
+// a page in front of them. It is declared here rather than imported — the window this app draws
 // through is the transport's business, and a package that computes credentials has no business
 // knowing about it.
 type Browser interface {
 	OpenURL(url string) error
 }
 
-// signInTimeout is how long the app waits for the person to finish saying yes. A browser left open on
-// a login screen for longer than this is a browser nobody is coming back to, and the alternative to
-// giving up is a send that never returns.
+// signInTimeout is how long the app waits for the person to finish saying yes. A browser left open
+// on a login screen for longer than this is a browser nobody is coming back to, and the alternative
+// to giving up is a send that never returns.
 const signInTimeout = 5 * time.Minute
 
 // browserExchange is the two grants that need a person: a browser is opened at the provider, they
@@ -34,8 +34,8 @@ const signInTimeout = 5 * time.Minute
 // arrives there is the code or the token, and it is handed back the same way the other grants hand
 // back what they fetched.
 //
-// No browser means no exchange: a test, or a platform this app cannot open one on, gets a grant that
-// says so rather than one that would wait five minutes for nothing.
+// No browser means no exchange: a test, or a platform this app cannot open one on, gets a grant
+// that says so rather than one that would wait five minutes for nothing.
 func browserExchange(browser Browser) codeExchange {
 	if browser == nil {
 		return nil
@@ -47,7 +47,7 @@ func browserExchange(browser Browser) codeExchange {
 
 // signIn is one trip through the browser: listen, send them away, wait for them to come back.
 func signIn(ctx context.Context, browser Browser, auth domain.Auth) (string, time.Time, error) {
-	implicit := auth.GetOrDefault("grant") == grantImplicit
+	implicit := auth.OrDefault("grant") == grantImplicit
 	config := oauthConfig(auth)
 
 	// A loopback port the operating system picks. It is a loopback address and not a custom scheme
@@ -108,8 +108,8 @@ func signIn(ctx context.Context, browser Browser, auth domain.Auth) (string, tim
 	}
 }
 
-// signInAnswer is what came back: a code to exchange, or a token the provider handed over directly, or the
-// reason none of that happened.
+// signInAnswer is what came back: a code to exchange, or a token the provider handed over directly,
+// or the reason none of that happened.
 type signInAnswer struct {
 	code    string
 	token   string
@@ -117,9 +117,9 @@ type signInAnswer struct {
 	err     error
 }
 
-// callback is the listener the provider sends the person back to. It answers with something for them
-// to read — they are looking at a browser, not at this app — and hands what arrived to the channel
-// the sign-in is waiting on.
+// callback is the listener the provider sends the person back to. It answers with something for
+// them to read — they are looking at a browser, not at this app — and hands what arrived to the
+// channel the sign-in is waiting on.
 type callback struct {
 	state    string
 	implicit bool
@@ -221,8 +221,8 @@ func parseSeconds(raw string) (time.Duration, error) {
 	return time.Duration(seconds) * time.Second, nil
 }
 
-// nonce is a value that names this sign-in and nothing else. It goes out with the request and has to
-// come back with the answer: one that came back with a different one belongs to somebody else's.
+// nonce is a value that names this sign-in and nothing else. It goes out with the request and has
+// to come back with the answer: one that came back with a different one belongs to somebody else's.
 func nonce() (string, error) {
 	buf := make([]byte, 16)
 	if _, err := rand.Read(buf); err != nil {
@@ -239,7 +239,8 @@ const fragmentPage = `<!doctype html><meta charset="utf-8"><title>Готово</
 <script>
   fetch('/token', { method: 'POST', body: location.hash.slice(1),
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' } })
-    .then(() => { document.body.textContent = 'Можно закрыть эту вкладку и вернуться в приложение.' })
+    .then(() => { document.body.textContent =
+      'Можно закрыть эту вкладку и вернуться в приложение.' })
     .catch(() => { document.body.textContent = 'Не удалось передать токен приложению.' })
 </script>
 </body>`

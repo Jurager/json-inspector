@@ -9,8 +9,8 @@ import (
 )
 
 // fakeScope answers which workspace the window is showing. The index below answers about one
-// workspace and ignores the id, but records every one it was asked in: the id the scope answers with
-// has to be the id the index is asked in, and that is what asked is for.
+// workspace and ignores the id, but records every one it was asked in: the id the scope answers
+// with has to be the id the index is asked in, and that is what asked is for.
 type fakeScope struct{ id string }
 
 func (f fakeScope) ActiveWorkspace(context.Context) (string, error) {
@@ -39,15 +39,24 @@ func (f *fakeIndex) note(workspaceID string, kind domain.SearchKind) error {
 	return nil
 }
 
-func (f *fakeIndex) FindRequests(_ context.Context, workspaceID string) ([]domain.SearchHit, error) {
+func (f *fakeIndex) FindRequests(
+	_ context.Context,
+	workspaceID string,
+) ([]domain.SearchHit, error) {
 	return f.requests, f.note(workspaceID, domain.SearchRequest)
 }
 
-func (f *fakeIndex) FindCollections(_ context.Context, workspaceID string) ([]domain.SearchHit, error) {
+func (f *fakeIndex) FindCollections(
+	_ context.Context,
+	workspaceID string,
+) ([]domain.SearchHit, error) {
 	return f.collections, f.note(workspaceID, domain.SearchCollection)
 }
 
-func (f *fakeIndex) FindEnvironments(_ context.Context, workspaceID string) ([]domain.SearchHit, error) {
+func (f *fakeIndex) FindEnvironments(
+	_ context.Context,
+	workspaceID string,
+) ([]domain.SearchHit, error) {
 	return f.environments, f.note(workspaceID, domain.SearchEnvironment)
 }
 
@@ -60,7 +69,7 @@ func narrowed(kind domain.SearchKind) *domain.SearchKind { return &kind }
 
 func search(t *testing.T, index Index, in Query) domain.SearchResult {
 	t.Helper()
-	result, err := NewUseCase(index, fakeScope{}).Query(context.Background(), in)
+	result, err := NewUseCase(index, fakeScope{}).Find(context.Background(), in)
 	if err != nil {
 		t.Fatalf("querying: %v", err)
 	}
@@ -95,15 +104,17 @@ func TestQueryLeavesOutTheAreasThatFoundNothing(t *testing.T) {
 	}
 }
 
-// The heading counts what was found, not what is drawn: "Запросы · 8" over five rows is the design's
-// own wording, and a group cut to five must still say eight.
+// The heading counts what was found, not what is drawn: "Запросы · 8" over five rows is the
+// design's own wording, and a group cut to five must still say eight.
 func TestQueryCountsEverythingItFound(t *testing.T) {
 	hits := []domain.SearchHit{}
-	for _, name := range []string{"польз 1", "польз 2", "польз 3", "польз 4", "польз 5", "польз 6", "польз 7"} {
+	for _, name := range []string{"польз 1", "польз 2", "польз 3", "польз 4", "польз 5", "польз 6",
+		"польз 7"} {
 		hits = append(hits, domain.SearchHit{Kind: domain.SearchCollection, ID: name, Title: name})
 	}
 
-	found := group(t, search(t, &fakeIndex{collections: hits}, Query{Text: "польз"}), domain.SearchCollection)
+	found := group(t, search(t, &fakeIndex{collections: hits}, Query{Text: "польз"}),
+		domain.SearchCollection)
 	if found.Total != 7 {
 		t.Fatalf("total = %d, want 7", found.Total)
 	}
@@ -112,15 +123,19 @@ func TestQueryCountsEverythingItFound(t *testing.T) {
 	}
 }
 
-// A chosen area is a list the user asked for, and it gets the room every area at once does not have.
+// A chosen area is a list the user asked for, and it gets the room every area at once does not
+// have.
 func TestQueryWidensTheAreaThatWasChosen(t *testing.T) {
 	hits := []domain.SearchHit{}
 	for i := range perGroupOne + 3 {
-		hits = append(hits, domain.SearchHit{Kind: domain.SearchCollection, ID: string(rune('a' + i)), Title: "пользователи"})
+		hits = append(hits,
+			domain.SearchHit{Kind: domain.SearchCollection, ID: string(rune('a' + i)),
+				Title: "пользователи"})
 	}
 	index := &fakeIndex{collections: hits}
 
-	narrow := group(t, search(t, index, Query{Text: "польз", Kind: narrowed(domain.SearchCollection)}), domain.SearchCollection)
+	narrow := group(t, search(t, index, Query{Text: "польз", Kind: narrowed(domain.SearchCollection)}),
+		domain.SearchCollection)
 	if len(narrow.Hits) != perGroupOne {
 		t.Fatalf("drawn = %d, want %d", len(narrow.Hits), perGroupOne)
 	}
@@ -152,8 +167,8 @@ func TestQueryAnswersAnEmptyFieldWithHistoryAlone(t *testing.T) {
 	}
 }
 
-// An empty field over one area is a different question from an empty field over all of them: the chip
-// says "show me these", and there is nothing to narrow by yet.
+// An empty field over one area is a different question from an empty field over all of them: the
+// chip says "show me these", and there is nothing to narrow by yet.
 func TestQueryAnswersAnEmptyFieldInTheAreaThatWasChosen(t *testing.T) {
 	index := &fakeIndex{
 		collections: []domain.SearchHit{
@@ -171,8 +186,11 @@ func TestQueryAnswersAnEmptyFieldInTheAreaThatWasChosen(t *testing.T) {
 // The workspace is resolved once and every area is asked in it: an area resolving it again could
 // answer about a space the window has already left.
 func TestQuerySearchesTheWorkspaceTheWindowIsIn(t *testing.T) {
-	index := &fakeIndex{history: []domain.SearchHit{{Kind: domain.SearchHistory, ID: "h1", Title: "/users"}}}
-	if _, err := NewUseCase(index, fakeScope{id: "team-1"}).Query(context.Background(), Query{}); err != nil {
+	index := &fakeIndex{history: []domain.SearchHit{
+		{Kind: domain.SearchHistory, ID: "h1", Title: "/users"},
+	}}
+	if _, err := NewUseCase(index,
+		fakeScope{id: "team-1"}).Find(context.Background(), Query{}); err != nil {
 		t.Fatalf("querying: %v", err)
 	}
 
@@ -187,7 +205,7 @@ func TestQuerySearchesTheWorkspaceTheWindowIsIn(t *testing.T) {
 // answering is worse than the window saying so.
 func TestQueryFailsWhenAnAreaDoes(t *testing.T) {
 	_, err := NewUseCase(&fakeIndex{fail: domain.SearchHistory}, fakeScope{}).
-		Query(context.Background(), Query{Text: "пользователи"})
+		Find(context.Background(), Query{Text: "пользователи"})
 	if err == nil {
 		t.Fatal("want a failure")
 	}

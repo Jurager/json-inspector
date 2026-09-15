@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"testing"
 
 	"json-inspector/internal/domain"
@@ -149,10 +150,10 @@ func newWithFakes() (*UseCase, *fakeStore, *fakeFiles, *fakeAuth) {
 	return uc, store, sources, auth
 }
 
-// fakeAuth stands in for the schemes. A scheme's own working — the base64 of a Basic credential, the
-// signature over a request — is tested where it lives; what this package has to get right is that a
-// field's value reaches the scheme resolved, that the mask reaches it on the second pass, and that
-// what comes back lands on the request without burying a row the user wrote.
+// fakeAuth stands in for the schemes. A scheme's own working — the base64 of a Basic credential,
+// the signature over a request — is tested where it lives; what this package has to get right is
+// that a field's value reaches the scheme resolved, that the mask reaches it on the second pass,
+// and that what comes back lands on the request without burying a row the user wrote.
 type fakeAuth struct {
 	// answer is what the fake hands back, so a test can watch any output travel the pipeline.
 	answer domain.AuthOutput
@@ -171,7 +172,11 @@ type fakeAuth struct {
 	shown []domain.Auth
 }
 
-func (f *fakeAuth) Materialize(_ context.Context, auth domain.Auth, _ domain.AuthRequest) (domain.AuthOutput, error) {
+func (f *fakeAuth) Materialize(
+	_ context.Context,
+	auth domain.Auth,
+	_ domain.AuthRequest,
+) (domain.AuthOutput, error) {
 	f.asked = append(f.asked, auth)
 	return f.answer, nil
 }
@@ -181,9 +186,13 @@ func (f *fakeAuth) Project(auth domain.Auth, _ domain.AuthRequest) (domain.AuthO
 	return f.answer, nil
 }
 
-// Absorb answers the way a scheme that can take the edit does: the value lands in the field the test
-// named. What a real scheme does with it is tested next to that scheme.
-func (f *fakeAuth) Absorb(auth domain.Auth, _ domain.RowKind, _, value string) (domain.Auth, error) {
+// Absorb answers the way a scheme that can take the edit does: the value lands in the field the
+// test named. What a real scheme does with it is tested next to that scheme.
+func (f *fakeAuth) Absorb(
+	auth domain.Auth,
+	_ domain.RowKind,
+	_, value string,
+) (domain.Auth, error) {
 	if f.absorbInto == "" {
 		return auth, fmt.Errorf("editing the row: %w", domain.ErrNotAllowed)
 	}
@@ -249,7 +258,8 @@ func TestSetTextURLDrivesTheRows(t *testing.T) {
 	uc, _ := loaded(t)
 	ctx := context.Background()
 
-	result, err := uc.SetText(ctx, domain.DraftCommandLine, TextInput{Field: FieldURL, Text: "/a?x=1&y=2", Rev: 4})
+	result, err := uc.SetText(ctx, domain.DraftCommandLine,
+		TextInput{Field: FieldURL, Text: "/a?x=1&y=2", Rev: 4})
 	if err != nil {
 		t.Fatalf("SetText: %v", err)
 	}
@@ -262,7 +272,8 @@ func TestSetTextURLDrivesTheRows(t *testing.T) {
 	first, second := result.Draft.Params[0].ID, result.Draft.Params[1].ID
 
 	// The user edits the text: y becomes z, and x stays where it was.
-	result, err = uc.SetText(ctx, domain.DraftCommandLine, TextInput{Field: FieldURL, Text: "/a?x=1&z=3", Rev: 5})
+	result, err = uc.SetText(ctx, domain.DraftCommandLine,
+		TextInput{Field: FieldURL, Text: "/a?x=1&z=3", Rev: 5})
 	if err != nil {
 		t.Fatalf("SetText: %v", err)
 	}
@@ -285,13 +296,15 @@ func TestSetTextKeepsDisabledRows(t *testing.T) {
 	uc, _ := loaded(t)
 	ctx := context.Background()
 
-	flushed, err := uc.SetText(ctx, domain.DraftCommandLine, TextInput{Field: FieldURL, Text: "/a?x=1&y=2"})
+	flushed, err := uc.SetText(ctx, domain.DraftCommandLine,
+		TextInput{Field: FieldURL, Text: "/a?x=1&y=2"})
 	if err != nil {
 		t.Fatalf("SetText: %v", err)
 	}
 	off := flushed.Draft.Params[1].ID
 
-	parked, err := uc.PatchRow(ctx, domain.DraftCommandLine, domain.RowParams, off, RowPatch{Enabled: boolPtr(false)})
+	parked, err := uc.PatchRow(ctx, domain.DraftCommandLine, domain.RowParams, off,
+		RowPatch{Enabled: boolPtr(false)})
 	if err != nil {
 		t.Fatalf("PatchRow: %v", err)
 	}
@@ -299,7 +312,8 @@ func TestSetTextKeepsDisabledRows(t *testing.T) {
 		t.Errorf("url = %q, want the switched-off row out of it", parked.Draft.URL)
 	}
 
-	flushed, err = uc.SetText(ctx, domain.DraftCommandLine, TextInput{Field: FieldURL, Text: "/a?x=1&w=3"})
+	flushed, err = uc.SetText(ctx, domain.DraftCommandLine,
+		TextInput{Field: FieldURL, Text: "/a?x=1&w=3"})
 	if err != nil {
 		t.Fatalf("SetText: %v", err)
 	}
@@ -319,10 +333,12 @@ func TestPatchRowWritesTheURL(t *testing.T) {
 	uc, _ := loaded(t)
 	ctx := context.Background()
 
-	flushed, _ := uc.SetText(ctx, domain.DraftCommandLine, TextInput{Field: FieldURL, Text: "/a?include=x&page[number]=2"})
+	flushed, _ := uc.SetText(ctx, domain.DraftCommandLine,
+		TextInput{Field: FieldURL, Text: "/a?include=x&page[number]=2"})
 	params := flushed.Draft.Params
 
-	result, err := uc.PatchRow(ctx, domain.DraftCommandLine, domain.RowParams, params[0].ID, RowPatch{Value: strPtr("author,comments")})
+	result, err := uc.PatchRow(ctx, domain.DraftCommandLine, domain.RowParams, params[0].ID,
+		RowPatch{Value: strPtr("author,comments")})
 	if err != nil {
 		t.Fatalf("PatchRow: %v", err)
 	}
@@ -354,7 +370,8 @@ func TestAddRowAddressesWhatItAdds(t *testing.T) {
 		t.Errorf("path = %q, want the default", result.Draft.Cookies[0].Path)
 	}
 
-	if _, err := uc.AddRow(ctx, domain.DraftCommandLine, domain.RowKind("headers2")); !errors.Is(err, domain.ErrNotAllowed) {
+	if _, err := uc.AddRow(ctx, domain.DraftCommandLine, domain.RowKind("headers2")); !errors.Is(err,
+		domain.ErrNotAllowed) {
 		t.Errorf("adding to a list that does not exist = %v, want ErrNotAllowed", err)
 	}
 }
@@ -366,7 +383,8 @@ func TestPatchOnAMissingRowChangesNothing(t *testing.T) {
 	ctx := context.Background()
 
 	before, _ := uc.Snapshot(ctx, domain.DraftCommandLine)
-	if _, err := uc.PatchRow(ctx, domain.DraftCommandLine, domain.RowParams, "nope", RowPatch{Value: strPtr("x")}); !errors.Is(err, domain.ErrNotFound) {
+	if _, err := uc.PatchRow(ctx, domain.DraftCommandLine, domain.RowParams, "nope",
+		RowPatch{Value: strPtr("x")}); !errors.Is(err, domain.ErrNotFound) {
 		t.Errorf("patching a row that is not there = %v, want ErrNotFound", err)
 	}
 	after, _ := uc.Snapshot(ctx, domain.DraftCommandLine)
@@ -388,7 +406,8 @@ func TestASaveThatFailsIsRolledBack(t *testing.T) {
 	}
 	after, _ := uc.Snapshot(ctx, domain.DraftCommandLine)
 	if after.Draft.Method != before.Draft.Method {
-		t.Errorf("method = %q in memory, want it rolled back to %q", after.Draft.Method, before.Draft.Method)
+		t.Errorf("method = %q in memory, want it rolled back to %q", after.Draft.Method,
+			before.Draft.Method)
 	}
 }
 
@@ -399,19 +418,22 @@ func TestReplaceTakesTheWholeRequest(t *testing.T) {
 	ctx := context.Background()
 
 	result, err := uc.Replace(ctx, domain.DraftCommandLine, Seed{
-		Method:  "POST",
-		URL:     "/a?x=1",
-		Headers: []domain.HeaderPair{{Name: "Accept", Value: "application/json"}, {Name: "Cookie", Value: "a=1; b=2"}},
-		Body:    `{"a":1}`,
+		Method: "POST",
+		URL:    "/a?x=1",
+		Headers: []domain.HeaderPair{{Name: "Accept", Value: "application/json"},
+			{Name: "Cookie", Value: "a=1; b=2"}},
+		Body: `{"a":1}`,
 	})
 	if err != nil {
 		t.Fatalf("Replace: %v", err)
 	}
-	if result.Draft.Method != "POST" || result.Draft.Body != `{"a":1}` || len(result.Draft.Params) != 1 {
+	if result.Draft.Method != "POST" || result.Draft.Body != `{"a":1}` ||
+		len(result.Draft.Params) != 1 {
 		t.Errorf("draft = %+v, want the seed's request", result.Draft)
 	}
 	if len(result.Draft.Headers) != 2 {
-		t.Errorf("headers = %+v, want both kept — one of them is the Cookie the jar comes from", result.Draft.Headers)
+		t.Errorf("headers = %+v, want both kept — one of them is the Cookie the jar comes from",
+			result.Draft.Headers)
 	}
 	if len(result.Draft.Cookies) != 2 || result.Draft.Cookies[0].Name != "a" {
 		t.Errorf("cookies = %+v, want the header read into the jar", result.Draft.Cookies)
@@ -499,7 +521,8 @@ func TestPreview(t *testing.T) {
 	uc, _ := loaded(t)
 	ctx := context.Background()
 
-	result, err := uc.SetText(ctx, domain.DraftCommandLine, TextInput{Field: FieldURL, Text: "https://{{host}}/a"})
+	result, err := uc.SetText(ctx, domain.DraftCommandLine,
+		TextInput{Field: FieldURL, Text: "https://{{host}}/a"})
 	if err != nil {
 		t.Fatalf("SetText: %v", err)
 	}
@@ -507,23 +530,27 @@ func TestPreview(t *testing.T) {
 		t.Errorf("preview = %+v, want nothing missing", result.Preview)
 	}
 
-	result, _ = uc.SetText(ctx, domain.DraftCommandLine, TextInput{Field: FieldURL, Text: "https://{{nope}}/a"})
+	result, _ = uc.SetText(ctx, domain.DraftCommandLine,
+		TextInput{Field: FieldURL, Text: "https://{{nope}}/a"})
 	if len(result.Preview.Missing) != 1 || result.Preview.Missing[0] != "nope" {
 		t.Errorf("missing = %v, want nope", result.Preview.Missing)
 	}
 
 	// A header and the body are asked about too, and the same name twice is one thing missing.
-	result, _ = uc.SetText(ctx, domain.DraftCommandLine, TextInput{Field: FieldBody, Text: "{{nope}} and {{body}}"})
+	result, _ = uc.SetText(ctx, domain.DraftCommandLine,
+		TextInput{Field: FieldBody, Text: "{{nope}} and {{body}}"})
 	if len(result.Preview.Missing) != 2 {
 		t.Errorf("missing = %v, want nope once and body", result.Preview.Missing)
 	}
 
 	// A name that resolves to an empty value is known: an empty value is a value. The body is
 	// cleared first, because a token in it is missing too — the warning is about the whole request.
-	if _, err := uc.SetText(ctx, domain.DraftCommandLine, TextInput{Field: FieldBody, Text: ""}); err != nil {
+	if _, err := uc.SetText(ctx, domain.DraftCommandLine,
+		TextInput{Field: FieldBody, Text: ""}); err != nil {
 		t.Fatalf("SetText: %v", err)
 	}
-	result, _ = uc.SetText(ctx, domain.DraftCommandLine, TextInput{Field: FieldURL, Text: "https://x/{{nothing}}"})
+	result, _ = uc.SetText(ctx, domain.DraftCommandLine,
+		TextInput{Field: FieldURL, Text: "https://x/{{nothing}}"})
 	if len(result.Preview.Missing) != 0 {
 		t.Errorf("missing = %v, want nothing — the variable is there and empty", result.Preview.Missing)
 	}
@@ -725,3 +752,47 @@ func TestADraftNobodyOpenedIsNotFound(t *testing.T) {
 
 func strPtr(s string) *string { return &s }
 func boolPtr(b bool) *bool    { return &b }
+
+// A save that fails leaves the draft exactly as it was. The rows are what prove it: the edit
+// reaches one of them through its slice, and the copy the change makes is shallow, so an edit
+// applied to the draft in memory but refused by the store would be a change the window shows as
+// saved and that the next launch does not have.
+func TestASaveThatFailsLeavesTheDraftAsItWas(t *testing.T) {
+	uc, store := loaded(t)
+	ctx := context.Background()
+
+	flushed, err := uc.SetText(ctx, domain.DraftCommandLine, TextInput{
+		Field: FieldURL, Text: "/articles?page=1",
+	})
+	if err != nil {
+		t.Fatalf("SetText: %v", err)
+	}
+	if len(flushed.Draft.Params) != 1 {
+		t.Fatalf("params = %+v, want the one the address names", flushed.Draft.Params)
+	}
+	row := flushed.Draft.Params[0].ID
+
+	// The store refuses the next write, and the edit that follows has to leave nothing behind.
+	store.failSave = errors.New("диск полон")
+	if _, err := uc.PatchRow(ctx, domain.DraftCommandLine, domain.RowParams, row,
+		RowPatch{Value: strPtr("42")}); err == nil {
+		t.Fatal("PatchRow = nil error, want the store's failure")
+	} else if !strings.Contains(err.Error(), "диск полон") {
+		t.Fatalf("PatchRow = %v, want the store's own error", err)
+	}
+
+	state, err := uc.Snapshot(ctx, domain.DraftCommandLine)
+	if err != nil {
+		t.Fatalf("Snapshot: %v", err)
+	}
+	if got := state.Draft.Params[0].Value; got != "1" {
+		t.Errorf("param value = %q, want the value the failed edit was not allowed to change", got)
+	}
+	if state.Draft.URL != "/articles?page=1" {
+		t.Errorf("url = %q, want the address the failed edit left alone", state.Draft.URL)
+	}
+	if state.Draft.Revision != flushed.Draft.Revision {
+		t.Errorf("revision = %d, want it where the last good edit left it (%d)",
+			state.Draft.Revision, flushed.Draft.Revision)
+	}
+}

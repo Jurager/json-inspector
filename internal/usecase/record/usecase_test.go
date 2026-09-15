@@ -65,7 +65,12 @@ func (f *fakeStore) Record(_ context.Context, id string) (domain.Record, error) 
 	return domain.Record{}, domain.ErrNotFound
 }
 
-func (f *fakeStore) Records(_ context.Context, workspaceID string, source domain.RecordSource, limit int) ([]domain.Record, error) {
+func (f *fakeStore) Records(
+	_ context.Context,
+	workspaceID string,
+	source domain.RecordSource,
+	limit int,
+) ([]domain.Record, error) {
 	f.scoped = append(f.scoped, workspaceID)
 	f.listed = append(f.listed, limit)
 	out := []domain.Record{}
@@ -104,7 +109,11 @@ func (f *fakeStore) DeleteRecords(_ context.Context, ids []string) error {
 	return nil
 }
 
-func (f *fakeStore) Prune(_ context.Context, workspaceID string, opts domain.PruneOptions) (int, error) {
+func (f *fakeStore) Prune(
+	_ context.Context,
+	workspaceID string,
+	opts domain.PruneOptions,
+) (int, error) {
 	f.scoped = append(f.scoped, workspaceID)
 	f.pruned = append(f.pruned, opts)
 	return 0, nil
@@ -239,13 +248,20 @@ func newUseCase() (*UseCase, *fakeStore, *fakeExecutor, *fakeNotifier) {
 	return newScriptedUseCase(nil, nil)
 }
 
-func newScriptedUseCase(screen Screener, mask Masker) (*UseCase, *fakeStore, *fakeExecutor, *fakeNotifier) {
+func newScriptedUseCase(
+	screen Screener,
+	mask Masker,
+) (*UseCase, *fakeStore, *fakeExecutor, *fakeNotifier) {
 	return newScopedUseCase(fakeScope{}, screen, mask)
 }
 
 // newScopedUseCase is newScriptedUseCase with the workspace the scope answers with named by the
 // caller, which is what the test that checks the id travels needs.
-func newScopedUseCase(scope Scope, screen Screener, mask Masker) (*UseCase, *fakeStore, *fakeExecutor, *fakeNotifier) {
+func newScopedUseCase(
+	scope Scope,
+	screen Screener,
+	mask Masker,
+) (*UseCase, *fakeStore, *fakeExecutor, *fakeNotifier) {
 	store := newFakeStore()
 	micros := func(us int64) *int64 { return &us }
 	executor := &fakeExecutor{response: domain.Response{
@@ -256,7 +272,8 @@ func newScopedUseCase(scope Scope, screen Screener, mask Masker) (*UseCase, *fak
 	retention := RetentionSourceFunc(func(context.Context) (domain.Retention, error) {
 		return domain.RetainWeek, nil
 	})
-	return NewUseCase(store, scope, executor, notifier, retention, screen, mask, platform.NewIDGen()), store, executor, notifier
+	return NewUseCase(store, scope, executor, notifier, retention, screen, mask,
+		platform.NewIDGen()), store, executor, notifier
 }
 
 func input() SendInput {
@@ -271,9 +288,9 @@ func input() SendInput {
 	}
 }
 
-// The credential the engine computed is on no list above it — a Digest answer comes from a challenge
-// that had not arrived when the request was prepared — so the record learns it from what came back.
-// A record without it would be a record of the request that was refused.
+// The credential the engine computed is on no list above it — a Digest answer comes from a
+// challenge that had not arrived when the request was prepared — so the record learns it from what
+// came back. A record without it would be a record of the request that was refused.
 func TestSendRecordsWhatTheEngineAdded(t *testing.T) {
 	uc, _, executor, notifier := newUseCase()
 	executor.response.SentHeaders = []domain.HeaderPair{
@@ -292,7 +309,8 @@ func TestSendRecordsWhatTheEngineAdded(t *testing.T) {
 
 	// The credential itself goes to the engine rather than onto the request: there is nothing to put
 	// on it until the server has said how.
-	if len(executor.got) != 1 || executor.got[0].Digest == nil || executor.got[0].Digest.Username != "user" {
+	if len(executor.got) != 1 || executor.got[0].Digest == nil ||
+		executor.got[0].Digest.Username != "user" {
 		t.Errorf("sent = %+v, want the credential handed to the engine", executor.got)
 	}
 
@@ -300,7 +318,8 @@ func TestSendRecordsWhatTheEngineAdded(t *testing.T) {
 		t.Fatalf("recorded headers = %+v, want the answer folded in", finished.Record.RequestHeaders)
 	}
 	if !strings.HasPrefix(finished.Record.RequestHeaders[0].Value, "Digest ") {
-		t.Errorf("recorded headers = %+v, want the answer that was computed", finished.Record.RequestHeaders)
+		t.Errorf("recorded headers = %+v, want the answer that was computed",
+			finished.Record.RequestHeaders)
 	}
 }
 
@@ -354,7 +373,8 @@ func TestSendRecordsTheMaskedRequest(t *testing.T) {
 // change, and after the answer came back, with the answer in hand. What goes out is what they left.
 func TestTheScriptsRunAroundTheAttempt(t *testing.T) {
 	screen := &fakeScreen{change: func(pass *domain.ScriptPass) {
-		pass.Request.Headers = append(pass.Request.Headers, domain.HeaderPair{Name: "X-Sign", Value: "подпись"})
+		pass.Request.Headers = append(pass.Request.Headers,
+			domain.HeaderPair{Name: "X-Sign", Value: "подпись"})
 	}}
 	mask := &fakeMask{masked: Masked{
 		URL:     "https://api.example.com/articles?token=••••&sign=••••",
@@ -396,14 +416,15 @@ func TestTheScriptsRunAroundTheAttempt(t *testing.T) {
 		t.Errorf("recorded url = %q, want the request as it went out, masked", finished.Record.URL)
 	}
 	if len(finished.Record.RequestHeaders) != 1 || finished.Record.RequestHeaders[0].Name != "X-Sign" {
-		t.Errorf("recorded headers = %+v, want the masked ones from the second preparation", finished.Record.RequestHeaders)
+		t.Errorf("recorded headers = %+v, want the masked ones from the second preparation",
+			finished.Record.RequestHeaders)
 	}
 }
 
-// The reports of a request hang off its record, so the record has to be there when they are written:
-// the pre-request scripts run before anything is stored — there is nothing to store yet — and the
-// post-response ones after it. Writing a report first leaves it belonging to nothing, which is a tab
-// that says a request has no scripts while its scripts are sitting in the database.
+// The reports of a request hang off its record, so the record has to be there when they are
+// written: the pre-request scripts run before anything is stored — there is nothing to store yet —
+// and the post-response ones after it. Writing a report first leaves it belonging to nothing, which
+// is a tab that says a request has no scripts while its scripts are sitting in the database.
 func TestTheReportsBelongToARecordThatExists(t *testing.T) {
 	screen := &fakeScreen{}
 	uc, store, _, notifier := newScriptedUseCase(screen, nil)
@@ -420,7 +441,8 @@ func TestTheReportsBelongToARecordThatExists(t *testing.T) {
 		t.Errorf("the pre-request scripts ran with %d record(s) stored, want none", screen.savedAtBefore)
 	}
 	if screen.savedAtAfter != 1 {
-		t.Errorf("the post-response scripts ran with %d record(s) stored, want the one they belong to", screen.savedAtAfter)
+		t.Errorf("the post-response scripts ran with %d record(s) stored, want the one they belong to",
+			screen.savedAtAfter)
 	}
 }
 
@@ -468,8 +490,8 @@ func TestASkippedRequestNeverGoesOut(t *testing.T) {
 	}
 }
 
-// A script that cannot run at all is this side failing, and the attempt says so rather than sending a
-// request whose scripts never happened.
+// A script that cannot run at all is this side failing, and the attempt says so rather than sending
+// a request whose scripts never happened.
 func TestAScriptThatCannotRunFailsTheAttempt(t *testing.T) {
 	screen := &fakeScreen{fail: errors.New("база недоступна")}
 	uc, _, executor, notifier := newScriptedUseCase(screen, &fakeMask{})
@@ -546,17 +568,18 @@ func TestIngestStoresAndAnnounces(t *testing.T) {
 	uc, store, _, notifier := newUseCase()
 
 	rec, err := uc.Ingest(context.Background(), IngestInput{
-		Method:          "GET",
-		URL:             "https://api.example.com/articles",
-		Status:          200,
-		StatusText:      "200 OK",
-		RequestHeaders:  []domain.HeaderPair{{Name: "Accept", Value: "application/json"}},
-		ResponseHeaders: []domain.HeaderPair{{Name: "Set-Cookie", Value: "a=1"}, {Name: "Set-Cookie", Value: "b=2"}},
-		ResponseBody:    `{"data":[]}`,
-		DurationMs:      12,
-		WaitMs:          3,
-		TabID:           4,
-		TabTitle:        "Example",
+		Method:         "GET",
+		URL:            "https://api.example.com/articles",
+		Status:         200,
+		StatusText:     "200 OK",
+		RequestHeaders: []domain.HeaderPair{{Name: "Accept", Value: "application/json"}},
+		ResponseHeaders: []domain.HeaderPair{{Name: "Set-Cookie", Value: "a=1"},
+			{Name: "Set-Cookie", Value: "b=2"}},
+		ResponseBody: `{"data":[]}`,
+		DurationMs:   12,
+		WaitMs:       3,
+		TabID:        4,
+		TabTitle:     "Example",
 	})
 	if err != nil {
 		t.Fatalf("Ingest: %v", err)
@@ -661,7 +684,8 @@ func TestPruneRunsEverySoManySaves(t *testing.T) {
 		t.Errorf("pruned %d times before the batch was full", len(store.pruned))
 	}
 
-	if err := uc.save(ctx, domain.WorkspacePersonalID, domain.Record{RecordSummary: domain.RecordSummary{ID: "rec-last"}}); err != nil {
+	if err := uc.save(ctx, domain.WorkspacePersonalID,
+		domain.Record{RecordSummary: domain.RecordSummary{ID: "rec-last"}}); err != nil {
 		t.Fatalf("save: %v", err)
 	}
 	if len(store.pruned) != 1 {
@@ -676,11 +700,14 @@ func TestImportLegacyReadsBothHeaderShapes(t *testing.T) {
 	ctx := context.Background()
 
 	payload := `[
-	  {"id": "old-1", "method": "GET", "url": "https://a.example.com/x", "status": 200, "source": "manual",
+	  {"id": "old-1", "method": "GET", "url": "https://a.example.com/x", "status": 200,
+	   "source": "manual",
 	   "startedAt": 1000, "requestHeaders": {"Accept": "application/json"},
 	   "responseHeaders": {"Content-Type": "application/json"}, "responseBody": "{\"data\":[]}"},
-	  {"id": "old-2", "method": "POST", "url": "https://b.example.com/y", "status": 201, "source": "browser",
-	   "startedAt": 2000, "responseHeaders": [{"name": "X-One", "value": "1"}, {"name": "X-One", "value": "2"}],
+	  {"id": "old-2", "method": "POST", "url": "https://b.example.com/y", "status": 201,
+	   "source": "browser",
+	   "startedAt": 2000,
+	   	"responseHeaders": [{"name": "X-One", "value": "1"}, {"name": "X-One", "value": "2"}],
 	   "tabTitle": "Second"},
 	  {"id": "", "method": "GET", "url": "", "startedAt": 3000}
 	]`
@@ -794,9 +821,9 @@ Content-Disposition: form-data; name="token"
 	}
 }
 
-// A workspace is what the whole app is scoped to, and this feature resolves it once at the door: the
-// id the scope answers with has to be the id the store is asked in, because a record written under a
-// re-read pointer could land in a space the request never happened in.
+// A workspace is what the whole app is scoped to, and this feature resolves it once at the door:
+// the id the scope answers with has to be the id the store is asked in, because a record written
+// under a re-read pointer could land in a space the request never happened in.
 func TestTheWorkspaceOnScreenReachesTheStore(t *testing.T) {
 	const workspace = "team-1"
 	uc, store, _, _ := newScopedUseCase(fakeScope{id: workspace}, nil, nil)
@@ -805,20 +832,47 @@ func TestTheWorkspaceOnScreenReachesTheStore(t *testing.T) {
 	if _, err := uc.List(ctx, "", 0); err != nil {
 		t.Fatalf("List: %v", err)
 	}
-	if _, err := uc.Ingest(ctx, IngestInput{Method: "GET", URL: "https://api.example.com"}); err != nil {
+	if _, err := uc.Ingest(ctx,
+		IngestInput{Method: "GET", URL: "https://api.example.com"}); err != nil {
 		t.Fatalf("Ingest: %v", err)
 	}
-	if _, err := uc.SendAndWait(ctx, input()); err != nil {
+	// SendAndWait is told its space rather than reading the pointer, because its caller is a run that
+	// resolved one when it started: naming a different one here has to be enough to move the record.
+	if _, err := uc.SendAndWait(ctx, "other-space", input()); err != nil {
 		t.Fatalf("SendAndWait: %v", err)
 	}
 
-	// One call per method above, and every one of them in the workspace the scope named.
-	if len(store.scoped) != 3 {
-		t.Fatalf("the store was addressed %d time(s), want one per call: %v", len(store.scoped), store.scoped)
+	// One call per method above, and the first two in the workspace the scope named.
+	want := []string{workspace, workspace, "other-space"}
+	if len(store.scoped) != len(want) {
+		t.Fatalf("the store was addressed %d time(s), want one per call: %v", len(store.scoped),
+			store.scoped)
 	}
 	for i, got := range store.scoped {
-		if got != workspace {
-			t.Errorf("call %d was made in %q, want the workspace the scope named (%q)", i, got, workspace)
+		if got != want[i] {
+			t.Errorf("call %d was made in %q, want %q", i, got, want[i])
 		}
 	}
+}
+
+// SendAndWait must not consult the scope at all: a run carries one space through every request it
+// sends, and this is the half of that promise this package owns. A scope that would answer with
+// something else — and a call that would fail on it — is never asked.
+func TestSendAndWaitCarriesTheSpaceItWasGiven(t *testing.T) {
+	uc, store, _, _ := newScopedUseCase(failingScope{}, nil, nil)
+
+	if _, err := uc.SendAndWait(context.Background(), "run-space", input()); err != nil {
+		t.Fatalf("SendAndWait: %v", err)
+	}
+	if len(store.scoped) != 1 || store.scoped[0] != "run-space" {
+		t.Fatalf("the store was addressed %v, want exactly [run-space]", store.scoped)
+	}
+}
+
+// failingScope is a scope nobody may ask: every call is a failure, so a path that reaches for it
+// says so instead of quietly landing somewhere.
+type failingScope struct{}
+
+func (failingScope) ActiveWorkspace(context.Context) (string, error) {
+	return "", errors.New("the scope was asked for a workspace it should have been handed")
 }

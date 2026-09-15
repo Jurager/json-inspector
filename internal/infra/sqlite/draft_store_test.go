@@ -8,23 +8,6 @@ import (
 	"json-inspector/internal/domain"
 )
 
-func sampleDraft() domain.Draft {
-	return domain.Draft{
-		ID:       domain.DraftCommandLine,
-		Revision: 3,
-		Method:   "POST",
-		URL:      "https://api.example.com/a?x=1&y={{token}}",
-		Params: []domain.Row{
-			{ID: "p1", Name: "x", Value: "1", Enabled: true},
-			{ID: "p2", Name: "y", Value: "{{token}}", Enabled: false},
-		},
-		Headers: []domain.Row{{ID: "h1", Name: "Authorization", Value: "Bearer {{token}}", Enabled: true}},
-		Auth:    bearerAuth("{{token}}"),
-		Body:    `{"a": 1}`,
-		Cookies: []domain.CookieRow{{ID: "c1", Name: "session", Value: "abc", Path: "/", HTTPOnly: true}},
-	}
-}
-
 func TestDraftRoundTrip(t *testing.T) {
 	store := newMigratedStore(t)
 	ctx := context.Background()
@@ -42,7 +25,8 @@ func TestDraftRoundTrip(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Draft: %v", err)
 	}
-	if got.Method != saved.Method || got.URL != saved.URL || got.Body != saved.Body || got.Revision != 3 {
+	if got.Method != saved.Method || got.URL != saved.URL || got.Body != saved.Body ||
+		got.Revision != 3 {
 		t.Errorf("draft = %+v, want the saved one", got)
 	}
 	if len(got.Params) != 2 || got.Params[1].ID != "p2" || got.Params[1].Enabled {
@@ -111,7 +95,8 @@ func TestABodyKindThatWasNeverWrittenReadsAsRaw(t *testing.T) {
 	// defaulted to.
 	for _, written := range []string{"", "raw"} {
 		if _, err := store.db.ExecContext(ctx,
-			`UPDATE drafts SET body_kind = ?, form_json = '[]' WHERE id = ?`, written, domain.DraftCommandLine); err != nil {
+			`UPDATE drafts SET body_kind = ?, form_json = '[]' WHERE id = ?`, written,
+			domain.DraftCommandLine); err != nil {
 			t.Fatalf("updating the fixture: %v", err)
 		}
 		got, err := store.Draft(ctx, ws, domain.DraftCommandLine)

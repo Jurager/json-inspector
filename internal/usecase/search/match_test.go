@@ -49,9 +49,10 @@ func TestMatchPicksTheTier(t *testing.T) {
 		{
 			name:  "nowhere",
 			query: "ничего",
-			hit:   domain.SearchHit{Title: "Пользователи", Path: []string{"Каталог API"}, MatchText: "admin"},
-			want:  0,
-			ok:    false,
+			hit: domain.SearchHit{Title: "Пользователи", Path: []string{"Каталог API"},
+				MatchText: "admin"},
+			want: 0,
+			ok:   false,
 		},
 	}
 
@@ -68,8 +69,8 @@ func TestMatchPicksTheTier(t *testing.T) {
 	}
 }
 
-// The reason matching is not a LIKE: SQLite folds case for ASCII alone, and every name in this app is
-// Russian. A query typed in the wrong case has to find the row anyway.
+// The reason matching is not a LIKE: SQLite folds case for ASCII alone, and every name in this app
+// is Russian. A query typed in the wrong case has to find the row anyway.
 func TestMatchIgnoresCaseInRussian(t *testing.T) {
 	hit := domain.SearchHit{Title: "Пользователи", Path: []string{"Каталог API"}}
 	for _, query := range []string{"ПОЛЬЗОВАТЕЛИ", "пользователи", "ПоЛьЗоВаТеЛи", "КАТАЛОГ"} {
@@ -80,8 +81,8 @@ func TestMatchIgnoresCaseInRussian(t *testing.T) {
 }
 
 // The window draws the name of a variable and nothing else, so a value that answered the query must
-// not travel with the answer: it has nowhere to be drawn, and when the variable is a secret it is the
-// one thing in this database that may not leave.
+// not travel with the answer: it has nowhere to be drawn, and when the variable is a secret it is
+// the one thing in this database that may not leave.
 func TestHitDoesNotCarryWhatMatched(t *testing.T) {
 	encoded, err := json.Marshal(domain.SearchHit{
 		Kind:      domain.SearchEnvironment,

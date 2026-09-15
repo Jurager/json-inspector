@@ -89,7 +89,11 @@ type Patch struct {
 	Color *string `json:"color,omitempty"`
 }
 
-func (u *UseCase) Update(ctx context.Context, id string, patch Patch) (domain.WorkspaceState, error) {
+func (u *UseCase) Update(
+	ctx context.Context,
+	id string,
+	patch Patch,
+) (domain.WorkspaceState, error) {
 	current, err := u.store.Workspace(ctx, id)
 	if err != nil {
 		return domain.WorkspaceState{}, err

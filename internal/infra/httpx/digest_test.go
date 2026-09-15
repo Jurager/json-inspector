@@ -17,11 +17,14 @@ import (
 // written out rather than minted so that a test can name the realm and the nonce it expects back.
 const challenge = `Digest realm="example", qop="auth", nonce="abc123", algorithm=MD5`
 
-// digestServer refuses the first request and accepts the second, which is what a Digest server does:
-// the refusal is where the realm and the nonce come from, and it is the point of the first request
-// rather than a failure of it. Every request that arrives is handed to check, and the number of them
-// is counted for the tests that are about how many were made.
-func digestServer(t *testing.T, check func(*testing.T, *http.Request) bool) (*httptest.Server, *int32) {
+// digestServer refuses the first request and accepts the second, which is what a Digest server
+// does: the refusal is where the realm and the nonce come from, and it is the point of the first
+// request rather than a failure of it. Every request that arrives is handed to check, and the
+// number of them is counted for the tests that are about how many were made.
+func digestServer(
+	t *testing.T,
+	check func(*testing.T, *http.Request) bool,
+) (*httptest.Server, *int32) {
 	t.Helper()
 	var requests int32
 
@@ -60,7 +63,8 @@ func TestDigestAnswersTheChallenge(t *testing.T) {
 			t.Errorf("uri = %q, want the path that was requested", credentials.URI)
 		}
 		if credentials.Realm != "example" || credentials.Nonce != "abc123" {
-			t.Errorf("realm/nonce = %q/%q, want the ones from the challenge", credentials.Realm, credentials.Nonce)
+			t.Errorf("realm/nonce = %q/%q, want the ones from the challenge", credentials.Realm,
+				credentials.Nonce)
 		}
 		if credentials.Username != "user" {
 			t.Errorf("username = %q, want the one the user typed", credentials.Username)

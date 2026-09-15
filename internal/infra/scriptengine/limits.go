@@ -21,8 +21,8 @@ const (
 	maxTests          = 200
 )
 
-// limitScript stops a script that is still running when the time is up, and answers with the call that
-// stops the timer — a run that finished in two milliseconds has no business leaving one armed.
+// limitScript stops a script that is still running when the time is up, and answers with the call
+// that stops the timer — a run that finished in two milliseconds has no business leaving one armed.
 //
 // The interruption is not catchable from inside: a script cannot swallow its own deadline with
 // try/catch, which is the whole reason this works.

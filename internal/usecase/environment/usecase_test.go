@@ -20,7 +20,6 @@ type fakeStore struct {
 	vars    map[string]fakeVar
 	active  string
 	imports map[string]string
-	next    int
 }
 
 type fakeVar struct {
@@ -45,7 +44,8 @@ func (f fakeScope) ActiveWorkspace(context.Context) (string, error) {
 }
 
 func (f *fakeStore) EnvState(context.Context, string) (domain.EnvState, error) {
-	state := domain.EnvState{Environments: []domain.Environment{}, Globals: []domain.Variable{}, ActiveID: f.active}
+	state := domain.EnvState{Environments: []domain.Environment{}, Globals: []domain.Variable{},
+		ActiveID: f.active}
 	for _, env := range f.envs {
 		copied := env
 		copied.Vars = []domain.Variable{}
@@ -105,7 +105,12 @@ func (f *fakeStore) DeleteEnvironment(_ context.Context, _ string, id string) er
 	return nil
 }
 
-func (f *fakeStore) SaveVariable(_ context.Context, _ string, scope domain.EnvScope, v domain.Variable) error {
+func (f *fakeStore) SaveVariable(
+	_ context.Context,
+	_ string,
+	scope domain.EnvScope,
+	v domain.Variable,
+) error {
 	f.vars[v.ID] = fakeVar{scope: scope, v: v}
 	return nil
 }
@@ -192,7 +197,8 @@ func TestUpdateAndDelete(t *testing.T) {
 
 	name := "Prod · EU"
 	readonly := true
-	state, err := u.Update(ctx, env.ID, Patch{Name: &name, Readonly: &readonly, Color: ptr("red")})
+	state, err := u.Update(ctx, env.ID,
+		EnvironmentPatch{Name: &name, Readonly: &readonly, Color: ptr("red")})
 	if err != nil {
 		t.Fatalf("Update: %v", err)
 	}
@@ -201,7 +207,8 @@ func TestUpdateAndDelete(t *testing.T) {
 		t.Errorf("after Update: %+v", got)
 	}
 
-	if _, err := u.Update(ctx, "nope", Patch{Name: &name}); !errors.Is(err, domain.ErrNotFound) {
+	if _, err := u.Update(ctx, "nope", EnvironmentPatch{Name: &name}); !errors.Is(err,
+		domain.ErrNotFound) {
 		t.Errorf("Update of a missing environment = %v, want ErrNotFound", err)
 	}
 
@@ -222,14 +229,16 @@ func TestVariablesAndVarValueKeepsSecrets(t *testing.T) {
 	ctx := context.Background()
 	_, env := seed(t, u, "Local")
 
-	state, err := u.AddVariable(ctx, domain.EnvScope{Environment: env.ID}, VariableDraft{Kind: domain.VariableSecret})
+	state, err := u.AddVariable(ctx, domain.EnvScope{Environment: env.ID},
+		VariableDraft{Kind: domain.VariableSecret})
 	if err != nil {
 		t.Fatalf("AddVariable: %v", err)
 	}
 	v := state.Environments[0].Vars[0]
 
 	state, err = u.UpdateVariable(ctx, domain.EnvScope{Environment: env.ID}, VariablePatch{
-		ID: v.ID, Name: "token", Kind: domain.VariableSecret, Enabled: true, Value: "s3cret", SetValue: true,
+		ID: v.ID, Name: "token", Kind: domain.VariableSecret, Enabled: true, Value: "s3cret",
+		SetValue: true,
 	})
 	if err != nil {
 		t.Fatalf("UpdateVariable: %v", err)
@@ -274,13 +283,16 @@ func TestResolutionOrderAndMasking(t *testing.T) {
 	ctx := context.Background()
 	_, env := seed(t, u, "Local")
 
-	if _, err := u.AddVariable(ctx, domain.EnvScope{}, VariableDraft{Kind: domain.VariableText}); err != nil {
+	if _, err := u.AddVariable(ctx, domain.EnvScope{},
+		VariableDraft{Kind: domain.VariableText}); err != nil {
 		t.Fatalf("AddVariable (globals): %v", err)
 	}
-	if _, err := u.AddVariable(ctx, domain.EnvScope{Environment: env.ID}, VariableDraft{Kind: domain.VariableText}); err != nil {
+	if _, err := u.AddVariable(ctx, domain.EnvScope{Environment: env.ID},
+		VariableDraft{Kind: domain.VariableText}); err != nil {
 		t.Fatalf("AddVariable: %v", err)
 	}
-	if _, err := u.AddVariable(ctx, domain.EnvScope{Environment: env.ID}, VariableDraft{Kind: domain.VariableSecret}); err != nil {
+	if _, err := u.AddVariable(ctx, domain.EnvScope{Environment: env.ID},
+		VariableDraft{Kind: domain.VariableSecret}); err != nil {
 		t.Fatalf("AddVariable: %v", err)
 	}
 
@@ -289,7 +301,8 @@ func TestResolutionOrderAndMasking(t *testing.T) {
 	over := state.Environments[0].Vars[0]
 	secret := state.Environments[0].Vars[1]
 
-	fill := func(scope domain.EnvScope, v domain.Variable, name, value string, kind domain.VariableKind) {
+	fill := func(scope domain.EnvScope, v domain.Variable, name, value string,
+		kind domain.VariableKind) {
 		t.Helper()
 		if _, err := u.UpdateVariable(ctx, scope, VariablePatch{
 			ID: v.ID, Name: name, Kind: kind, Enabled: true, Value: value, SetValue: true,
@@ -339,7 +352,8 @@ func TestResolutionOrderAndMasking(t *testing.T) {
 
 	// A disabled variable stops resolving, which is what the enabled flag is for.
 	if _, err := u.UpdateVariable(ctx, domain.EnvScope{Environment: env.ID}, VariablePatch{
-		ID: over.ID, Name: "token", Kind: domain.VariableText, Enabled: false, Value: "env-value", SetValue: true,
+		ID: over.ID, Name: "token", Kind: domain.VariableText, Enabled: false, Value: "env-value",
+		SetValue: true,
 	}); err != nil {
 		t.Fatalf("UpdateVariable (disable): %v", err)
 	}
@@ -381,7 +395,8 @@ func TestImportEntriesMergesByName(t *testing.T) {
 		byName[v.Name] = v
 	}
 	if byName["base_url"].Value != "https://two.example.com" {
-		t.Errorf("base_url = %q, want the imported value to replace the old one", byName["base_url"].Value)
+		t.Errorf("base_url = %q, want the imported value to replace the old one",
+			byName["base_url"].Value)
 	}
 	if byName["api_token"].Kind != domain.VariableSecret {
 		t.Errorf("the secret lost its kind: %+v", byName["api_token"])
@@ -391,41 +406,43 @@ func TestImportEntriesMergesByName(t *testing.T) {
 	}
 }
 
-func TestImportLegacyRunsOnceAndPullsSecrets(t *testing.T) {
+func TestImportLegacyRunsOnceAndLeavesSecretsEmpty(t *testing.T) {
 	u, _ := newUseCase(t)
 	ctx := context.Background()
-	secrets := fakeSecrets{"env-1": {"token": "from-keychain"}}
 
 	payload := `{
 	  "environments": [{"id": "env-1", "name": "Local", "readonly": false, "vars": [
-	    {"id": "v1", "name": "base_url", "value": "https://api.example.com", "kind": "text", "enabled": true},
-	    {"id": "v2", "name": "token", "value": "", "kind": "secret", "enabled": true}
+	    {"id": "v1", "name": "base_url", "value": "https://api.example.com", "kind": "text",
+	    	"enabled": true},
+	    {"id": "v2", "name": "token", "value": "stale", "kind": "secret", "enabled": true}
 	  ]}],
 	  "globals": [{"id": "g1", "name": "page_size", "value": "10", "kind": "text", "enabled": true}],
 	  "activeId": "env-1"
 	}`
 
-	report, err := u.ImportLegacy(ctx, payload, secrets)
+	report, err := u.ImportLegacy(ctx, payload)
 	if err != nil {
 		t.Fatalf("ImportLegacy: %v", err)
 	}
 	if !report.Completed || report.Environments != 1 || report.Variables != 3 || report.Secrets != 1 {
 		t.Errorf("report = %+v, want one environment, three variables and one secret", report)
 	}
-	if len(report.Warnings) != 0 {
-		t.Errorf("warnings = %v, want none", report.Warnings)
+	// A secret is named rather than carried: what it held lived in the keychain, which is not read
+	// any more, and the payload's own `value` for it is a stale copy nothing kept up to date.
+	if len(report.Warnings) != 1 {
+		t.Fatalf("warnings = %v, want one about the secret", report.Warnings)
 	}
 
 	state, _ := u.Snapshot(ctx)
 	if state.ActiveID != "env-1" {
 		t.Errorf("activeId = %q, want env-1", state.ActiveID)
 	}
-	if value, err := u.Reveal(ctx, "v2"); err != nil || value != "from-keychain" {
-		t.Errorf("the secret = %q, %v; want the keychain's value", value, err)
+	if value, err := u.Reveal(ctx, "v2"); err != nil || value != "" {
+		t.Errorf("the secret = %q, %v; want no value at all", value, err)
 	}
 
 	// A second run is a no-op: the claim is what makes the import happen once.
-	again, err := u.ImportLegacy(ctx, payload, secrets)
+	again, err := u.ImportLegacy(ctx, payload)
 	if err != nil {
 		t.Fatalf("ImportLegacy (again): %v", err)
 	}
@@ -438,7 +455,9 @@ func TestImportLegacyRunsOnceAndPullsSecrets(t *testing.T) {
 	}
 }
 
-func TestImportLegacyUnreadableSecretIsAWarning(t *testing.T) {
+// A secret keeps its kind and reports that it has no value, so the screen draws it as one to fill
+// in rather than as a variable that came over empty.
+func TestImportLegacySecretKeepsItsKindWithoutAValue(t *testing.T) {
 	u, _ := newUseCase(t)
 	ctx := context.Background()
 
@@ -446,16 +465,16 @@ func TestImportLegacyUnreadableSecretIsAWarning(t *testing.T) {
 	  {"id": "v1", "name": "token", "kind": "secret", "enabled": true}
 	]}], "globals": []}`
 
-	report, err := u.ImportLegacy(ctx, payload, fakeSecrets{})
+	report, err := u.ImportLegacy(ctx, payload)
 	if err != nil {
 		t.Fatalf("ImportLegacy: %v", err)
 	}
 	if len(report.Warnings) != 1 {
-		t.Fatalf("warnings = %v, want one about the unread secret", report.Warnings)
+		t.Fatalf("warnings = %v, want one naming the secret", report.Warnings)
 	}
 	state, _ := u.Snapshot(ctx)
 	v := state.Environments[0].Vars[0]
-	if v.Kind != domain.VariableSecret || v.HasValue {
+	if v.Kind != domain.VariableSecret || v.HasValue || v.Value != "" {
 		t.Errorf("the variable = %+v, want a secret with no value but its kind", v)
 	}
 }
@@ -464,7 +483,7 @@ func TestImportLegacyWithNoPayloadIsRecorded(t *testing.T) {
 	u, _ := newUseCase(t)
 	ctx := context.Background()
 
-	report, err := u.ImportLegacy(ctx, "", nil)
+	report, err := u.ImportLegacy(ctx, "")
 	if err != nil {
 		t.Fatalf("ImportLegacy: %v", err)
 	}
@@ -508,11 +527,39 @@ func TestEnsureDefaultsSeedsOnlyAnEmptyState(t *testing.T) {
 	}
 }
 
-// fakeSecrets stands in for the OS keychain.
-type fakeSecrets map[string]map[string]string
-
-func (f fakeSecrets) Get(_ context.Context, scope, name string) (string, error) {
-	return f[scope][name], nil
-}
-
 func ptr[T any](v T) *T { return &v }
+
+// Renaming answers exactly as creating does: a name that is empty and one that is too long are two
+// different sentences, and the window words them from the code that travels with the refusal. A
+// bare sentinel would leave it with the generic "not allowed" for both.
+func TestRenameRefusesTheSameNamesCreateDoes(t *testing.T) {
+	u, _ := newUseCase(t)
+	ctx := context.Background()
+
+	_, env := seed(t, u, "Local")
+	blank := "   "
+	long := strings.Repeat("x", maxNameLength+1)
+
+	for _, tc := range []struct {
+		name  string
+		patch EnvironmentPatch
+		want  domain.Code
+	}{
+		{"blank", EnvironmentPatch{Name: &blank}, domain.CodeNameEmpty},
+		{"too long", EnvironmentPatch{Name: &long}, domain.CodeNameTooLong},
+	} {
+		_, err := u.Update(ctx, env.ID, tc.patch)
+		if !errors.Is(err, domain.ErrNotAllowed) {
+			t.Errorf("Update with a %s name = %v, want domain.ErrNotAllowed", tc.name, err)
+			continue
+		}
+		if got := domain.CodeOf(err); got != tc.want {
+			t.Errorf("Update with a %s name = %q, want %q", tc.name, got, tc.want)
+		}
+	}
+
+	// And the created case still says what it always said.
+	if _, err := u.Create(ctx, ""); domain.CodeOf(err) != domain.CodeNameEmpty {
+		t.Errorf("Create(%q) = %q, want %q", "", domain.CodeOf(err), domain.CodeNameEmpty)
+	}
+}

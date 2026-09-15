@@ -40,11 +40,12 @@ void setWindowOpaque(void* nsWindow, bool opaque) {
 	window.opaque = opaque;
 }
 
-// The material is what decides how much of the desktop reaches the chrome, and Wails leaves it at the
-// default. Measured through the chrome's own fill, the default — and every semantic material beside
-// it — passes almost nothing: the desktop arrives flattened into the appearance's own panel, so the
-// glass reads as a plain colour. Only these two carry it: .light for a light chrome and .hudWindow
-// for a dark one, both of which keep the hues behind them, which is what acrylic does on Windows.
+// The material is what decides how much of the desktop reaches the chrome, and Wails leaves it at
+// the default. Measured through the chrome's own fill, the default — and every semantic material
+// beside it — passes almost nothing: the desktop arrives flattened into the appearance's own panel,
+// so the glass reads as a plain colour. Only these two carry it: .light for a light chrome and
+// .hudWindow for a dark one, both of which keep the hues behind them, which is what acrylic does on
+// Windows.
 //
 // .light is deprecated — the SDK points at the appearance property instead — but the appearance is
 // exactly the lever that does NOT work here: a semantic material under a forced light appearance
@@ -95,8 +96,8 @@ func clearWindowOpaque(nsWindow unsafe.Pointer) {
 }
 
 // setWindowMaterial names the frost behind the webview; see the C side for what it is and why the
-// default will not do. The palette it is given is already resolved — "follow the system" is answered
-// before this call — so the material is one line rather than a second decision.
+// default will not do. The palette it is given is already resolved — "follow the system" is
+// answered before this call — so the material is one line rather than a second decision.
 func setWindowMaterial(nsWindow unsafe.Pointer, appearance domain.Theme) {
 	C.setWindowMaterial(nsWindow, C.bool(appearance == domain.ThemeDark))
 }

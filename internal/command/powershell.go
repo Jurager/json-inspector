@@ -110,8 +110,14 @@ func psValue(raw string) (string, bool) {
 // worse than none, because it looks like it worked.
 func psHashtable(text string) ([]headerEntry, bool) {
 	out := []headerEntry{}
-	// text.slice(2, -1) drops the `@{` and the closing `}`.
-	for _, entry := range splitTopLevel(text[2:len(text)-1], ';', powershellDialect) {
+	// text.slice(2, -1) drops the `@{` and the closing `}`. A literal that is only its opening — a
+	// paste cut short, `-Headers '@{'` — has nothing between the two ends: the TS slice answers the
+	// empty string there, and this has to as well rather than reading past the end of it.
+	inner := ""
+	if len(text) > 2 {
+		inner = text[2 : len(text)-1]
+	}
+	for _, entry := range splitTopLevel(inner, ';', powershellDialect) {
 		if jsTrim(entry) == "" {
 			continue
 		}

@@ -13,7 +13,11 @@ import (
 
 // Draft reads one draft. A database that has never seen it answers ErrNotFound, which is how the
 // draft feature knows to start on a fresh one rather than on an empty request.
-func (s *Store) Draft(ctx context.Context, workspaceID string, id domain.DraftID) (domain.Draft, error) {
+func (s *Store) Draft(
+	ctx context.Context,
+	workspaceID string,
+	id domain.DraftID,
+) (domain.Draft, error) {
 	var (
 		draft                                domain.Draft
 		params, headers, auth, cookies, form string

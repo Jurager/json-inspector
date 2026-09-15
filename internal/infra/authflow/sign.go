@@ -18,13 +18,13 @@ import (
 )
 
 // jwtBearer mints a token here rather than being given one. What goes on the request is a bearer
-// token like any other — the same header, the same prefix — and only the way it was come by differs,
-// which is why it is carried by the same code.
+// token like any other — the same header, the same prefix — and only the way it was come by
+// differs, which is why it is carried by the same code.
 //
 // There is no absorb beside it: a signature over claims is not a value a person can edit, and the
 // window shows the row rather than offering to.
 func jwtBearer(auth domain.Auth, _ domain.AuthRequest) (domain.AuthOutput, error) {
-	secret := auth.Get("secret")
+	secret := auth.Answer("secret")
 	if secret == "" {
 		return domain.AuthOutput{}, nil
 	}
@@ -35,7 +35,7 @@ func jwtBearer(auth domain.Auth, _ domain.AuthRequest) (domain.AuthOutput, error
 	}
 
 	claims := jwt.MapClaims{}
-	if payload := strings.TrimSpace(auth.Get("payload")); payload != "" {
+	if payload := strings.TrimSpace(auth.Answer("payload")); payload != "" {
 		if err := json.Unmarshal([]byte(payload), &claims); err != nil {
 			return domain.AuthOutput{}, fmt.Errorf("reading the claims of a JWT: %w", err)
 		}
@@ -47,13 +47,13 @@ func jwtBearer(auth domain.Auth, _ domain.AuthRequest) (domain.AuthOutput, error
 		claims["iat"] = minted.Unix()
 	}
 	if _, given := claims["exp"]; !given {
-		if expires := expiresIn(auth.GetOrDefault("expiresIn")); expires > 0 {
+		if expires := expiresIn(auth.OrDefault("expiresIn")); expires > 0 {
 			claims["exp"] = minted.Add(expires).Unix()
 		}
 	}
 
 	token := jwt.NewWithClaims(method, claims)
-	if err := setJOSEHeader(token, auth.Get("joseHeader")); err != nil {
+	if err := setJOSEHeader(token, auth.Answer("joseHeader")); err != nil {
 		return domain.AuthOutput{}, err
 	}
 	signed, err := token.SignedString(key)
@@ -63,18 +63,18 @@ func jwtBearer(auth domain.Auth, _ domain.AuthRequest) (domain.AuthOutput, error
 	return carry(auth, signed), nil
 }
 
-// signingKey is the material a token of this algorithm is signed with, and the algorithm itself. The
-// two families take different things — HMAC takes the secret's bytes and RSA takes a parsed key —
-// which is the whole of why this is a switch and not a table.
+// signingKey is the material a token of this algorithm is signed with, and the algorithm itself.
+// The two families take different things — HMAC takes the secret's bytes and RSA takes a parsed key
+// — which is the whole of why this is a switch and not a table.
 func signingKey(auth domain.Auth) (any, jwt.SigningMethod, error) {
-	algorithm := auth.GetOrDefault("algorithm")
+	algorithm := auth.OrDefault("algorithm")
 	if !offersOption(auth.Type, "algorithm", algorithm) {
 		return nil, nil, fmt.Errorf("signing a JWT with %q: %w", algorithm, domain.ErrNotAllowed)
 	}
 	method := jwt.GetSigningMethod(algorithm)
 
-	secret := []byte(auth.Get("secret"))
-	if auth.GetOrDefault("secretEncoding") == encodingBase64 {
+	secret := []byte(auth.Answer("secret"))
+	if auth.OrDefault("secretEncoding") == encodingBase64 {
 		decoded, err := base64.StdEncoding.DecodeString(string(secret))
 		if err != nil {
 			return nil, nil, fmt.Errorf("reading a base64 secret: %w", err)
@@ -95,8 +95,8 @@ func signingKey(auth domain.Auth) (any, jwt.SigningMethod, error) {
 	return nil, nil, fmt.Errorf("signing a JWT with %q: %w", algorithm, domain.ErrNotAllowed)
 }
 
-// joseHeaderKeys is what the design lets a JOSE header carry. `alg` is not here on purpose: it comes
-// from the algorithm, and a header that said otherwise would describe a token nobody signed.
+// joseHeaderKeys is what the design lets a JOSE header carry. `alg` is not here on purpose: it
+// comes from the algorithm, and a header that said otherwise would describe a token nobody signed.
 var joseHeaderKeys = []string{"kid", "typ", "cty", "x5t", "x5u", "jku"}
 
 func setJOSEHeader(token *jwt.Token, raw string) error {
@@ -115,8 +115,8 @@ func setJOSEHeader(token *jwt.Token, raw string) error {
 	return nil
 }
 
-// expiresIn is how long a token is good for. A number that is not one, and the zero the design gives
-// for "a token with no expiry", both come to nothing.
+// expiresIn is how long a token is good for. A number that is not one, and the zero the design
+// gives for "a token with no expiry", both come to nothing.
 func expiresIn(raw string) time.Duration {
 	seconds, err := strconv.Atoi(strings.TrimSpace(raw))
 	if err != nil || seconds <= 0 {
@@ -132,10 +132,10 @@ func expiresIn(raw string) time.Duration {
 // No absorb, for the same reason a JWT has none and one more: the signature is over the request, so
 // an edited one would be a signature for something nobody sent.
 func awsSignature(auth domain.Auth, req domain.AuthRequest) (domain.AuthOutput, error) {
-	accessKey := strings.TrimSpace(auth.Get("accessKeyId"))
-	secretKey := auth.Get("secretAccessKey")
-	service := strings.TrimSpace(auth.GetOrDefault("service"))
-	region := strings.TrimSpace(auth.GetOrDefault("region"))
+	accessKey := strings.TrimSpace(auth.Answer("accessKeyId"))
+	secretKey := auth.Answer("secretAccessKey")
+	service := strings.TrimSpace(auth.OrDefault("service"))
+	region := strings.TrimSpace(auth.OrDefault("region"))
 	// A signature over a service nobody named is a request the server refuses, and one the window
 	// would have drawn as if it worked. Nothing is the honest answer to a half-filled scheme.
 	if accessKey == "" || secretKey == "" || service == "" || region == "" {
@@ -162,7 +162,7 @@ func awsSignature(auth domain.Auth, req domain.AuthRequest) (domain.AuthOutput, 
 		Credentials: credentials.Credentials{
 			AccessKeyID:     accessKey,
 			SecretAccessKey: secretKey,
-			SessionToken:    auth.Get("sessionToken"),
+			SessionToken:    auth.Answer("sessionToken"),
 		},
 		Service: service,
 		Region:  region,
@@ -185,9 +185,10 @@ func awsSignature(auth domain.Auth, req domain.AuthRequest) (domain.AuthOutput, 
 
 // seekable is the bytes of a request in something the signer can read, rewind and close. The signer
 // hashes the body to sign it and has to go back over it afterwards, and it can only do that for a
-// body it can seek. `http.NewRequest` wraps anything that is not a ReadCloser in a plain reader — and
-// a plain reader cannot be sought, at which point the body is left unsigned, which many services
-// refuse. bytes.Reader seeks but does not close, so the one method it is missing is added here.
+// body it can seek. `http.NewRequest` wraps anything that is not a ReadCloser in a plain reader —
+// and a plain reader cannot be sought, at which point the body is left unsigned, which many
+// services refuse. bytes.Reader seeks but does not close, so the one method it is missing is added
+// here.
 type seekable struct{ *bytes.Reader }
 
 func (seekable) Close() error { return nil }
@@ -200,10 +201,10 @@ const queryTokenName = "access_token"
 // prefix the scheme names, or in the query string. The credential is the same either way, and some
 // servers read it only one of the two.
 func carry(auth domain.Auth, token string) domain.AuthOutput {
-	if auth.GetOrDefault("place") == domain.PlaceQuery {
+	if auth.OrDefault("place") == domain.PlaceQuery {
 		return domain.AuthOutput{Query: []domain.HeaderPair{{Name: queryTokenName, Value: token}}}
 	}
-	return header("Authorization", withPrefix(auth.Get("prefix"), token))
+	return header("Authorization", withPrefix(auth.Answer("prefix"), token))
 }
 
 // offersOption is whether a scheme lets a field take this value at all. The table is the allowlist,

@@ -27,7 +27,8 @@ func (t Theme) Valid() bool {
 }
 
 // Language is the user's choice of interface language, in the same shape as Theme. Which language
-// "system" means is decided in the window, because the webview is the only side that can ask for it.
+// "system" means is decided in the window, because the webview is the only side that can ask for
+// it.
 type Language string
 
 const (

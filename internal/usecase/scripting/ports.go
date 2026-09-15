@@ -7,7 +7,8 @@ import (
 )
 
 // Engine runs one script and answers with its report. What leaves the sandbox — the request a
-// pre-request script changed, the variables it wrote — is what the engine put back where it found it.
+// pre-request script changed, the variables it wrote — is what the engine put back where it found
+// it.
 type Engine interface {
 	Run(in domain.ScriptInput) domain.ScriptRun
 }
@@ -20,9 +21,9 @@ type Tree interface {
 	Scripts(ctx context.Context, workspaceID, id string) (*domain.Scripts, error)
 }
 
-// Store is where the reports go, and where the level's own code is read and written. Reports hang off
-// the record of the request they ran around, which is what the response viewer asks by; a level's code
-// is addressed by its id, and which table that id names is not the editor's business.
+// Store is where the reports go, and where the level's own code is read and written. Reports hang
+// off the record of the request they ran around, which is what the response viewer asks by; a
+// level's code is addressed by its id, and which table that id names is not the editor's business.
 type Store interface {
 	Scripts(ctx context.Context, workspaceID, id string) (*domain.Scripts, error)
 	SaveScripts(ctx context.Context, workspaceID, id string, scripts *domain.Scripts) error

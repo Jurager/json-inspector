@@ -3,9 +3,10 @@ package migrate
 import (
 	"testing"
 
-	"json-inspector/migrations"
-
+	// Registers the "sqlite" driver, which is what runs the embedded schema for real.
 	_ "modernc.org/sqlite"
+
+	"json-inspector/migrations"
 )
 
 // This file is the only place that runs the real embedded schema instead of a fixture. It is
@@ -93,7 +94,8 @@ func TestEmbeddedSchemaEnforcesForeignKeys(t *testing.T) {
 	// Rejecting inserts and cascading deletes are different code paths, so the cascade is
 	// checked rather than inferred from the failure above.
 	if _, err := db.Exec(
-		`INSERT INTO records (id, workspace_id, source, method, url, started_at) VALUES (?, ?, ?, ?, ?, ?)`,
+		`INSERT INTO records (id, workspace_id, source, method, url,
+			started_at) VALUES (?, ?, ?, ?, ?, ?)`,
 		"rec-1", "personal", "manual", "GET", "https://example.test/", 1); err != nil {
 		t.Fatalf("inserting a record: %v", err)
 	}
@@ -146,15 +148,20 @@ func TestEmbeddedSchemaCascadesAWorkspace(t *testing.T) {
 			SELECT seq, 'response' FROM records WHERE id = 'rec-2'`, nil},
 		{"a script run", `INSERT INTO script_runs (id, workspace_id, scope, ok, created_at)
 			VALUES ('run-2', ?, 'pre', 1, 2)`, []any{ws}},
-		{"an environment", `INSERT INTO environments (id, workspace_id, name, position, created_at, updated_at)
+		{"an environment", `INSERT INTO environments
+			(id, workspace_id, name, position, created_at, updated_at)
 			VALUES ('env-2', ?, 'Stage', 0, 2, 2)`, []any{ws}},
-		{"a variable", `INSERT INTO variables (id, workspace_id, scope_kind, name, kind, position, created_at, updated_at)
+		{"a variable", `INSERT INTO variables
+			(id, workspace_id, scope_kind, name, kind, position, created_at, updated_at)
 			VALUES ('var-2', ?, 'globals', 'host', 'text', 0, 2, 2)`, []any{ws}},
-		{"a collection", `INSERT INTO collections (id, workspace_id, name, position, created_at, updated_at)
+		{"a collection", `INSERT INTO collections
+			(id, workspace_id, name, position, created_at, updated_at)
 			VALUES ('col-2', ?, 'Team', 0, 2, 2)`, []any{ws}},
-		{"a node in it", `INSERT INTO collection_nodes (id, collection_id, name, position, created_at, updated_at)
+		{"a node in it", `INSERT INTO collection_nodes
+			(id, collection_id, name, position, created_at, updated_at)
 			VALUES ('node-2', 'col-2', 'List', 0, 2, 2)`, nil},
-		{"the draft", `INSERT INTO drafts (workspace_id, id, updated_at) VALUES (?, 'command-line', 2)`, []any{ws}},
+		{"the draft", `INSERT INTO drafts (workspace_id, id, updated_at) VALUES (?, 'command-line', 2)`,
+			[]any{ws}},
 	}
 	for _, s := range seed {
 		if _, err := db.Exec(s.sql, s.args...); err != nil {
@@ -181,7 +188,8 @@ func TestEmbeddedSchemaCascadesAWorkspace(t *testing.T) {
 
 	// The workspace the app starts with is not collateral: it was there before, and it is there after.
 	var kept int
-	if err := db.QueryRow(`SELECT count(*) FROM workspaces WHERE id = 'personal'`).Scan(&kept); err != nil {
+	personal := `SELECT count(*) FROM workspaces WHERE id = 'personal'`
+	if err := db.QueryRow(personal).Scan(&kept); err != nil {
 		t.Fatalf("counting workspaces: %v", err)
 	}
 	if kept != 1 {

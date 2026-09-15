@@ -9,51 +9,6 @@ import (
 	"json-inspector/internal/domain"
 )
 
-// nested and request build the two rows a level holds the way a use case does, so the fixtures read
-// like a real tree instead of a list of struct literals.
-func nested(id, parentID string, position int64, name string) domain.Collection {
-	return domain.Collection{
-		ID: id, ParentID: parentID, Name: name, Position: position,
-		Items: []domain.CollectionNode{}, Children: []domain.Collection{},
-	}
-}
-
-func request(id, collectionID string, position int64, name, method, url string) domain.CollectionNode {
-	return domain.CollectionNode{
-		ID: id, CollectionID: collectionID, Name: name, Position: position, Method: method, URL: url,
-		Params:  []domain.Row{{ID: id + "-p", Name: "page", Value: "2", Enabled: true}},
-		Headers: []domain.Row{{ID: id + "-h", Name: "Accept", Value: "application/vnd.api+json", Enabled: true}},
-		Body:    `{"data": {"type": "users"}}`,
-		Cookies: []domain.CookieRow{{ID: id + "-c", Name: "session", Value: "abc", Path: "/", HTTPOnly: true}},
-	}
-}
-
-// seedTree writes one collection with a collection inside it, a request inside that one and a request
-// at the top, which is every shape the tree has to keep straight: the nested collection and the
-// request at the top share one number line, which is what makes them one list on screen.
-func seedTree(t *testing.T, store *Store) {
-	t.Helper()
-	ctx := context.Background()
-
-	bearer := bearerAuth("{{token}}")
-	if err := store.SaveCollection(ctx, ws, domain.Collection{
-		ID: "col-1", Name: "Пользователи", Description: "тестовые", Position: 0, Auth: &bearer,
-	}); err != nil {
-		t.Fatalf("SaveCollection: %v", err)
-	}
-	if err := store.SaveCollection(ctx, ws, nested("f-1", "col-1", 0, "Админ")); err != nil {
-		t.Fatalf("SaveCollection nested: %v", err)
-	}
-	for _, node := range []domain.CollectionNode{
-		request("r-1", "f-1", 0, "Список", "GET", "https://api.example.com/users"),
-		request("r-2", "col-1", 1, "Один", "PATCH", "https://api.example.com/users/1"),
-	} {
-		if err := store.SaveNode(ctx, node); err != nil {
-			t.Fatalf("SaveNode %s: %v", node.ID, err)
-		}
-	}
-}
-
 func TestCollectionsReadsTheTreeNested(t *testing.T) {
 	store := newMigratedStore(t)
 	seedTree(t, store)
@@ -69,7 +24,7 @@ func TestCollectionsReadsTheTreeNested(t *testing.T) {
 	if collection.Name != "Пользователи" || collection.Description != "тестовые" {
 		t.Errorf("collection = %+v, want the saved one", collection)
 	}
-	if collection.Auth == nil || collection.Auth.Get("token") != "{{token}}" {
+	if collection.Auth == nil || collection.Auth.Answer("token") != "{{token}}" {
 		t.Errorf("collection auth = %+v, want what everything inside inherits", collection.Auth)
 	}
 	// A collection holds requests and collections, and they are two lists here: the window merges
@@ -131,10 +86,12 @@ func TestCollectionsDoNotMixNodes(t *testing.T) {
 	ctx := context.Background()
 	seedTree(t, store)
 
-	if err := store.SaveCollection(ctx, ws, domain.Collection{ID: "col-2", Name: "Заказы", Position: 1}); err != nil {
+	if err := store.SaveCollection(ctx, ws,
+		domain.Collection{ID: "col-2", Name: "Заказы", Position: 1}); err != nil {
 		t.Fatalf("SaveCollection: %v", err)
 	}
-	if err := store.SaveNode(ctx, request("r-3", "col-2", 0, "Заказы", "GET", "https://api.example.com/orders")); err != nil {
+	if err := store.SaveNode(ctx,
+		sampleNode("r-3", "col-2", 0, "Заказы", "GET", "https://api.example.com/orders")); err != nil {
 		t.Fatalf("SaveNode: %v", err)
 	}
 
@@ -190,7 +147,7 @@ func TestNodeRoundTripKeepsTheBodyFormat(t *testing.T) {
 	ctx := context.Background()
 	seedTree(t, store)
 
-	node := request("r-5", "col-1", 2, "Загрузка", "POST", "https://api.example.com/upload")
+	node := sampleNode("r-5", "col-1", 2, "Загрузка", "POST", "https://api.example.com/upload")
 	node.Body = ""
 	node.BodyKind = domain.BodyForm
 	node.Form = []domain.FormRow{
@@ -236,7 +193,7 @@ func TestNodeAuthRemembersExplicitNothing(t *testing.T) {
 	// An empty auth is an answer, not an absence: without it a collection could not say "no auth for
 	// anything in here", which is the whole point of the NULL column.
 	none := &domain.Auth{Type: domain.AuthNone}
-	node := request("r-4", "col-1", 2, "Без авторизации", "GET", "https://api.example.com/open")
+	node := sampleNode("r-4", "col-1", 2, "Без авторизации", "GET", "https://api.example.com/open")
 	node.Auth = none
 	if err := store.SaveNode(ctx, node); err != nil {
 		t.Fatalf("SaveNode: %v", err)
@@ -278,7 +235,8 @@ func TestSaveNodeUpdatesInPlace(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Node: %v", err)
 	}
-	if after.Name != "Один пользователь" || len(after.Headers) != 1 || after.Headers[0].Name != "If-None-Match" {
+	if after.Name != "Один пользователь" || len(after.Headers) != 1 ||
+		after.Headers[0].Name != "If-None-Match" {
 		t.Errorf("node = %+v, want the edit", after)
 	}
 	if after.CreatedAt != before.CreatedAt || after.Position != before.Position {
@@ -333,9 +291,9 @@ func TestNextPositionCountsTheWholeLevel(t *testing.T) {
 	}
 }
 
-// TestNextPositionIsNotAMixOfTheTwoTables pins the half of the shared number line that is easy to get
-// wrong: a nested collection counts towards the level's next position, so a new request lands after
-// it rather than on top of its number.
+// TestNextPositionIsNotAMixOfTheTwoTables pins the half of the shared number line that is easy to
+// get wrong: a nested collection counts towards the level's next position, so a new request lands
+// after it rather than on top of its number.
 func TestNextPositionIsNotAMixOfTheTwoTables(t *testing.T) {
 	store := newMigratedStore(t)
 	ctx := context.Background()
@@ -424,16 +382,16 @@ func TestMoveNodeChangesItsCollection(t *testing.T) {
 	}
 }
 
-// TestMoveNodePutsARowBetweenItsNeighbours is the drop the window draws as a line: the row goes where
-// the index says, and the rows around it close up.
+// TestMoveNodePutsARowBetweenItsNeighbours is the drop the window draws as a line: the row goes
+// where the index says, and the rows around it close up.
 func TestMoveNodePutsARowBetweenItsNeighbours(t *testing.T) {
 	store := newMigratedStore(t)
 	ctx := context.Background()
 	seedTree(t, store)
 
 	for _, node := range []domain.CollectionNode{
-		request("r-3", "col-1", 2, "Два", "GET", "https://api.example.com/2"),
-		request("r-4", "col-1", 3, "Три", "GET", "https://api.example.com/3"),
+		sampleNode("r-3", "col-1", 2, "Два", "GET", "https://api.example.com/2"),
+		sampleNode("r-4", "col-1", 3, "Три", "GET", "https://api.example.com/3"),
 	} {
 		if err := store.SaveNode(ctx, node); err != nil {
 			t.Fatalf("SaveNode %s: %v", node.ID, err)
@@ -463,14 +421,15 @@ func TestMoveNodePutsARowBetweenItsNeighbours(t *testing.T) {
 	}
 }
 
-// TestMoveCollectionNestsAndComesBack covers both ends of a collection's move: into another, and back
-// out to the top level, where it lands among the collections that have no parent.
+// TestMoveCollectionNestsAndComesBack covers both ends of a collection's move: into another, and
+// back out to the top level, where it lands among the collections that have no parent.
 func TestMoveCollectionNestsAndComesBack(t *testing.T) {
 	store := newMigratedStore(t)
 	ctx := context.Background()
 	seedTree(t, store)
 
-	if err := store.SaveCollection(ctx, ws, domain.Collection{ID: "col-2", Name: "Заказы", Position: 1}); err != nil {
+	if err := store.SaveCollection(ctx, ws,
+		domain.Collection{ID: "col-2", Name: "Заказы", Position: 1}); err != nil {
 		t.Fatalf("SaveCollection: %v", err)
 	}
 
@@ -553,10 +512,12 @@ func TestRunRoundTrip(t *testing.T) {
 	if len(last.Results) != 2 {
 		t.Fatalf("run kept %d results, want 2", len(last.Results))
 	}
-	if first := last.Results[0]; first.Status == nil || *first.Status != 200 || !first.OK || first.DurationUs != 12_345 {
+	if first := last.Results[0]; first.Status == nil || *first.Status != 200 || !first.OK ||
+		first.DurationUs != 12_345 {
 		t.Errorf("first result = %+v, want the 200 with its microseconds", first)
 	}
-	if second := last.Results[1]; second.Status != nil || second.OK || second.Error != "сервер не ответил" {
+	if second := last.Results[1]; second.Status != nil || second.OK ||
+		second.Error != "сервер не ответил" {
 		t.Errorf("second result = %+v, want no status and the reason", second)
 	}
 	// The row names the record it produced: it is what a click on it opens, and without it the row can
@@ -565,7 +526,8 @@ func TestRunRoundTrip(t *testing.T) {
 		t.Errorf("first result = %+v, want the record it produced", last.Results[0])
 	}
 	if last.Results[1].RecordID != "" {
-		t.Errorf("second result = %+v, want no record for a request that never got an answer", last.Results[1])
+		t.Errorf("second result = %+v, want no record for a request that never got an answer",
+			last.Results[1])
 	}
 
 	// The results hang off the run: dropping it takes them with it, so a deleted collection does not

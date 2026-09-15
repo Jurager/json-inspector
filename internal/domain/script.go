@@ -6,8 +6,8 @@ import "strings"
 //
 // On a node it is a pointer for the reason Auth is — nil means "not set here" and a value means
 // "this is what this level says". It does not win by being closest, though: every level that has a
-// script runs, outermost first, so a collection can count requests and a request can assert about its
-// own response without either of them replacing the other.
+// script runs, outermost first, so a collection can count requests and a request can assert about
+// its own response without either of them replacing the other.
 type Scripts struct {
 	Pre  string `json:"pre,omitempty"`
 	Post string `json:"post,omitempty"`
@@ -30,8 +30,8 @@ const (
 )
 
 // ScriptInput is one script about to run: the code, when it runs, and everything it can see. What a
-// script is handed is a request, and — after the answer came back — the response to it, because those
-// are what it counts, changes and asserts about.
+// script is handed is a request, and — after the answer came back — the response to it, because
+// those are what it counts, changes and asserts about.
 type ScriptInput struct {
 	Scope  ScriptScope
 	Source string
@@ -48,9 +48,9 @@ type ScriptInput struct {
 	Variables VarStore
 }
 
-// ScriptRequest is a request as a script sees it: the address it goes to, the headers as they will be
-// sent, the body as it is written. Not the draft: a script counts what actually goes out, and a draft
-// still holds `{{tokens}}` where the values will be.
+// ScriptRequest is a request as a script sees it: the address it goes to, the headers as they will
+// be sent, the body as it is written. Not the draft: a script counts what actually goes out, and a
+// draft still holds `{{tokens}}` where the values will be.
 type ScriptRequest struct {
 	Method  string       `json:"method"`
 	URL     string       `json:"url"`
@@ -63,13 +63,13 @@ type ScriptRequest struct {
 	BodyKind BodyKind `json:"bodyKind,omitempty"`
 }
 
-// ScriptPass is one attempt as the scripts around it see it: which run it belongs to — the scope the
-// run's own variables live in — which record the reports are written against, which node of the tree
-// the request came from, and the request itself, which a pre-request script may change.
+// ScriptPass is one attempt as the scripts around it see it: which run it belongs to — the scope
+// the run's own variables live in — which record the reports are written against, which node of the
+// tree the request came from, and the request itself, which a pre-request script may change.
 //
 // The type is not the wire's: it is the shape two features hand each other inside the app, which is
-// why it has no tags. The feature that sends a request builds it, the feature that runs scripts reads
-// it, and neither imports the other.
+// why it has no tags. The feature that sends a request builds it, the feature that runs scripts
+// reads it, and neither imports the other.
 type ScriptPass struct {
 	Run      string
 	RecordID string
@@ -97,14 +97,14 @@ const (
 )
 
 // VarStore is where a script's variables live. Reading `variables` reads the run's own scope and,
-// through it, the environment and the globals — the order a request is resolved in; reading either of
-// the other two reads that one alone, which is what tells a script whether a name is set in the
+// through it, the environment and the globals — the order a request is resolved in; reading either
+// of the other two reads that one alone, which is what tells a script whether a name is set in the
 // environment or only borrowed from a run.
 //
 // Reading answers with an error and not with nothing: `нет значения` and `не удалось прочитать` are
 // different answers, and a script that asks is entitled to tell them apart.
 type VarStore interface {
-	Get(scope VarScope, name string) (string, bool, error)
+	Lookup(scope VarScope, name string) (string, bool, error)
 	Set(scope VarScope, name string, value string) error
 }
 
@@ -135,8 +135,8 @@ type ScriptLog struct {
 	Message string `json:"message"`
 }
 
-// TestResult is one assertion a script made. The name is the script's own — `pm.test('...')` — and a
-// failure carries the reason beside it, because "не прошло" without why is not a report.
+// TestResult is one assertion a script made. The name is the script's own — `pm.test('...')` — and
+// a failure carries the reason beside it, because "не прошло" without why is not a report.
 type TestResult struct {
 	Name       string `json:"name"`
 	Passed     bool   `json:"passed"`

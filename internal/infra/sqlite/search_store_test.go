@@ -8,21 +8,9 @@ import (
 	"json-inspector/internal/domain"
 )
 
-// hit is one row of an answer by its id, so that a test reads as the row it is asking about rather
-// than as a position in a list the database ordered.
-func hit(t *testing.T, hits []domain.SearchHit, id string) domain.SearchHit {
-	t.Helper()
-	for _, h := range hits {
-		if h.ID == id {
-			return h
-		}
-	}
-	t.Fatalf("no row %s in %+v", id, hits)
-	return domain.SearchHit{}
-}
-
-// An addressed request is drawn by its address, and the name it was given is the last step of the way
-// down to it — which is what keeps the name findable and what puts a name match on something visible.
+// An addressed request is drawn by its address, and the name it was given is the last step of the
+// way down to it — which is what keeps the name findable and what puts a name match on something
+// visible.
 func TestFindRequestsNamesTheWayDown(t *testing.T) {
 	store := newMigratedStore(t)
 	seedTree(t, store)
@@ -32,7 +20,7 @@ func TestFindRequestsNamesTheWayDown(t *testing.T) {
 		t.Fatalf("FindRequests: %v", err)
 	}
 
-	deep := hit(t, hits, "r-1")
+	deep := findHit(t, hits, "r-1")
 	if deep.Title != "https://api.example.com/users" {
 		t.Errorf("title = %q, want the address", deep.Title)
 	}
@@ -55,12 +43,14 @@ func TestFindRequestsNamesTheWayDown(t *testing.T) {
 
 // A request made a moment ago is named and not yet addressed, and the palette has to draw it by
 // something: a row whose title is an empty address says nothing but its method, which is what the
-// first version of this did — the name is the identity until there is an address to stand in for it.
+// first version of this did — the name is the identity until there is an address to stand in for
+// it.
 func TestFindRequestsDrawsAnUnaddressedRequestByName(t *testing.T) {
 	store := newMigratedStore(t)
 	ctx := context.Background()
 
-	if err := store.SaveCollection(ctx, ws, domain.Collection{ID: "col-1", Name: "234", Position: 0}); err != nil {
+	if err := store.SaveCollection(ctx, ws,
+		domain.Collection{ID: "col-1", Name: "234", Position: 0}); err != nil {
 		t.Fatalf("SaveCollection: %v", err)
 	}
 	if err := store.SaveNode(ctx, domain.CollectionNode{
@@ -74,7 +64,7 @@ func TestFindRequestsDrawsAnUnaddressedRequestByName(t *testing.T) {
 		t.Fatalf("FindRequests: %v", err)
 	}
 
-	row := hit(t, hits, "r-1")
+	row := findHit(t, hits, "r-1")
 	if row.Title != "New request" {
 		t.Errorf("title = %q, want the name it was given", row.Title)
 	}
@@ -96,7 +86,7 @@ func TestFindRequestsKeepsTheNameReachableUnderAnAddress(t *testing.T) {
 		t.Fatalf("FindRequests: %v", err)
 	}
 
-	deep := hit(t, hits, "r-1")
+	deep := findHit(t, hits, "r-1")
 	if deep.Path[len(deep.Path)-1] != "Список" {
 		t.Errorf("trail = %v, want the request's own name at the end", deep.Path)
 	}
@@ -113,11 +103,11 @@ func TestFindCollectionsNamesWhatIsAbove(t *testing.T) {
 		t.Fatalf("FindCollections: %v", err)
 	}
 
-	top := hit(t, hits, "col-1")
+	top := findHit(t, hits, "col-1")
 	if top.Title != "Пользователи" || len(top.Path) != 0 {
 		t.Errorf("top level = %q %v, want the name and nothing above it", top.Title, top.Path)
 	}
-	folder := hit(t, hits, "f-1")
+	folder := findHit(t, hits, "f-1")
 	if folder.Title != "Админ" {
 		t.Errorf("folder title = %q, want Админ", folder.Title)
 	}
@@ -126,13 +116,14 @@ func TestFindCollectionsNamesWhatIsAbove(t *testing.T) {
 	}
 }
 
-// A secret is found by its name and never by what it holds: the value is not put next to a query, not
-// even to compare it, so there is nothing to leak when the row is drawn.
+// A secret is found by its name and never by what it holds: the value is not put next to a query,
+// not even to compare it, so there is nothing to leak when the row is drawn.
 func TestFindEnvironmentsKeepsSecretValuesToThemselves(t *testing.T) {
 	store := newMigratedStore(t)
 	ctx := context.Background()
 
-	if err := store.SaveEnvironment(ctx, ws, domain.Environment{ID: "env-1", Name: "Local", Position: 0}); err != nil {
+	if err := store.SaveEnvironment(ctx, ws,
+		domain.Environment{ID: "env-1", Name: "Local", Position: 0}); err != nil {
 		t.Fatalf("SaveEnvironment: %v", err)
 	}
 	if err := store.SaveVariable(ctx, ws, domain.EnvScope{Environment: "env-1"}, domain.Variable{
@@ -154,7 +145,7 @@ func TestFindEnvironmentsKeepsSecretValuesToThemselves(t *testing.T) {
 		t.Fatalf("FindEnvironments: %v", err)
 	}
 
-	text := hit(t, hits, "v-text")
+	text := findHit(t, hits, "v-text")
 	if text.MatchText != "admin" {
 		t.Errorf("a text variable answers with its value, got %q", text.MatchText)
 	}
@@ -165,7 +156,7 @@ func TestFindEnvironmentsKeepsSecretValuesToThemselves(t *testing.T) {
 		t.Errorf("open = %+v, want the variable and the environment to open it in", text.Open)
 	}
 
-	secret := hit(t, hits, "v-secret")
+	secret := findHit(t, hits, "v-secret")
 	if secret.MatchText != "" {
 		t.Errorf("a secret carries its value: %q", secret.MatchText)
 	}
@@ -173,13 +164,13 @@ func TestFindEnvironmentsKeepsSecretValuesToThemselves(t *testing.T) {
 		t.Errorf("a secret is found by its name, got %q", secret.Title)
 	}
 
-	if env := hit(t, hits, "env-1"); env.Note.Kind != domain.NoteActive {
+	if env := findHit(t, hits, "env-1"); env.Note.Kind != domain.NoteActive {
 		t.Errorf("note = %+v, want the environment on screen marked", env.Note)
 	}
 }
 
-// The history is the one area that answers an empty field, and it answers newest first: that order is
-// what "what was I just doing" means.
+// The history is the one area that answers an empty field, and it answers newest first: that order
+// is what "what was I just doing" means.
 func TestFindHistoryIsNewestFirst(t *testing.T) {
 	store := newMigratedStore(t)
 	ctx := context.Background()

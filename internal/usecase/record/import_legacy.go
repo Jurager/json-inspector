@@ -22,7 +22,8 @@ type ImportReport struct {
 }
 
 // legacyRecord is the shape the TypeScript store persisted: its field names, spelled the same way.
-// Only what the app draws is read — anything else in the old rows is dropped rather than guessed at.
+// Only what the app draws is read — anything else in the old rows is dropped rather than guessed
+// at.
 type legacyRecord struct {
 	ID              string             `json:"id"`
 	Method          string             `json:"method"`
@@ -127,7 +128,8 @@ func (u *UseCase) ImportLegacy(ctx context.Context, raw string) (ImportReport, e
 			// One bad row must not cost the rest of the history: it is a warning, and the import
 			// carries on to the end.
 			report.Skipped++
-			report.Warnings = append(report.Warnings, fmt.Sprintf("record %s was not imported: %v", rec.ID, err))
+			report.Warnings = append(report.Warnings,
+				fmt.Sprintf("record %s was not imported: %v", rec.ID, err))
 			continue
 		}
 		report.Records++
@@ -194,10 +196,12 @@ func parseLegacy(raw string) ([]domain.Record, int, error) {
 			RequestHeaders:  orEmptyPairs(old.RequestHeaders),
 			ResponseHeaders: orEmptyPairs(old.ResponseHeaders),
 			RequestCookies:  old.RequestCookies,
-			RequestBody:     bodyRef(old.RequestBody),
-			ResponseBody:    bodyRef(old.ResponseBody),
-			RequestBytes:    int64(len(old.RequestBody)),
-			ResponseBytes:   int64(len(old.ResponseBody)),
+			// The legacy store kept what it had and never said whether it was short; nothing here can
+			// claim otherwise.
+			RequestBody:   bodyRef(old.RequestBody, false),
+			ResponseBody:  bodyRef(old.ResponseBody, false),
+			RequestBytes:  int64(len(old.RequestBody)),
+			ResponseBytes: int64(len(old.ResponseBody)),
 		})
 	}
 	return out, skipped, nil

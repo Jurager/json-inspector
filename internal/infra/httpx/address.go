@@ -4,15 +4,15 @@ import "strings"
 
 // complete turns the address a person wrote into one the wire can take. Somebody types
 // "api.example.com/articles" and means what a browser's address bar would send: the scheme is a
-// detail of the wire rather than part of the address, and the field's own example writes it out only
-// because an empty box has to show something.
+// detail of the wire rather than part of the address, and the field's own example writes it out
+// only because an empty box has to show something.
 //
 // It lives here, at the one place a request leaves the process, so that every caller gets it: the
 // command line, a card of a collection, a run, a script's own sendRequest.
 //
-// What is already an address is left alone — including one whose scheme this app cannot speak, where
-// the engine's refusal says more than a rewrite would. So is an address that still has a hole where
-// a variable goes: that is not a scheme that is missing.
+// What is already an address is left alone — including one whose scheme this app cannot speak,
+// where the engine's refusal says more than a rewrite would. So is an address that still has a hole
+// where a variable goes: that is not a scheme that is missing.
 func complete(raw string) string {
 	url := strings.TrimSpace(raw)
 	switch {
@@ -36,8 +36,8 @@ func complete(raw string) string {
 // hasScheme says whether the address already names a protocol: "https://…" does, and so does any
 // other "word:" of the shape RFC 3986 allows.
 //
-// A host with a port reads like one from the left — "example.com:8080" is all letters and dots up to
-// the colon — so what decides between the two is the number on the right: a port is digits, and
+// A host with a port reads like one from the left — "example.com:8080" is all letters and dots up
+// to the colon — so what decides between the two is the number on the right: a port is digits, and
 // everything else is left for the engine to refuse or to send.
 func hasScheme(url string) bool {
 	colon := strings.IndexByte(url, ':')

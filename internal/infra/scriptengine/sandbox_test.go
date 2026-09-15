@@ -9,15 +9,16 @@ import (
 	"json-inspector/internal/domain"
 )
 
-// fakeVars is the three scopes without a database. Reading `variables` runs through all three, the way
-// a request is resolved; reading either of the others reads that one alone.
+// fakeVars is the three scopes without a database. Reading `variables` runs through all three, the
+// way a request is resolved; reading either of the others reads that one alone.
 type fakeVars struct {
 	values map[domain.VarScope]map[string]string
 	refuse map[domain.VarScope]string
 }
 
 func newFakeVars() *fakeVars {
-	return &fakeVars{values: map[domain.VarScope]map[string]string{}, refuse: map[domain.VarScope]string{}}
+	return &fakeVars{values: map[domain.VarScope]map[string]string{},
+		refuse: map[domain.VarScope]string{}}
 }
 
 func (f *fakeVars) with(scope domain.VarScope, name string, value string) *fakeVars {
@@ -25,9 +26,10 @@ func (f *fakeVars) with(scope domain.VarScope, name string, value string) *fakeV
 	return f
 }
 
-func (f *fakeVars) Get(scope domain.VarScope, name string) (string, bool, error) {
+func (f *fakeVars) Lookup(scope domain.VarScope, name string) (string, bool, error) {
 	if scope == domain.ScopeRun {
-		for _, one := range []domain.VarScope{domain.ScopeRun, domain.ScopeEnvironment, domain.ScopeGlobals} {
+		for _, one := range []domain.VarScope{domain.ScopeRun, domain.ScopeEnvironment,
+			domain.ScopeGlobals} {
 			if value, ok := f.values[one][name]; ok {
 				return value, true, nil
 			}
@@ -67,9 +69,13 @@ func answer() *domain.Response {
 	}
 }
 
-// run executes a script the way the use case will: with a request, and with an answer when the script
-// runs after the response.
-func run(t *testing.T, scope domain.ScriptScope, source string) (domain.ScriptRun, *domain.ScriptRequest, *fakeVars) {
+// run executes a script the way the use case will: with a request, and with an answer when the
+// script runs after the response.
+func run(
+	t *testing.T,
+	scope domain.ScriptScope,
+	source string,
+) (domain.ScriptRun, *domain.ScriptRequest, *fakeVars) {
 	t.Helper()
 	vars := newFakeVars()
 	asked := request()
@@ -112,8 +118,8 @@ func TestAScriptThatRunsSaysWhatItDid(t *testing.T) {
 	}
 }
 
-// A check that fails is a failed check, not a failed script: the rest of the script runs on, which is
-// what makes a script with five checks report all five.
+// A check that fails is a failed check, not a failed script: the rest of the script runs on, which
+// is what makes a script with five checks report all five.
 func TestAFailedCheckDoesNotStopTheScript(t *testing.T) {
 	report, _, _ := run(t, domain.ScriptPost, `
 		pm.test('первая', function () { pm.expect(pm.response.code).to.equal(404); });
@@ -139,8 +145,8 @@ func TestAFailedCheckDoesNotStopTheScript(t *testing.T) {
 
 // The assertions read the way they are written in Postman and in chai, including the words that are
 // only there to make the sentence work — and `not`, which is the one that changes the answer. Each
-// case is written twice: once as a script that agrees with the answer and once as one that does not,
-// because the message is what a person reads when their script disagrees with the response.
+// case is written twice: once as a script that agrees with the answer and once as one that does
+// not, because the message is what a person reads when their script disagrees with the response.
 func TestAssertions(t *testing.T) {
 	for _, one := range []struct {
 		what    string
@@ -199,10 +205,14 @@ func TestAssertions(t *testing.T) {
 			fails:   `pm.expect('вчера').to.match(/^\d{4}$/)`,
 			message: `вчера не соответствует /^\d{4}$/`,
 		},
-		{what: "above", passes: `pm.expect(5).to.be.above(4)`, fails: `pm.expect(5).to.be.above(6)`, message: "5 не больше 6"},
-		{what: "below", passes: `pm.expect(5).to.be.below(6)`, fails: `pm.expect(5).to.be.below(4)`, message: "5 не меньше 4"},
-		{what: "least", passes: `pm.expect(5).to.be.least(5)`, fails: `pm.expect(5).to.be.least(6)`, message: "5 меньше 6"},
-		{what: "most", passes: `pm.expect(5).to.be.most(5)`, fails: `pm.expect(5).to.be.most(4)`, message: "5 больше 4"},
+		{what: "above", passes: `pm.expect(5).to.be.above(4)`, fails: `pm.expect(5).to.be.above(6)`,
+			message: "5 не больше 6"},
+		{what: "below", passes: `pm.expect(5).to.be.below(6)`, fails: `pm.expect(5).to.be.below(4)`,
+			message: "5 не меньше 4"},
+		{what: "least", passes: `pm.expect(5).to.be.least(5)`, fails: `pm.expect(5).to.be.least(6)`,
+			message: "5 меньше 6"},
+		{what: "most", passes: `pm.expect(5).to.be.most(5)`, fails: `pm.expect(5).to.be.most(4)`,
+			message: "5 больше 4"},
 		{
 			what:    "oneOf",
 			passes:  `pm.expect(2).to.be.oneOf([1, 2])`,
@@ -233,7 +243,8 @@ func TestAssertions(t *testing.T) {
 			fails:   `pm.expect(5).to.be.undefined`,
 			message: "ожидалось undefined, получено 5",
 		},
-		{what: "ok", passes: `pm.expect('текст').to.be.ok`, fails: `pm.expect(0).to.be.ok`, message: "ожидалось ok, получено 0"},
+		{what: "ok", passes: `pm.expect('текст').to.be.ok`, fails: `pm.expect(0).to.be.ok`,
+			message: "ожидалось ok, получено 0"},
 		{
 			what:    "empty",
 			passes:  `pm.expect([]).to.be.empty`,
@@ -315,7 +326,8 @@ func TestThereIsNoWayOutOfTheSandbox(t *testing.T) {
 		t.Fatalf("report = %+v, want the script to run", report)
 	}
 	if len(report.Tests) != 1 || !report.Tests[0].Passed {
-		t.Errorf("tests = %+v, want the sandbox to have nothing in it: %s", report.Tests, report.Tests[0].Error)
+		t.Errorf("tests = %+v, want the sandbox to have nothing in it: %s", report.Tests,
+			report.Tests[0].Error)
 	}
 }
 
@@ -362,7 +374,8 @@ func TestAScriptCannotCatchItsOwnDeadline(t *testing.T) {
 }
 
 // A promise has nothing to resolve it here, and a check that waits for one would otherwise pass
-// without checking anything: an assertion inside an async function throws into a promise nobody reads.
+// without checking anything: an assertion inside an async function throws into a promise nobody
+// reads.
 func TestACheckThatWaitsForAPromiseIsNotPassed(t *testing.T) {
 	report, _, _ := run(t, domain.ScriptPost, `
 		pm.test('ждёт обещания', function () { return {then: function () {}}; });
@@ -440,8 +453,8 @@ func TestAPostResponseScriptSeesTheAnswer(t *testing.T) {
 	}
 }
 
-// Before the request has gone out there is no answer, and `pm.response` is the undefined Postman also
-// leaves there — a script that reaches for it finds out at once.
+// Before the request has gone out there is no answer, and `pm.response` is the undefined Postman
+// also leaves there — a script that reaches for it finds out at once.
 func TestAPreRequestScriptHasNoResponse(t *testing.T) {
 	report, _, _ := run(t, domain.ScriptPre, `
 		pm.test('ответа ещё нет', function () { pm.expect(typeof pm.response).to.equal('undefined'); });
@@ -521,8 +534,9 @@ func TestAVariableThatCannotBeWrittenIsThrown(t *testing.T) {
 	vars.refuse[domain.ScopeEnvironment] = "окружение только для чтения"
 
 	report := NewEngine().Run(domain.ScriptInput{
-		Scope:     domain.ScriptPre,
-		Source:    `try { pm.environment.set('token', '1'); } catch (error) { console.log(error.message); }`,
+		Scope: domain.ScriptPre,
+		Source: `try { pm.environment.set('token',
+			'1'); } catch (error) { console.log(error.message); }`,
 		Request:   request(),
 		Variables: vars,
 	})

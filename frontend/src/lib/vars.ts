@@ -1,13 +1,14 @@
 // Environment tokens: `{{name}}`, spaces allowed inside, `\{{` escapes the sequence. Only
 // a valid variable name counts, so payloads like `{{"a": 1}}` pass through untouched.
+//
+// What a token *is* is the window's business only as far as drawing it: what it comes to is resolved
+// in Go, and what the window does with the answer is paint a pill over the characters. So this file
+// stops at the token's shape — see internal/vars for the substitution itself.
 import type { VariableKind } from '../../bindings/json-inspector/internal/domain'
 
 // The kind of a variable is declared once, in Go, and reaches the window as a generated enum: a
 // second spelling here is the duplicate this migration exists to remove.
 export type VarKind = VariableKind
-
-// What a secret looks like anywhere it isn't deliberately revealed: tooltips, preview, exports.
-export const SECRET_MASK = '••••'
 
 // `source` and `kind` travel with the value: the tooltip names where it came from and whether it
 // may be shown.
@@ -16,8 +17,6 @@ export interface VarResolution {
   source: 'env' | 'global'
   kind: VarKind
 }
-
-export type ResolveFn = (name: string) => VarResolution | null
 
 export interface Token {
   start: number
@@ -56,47 +55,6 @@ export function parseTokens(text: string): Token[] {
     i = close + 2
   }
   return out
-}
-
-// Unknown tokens are left exactly as written — `missingTokens` reports them and blocks
-// sending, so blanking them here would hide the mistake instead of surfacing it.
-export function substituteTokens(text: string, resolve: ResolveFn): string {
-  const tokens = parseTokens(text)
-  if (tokens.length === 0) return text
-  let out = ''
-  let last = 0
-  for (const t of tokens) {
-    const r = resolve(t.name)
-    out += text.slice(last, t.start)
-    out += r ? r.value : t.raw
-    last = t.end
-  }
-  return out + text.slice(last)
-}
-
-// Names that appear as tokens but resolve to nothing, deduplicated, in order of first appearance.
-export function missingTokens(text: string, resolve: ResolveFn): string[] {
-  const names = new Set<string>()
-  for (const t of parseTokens(text)) {
-    if (!resolve(t.name)) names.add(t.name)
-  }
-  return Array.from(names)
-}
-
-// Substitution for anything that outlives the moment of sending — the request preview, an
-// export: a secret leaves as the mask, never as the value.
-export function substituteTokensMasked(text: string, resolve: ResolveFn): string {
-  const tokens = parseTokens(text)
-  if (tokens.length === 0) return text
-  let out = ''
-  let last = 0
-  for (const t of tokens) {
-    const r = resolve(t.name)
-    out += text.slice(last, t.start)
-    out += r ? (r.kind === 'secret' ? SECRET_MASK : r.value) : t.raw
-    last = t.end
-  }
-  return out + text.slice(last)
 }
 
 export interface TokenSegment {

@@ -18,10 +18,14 @@ type requestMask struct {
 
 var _ record.Masker = requestMask{}
 
-// Mask re-renders a request a script changed. The URL and the headers come from the script's answer,
-// because those are what it rewrote; the body is rendered again from what the prepared attempt is
-// made of, because a form and a file are not text a script could have handed back.
-func (m requestMask) Mask(ctx context.Context, in record.SendInput, sent domain.ScriptRequest) (record.Masked, error) {
+// Mask re-renders a request a script changed. The URL and the headers come from the script's
+// answer, because those are what it rewrote; the body is rendered again from what the prepared
+// attempt is made of, because a form and a file are not text a script could have handed back.
+func (m requestMask) Mask(
+	ctx context.Context,
+	in record.SendInput,
+	sent domain.ScriptRequest,
+) (record.Masked, error) {
 	prepared, err := m.drafts.Prepare(ctx, draft.Seed{
 		Method:   sent.Method,
 		URL:      sent.URL,

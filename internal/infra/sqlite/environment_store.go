@@ -85,7 +85,8 @@ func (s *Store) variables(ctx context.Context, workspaceID string) ([]scopedVari
 			v       domain.Variable
 			enabled int
 		)
-		if err := rows.Scan(&v.ID, &scope, &v.Name, &v.Value, &v.Kind, &enabled, &v.Position); err != nil {
+		if err := rows.Scan(&v.ID, &scope, &v.Name, &v.Value, &v.Kind, &enabled,
+			&v.Position); err != nil {
 			return nil, fmt.Errorf("reading variables: %w", err)
 		}
 		v.Enabled = enabled != 0
@@ -96,15 +97,21 @@ func (s *Store) variables(ctx context.Context, workspaceID string) ([]scopedVari
 }
 
 // SaveEnvironment writes an environment through, keeping its position.
-func (s *Store) SaveEnvironment(ctx context.Context, workspaceID string, env domain.Environment) error {
+func (s *Store) SaveEnvironment(
+	ctx context.Context,
+	workspaceID string,
+	env domain.Environment,
+) error {
 	now := time.Now().UnixMilli()
 	_, err := s.db.ExecContext(ctx,
-		`INSERT INTO environments (id, workspace_id, name, color, readonly, position, created_at, updated_at)
+		`INSERT INTO environments (id, workspace_id, name, color, readonly, position, created_at,
+					updated_at)
 		 VALUES (?, ?, ?, ?, ?, ?, ?, ?)
 		 ON CONFLICT(id) DO UPDATE SET
 		   name = excluded.name, color = excluded.color, readonly = excluded.readonly,
 		   position = excluded.position, updated_at = excluded.updated_at`,
-		env.ID, workspaceID, env.Name, nullIfEmpty(env.Color), boolToInt(env.Readonly), env.Position, now, now)
+		env.ID, workspaceID, env.Name, nullIfEmpty(env.Color), boolToInt(env.Readonly), env.Position, now,
+		now)
 	if err != nil {
 		return fmt.Errorf("saving environment %s: %w", env.ID, err)
 	}
@@ -139,20 +146,29 @@ func (s *Store) DeleteEnvironment(ctx context.Context, workspaceID, id string) e
 // SaveVariable writes a variable into an environment or into the globals. A name that already
 // exists in the same scope is refused by the unique index and reported as a conflict, not as a
 // database error.
-func (s *Store) SaveVariable(ctx context.Context, workspaceID string, scope domain.EnvScope, v domain.Variable) error {
+func (s *Store) SaveVariable(
+	ctx context.Context,
+	workspaceID string,
+	scope domain.EnvScope,
+	v domain.Variable,
+) error {
 	kind, scopeID := "globals", any(nil)
 	if scope.Environment != "" {
 		kind, scopeID = "environment", scope.Environment
 	}
 
 	now := time.Now().UnixMilli()
+	// Every column the statement writes is written on the update as well: a row that came back for a
+	// save is the row it was described as, scope included, and a scope left out here would be a
+	// variable that answered for an environment it had been moved out of.
 	_, err := s.db.ExecContext(ctx,
 		`INSERT INTO variables (id, workspace_id, scope_kind, scope_id, name, value, kind, enabled,
 		                        position, created_at, updated_at)
 		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 		 ON CONFLICT(id) DO UPDATE SET
 		   name = excluded.name, value = excluded.value, kind = excluded.kind,
-		   enabled = excluded.enabled, position = excluded.position, updated_at = excluded.updated_at`,
+		   enabled = excluded.enabled, position = excluded.position, updated_at = excluded.updated_at,
+		   scope_kind = excluded.scope_kind, scope_id = excluded.scope_id`,
 		v.ID, workspaceID, kind, scopeID, v.Name, v.Value, string(v.Kind), boolToInt(v.Enabled),
 		v.Position, now, now)
 	if err != nil {
@@ -188,7 +204,8 @@ func (s *Store) VariableValue(ctx context.Context, workspaceID, id string) (stri
 }
 
 // isUniqueViolation reports whether an error is the scope+name index refusing a duplicate. The
-// driver spells it as text, and matching on it here keeps SQLite's error values out of the use case.
+// driver spells it as text, and matching on it here keeps SQLite's error values out of the use
+// case.
 func isUniqueViolation(err error) bool {
 	return err != nil && strings.Contains(err.Error(), "UNIQUE constraint failed")
 }

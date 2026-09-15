@@ -9,13 +9,13 @@ import (
 	"json-inspector/internal/domain"
 )
 
-// Moving a row is one operation in two halves: the row changes where it lives, and the level it left
-// and the level it joined are both renumbered.
+// Moving a row is one operation in two halves: the row changes where it lives, and the level it
+// left and the level it joined are both renumbered.
 //
-// Renumbering rather than shifting a range is deliberate. A level is a few dozen rows, and a level's
-// requests and the collections inside it share one number line — so a drop in the middle is a
-// renumbering of everything around it, which one pass over the level settles and a range shift has to
-// get right twice.
+// Renumbering rather than shifting a range is deliberate. A level is a few dozen rows, and a
+// level's requests and the collections inside it share one number line — so a drop in the middle is
+// a renumbering of everything around it, which one pass over the level settles and a range shift
+// has to get right twice.
 //
 // Where the row sits and what the level contains are the store's business: the window says what it
 // dropped and where, and nothing else about it travels.
@@ -29,7 +29,12 @@ type child struct {
 
 // MoveNode puts a request at a place in a collection: the drop index counts the collection's own
 // requests and the collections inside it, in the order they are drawn.
-func (s *Store) MoveNode(ctx context.Context, workspaceID, id string, collectionID string, position int64) error {
+func (s *Store) MoveNode(
+	ctx context.Context,
+	workspaceID, id string,
+	collectionID string,
+	position int64,
+) error {
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
 		return fmt.Errorf("moving node %s: %w", id, err)
@@ -37,7 +42,8 @@ func (s *Store) MoveNode(ctx context.Context, workspaceID, id string, collection
 	defer func() { _ = tx.Rollback() }()
 
 	var from string
-	err = tx.QueryRowContext(ctx, `SELECT collection_id FROM collection_nodes WHERE id = ?`, id).Scan(&from)
+	err = tx.QueryRowContext(ctx, `SELECT collection_id FROM collection_nodes WHERE id = ?`,
+		id).Scan(&from)
 	if errors.Is(err, sql.ErrNoRows) {
 		return fmt.Errorf("node %s: %w", id, domain.ErrNotFound)
 	}
@@ -66,9 +72,15 @@ func (s *Store) MoveNode(ctx context.Context, workspaceID, id string, collection
 	return nil
 }
 
-// MoveCollection puts a collection inside another, or back at the top level when the parent is empty.
-// A collection is a row of its own, so where it sits is its parent and nothing else about it moves.
-func (s *Store) MoveCollection(ctx context.Context, workspaceID, id string, parentID string, position int64) error {
+// MoveCollection puts a collection inside another, or back at the top level when the parent is
+// empty. A collection is a row of its own, so where it sits is its parent and nothing else about it
+// moves.
+func (s *Store) MoveCollection(
+	ctx context.Context,
+	workspaceID, id string,
+	parentID string,
+	position int64,
+) error {
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
 		return fmt.Errorf("moving collection %s: %w", id, err)
@@ -94,7 +106,8 @@ func (s *Store) MoveCollection(ctx context.Context, workspaceID, id string, pare
 			return err
 		}
 	}
-	if err := s.renumber(ctx, tx, workspaceID, parentID, child{id: id, isCollection: true}, position); err != nil {
+	if err := s.renumber(ctx, tx, workspaceID, parentID, child{id: id, isCollection: true},
+		position); err != nil {
 		return err
 	}
 
@@ -105,9 +118,9 @@ func (s *Store) MoveCollection(ctx context.Context, workspaceID, id string, pare
 }
 
 // level reads one level as it is drawn: the requests of a collection and the collections inside it,
-// in position order. The empty id is the top level — and the top level is the workspace's own, which
-// is why the workspace is named here: without it, numbering one space's roots would rewrite the
-// positions of every other space's.
+// in position order. The empty id is the top level — and the top level is the workspace's own,
+// which is why the workspace is named here: without it, numbering one space's roots would rewrite
+// the positions of every other space's.
 func level(ctx context.Context, tx *sql.Tx, workspaceID, collectionID string) ([]child, error) {
 	rows, err := tx.QueryContext(ctx,
 		`SELECT id, 0 AS is_collection, position FROM collection_nodes WHERE collection_id = ?
@@ -134,21 +147,29 @@ func level(ctx context.Context, tx *sql.Tx, workspaceID, collectionID string) ([
 	return out, rows.Err()
 }
 
-// renumber writes a level back with every row numbered by its place in it. The row named by moved is
-// lifted out of the list and put back at the drop index — the level is numbered as it looks now, with
-// the row it just received already in it, which is what makes the index the window drew mean the same
-// thing on both sides. A zero moved id numbers the level as it stands, which is what the level a row
-// left behind needs.
-func (s *Store) renumber(ctx context.Context, tx *sql.Tx, workspaceID, collectionID string, moved child, at int64) error {
-	level, err := level(ctx, tx, workspaceID, collectionID)
+// renumber writes a level back with every row numbered by its place in it. The row named by moved
+// is lifted out of the list and put back at the drop index — the level is numbered as it looks now,
+// with the row it just received already in it, which is what makes the index the window drew mean
+// the same thing on both sides. A zero moved id numbers the level as it stands, which is what the
+// level a row left behind needs.
+func (s *Store) renumber(
+	ctx context.Context,
+	tx *sql.Tx,
+	workspaceID, collectionID string,
+	moved child,
+	at int64,
+) error {
+	// Named rows rather than `level`: the reader is a function of that name, and a local of it would
+	// shadow the very thing that produced this one.
+	rows, err := level(ctx, tx, workspaceID, collectionID)
 	if err != nil {
 		return err
 	}
 	if moved.id != "" {
-		level = placeAt(level, moved, at)
+		rows = placeAt(rows, moved, at)
 	}
 
-	for i, one := range level {
+	for i, one := range rows {
 		table := "collection_nodes"
 		if one.isCollection {
 			table = "collections"
@@ -163,11 +184,11 @@ func (s *Store) renumber(ctx context.Context, tx *sql.Tx, workspaceID, collectio
 
 // placeAt lifts a row out of a level and puts it back where it was dropped.
 //
-// The index counts the level as it looks now, the row being moved included: 0 is before the first row
-// and the length is after the last. That is what makes "after the row at n" one expression — n + 1 —
-// whether the drop stays in the level or joins another, and it is why the row is discounted here
-// rather than by whoever counted: a row that stood before its own destination would otherwise be
-// counted twice and land one place too far.
+// The index counts the level as it looks now, the row being moved included: 0 is before the first
+// row and the length is after the last. That is what makes "after the row at n" one expression — n
+// + 1 — whether the drop stays in the level or joins another, and it is why the row is discounted
+// here rather than by whoever counted: a row that stood before its own destination would otherwise
+// be counted twice and land one place too far.
 func placeAt(level []child, moved child, at int64) []child {
 	others := make([]child, 0, len(level))
 	insert := int64(0)

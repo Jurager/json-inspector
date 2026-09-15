@@ -31,11 +31,12 @@ type Query struct {
 	Kind *domain.SearchKind `json:"kind"`
 }
 
-// Query searches every area at once or the one that was asked for.
+// Find searches every area at once or the one that was asked for. It is not called Query: the
+// name would repeat the argument's own type, and the type is the better half of the two.
 //
 // The workspace is resolved once, here, and travels into every area as a parameter: an area that
 // resolved it again could answer about a space the window has already left.
-func (u *UseCase) Query(ctx context.Context, in Query) (domain.SearchResult, error) {
+func (u *UseCase) Find(ctx context.Context, in Query) (domain.SearchResult, error) {
 	workspace, err := u.scope.ActiveWorkspace(ctx)
 	if err != nil {
 		return domain.SearchResult{}, err
@@ -72,7 +73,8 @@ func (u *UseCase) Query(ctx context.Context, in Query) (domain.SearchResult, err
 			continue
 		}
 		ordered, total := rank(rows, limit)
-		result.Groups = append(result.Groups, domain.SearchGroup{Kind: area.kind, Total: total, Hits: ordered})
+		result.Groups = append(result.Groups,
+			domain.SearchGroup{Kind: area.kind, Total: total, Hits: ordered})
 	}
 	return result, nil
 }

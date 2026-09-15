@@ -46,17 +46,17 @@ func NewAuth(t AuthType) Auth {
 	return Auth{Type: t, Fields: map[string]string{}}
 }
 
-// Get is one answer, absent if nobody gave it.
-func (a Auth) Get(key string) string { return a.Fields[key] }
+// Answer is one answer, absent if nobody gave it.
+func (a Auth) Answer(key string) string { return a.Fields[key] }
 
-// GetOrDefault is one answer, or what the scheme starts that field at when nobody gave one.
+// OrDefault is one answer, or what the scheme starts that field at when nobody gave one.
 //
 // An answer that is there wins even when it is empty: a prefix somebody cleared is a prefix they do
 // not want, and putting the default back would be answering over them. Only a field nobody has
 // touched at all falls through to the table — which is also where the window reads its starting
 // values, so a scheme drawn by the window and one read here cannot disagree about where a field
 // begins.
-func (a Auth) GetOrDefault(key string) string {
+func (a Auth) OrDefault(key string) string {
 	if value, given := a.Fields[key]; given {
 		return value
 	}
@@ -72,8 +72,8 @@ func (a Auth) GetOrDefault(key string) string {
 	return ""
 }
 
-// IsNone is a level that says it sends no credentials. «Наследовать» is not this: it is a level that
-// has not answered, which is a different thing from one that answered «нет».
+// IsNone is a level that says it sends no credentials. «Наследовать» is not this: it is a level
+// that has not answered, which is a different thing from one that answered «нет».
 func (a Auth) IsNone() bool { return a.Type == AuthNone }
 
 // Answers is whether a level has said anything about authorization at all. «Нет» and «Наследовать»
@@ -188,7 +188,8 @@ type Field struct {
 	When *Condition `json:"when,omitempty"`
 }
 
-// Condition is one field's answer making another field relevant: «while Grant Type is one of these».
+// Condition is one field's answer making another field relevant: «while Grant Type is one of
+// these».
 type Condition struct {
 	Key    string   `json:"key"`
 	Values []string `json:"values"`
@@ -200,7 +201,7 @@ func (f Field) Shown(a Auth) bool {
 	if f.When == nil {
 		return true
 	}
-	held := a.GetOrDefault(f.When.Key)
+	held := a.OrDefault(f.When.Key)
 	for _, value := range f.When.Values {
 		if value == held {
 			return true
@@ -250,26 +251,33 @@ var authSchemes = []Scheme{
 	{
 		Type: AuthBearer, Primary: true, Label: "request.auth.bearer",
 		Fields: []Field{
-			{Key: "prefix", Kind: FieldText, Label: "request.auth.field.prefix", Placeholder: "request.auth.ph.bearer", Default: "Bearer", Full: true},
-			{Key: "token", Kind: FieldTextarea, Label: "request.auth.field.token", Placeholder: "request.auth.ph.token", Secret: true, Full: true, Height: 64},
+			{Key: "prefix", Kind: FieldText, Label: "request.auth.field.prefix",
+				Placeholder: "request.auth.ph.bearer", Default: "Bearer", Full: true},
+			{Key: "token", Kind: FieldTextarea, Label: "request.auth.field.token",
+				Placeholder: "request.auth.ph.token", Secret: true, Full: true, Height: 64},
 		},
 	},
 	{
 		Type: AuthBasic, Primary: true, Label: "request.auth.basic",
 		Fields: []Field{
-			{Key: "username", Kind: FieldText, Label: "request.auth.field.username", Placeholder: "request.auth.ph.username"},
-			{Key: "password", Kind: FieldPassword, Label: "request.auth.field.password", Placeholder: "request.auth.ph.password", Secret: true},
+			{Key: "username", Kind: FieldText, Label: "request.auth.field.username",
+				Placeholder: "request.auth.ph.username"},
+			{Key: "password", Kind: FieldPassword, Label: "request.auth.field.password",
+				Placeholder: "request.auth.ph.password", Secret: true},
 		},
 	},
 	{
 		Type: AuthAPIKey, Primary: true, Label: "request.auth.apikey",
 		Fields: []Field{
-			{Key: "key", Kind: FieldText, Label: "request.auth.field.key", Placeholder: "request.auth.ph.apiKey", Mono: true},
-			{Key: "value", Kind: FieldText, Label: "request.auth.field.value", Placeholder: "request.auth.ph.apiKeyValue", Secret: true},
-			{Key: "place", Kind: FieldSelect, Label: "request.auth.field.addTo", Default: "header", Full: true, Options: []Option{
-				{Value: "header", Label: "request.auth.place.header"},
-				{Value: "query", Label: "request.auth.place.query"},
-			}},
+			{Key: "key", Kind: FieldText, Label: "request.auth.field.key",
+				Placeholder: "request.auth.ph.apiKey", Mono: true},
+			{Key: "value", Kind: FieldText, Label: "request.auth.field.value",
+				Placeholder: "request.auth.ph.apiKeyValue", Secret: true},
+			{Key: "place", Kind: FieldSelect, Label: "request.auth.field.addTo",
+				Default: "header", Full: true, Options: []Option{
+					{Value: "header", Label: "request.auth.place.header"},
+					{Value: "query", Label: "request.auth.place.query"},
+				}},
 		},
 	},
 	{
@@ -278,84 +286,118 @@ var authSchemes = []Scheme{
 		// credentials grant has no place for one — so the fields that are not always asked for say
 		// which answers bring them along.
 		Fields: []Field{
-			{Key: "grant", Kind: FieldSelect, Label: "request.auth.field.grantType", Default: "client_credentials", Full: true, Options: []Option{
-				{Value: "client_credentials", Label: "request.auth.grant.clientCredentials"},
-				{Value: "authorization_code", Label: "request.auth.grant.authorizationCode"},
-				{Value: "implicit", Label: "request.auth.grant.implicit"},
-				{Value: "password", Label: "request.auth.grant.password"},
-			}},
+			{Key: "grant", Kind: FieldSelect, Label: "request.auth.field.grantType",
+				Default: "client_credentials", Full: true, Options: []Option{
+					{Value: "client_credentials", Label: "request.auth.grant.clientCredentials"},
+					{Value: "authorization_code", Label: "request.auth.grant.authorizationCode"},
+					{Value: "implicit", Label: "request.auth.grant.implicit"},
+					{Value: "password", Label: "request.auth.grant.password"},
+				}},
 			// Where the person is sent to say yes. Only the two grants that send them anywhere have it.
-			{Key: "authUrl", Kind: FieldText, Label: "request.auth.field.authUrl", Placeholder: "request.auth.ph.authUrl", Mono: true, Full: true,
+			{Key: "authUrl", Kind: FieldText, Label: "request.auth.field.authUrl",
+				Placeholder: "request.auth.ph.authUrl", Mono: true, Full: true,
 				When: &Condition{Key: "grant", Values: []string{"authorization_code", "implicit"}}},
 			// And where a token is exchanged for, which the grant that is given one outright has no use
 			// for.
-			{Key: "tokenUrl", Kind: FieldText, Label: "request.auth.field.tokenUrl", Placeholder: "request.auth.ph.tokenUrl", Mono: true, Full: true,
-				When: &Condition{Key: "grant", Values: []string{"client_credentials", "authorization_code", "password"}}},
-			{Key: "clientId", Kind: FieldText, Label: "request.auth.field.clientId", Placeholder: "request.auth.ph.clientId", Full: true},
-			{Key: "clientSecret", Kind: FieldPassword, Label: "request.auth.field.clientSecret", Placeholder: "request.auth.ph.clientSecret", Secret: true, Full: true,
-				When: &Condition{Key: "grant", Values: []string{"client_credentials", "authorization_code", "password"}}},
-			{Key: "clientAuth", Kind: FieldSelect, Label: "request.auth.field.clientAuth", Default: "header", Full: true,
-				When: &Condition{Key: "grant", Values: []string{"client_credentials", "authorization_code", "password"}},
+			{Key: "tokenUrl", Kind: FieldText, Label: "request.auth.field.tokenUrl",
+				Placeholder: "request.auth.ph.tokenUrl", Mono: true, Full: true,
+				When: &Condition{Key: "grant",
+					Values: []string{"client_credentials", "authorization_code", "password"}}},
+			{Key: "clientId", Kind: FieldText, Label: "request.auth.field.clientId",
+				Placeholder: "request.auth.ph.clientId", Full: true},
+			{Key: "clientSecret", Kind: FieldPassword, Label: "request.auth.field.clientSecret",
+				Placeholder: "request.auth.ph.clientSecret", Secret: true, Full: true,
+				When: &Condition{Key: "grant",
+					Values: []string{"client_credentials", "authorization_code", "password"}}},
+			{Key: "clientAuth", Kind: FieldSelect, Label: "request.auth.field.clientAuth",
+				Default: "header", Full: true,
+				When: &Condition{Key: "grant",
+					Values: []string{"client_credentials", "authorization_code", "password"}},
 				Options: []Option{
 					{Value: "header", Label: "request.auth.clientAuth.header"},
 					{Value: "body", Label: "request.auth.clientAuth.body"},
 				}},
 			// The resource owner's own credential, which only the grant named after them asks for.
-			{Key: "owner", Kind: FieldText, Label: "request.auth.field.owner", Placeholder: "request.auth.ph.username", Full: true,
+			{Key: "owner", Kind: FieldText, Label: "request.auth.field.owner",
+				Placeholder: "request.auth.ph.username", Full: true,
 				When: &Condition{Key: "grant", Values: []string{"password"}}},
-			{Key: "ownerPassword", Kind: FieldPassword, Label: "request.auth.field.ownerPassword", Placeholder: "request.auth.ph.password", Secret: true, Full: true,
+			{Key: "ownerPassword", Kind: FieldPassword, Label: "request.auth.field.ownerPassword",
+				Placeholder: "request.auth.ph.password", Secret: true, Full: true,
 				When: &Condition{Key: "grant", Values: []string{"password"}}},
-			{Key: "scope", Kind: FieldText, Label: "request.auth.field.scope", Placeholder: "request.auth.ph.scope", Mono: true, Full: true},
-			{Key: "audience", Kind: FieldText, Label: "request.auth.field.audience", Placeholder: "request.auth.ph.audience", Mono: true, Full: true},
-			{Key: "place", Kind: FieldSelect, Label: "request.auth.field.addTokenTo", Default: "header", Full: true, Options: []Option{
-				{Value: "header", Label: "request.auth.place.header"},
-				{Value: "query", Label: "request.auth.place.query"},
-			}},
-			{Key: "prefix", Kind: FieldText, Label: "request.auth.field.headerPrefix", Placeholder: "request.auth.ph.bearer", Default: "Bearer", Full: true},
+			{Key: "scope", Kind: FieldText, Label: "request.auth.field.scope",
+				Placeholder: "request.auth.ph.scope", Mono: true, Full: true},
+			{Key: "audience", Kind: FieldText, Label: "request.auth.field.audience",
+				Placeholder: "request.auth.ph.audience", Mono: true, Full: true},
+			{Key: "place", Kind: FieldSelect, Label: "request.auth.field.addTokenTo",
+				Default: "header", Full: true, Options: []Option{
+					{Value: "header", Label: "request.auth.place.header"},
+					{Value: "query", Label: "request.auth.place.query"},
+				}},
+			{Key: "prefix", Kind: FieldText, Label: "request.auth.field.headerPrefix",
+				Placeholder: "request.auth.ph.bearer", Default: "Bearer", Full: true},
 		},
 	},
 	{
 		Type: AuthJWT, Label: "request.auth.jwt", Menu: "request.auth.jwtMenu",
 		Fields: []Field{
-			{Key: "algorithm", Kind: FieldSelect, Label: "request.auth.field.algorithm", Default: "HS256", Full: true, Options: []Option{
-				{Value: "HS256", Label: "request.auth.alg.hs256"},
-				{Value: "HS384", Label: "request.auth.alg.hs384"},
-				{Value: "HS512", Label: "request.auth.alg.hs512"},
-				{Value: "RS256", Label: "request.auth.alg.rs256"},
-				{Value: "RS384", Label: "request.auth.alg.rs384"},
-				{Value: "RS512", Label: "request.auth.alg.rs512"},
-			}},
-			{Key: "secret", Kind: FieldPassword, Label: "request.auth.field.secret", Placeholder: "request.auth.ph.secret", Secret: true, Full: true},
-			{Key: "secretEncoding", Kind: FieldSelect, Label: "request.auth.field.secretEncoding", Default: "plain", Full: true, Options: []Option{
-				{Value: "plain", Label: "request.auth.encoding.plain"},
-				{Value: "base64", Label: "request.auth.encoding.base64"},
-			}},
-			{Key: "payload", Kind: FieldTextarea, Label: "request.auth.field.payload", Default: `{ "sub": "1234567890" }`, Hint: "request.auth.hint.payload", Full: true, Height: 76},
-			{Key: "expiresIn", Kind: FieldNumber, Label: "request.auth.field.expiresIn", Placeholder: "request.auth.ph.expiresIn", Default: "3600", Hint: "request.auth.hint.expiresIn", Mono: true, Full: true},
-			{Key: "joseHeader", Kind: FieldTextarea, Label: "request.auth.field.joseHeader", Default: `{ "kid": "key-1" }`, Hint: "request.auth.hint.joseHeader", Full: true, Height: 56},
-			{Key: "place", Kind: FieldSelect, Label: "request.auth.field.addTokenTo", Default: "header", Full: true, Options: []Option{
-				{Value: "header", Label: "request.auth.place.header"},
-				{Value: "query", Label: "request.auth.place.query"},
-			}},
-			{Key: "prefix", Kind: FieldText, Label: "request.auth.field.headerPrefix", Placeholder: "request.auth.ph.bearer", Default: "Bearer", Full: true},
+			{Key: "algorithm", Kind: FieldSelect, Label: "request.auth.field.algorithm",
+				Default: "HS256", Full: true, Options: []Option{
+					{Value: "HS256", Label: "request.auth.alg.hs256"},
+					{Value: "HS384", Label: "request.auth.alg.hs384"},
+					{Value: "HS512", Label: "request.auth.alg.hs512"},
+					{Value: "RS256", Label: "request.auth.alg.rs256"},
+					{Value: "RS384", Label: "request.auth.alg.rs384"},
+					{Value: "RS512", Label: "request.auth.alg.rs512"},
+				}},
+			{Key: "secret", Kind: FieldPassword, Label: "request.auth.field.secret",
+				Placeholder: "request.auth.ph.secret", Secret: true, Full: true},
+			{Key: "secretEncoding", Kind: FieldSelect, Label: "request.auth.field.secretEncoding",
+				Default: "plain", Full: true, Options: []Option{
+					{Value: "plain", Label: "request.auth.encoding.plain"},
+					{Value: "base64", Label: "request.auth.encoding.base64"},
+				}},
+			{Key: "payload", Kind: FieldTextarea, Label: "request.auth.field.payload",
+				Default: `{ "sub": "1234567890" }`, Hint: "request.auth.hint.payload",
+				Full: true, Height: 76},
+			{Key: "expiresIn", Kind: FieldNumber, Label: "request.auth.field.expiresIn",
+				Placeholder: "request.auth.ph.expiresIn", Default: "3600",
+				Hint: "request.auth.hint.expiresIn", Mono: true, Full: true},
+			{Key: "joseHeader", Kind: FieldTextarea, Label: "request.auth.field.joseHeader",
+				Default: `{ "kid": "key-1" }`, Hint: "request.auth.hint.joseHeader",
+				Full: true, Height: 56},
+			{Key: "place", Kind: FieldSelect, Label: "request.auth.field.addTokenTo",
+				Default: "header", Full: true, Options: []Option{
+					{Value: "header", Label: "request.auth.place.header"},
+					{Value: "query", Label: "request.auth.place.query"},
+				}},
+			{Key: "prefix", Kind: FieldText, Label: "request.auth.field.headerPrefix",
+				Placeholder: "request.auth.ph.bearer", Default: "Bearer", Full: true},
 		},
 	},
 	{
 		Type: AuthDigest, Label: "request.auth.digest",
 		Note: "request.auth.noteDigest",
 		Fields: []Field{
-			{Key: "username", Kind: FieldText, Label: "request.auth.field.username", Placeholder: "request.auth.ph.username"},
-			{Key: "password", Kind: FieldPassword, Label: "request.auth.field.password", Placeholder: "request.auth.ph.password", Secret: true},
+			{Key: "username", Kind: FieldText, Label: "request.auth.field.username",
+				Placeholder: "request.auth.ph.username"},
+			{Key: "password", Kind: FieldPassword, Label: "request.auth.field.password",
+				Placeholder: "request.auth.ph.password", Secret: true},
 		},
 	},
 	{
 		Type: AuthAWS, Label: "request.auth.aws", Menu: "request.auth.awsMenu",
 		Fields: []Field{
-			{Key: "accessKeyId", Kind: FieldText, Label: "request.auth.field.accessKeyId", Placeholder: "request.auth.ph.accessKeyId", Mono: true},
-			{Key: "secretAccessKey", Kind: FieldPassword, Label: "request.auth.field.secretAccessKey", Placeholder: "request.auth.ph.secretAccessKey", Secret: true},
-			{Key: "sessionToken", Kind: FieldPassword, Label: "request.auth.field.sessionToken", Placeholder: "request.auth.ph.sessionToken", Hint: "request.auth.hint.sessionToken", Secret: true, Full: true},
-			{Key: "region", Kind: FieldText, Label: "request.auth.field.region", Placeholder: "request.auth.ph.region", Mono: true},
-			{Key: "service", Kind: FieldText, Label: "request.auth.field.service", Placeholder: "request.auth.ph.service", Mono: true},
+			{Key: "accessKeyId", Kind: FieldText, Label: "request.auth.field.accessKeyId",
+				Placeholder: "request.auth.ph.accessKeyId", Mono: true},
+			{Key: "secretAccessKey", Kind: FieldPassword, Label: "request.auth.field.secretAccessKey",
+				Placeholder: "request.auth.ph.secretAccessKey", Secret: true},
+			{Key: "sessionToken", Kind: FieldPassword, Label: "request.auth.field.sessionToken",
+				Placeholder: "request.auth.ph.sessionToken", Hint: "request.auth.hint.sessionToken",
+				Secret: true, Full: true},
+			{Key: "region", Kind: FieldText, Label: "request.auth.field.region",
+				Placeholder: "request.auth.ph.region", Mono: true},
+			{Key: "service", Kind: FieldText, Label: "request.auth.field.service",
+				Placeholder: "request.auth.ph.service", Mono: true},
 		},
 	},
 }
@@ -405,10 +447,11 @@ func (t AuthToken) Expired(now time.Time) bool {
 	return t.Held && t.ExpiresAt > 0 && now.UnixMilli() >= t.ExpiresAt
 }
 
-// DigestCredentials is what a Digest scheme has to give the engine rather than the request. There is
-// nothing to compute from it here — the server sends the realm and the nonce in a challenge, and the
-// first request is what asks for one. So the header does not exist until a request has been refused,
-// and the engine, which is where that answer arrives, is the only side that can be there to read it.
+// DigestCredentials is what a Digest scheme has to give the engine rather than the request. There
+// is nothing to compute from it here — the server sends the realm and the nonce in a challenge, and
+// the first request is what asks for one. So the header does not exist until a request has been
+// refused, and the engine, which is where that answer arrives, is the only side that can be there
+// to read it.
 type DigestCredentials struct {
 	Username string `json:"username"`
 	Password string `json:"password"`
@@ -417,9 +460,9 @@ type DigestCredentials struct {
 // ProjectedRow is a row an authorization put in a list rather than a person: a Bearer token is an
 // Authorization header, an API key is a header or a query parameter.
 //
-// It is not written down anywhere. The scheme's fields are what is stored, and the row is what those
-// fields come to — which is why editing it is an edit to the fields and not to a row, and why it
-// disappears the moment a person writes a row of that name themselves.
+// It is not written down anywhere. The scheme's fields are what is stored, and the row is what
+// those fields come to — which is why editing it is an edit to the fields and not to a row, and why
+// it disappears the moment a person writes a row of that name themselves.
 type ProjectedRow struct {
 	// Target is the list the row belongs to: the window draws it beside the parameters or beside the
 	// headers, wherever the scheme put it.
@@ -433,7 +476,8 @@ type ProjectedRow struct {
 }
 
 // Empty is a scheme that put nothing on the request: «нет», «наследовать», a field nobody filled
-// in. An empty `Bearer ` is a header the server reads as a mistake, so nothing is the honest answer.
+// in. An empty `Bearer ` is a header the server reads as a mistake, so nothing is the honest
+// answer.
 func (o AuthOutput) Empty() bool { return len(o.Headers) == 0 && len(o.Query) == 0 }
 
 // AuthSchemes lists every way a request can authorize itself, in the order the window draws them.

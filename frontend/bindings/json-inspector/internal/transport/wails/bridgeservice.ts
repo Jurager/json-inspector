@@ -12,12 +12,16 @@
 // @ts-ignore: Unused imports
 import { Call as $Call, CancellablePromise as $CancellablePromise } from "@wailsio/runtime";
 
-export function BridgePort(): $CancellablePromise<number> {
-    return $Call.ByID(3241580572);
-}
-
 export function PauseCapture(): $CancellablePromise<void> {
     return $Call.ByID(3364473398);
+}
+
+/**
+ * Port is the port the extension is told to connect to. The service is the bridge already, so the
+ * name does not repeat it.
+ */
+export function Port(): $CancellablePromise<number> {
+    return $Call.ByID(2250383837);
 }
 
 export function ResumeCapture(): $CancellablePromise<void> {

@@ -1,8 +1,6 @@
 package wails
 
-import (
-	"sync"
-)
+import "sync"
 
 // Failure kinds, so the UI can phrase a broken data directory differently from a broken schema.
 const (

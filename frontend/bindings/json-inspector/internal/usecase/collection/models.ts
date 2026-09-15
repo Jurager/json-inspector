@@ -6,12 +6,12 @@
 import * as domain$0 from "../../domain/models.js";
 
 /**
- * NewNode is what the tree asks for when a row is created: where it goes and what is already known
- * about the request. A request made by hand arrives with its method and nothing else — the rest is
- * filled in by the card that opens next — while one saved from the command line is a whole request,
- * and building it empty first would be a node with no address if the second step failed.
+ * NodeDraft is what the tree asks for when a row is created: where it goes and what is already
+ * known about the request. A request made by hand arrives with its method and nothing else — the
+ * rest is filled in by the card that opens next — while one saved from the command line is a whole
+ * request, and building it empty first would be a node with no address if the second step failed.
  */
-export interface NewNode {
+export interface NodeDraft {
     "collectionId": string;
     "name": string;
     "method"?: string;

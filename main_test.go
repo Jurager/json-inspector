@@ -19,12 +19,12 @@ func TestTheWiringBuilds(t *testing.T) {
 	}
 }
 
-// The window's URL carries the theme and the language (`/?theme=dark&lang=ru`) so the first frame is
-// already painted in the right palette and written in the right words — asking Go over IPC is too
-// late for either. That trick rests on the asset server resolving on the path alone: if a Wails
-// upgrade starts treating the query as part of the filename, every window comes up blank, and this is
-// where that shows up instead. It is also what catches a window whose document was never added to the
-// frontend build, which is a blank window with nothing in the log.
+// The window's URL carries the theme and the language (`/?theme=dark&lang=ru`) so the first frame
+// is already painted in the right palette and written in the right words — asking Go over IPC is
+// too late for either. That trick rests on the asset server resolving on the path alone: if a Wails
+// upgrade starts treating the query as part of the filename, every window comes up blank, and this
+// is where that shows up instead. It is also what catches a window whose document was never added
+// to the frontend build, which is a blank window with nothing in the log.
 func TestAssetServerIgnoresTheWindowQuery(t *testing.T) {
 	handler := application.AssetFileServerFS(assets)
 

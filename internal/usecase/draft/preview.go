@@ -68,7 +68,7 @@ func (p parts) texts() []string {
 	}
 	out = append(out, p.cookie)
 	for _, key := range keys {
-		out = append(out, p.auth.Get(key))
+		out = append(out, p.auth.Answer(key))
 	}
 	return out
 }

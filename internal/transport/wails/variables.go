@@ -22,6 +22,10 @@ func (v environmentVariables) Missing(ctx context.Context, texts []string) ([]st
 	return v.environments.Missing(ctx, texts)
 }
 
-func (v environmentVariables) SubstituteTexts(ctx context.Context, texts []string, mask bool) ([]string, error) {
+func (v environmentVariables) SubstituteTexts(
+	ctx context.Context,
+	texts []string,
+	mask bool,
+) ([]string, error) {
 	return v.environments.SubstituteTexts(ctx, texts, mask)
 }

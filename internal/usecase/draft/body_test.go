@@ -97,8 +97,8 @@ func formOf(t *testing.T, uc *UseCase, rows []domain.FormRow) {
 	}
 }
 
-// A header the user wrote is the more precise answer, and it is the only way to send a type the kind
-// cannot name.
+// A header the user wrote is the more precise answer, and it is the only way to send a type the
+// kind cannot name.
 func TestAWrittenContentTypeWins(t *testing.T) {
 	uc, _ := loaded(t)
 	replaced(t, uc, domain.BodyJSON, "{}")
@@ -187,8 +187,8 @@ func TestAFormBodyGoesOutAsMultipart(t *testing.T) {
 	}
 }
 
-// One encoding, two renderings: the boundary the header names is the delimiter in both the body that
-// goes out and the one that is written down. Two writers minting their own would break this.
+// One encoding, two renderings: the boundary the header names is the delimiter in both the body
+// that goes out and the one that is written down. Two writers minting their own would break this.
 func TestTheLiveAndMaskedFormsShareOneBoundary(t *testing.T) {
 	uc, _ := loadedWithFiles(t)
 	formOf(t, uc, []domain.FormRow{{Name: "token", Value: "{{token}}", Enabled: true}})
@@ -287,7 +287,8 @@ func TestABinaryBodyIsTheFile(t *testing.T) {
 	}
 }
 
-// A seed carries its format, which is how a followed link or a pasted command keeps what it declared.
+// A seed carries its format, which is how a followed link or a pasted command keeps what it
+// declared.
 func TestASeedCarriesItsKind(t *testing.T) {
 	ctx := context.Background()
 	uc, _ := loaded(t)

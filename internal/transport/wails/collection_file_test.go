@@ -68,7 +68,7 @@ func TestCollectionFileRoundTrip(t *testing.T) {
 	if len(request.Headers) != 1 || request.Headers[0].Name != "Accept" {
 		t.Errorf("headers = %+v", request.Headers)
 	}
-	if request.Auth == nil || request.Auth.Get("token") != "{{token}}" {
+	if request.Auth == nil || request.Auth.Answer("token") != "{{token}}" {
 		t.Errorf("auth = %+v, want the token as text", request.Auth)
 	}
 	// A parameter that is switched off is not in the address, and the file is the only place it can

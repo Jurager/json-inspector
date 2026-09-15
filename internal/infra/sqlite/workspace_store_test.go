@@ -8,36 +8,9 @@ import (
 	"json-inspector/internal/domain"
 )
 
-// team is a second space to put things in. The schema seeds only the personal one, so every test about
-// isolation has to make the other itself.
-const team = "team-1"
-
-func seedTeam(t *testing.T, store *Store) {
-	t.Helper()
-	// Personal is read back out of the id and not written down, so the kind and the name are the only
-	// things this has to get right.
-	made := domain.NewWorkspace(team, "Команда", domain.WorkspaceTeam, "purple", 1)
-	if err := store.SaveWorkspace(context.Background(), made); err != nil {
-		t.Fatalf("SaveWorkspace(%s): %v", team, err)
-	}
-}
-
-// countRows answers how many rows of one table a space holds, which is the only question a test about
-// a deleted workspace can ask: the store reads by id, and an id that is gone reads as nothing whether
-// or not the row behind it is still there.
-func countRows(t *testing.T, store *Store, table, workspace string) int {
-	t.Helper()
-	var n int
-	if err := store.db.QueryRowContext(context.Background(),
-		`SELECT count(*) FROM `+table+` WHERE workspace_id = ?`, workspace).Scan(&n); err != nil {
-		t.Fatalf("counting the %s of %s: %v", table, workspace, err)
-	}
-	return n
-}
-
-// Two spaces are two data sets. Everything below is written into the personal one, and the second one
-// has to come back empty of all of it — this is the test the whole column exists for, and it stops
-// passing the moment a query forgets its scope.
+// Two spaces are two data sets. Everything below is written into the personal one, and the second
+// one has to come back empty of all of it — this is the test the whole column exists for, and it
+// stops passing the moment a query forgets its scope.
 func TestTwoWorkspacesDoNotSeeEachOther(t *testing.T) {
 	store := newMigratedStore(t)
 	ctx := context.Background()
@@ -46,15 +19,18 @@ func TestTwoWorkspacesDoNotSeeEachOther(t *testing.T) {
 	if err := store.SaveRecord(ctx, ws, sampleRecord("rec-1", domain.SourceManual)); err != nil {
 		t.Fatalf("SaveRecord: %v", err)
 	}
-	if err := store.SaveEnvironment(ctx, ws, domain.Environment{ID: "env-1", Name: "Local", Position: 1}); err != nil {
+	if err := store.SaveEnvironment(ctx, ws,
+		domain.Environment{ID: "env-1", Name: "Local", Position: 1}); err != nil {
 		t.Fatalf("SaveEnvironment: %v", err)
 	}
 	if err := store.SaveVariable(ctx, ws, domain.EnvScope{Environment: "env-1"}, domain.Variable{
-		ID: "v1", Name: "base_url", Value: "https://api.example.com", Kind: domain.VariableText, Enabled: true,
+		ID: "v1", Name: "base_url", Value: "https://api.example.com", Kind: domain.VariableText,
+		Enabled: true,
 	}); err != nil {
 		t.Fatalf("SaveVariable: %v", err)
 	}
-	if err := store.SaveCollection(ctx, ws, domain.Collection{ID: "col-1", Name: "Пользователи", Position: 1}); err != nil {
+	if err := store.SaveCollection(ctx, ws,
+		domain.Collection{ID: "col-1", Name: "Пользователи", Position: 1}); err != nil {
 		t.Fatalf("SaveCollection: %v", err)
 	}
 	draft := domain.NewDraft()
@@ -120,9 +96,9 @@ func TestTwoWorkspacesDoNotSeeEachOther(t *testing.T) {
 }
 
 // The command line's draft id is the same fixed word in every space, so it is the one row the store
-// cannot find by id alone: the query behind Scripts reads three tables — collections, nodes and drafts
-// — and only the last of them needs the workspace named. This is what says it names it, and what says
-// the draft written in one space is not the draft written in the other.
+// cannot find by id alone: the query behind Scripts reads three tables — collections, nodes and
+// drafts — and only the last of them needs the workspace named. This is what says it names it, and
+// what says the draft written in one space is not the draft written in the other.
 func TestTheCommandLineDraftIsPerWorkspace(t *testing.T) {
 	store := newMigratedStore(t)
 	ctx := context.Background()
@@ -220,7 +196,8 @@ func TestDeleteWorkspaceTakesItsData(t *testing.T) {
 	if err := store.SaveRecord(ctx, team, sampleRecord("rec-team", domain.SourceManual)); err != nil {
 		t.Fatalf("SaveRecord(%s): %v", team, err)
 	}
-	if err := store.SaveEnvironment(ctx, team, domain.Environment{ID: "env-team", Name: "Local", Position: 1}); err != nil {
+	if err := store.SaveEnvironment(ctx, team,
+		domain.Environment{ID: "env-team", Name: "Local", Position: 1}); err != nil {
 		t.Fatalf("SaveEnvironment(%s): %v", team, err)
 	}
 	if err := store.SaveVariable(ctx, team, domain.EnvScope{Environment: "env-team"}, domain.Variable{
@@ -228,7 +205,8 @@ func TestDeleteWorkspaceTakesItsData(t *testing.T) {
 	}); err != nil {
 		t.Fatalf("SaveVariable(%s): %v", team, err)
 	}
-	if err := store.SaveCollection(ctx, team, domain.Collection{ID: "col-team", Name: "Заказы", Position: 1}); err != nil {
+	if err := store.SaveCollection(ctx, team,
+		domain.Collection{ID: "col-team", Name: "Заказы", Position: 1}); err != nil {
 		t.Fatalf("SaveCollection(%s): %v", team, err)
 	}
 	if err := store.SaveScriptRun(ctx, team, domain.ScriptRun{
@@ -247,7 +225,8 @@ func TestDeleteWorkspaceTakesItsData(t *testing.T) {
 	if err := store.SaveRecord(ctx, ws, sampleRecord("rec-mine", domain.SourceManual)); err != nil {
 		t.Fatalf("SaveRecord: %v", err)
 	}
-	if err := store.SaveEnvironment(ctx, ws, domain.Environment{ID: "env-mine", Name: "Local", Position: 1}); err != nil {
+	if err := store.SaveEnvironment(ctx, ws,
+		domain.Environment{ID: "env-mine", Name: "Local", Position: 1}); err != nil {
 		t.Fatalf("SaveEnvironment: %v", err)
 	}
 	if err := store.SaveVariable(ctx, ws, domain.EnvScope{Environment: "env-mine"}, domain.Variable{
@@ -255,7 +234,8 @@ func TestDeleteWorkspaceTakesItsData(t *testing.T) {
 	}); err != nil {
 		t.Fatalf("SaveVariable: %v", err)
 	}
-	if err := store.SaveCollection(ctx, ws, domain.Collection{ID: "col-mine", Name: "Пользователи", Position: 1}); err != nil {
+	if err := store.SaveCollection(ctx, ws,
+		domain.Collection{ID: "col-mine", Name: "Пользователи", Position: 1}); err != nil {
 		t.Fatalf("SaveCollection: %v", err)
 	}
 	if err := store.SaveScriptRun(ctx, ws, domain.ScriptRun{
@@ -276,7 +256,8 @@ func TestDeleteWorkspaceTakesItsData(t *testing.T) {
 
 	// One row of each in the personal space, and none at all in the one that was deleted. The reports
 	// of scripts are counted too: they hang off a record, but they carry the workspace themselves.
-	for _, table := range []string{"records", "environments", "variables", "collections", "script_runs", "drafts"} {
+	for _, table := range []string{"records", "environments", "variables", "collections",
+		"script_runs", "drafts"} {
 		if n := countRows(t, store, table, team); n != 0 {
 			t.Errorf("%s still holds %d row(s) of the deleted space, want none", table, n)
 		}
@@ -290,9 +271,9 @@ func TestDeleteWorkspaceTakesItsData(t *testing.T) {
 	}
 }
 
-// The pointer to the space on screen is a preference of the installation, and every bad answer to it —
-// nothing stored, or a name whose space has since gone — falls back to the one the app is born with. A
-// window with no workspace to draw is not a state the app has.
+// The pointer to the space on screen is a preference of the installation, and every bad answer to
+// it — nothing stored, or a name whose space has since gone — falls back to the one the app is born
+// with. A window with no workspace to draw is not a state the app has.
 func TestActiveWorkspaceFallsBackToTheDefault(t *testing.T) {
 	store := newMigratedStore(t)
 	ctx := context.Background()

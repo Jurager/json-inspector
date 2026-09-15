@@ -182,7 +182,7 @@ export const useSearchStore = defineStore('search', {
     async ask() {
       waiting = null
       const mine = ++asked
-      const result = await SearchService.Query({ text: this.query, kind: this.kind })
+      const result = await SearchService.Find({ text: this.query, kind: this.kind })
       if (mine !== asked) return
       this.groups = result.groups ?? []
       this.activeIndex = 0

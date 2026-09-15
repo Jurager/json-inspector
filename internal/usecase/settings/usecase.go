@@ -96,7 +96,10 @@ func (u *UseCase) Language(ctx context.Context) (domain.Language, error) {
 
 // SetLanguage stores the choice and tells every window. Like the theme's, the event carries the
 // choice and not a resolved language: "system" means "ask the webview", and only a window can.
-func (u *UseCase) SetLanguage(ctx context.Context, language domain.Language) (domain.Settings, error) {
+func (u *UseCase) SetLanguage(
+	ctx context.Context,
+	language domain.Language,
+) (domain.Settings, error) {
 	if !language.Valid() {
 		return domain.Settings{}, domain.Refuse(domain.CodeUnknownLanguage, domain.ErrNotAllowed,
 			domain.Args{"language": string(language)})
@@ -125,17 +128,20 @@ type LayoutPatch struct {
 // saves exactly the fields it is given and nothing else.
 func (u *UseCase) SetLayout(ctx context.Context, patch LayoutPatch) (domain.Settings, error) {
 	if patch.InspectorOpen != nil {
-		if err := u.save(ctx, domain.SettingInspectorOpen, strconv.FormatBool(*patch.InspectorOpen)); err != nil {
+		if err := u.save(ctx, domain.SettingInspectorOpen,
+			strconv.FormatBool(*patch.InspectorOpen)); err != nil {
 			return domain.Settings{}, err
 		}
 	}
 	if patch.InspectorWidth != nil {
-		if err := u.save(ctx, domain.SettingInspectorWidth, strconv.Itoa(clamp(*patch.InspectorWidth))); err != nil {
+		if err := u.save(ctx, domain.SettingInspectorWidth,
+			strconv.Itoa(clamp(*patch.InspectorWidth))); err != nil {
 			return domain.Settings{}, err
 		}
 	}
 	if patch.SideWidth != nil {
-		if err := u.save(ctx, domain.SettingSideWidth, strconv.Itoa(clamp(*patch.SideWidth))); err != nil {
+		if err := u.save(ctx, domain.SettingSideWidth,
+			strconv.Itoa(clamp(*patch.SideWidth))); err != nil {
 			return domain.Settings{}, err
 		}
 	}
@@ -153,7 +159,10 @@ func (u *UseCase) SetLayout(ctx context.Context, patch LayoutPatch) (domain.Sett
 	return u.Snapshot(ctx)
 }
 
-func (u *UseCase) SetRetention(ctx context.Context, retention domain.Retention) (domain.Settings, error) {
+func (u *UseCase) SetRetention(
+	ctx context.Context,
+	retention domain.Retention,
+) (domain.Settings, error) {
 	if !retention.Valid() {
 		return domain.Settings{}, domain.Refuse(domain.CodeUnknownRetention, domain.ErrNotAllowed,
 			domain.Args{"retention": string(retention)})

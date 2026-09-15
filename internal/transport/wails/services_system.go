@@ -51,9 +51,10 @@ func (s *SystemService) ShowAbout() {
 	s.host.ShowAbout()
 }
 
-// ApplyLanguage is the window handing over the words the native menu needs. The menu is drawn by the
-// system rather than by the page, and Go cannot resolve "system" — that is a question only the webview
-// can ask — so this is the one piece of the interface that is sent instead of read from the catalogue.
+// ApplyLanguage is the window handing over the words the native menu needs. The menu is drawn by
+// the system rather than by the page, and Go cannot resolve "system" — that is a question only the
+// webview can ask — so this is the one piece of the interface that is sent instead of read from the
+// catalogue.
 func (s *SystemService) ApplyLanguage(labels MenuLabels) {
 	s.host.ApplyMenu(labels)
 }
@@ -127,7 +128,9 @@ func (s *SystemService) OpenDataFolder() error {
 	return app.Env.OpenFileManager(string(s.dataDir), false)
 }
 
-// StartupCheck is the launch-time update check, run once the window can take the answer.
+// ServiceStartup starts the launch-time update check on a goroutine of its own: it reaches the
+// network, and a window that waited for it would open seconds late. The answer is parked until the
+// page can take an event.
 func (s *SystemService) ServiceStartup(_ context.Context, _ application.ServiceOptions) error {
 	go func() {
 		if u := updater.StartupCheck(); u != nil {

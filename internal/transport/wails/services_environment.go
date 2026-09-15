@@ -13,11 +13,10 @@ import (
 // boundary itself, values and all.
 type EnvironmentsService struct {
 	environments *environment.UseCase
-	secrets      environment.SecretSource
 }
 
-func NewEnvironmentsService(envs *environment.UseCase, secrets environment.SecretSource) *EnvironmentsService {
-	return &EnvironmentsService{environments: envs, secrets: secrets}
+func NewEnvironmentsService(envs *environment.UseCase) *EnvironmentsService {
+	return &EnvironmentsService{environments: envs}
 }
 
 // Snapshot is the whole screen. Secret values are not in it: a secret says it has one, and Reveal
@@ -26,23 +25,40 @@ func (s *EnvironmentsService) Snapshot(ctx context.Context) (domain.EnvState, er
 	return s.environments.Snapshot(ctx)
 }
 
-func (s *EnvironmentsService) CreateEnvironment(ctx context.Context, name string) (domain.EnvState, error) {
+func (s *EnvironmentsService) CreateEnvironment(
+	ctx context.Context,
+	name string,
+) (domain.EnvState, error) {
 	return s.environments.Create(ctx, name)
 }
 
-func (s *EnvironmentsService) UpdateEnvironment(ctx context.Context, id string, patch environment.Patch) (domain.EnvState, error) {
+func (s *EnvironmentsService) UpdateEnvironment(
+	ctx context.Context,
+	id string,
+	patch environment.EnvironmentPatch,
+) (domain.EnvState, error) {
 	return s.environments.Update(ctx, id, patch)
 }
 
-func (s *EnvironmentsService) DeleteEnvironment(ctx context.Context, id string) (domain.EnvState, error) {
+func (s *EnvironmentsService) DeleteEnvironment(
+	ctx context.Context,
+	id string,
+) (domain.EnvState, error) {
 	return s.environments.Delete(ctx, id)
 }
 
-func (s *EnvironmentsService) ActivateEnvironment(ctx context.Context, id string) (domain.EnvState, error) {
+func (s *EnvironmentsService) ActivateEnvironment(
+	ctx context.Context,
+	id string,
+) (domain.EnvState, error) {
 	return s.environments.Activate(ctx, id)
 }
 
-func (s *EnvironmentsService) AddVariable(ctx context.Context, scope domain.EnvScope, draft environment.VariableDraft) (domain.EnvState, error) {
+func (s *EnvironmentsService) AddVariable(
+	ctx context.Context,
+	scope domain.EnvScope,
+	draft environment.VariableDraft,
+) (domain.EnvState, error) {
 	return s.environments.AddVariable(ctx, scope, draft)
 }
 
@@ -57,15 +73,27 @@ func (s *EnvironmentsService) ParseDotenv(text string) []dotenv.Entry {
 	return dotenv.Parse(text)
 }
 
-func (s *EnvironmentsService) UpdateVariable(ctx context.Context, scope domain.EnvScope, patch environment.VariablePatch) (domain.EnvState, error) {
+func (s *EnvironmentsService) UpdateVariable(
+	ctx context.Context,
+	scope domain.EnvScope,
+	patch environment.VariablePatch,
+) (domain.EnvState, error) {
 	return s.environments.UpdateVariable(ctx, scope, patch)
 }
 
-func (s *EnvironmentsService) RemoveVariable(ctx context.Context, scope domain.EnvScope, id string) (domain.EnvState, error) {
+func (s *EnvironmentsService) RemoveVariable(
+	ctx context.Context,
+	scope domain.EnvScope,
+	id string,
+) (domain.EnvState, error) {
 	return s.environments.RemoveVariable(ctx, scope, id)
 }
 
-func (s *EnvironmentsService) ImportEntries(ctx context.Context, scope domain.EnvScope, entries []dotenv.Entry) (domain.EnvState, error) {
+func (s *EnvironmentsService) ImportEntries(
+	ctx context.Context,
+	scope domain.EnvScope,
+	entries []dotenv.Entry,
+) (domain.EnvState, error) {
 	return s.environments.ImportEntries(ctx, scope, entries)
 }
 
@@ -75,7 +103,12 @@ func (s *EnvironmentsService) Reveal(ctx context.Context, id string) (string, er
 }
 
 // ImportLegacy moves what the old frontend kept in localStorage into the database, once. The
-// payload is the raw string: parsing the old shape is this side's job, not the window's.
-func (s *EnvironmentsService) ImportLegacy(ctx context.Context, raw string) (environment.ImportReport, error) {
-	return s.environments.ImportLegacy(ctx, raw, s.secrets)
+// payload is the raw string: parsing the old shape is this side's job, not the window's. A secret
+// arrives without its value, which lived in the keychain and is not read any more — the report says
+// so, and the value is one the user enters again.
+func (s *EnvironmentsService) ImportLegacy(
+	ctx context.Context,
+	raw string,
+) (environment.ImportReport, error) {
+	return s.environments.ImportLegacy(ctx, raw)
 }

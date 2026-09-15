@@ -16,7 +16,9 @@ import (
 type Store interface {
 	SaveRecord(ctx context.Context, workspaceID string, rec domain.Record) error
 	Record(ctx context.Context, id string) (domain.Record, error)
-	Records(ctx context.Context, workspaceID string, source domain.RecordSource, limit int) ([]domain.Record, error)
+	Records(ctx context.Context, workspaceID string, source domain.RecordSource,
+		limit int) ([]domain.Record,
+		error)
 	ReadBody(ctx context.Context, id string, side domain.BodySide) (string, error)
 	DeleteRecords(ctx context.Context, ids []string) error
 	Prune(ctx context.Context, workspaceID string, opts domain.PruneOptions) (int, error)
@@ -51,9 +53,9 @@ type Notifier interface {
 	Publish(topic string, payload any)
 }
 
-// Screener is the code that belongs around one attempt: the scripts of the collection the request came
-// from, run before it goes out and after the answer came back. This feature owns the attempt and knows
-// nothing about scripts — it says when, and somebody else says what.
+// Screener is the code that belongs around one attempt: the scripts of the collection the request
+// came from, run before it goes out and after the answer came back. This feature owns the attempt
+// and knows nothing about scripts — it says when, and somebody else says what.
 //
 // The workspace travels with the call because this one already knows it: the attempt resolved it at
 // the door, and a script report written under a re-read pointer could land in a space the request
@@ -62,16 +64,16 @@ type Notifier interface {
 // The signature is the shape the scripting feature already has, which is why the composition root
 // binds it without an adapter: the port is declared here, next to the moment it describes.
 //
-// The pass goes in as a pointer because the first half fills it in: what the pre-request scripts did
-// is carried back here and handed to the second half, where the record they belong to exists.
+// The pass goes in as a pointer because the first half fills it in: what the pre-request scripts
+// did is carried back here and handed to the second half, where the record they belong to exists.
 type Screener interface {
 	Before(ctx context.Context, workspace string, pass *domain.ScriptPass) (bool, error)
 	After(ctx context.Context, workspace string, pass domain.ScriptPass)
 }
 
-// Masker is a request as everything that outlives the send sees it: the same request with a secret's
-// value left as its mask. The caller prepares one already, and this is asked again only for a request
-// a script changed — the mask cannot be made where the values are not.
+// Masker is a request as everything that outlives the send sees it: the same request with a
+// secret's value left as its mask. The caller prepares one already, and this is asked again only
+// for a request a script changed — the mask cannot be made where the values are not.
 //
 // The prepared attempt travels beside the script's answer because a body made of form rows or of a
 // path to a file cannot be rendered from the text the script was shown: it has to be rendered again
@@ -80,8 +82,8 @@ type Masker interface {
 	Mask(ctx context.Context, in SendInput, sent domain.ScriptRequest) (Masked, error)
 }
 
-// Masked is a request written down: its address, its headers and its body with their secrets left as
-// masks.
+// Masked is a request written down: its address, its headers and its body with their secrets left
+// as masks.
 type Masked struct {
 	URL     string
 	Headers []domain.HeaderPair

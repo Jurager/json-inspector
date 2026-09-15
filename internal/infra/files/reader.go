@@ -7,9 +7,10 @@ import (
 	"errors"
 	"io"
 	"io/fs"
-	"json-inspector/internal/domain"
 	"os"
 	"strconv"
+
+	"json-inspector/internal/domain"
 )
 
 // Reader reads a file whole, up to a limit. Zero means the default.
@@ -29,8 +30,8 @@ func NewReader() *Reader {
 //
 // A file larger than the limit is an error and not a truncation. A truncated response is still
 // something to read — it says so, and the window draws a partial body — but a truncated upload is a
-// corrupt file at the other end, which is worse than a send that did not happen. The extra byte read
-// past the limit is what tells "ends exactly at the limit" from "was cut there".
+// corrupt file at the other end, which is worse than a send that did not happen. The extra byte
+// read past the limit is what tells "ends exactly at the limit" from "was cut there".
 func (r *Reader) Read(path string) ([]byte, error) {
 	limit := r.MaxBytes
 	if limit <= 0 {

@@ -1,8 +1,8 @@
 package domain
 
-// Collection is a saved group of requests with a name of its own, and it may hold other collections.
-// What used to be a folder is one of these with a parent: the two were never more than that apart,
-// and keeping them separate is what stopped a collection from being put inside one.
+// Collection is a saved group of requests with a name of its own, and it may hold other
+// collections. What used to be a folder is one of these with a parent: the two were never more than
+// that apart, and keeping them separate is what stopped a collection from being put inside one.
 type Collection struct {
 	ID          string `json:"id"`
 	Name        string `json:"name"`
@@ -25,8 +25,8 @@ type Collection struct {
 	Auth *Auth `json:"auth,omitempty"`
 }
 
-// LevelEntry is one row of a collection's level: a request, or a collection inside it. Exactly one of
-// the two is set, and both are pointers into the tree that was read.
+// LevelEntry is one row of a collection's level: a request, or a collection inside it. Exactly one
+// of the two is set, and both are pointers into the tree that was read.
 type LevelEntry struct {
 	Node       *CollectionNode
 	Collection *Collection
@@ -52,9 +52,9 @@ func (c *Collection) Level() []LevelEntry {
 	return out
 }
 
-// CollectionNode is one request of a collection. The fields beyond the name are absent until the node
-// is opened: a collection of two hundred requests has no business carrying two hundred bodies, and
-// the method is all a tree row draws.
+// CollectionNode is one request of a collection. The fields beyond the name are absent until the
+// node is opened: a collection of two hundred requests has no business carrying two hundred bodies,
+// and the method is all a tree row draws.
 //
 // Auth and Scripts are pointers for the reason the schema's NULL columns exist: nil means "not set
 // here, take the parent's" and a value — even an empty one — means "this is the answer, stop

@@ -2,6 +2,7 @@ package wails
 
 import (
 	"context"
+	"log"
 	"time"
 
 	"github.com/wailsapp/wails/v3/pkg/application"
@@ -23,7 +24,9 @@ func NewBridgeService(server *bridge.Server) *BridgeService {
 	return &BridgeService{server: server}
 }
 
-func (s *BridgeService) BridgePort() int {
+// Port is the port the extension is told to connect to. The service is the bridge already, so the
+// name does not repeat it.
+func (s *BridgeService) Port() int {
 	return s.server.Port()
 }
 
@@ -37,8 +40,13 @@ func (s *BridgeService) ResumeCapture() {
 
 // ServiceStartup starts listening before the window appears — the extension connects whenever it
 // notices, and a socket that opens a second later is not worth a visible ordering rule.
+//
+// A port somebody else holds is logged and not returned: capture is a feature of the app, not a
+// condition for it, and a service that fails to start takes the window down with it.
 func (s *BridgeService) ServiceStartup(_ context.Context, _ application.ServiceOptions) error {
-	s.server.Start()
+	if err := s.server.Start(); err != nil {
+		log.Printf("[bridge] %v — capture is off", err)
+	}
 	return nil
 }
 

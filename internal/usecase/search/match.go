@@ -6,8 +6,9 @@ import (
 	"json-inspector/internal/domain"
 )
 
-// matched is the rows of one area that answer, each carrying where it answered. The words are folded
-// once for the whole area rather than once per row, which is what the name of the helper below says.
+// matched is the rows of one area that answer, each carrying where it answered. The words are
+// folded once for the whole area rather than once per row, which is what the name of the helper
+// below says.
 func matched(needle string, hits []domain.SearchHit) []domain.SearchHit {
 	folded := strings.ToLower(needle)
 
@@ -23,12 +24,13 @@ func matched(needle string, hits []domain.SearchHit) []domain.SearchHit {
 	return out
 }
 
-// matchFolded says where the words were found in a row, or that they were not found at all. It is the
-// one place the tiers of the design are written down: the whole name, then a name, then an address,
-// then a value. The needle arrives folded.
+// matchFolded says where the words were found in a row, or that they were not found at all. It is
+// the one place the tiers of the design are written down: the whole name, then a name, then an
+// address, then a value. The needle arrives folded.
 //
 // Comparison is case-insensitive the way a person expects, which is why it happens here and not in
-// SQL: SQLite folds case for ASCII alone, so a LIKE would make «Пользователи» unfindable by «польз».
+// SQL: SQLite folds case for ASCII alone, so a LIKE would make «Пользователи» unfindable by
+// «польз».
 func matchFolded(needle string, hit domain.SearchHit) (domain.SearchMatch, bool) {
 	title := strings.ToLower(hit.Title)
 	switch {

@@ -20,9 +20,10 @@ import * as updater$0 from "../../infra/updater/models.js";
 import * as $models from "./models.js";
 
 /**
- * ApplyLanguage is the window handing over the words the native menu needs. The menu is drawn by the
- * system rather than by the page, and Go cannot resolve "system" — that is a question only the webview
- * can ask — so this is the one piece of the interface that is sent instead of read from the catalogue.
+ * ApplyLanguage is the window handing over the words the native menu needs. The menu is drawn by
+ * the system rather than by the page, and Go cannot resolve "system" — that is a question only the
+ * webview can ask — so this is the one piece of the interface that is sent instead of read from the
+ * catalogue.
  */
 export function ApplyLanguage(labels: $models.MenuLabels): $CancellablePromise<void> {
     return $Call.ByID(2222094836, labels);

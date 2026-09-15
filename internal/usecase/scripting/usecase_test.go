@@ -10,8 +10,8 @@ import (
 	"json-inspector/internal/platform"
 )
 
-// fakeEngine is the sandbox without goja: it keeps what it was asked to run and answers with a report
-// the test describes, so a test says what a script did without writing one.
+// fakeEngine is the sandbox without goja: it keeps what it was asked to run and answers with a
+// report the test describes, so a test says what a script did without writing one.
 type fakeEngine struct {
 	ran   []domain.ScriptInput
 	onRun func(in domain.ScriptInput) domain.ScriptRun
@@ -22,7 +22,8 @@ func (f *fakeEngine) Run(in domain.ScriptInput) domain.ScriptRun {
 	if f.onRun != nil {
 		return f.onRun(in)
 	}
-	return domain.ScriptRun{Scope: in.Scope, OK: true, Logs: []domain.ScriptLog{}, Tests: []domain.TestResult{}}
+	return domain.ScriptRun{Scope: in.Scope, OK: true, Logs: []domain.ScriptLog{},
+		Tests: []domain.TestResult{}}
 }
 
 // sources is what ran, in the order it ran, which is what a chain is about.
@@ -34,9 +35,9 @@ func (f *fakeEngine) sources() []string {
 	return out
 }
 
-// fakeScope answers with the workspace the test is working in. The fakes below keep one tree and one
-// set of reports and ignore the id: what is being tested here is the use case, and the split between
-// workspaces is the SQL's own test.
+// fakeScope answers with the workspace the test is working in. The fakes below keep one tree and
+// one set of reports and ignore the id: what is being tested here is the use case, and the split
+// between workspaces is the SQL's own test.
 type fakeScope struct{ id string }
 
 func (f fakeScope) ActiveWorkspace(context.Context) (string, error) {
@@ -46,13 +47,13 @@ func (f fakeScope) ActiveWorkspace(context.Context) (string, error) {
 	return f.id, nil
 }
 
-// ws is the workspace the tests below hand to Before and After — the one the app is born with, since
-// none of them is about a second space.
+// ws is the workspace the tests below hand to Before and After — the one the app is born with,
+// since none of them is about a second space.
 const ws = domain.WorkspacePersonalID
 
-// fakeTree is the tree without a database: one list of collections and what each level runs. A level
-// nobody put anything in answers nothing, the way the NULL column does. It shares the scripts map with
-// the store, which is what the database does: one row, read through two ports.
+// fakeTree is the tree without a database: one list of collections and what each level runs. A
+// level nobody put anything in answers nothing, the way the NULL column does. It shares the scripts
+// map with the store, which is what the database does: one row, read through two ports.
 type fakeTree struct {
 	collections []domain.Collection
 	scripts     map[string]*domain.Scripts
@@ -70,8 +71,8 @@ func (f *fakeTree) Scripts(_ context.Context, _ string, id string) (*domain.Scri
 }
 
 // knows is the rule the store follows: every level of the fixture exists — and so does the command
-// line's draft — while an id that names none of them is not found. A level that exists and has no code
-// answers nothing, which is not the same thing.
+// line's draft — while an id that names none of them is not found. A level that exists and has no
+// code answers nothing, which is not the same thing.
 func (f *fakeTree) knows(id string) bool {
 	if id == string(domain.DraftCommandLine) {
 		return true
@@ -96,8 +97,8 @@ func (f *fakeTree) knows(id string) bool {
 	return walk(f.collections)
 }
 
-// seeded is the code of one level, written the way the editor writes it: the two fakes share the map,
-// so a test writes once and both answer.
+// seeded is the code of one level, written the way the editor writes it: the two fakes share the
+// map, so a test writes once and both answer.
 func (f *fakeTree) seeded(id string, scripts *domain.Scripts) *fakeTree {
 	f.scripts[id] = scripts
 	return f
@@ -122,8 +123,8 @@ func knownLevels(tree *fakeTree) map[string]bool {
 }
 
 // fakeStore keeps the reports, which is what the response viewer asks by, and a level's code, which
-// the editor reads and writes. A level nobody has written to answers nothing — which is not the same
-// as an empty script, and not the same as a level that does not exist at all.
+// the editor reads and writes. A level nobody has written to answers nothing — which is not the
+// same as an empty script, and not the same as a level that does not exist at all.
 type fakeStore struct {
 	runs    []domain.ScriptRun
 	scripts map[string]*domain.Scripts
@@ -142,7 +143,12 @@ func (f *fakeStore) Scripts(_ context.Context, _ string, id string) (*domain.Scr
 	return f.scripts[id], nil
 }
 
-func (f *fakeStore) SaveScripts(_ context.Context, _ string, id string, scripts *domain.Scripts) error {
+func (f *fakeStore) SaveScripts(
+	_ context.Context,
+	_ string,
+	id string,
+	scripts *domain.Scripts,
+) error {
 	if f.fail {
 		return errors.New("база недоступна")
 	}
@@ -185,7 +191,8 @@ type write struct {
 }
 
 func newFakeVariables() *fakeVariables {
-	return &fakeVariables{values: map[domain.VarScope]map[string]string{}, refused: map[domain.VarScope]string{}}
+	return &fakeVariables{values: map[domain.VarScope]map[string]string{},
+		refused: map[domain.VarScope]string{}}
 }
 
 func (f *fakeVariables) with(scope domain.VarScope, name string, value string) *fakeVariables {
@@ -196,12 +203,21 @@ func (f *fakeVariables) with(scope domain.VarScope, name string, value string) *
 	return f
 }
 
-func (f *fakeVariables) Variable(_ context.Context, scope domain.VarScope, name string) (string, bool, error) {
+func (f *fakeVariables) Variable(
+	_ context.Context,
+	scope domain.VarScope,
+	name string,
+) (string, bool, error) {
 	value, ok := f.values[scope][name]
 	return value, ok, nil
 }
 
-func (f *fakeVariables) SetVariable(_ context.Context, scope domain.VarScope, name string, value string) error {
+func (f *fakeVariables) SetVariable(
+	_ context.Context,
+	scope domain.VarScope,
+	name string,
+	value string,
+) error {
 	if reason, refused := f.refused[scope]; refused {
 		return errors.New(reason)
 	}
@@ -210,8 +226,8 @@ func (f *fakeVariables) SetVariable(_ context.Context, scope domain.VarScope, na
 	return nil
 }
 
-// seedTree is one collection with another one inside it and a request inside that, plus a request at
-// the top: every shape a chain has to keep straight.
+// seedTree is one collection with another one inside it and a request inside that, plus a request
+// at the top: every shape a chain has to keep straight.
 func seedTree() *fakeTree {
 	return &fakeTree{
 		collections: []domain.Collection{
@@ -248,8 +264,8 @@ func newTest() (*UseCase, *fakeEngine, *fakeTree, *fakeStore, *fakeVariables) {
 	return uc, engine, tree, store, vars
 }
 
-// commandLine is the id of the draft the command line writes into — the one level that is not in any
-// tree, and the reason the scripting feature knows a draft at all.
+// commandLine is the id of the draft the command line writes into — the one level that is not in
+// any tree, and the reason the scripting feature knows a draft at all.
 const commandLine = string(domain.DraftCommandLine)
 
 func pass(nodeID string) domain.ScriptPass {
@@ -261,8 +277,9 @@ func pass(nodeID string) domain.ScriptPass {
 	}
 }
 
-// What runs around a request is everything above it, outermost first — the collection's scripts, then
-// the collection's inside it, then the request's own. A level that runs nothing is not in the chain.
+// What runs around a request is everything above it, outermost first — the collection's scripts,
+// then the collection's inside it, then the request's own. A level that runs nothing is not in the
+// chain.
 func TestTheChainIsEverythingAboveTheRequest(t *testing.T) {
 	uc, _, _, _, _ := newTest()
 
@@ -273,7 +290,8 @@ func TestTheChainIsEverythingAboveTheRequest(t *testing.T) {
 	if len(chain) != 3 {
 		t.Fatalf("chain = %+v, want the collection, the one inside it and the request", chain)
 	}
-	if chain[0].NodeID != "col-1" || chain[0].Kind != KindCollection || chain[0].Name != "Пользователи" {
+	if chain[0].NodeID != "col-1" || chain[0].Kind != KindCollection ||
+		chain[0].Name != "Пользователи" {
 		t.Errorf("chain[0] = %+v, want the collection first", chain[0])
 	}
 	if chain[1].NodeID != "f-1" || chain[1].Kind != KindCollection {
@@ -284,8 +302,9 @@ func TestTheChainIsEverythingAboveTheRequest(t *testing.T) {
 	}
 }
 
-// A collection inside a collection is a level of the chain in its own right, and what is above it is
-// still above it: the code the outer collection runs has to run for the nested one's requests too.
+// A collection inside a collection is a level of the chain in its own right, and what is above it
+// is still above it: the code the outer collection runs has to run for the nested one's requests
+// too.
 func TestAChainGoesThroughTheCollectionsInsideOne(t *testing.T) {
 	uc, _, _, _, _ := newTest()
 	ctx := context.Background()
@@ -357,7 +376,8 @@ func TestBeforeRunsEveryPreScriptInOrder(t *testing.T) {
 		t.Error("the run was called off by a script that said nothing of the kind")
 	}
 
-	want := []string{"console.log('коллекция');", "console.log('вложенная');", "console.log('запрос');"}
+	want := []string{"console.log('коллекция');", "console.log('вложенная');",
+		"console.log('запрос');"}
 	if got := engine.sources(); !equal(got, want) {
 		t.Errorf("scripts that ran = %q, want %q", got, want)
 	}
@@ -377,8 +397,8 @@ func TestBeforeRunsEveryPreScriptInOrder(t *testing.T) {
 	}
 }
 
-// A script that changes the request changes what the ones after it see: the collection's script runs
-// first and the request's own sees what the collection inside it left.
+// A script that changes the request changes what the ones after it see: the collection's script
+// runs first and the request's own sees what the collection inside it left.
 func TestWhatAScriptChangesTheNextOneSees(t *testing.T) {
 	uc, engine, _, _, _ := newTest()
 	engine.onRun = func(in domain.ScriptInput) domain.ScriptRun {
@@ -402,7 +422,8 @@ func TestWhatAScriptChangesTheNextOneSees(t *testing.T) {
 func TestAPreRequestScriptCanCallTheRequestOff(t *testing.T) {
 	uc, engine, _, _, _ := newTest()
 	engine.onRun = func(in domain.ScriptInput) domain.ScriptRun {
-		return domain.ScriptRun{Scope: in.Scope, OK: true, SkipRequest: in.Source == "console.log('вложенная');"}
+		return domain.ScriptRun{Scope: in.Scope, OK: true,
+			SkipRequest: in.Source == "console.log('вложенная');"}
 	}
 
 	asked := pass("r-1")
@@ -463,7 +484,8 @@ func TestAfterRunsThePostScriptsAndKeepsTheReports(t *testing.T) {
 		t.Fatalf("reports = %+v, want one", runs)
 	}
 	run := runs[0]
-	if run.ID == "" || run.RecordID != "rec-1" || run.NodeID != "col-1" || run.Scope != domain.ScriptPost {
+	if run.ID == "" || run.RecordID != "rec-1" || run.NodeID != "col-1" ||
+		run.Scope != domain.ScriptPost {
 		t.Errorf("report = %+v, want it named by what, where and when", run)
 	}
 	if run.CreatedAt == 0 {
@@ -489,8 +511,8 @@ func TestAStoreThatCannotKeepReportsDoesNotFailTheRequest(t *testing.T) {
 	uc.After(context.Background(), ws, asked)
 }
 
-// A level's code is the level's own: what a collection inside another runs is not what the one around
-// it runs, and "nothing here" is the answer the editor draws the inherited text over.
+// A level's code is the level's own: what a collection inside another runs is not what the one
+// around it runs, and "nothing here" is the answer the editor draws the inherited text over.
 func TestALevelAnswersForItsOwnCode(t *testing.T) {
 	uc, _, _, _, _ := newTest()
 	ctx := context.Background()
@@ -504,8 +526,8 @@ func TestALevelAnswersForItsOwnCode(t *testing.T) {
 		t.Errorf("scripts of a level with no code = %+v, %v, want nothing", scripts, err)
 	}
 
-	// Writing is what gives a level code; taking it off puts the level back to "not set here", which is
-	// how it inherits again.
+	// Writing is what gives a level code; taking it off puts the level back to "not set here", which
+	// is how it inherits again.
 	if err := uc.SaveScripts(ctx, "col-2", &domain.Scripts{Post: "console.log('своё');"}); err != nil {
 		t.Fatalf("SaveScripts: %v", err)
 	}
@@ -524,8 +546,8 @@ func TestALevelAnswersForItsOwnCode(t *testing.T) {
 	}
 }
 
-// The command line's request is in no tree, so what runs around it is the code of its own draft: one
-// level, with nobody's name on it.
+// The command line's request is in no tree, so what runs around it is the code of its own draft:
+// one level, with nobody's name on it.
 func TestTheCommandLineIsAChainOfItsOwn(t *testing.T) {
 	uc, engine, tree, store, _ := newTest()
 	ctx := context.Background()
@@ -553,7 +575,8 @@ func TestTheCommandLineIsAChainOfItsOwn(t *testing.T) {
 	asked.Response = &domain.Response{Status: 200}
 	uc.After(ctx, ws, asked)
 
-	if got := engine.sources(); !equal(got, []string{"console.log('перед');", "console.log('после');"}) {
+	if got := engine.sources(); !equal(got,
+		[]string{"console.log('перед');", "console.log('после');"}) {
 		t.Errorf("scripts that ran = %q, want the draft's own two", got)
 	}
 	if len(store.runs) != 2 {
@@ -576,7 +599,7 @@ func TestTheRunScopeBelongsToTheRun(t *testing.T) {
 			_ = in.Variables.Set(domain.ScopeRun, "page", "2")
 		}
 		if in.Source == "console.log('запрос');" {
-			if value, ok, _ := in.Variables.Get(domain.ScopeRun, "page"); ok {
+			if value, ok, _ := in.Variables.Lookup(domain.ScopeRun, "page"); ok {
 				seen = value
 			}
 		}
@@ -587,7 +610,8 @@ func TestTheRunScopeBelongsToTheRun(t *testing.T) {
 		t.Fatalf("Before: %v", err)
 	}
 	if seen != "2" {
-		t.Errorf("the request's own script saw %q, want what the collection wrote earlier in the run", seen)
+		t.Errorf("the request's own script saw %q, want what the collection wrote earlier in the run",
+			seen)
 	}
 
 	// The same request, another run: nothing the first one wrote is there.
@@ -595,7 +619,7 @@ func TestTheRunScopeBelongsToTheRun(t *testing.T) {
 	other.Run = "run-2"
 	found := false
 	engine.onRun = func(in domain.ScriptInput) domain.ScriptRun {
-		if _, ok, _ := in.Variables.Get(domain.ScopeRun, "page"); ok {
+		if _, ok, _ := in.Variables.Lookup(domain.ScopeRun, "page"); ok {
 			found = true
 		}
 		return domain.ScriptRun{Scope: in.Scope, OK: true}
@@ -619,7 +643,7 @@ func TestReadingAVariableLooksThroughTheScopes(t *testing.T) {
 	asked := map[string]string{}
 	engine.onRun = func(in domain.ScriptInput) domain.ScriptRun {
 		for _, name := range []string{"base", "token", "нет"} {
-			value, ok, err := in.Variables.Get(domain.ScopeRun, name)
+			value, ok, err := in.Variables.Lookup(domain.ScopeRun, name)
 			if err != nil {
 				t.Errorf("Get(%s): %v", name, err)
 			}
@@ -632,7 +656,7 @@ func TestReadingAVariableLooksThroughTheScopes(t *testing.T) {
 
 	engine.onRun = func(in domain.ScriptInput) domain.ScriptRun {
 		for _, name := range []string{"base", "token", "нет"} {
-			value, ok, err := in.Variables.Get(domain.ScopeRun, name)
+			value, ok, err := in.Variables.Lookup(domain.ScopeRun, name)
 			if err != nil {
 				t.Errorf("Get(%s): %v", name, err)
 			}
@@ -658,8 +682,8 @@ func TestReadingAVariableLooksThroughTheScopes(t *testing.T) {
 	}
 }
 
-// The run's own scope is kept here; the environment and the globals are somebody else's, and writing
-// to them goes through the port.
+// The run's own scope is kept here; the environment and the globals are somebody else's, and
+// writing to them goes through the port.
 func TestWritingAVariableGoesWhereTheScopeSays(t *testing.T) {
 	uc, engine, _, _, vars := newTest()
 	engine.onRun = func(in domain.ScriptInput) domain.ScriptRun {
@@ -690,7 +714,8 @@ func TestWritingAVariableGoesWhereTheScopeSays(t *testing.T) {
 	}
 	// The run's own scope is this feature's memory and goes nowhere near the port.
 	if len(vars.values[domain.ScopeRun]) != 0 {
-		t.Errorf("the run scope = %+v, want it kept here and not written through the port", vars.values[domain.ScopeRun])
+		t.Errorf("the run scope = %+v, want it kept here and not written through the port",
+			vars.values[domain.ScopeRun])
 	}
 }
 

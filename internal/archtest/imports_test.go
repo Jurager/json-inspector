@@ -27,6 +27,28 @@ var forbiddenNames = map[string]bool{
 	"models": true, "types": true, "constants": true, "misc": true, "shared": true,
 }
 
+// treeRoot is where every rule walks from: the repository root, two levels above this package. The
+// results are keyed by the path rules talk about ("internal/domain"), which is what this name is
+// for.
+//
+// It is written with the path separator of the platform by filepath.Join below, so the comparison
+// against it has to be made on the raw path rather than on the slash-separated form.
+const treeRoot = "../.."
+
+// isFixtures is a directory the rules do not look into: fixtures are not packages, and dot-folders
+// are tooling.
+func isFixtures(name string) bool {
+	return name == "testdata" || strings.HasPrefix(name, ".")
+}
+
+// notOurCode are trees that hold no Go package of ours: the window and its dependencies, the
+// extension's build output, and the release artefacts the Taskfile writes. Walking them is slow and
+// they are not what any of these rules is about.
+var notOurCode = map[string]bool{
+	"frontend": true, "node_modules": true, "extension": true,
+	"build": true, "bin": true, "dist": true,
+}
+
 // packageImports maps a package directory (relative to the repository root, slash-separated, using
 // the module-relative form the rules talk about) to the module-internal packages it imports.
 func packageImports(t *testing.T) map[string][]string {
@@ -35,13 +57,12 @@ func packageImports(t *testing.T) map[string][]string {
 	fset := token.NewFileSet()
 	imports := map[string][]string{}
 
-	err := filepath.WalkDir("..", func(path string, d fs.DirEntry, err error) error {
+	err := filepath.WalkDir(treeRoot, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
 		if d.IsDir() {
-			// Testdata holds fixtures, not packages, and dot-directories hold tooling.
-			if name := d.Name(); name == "testdata" || strings.HasPrefix(name, ".") {
+			if path != treeRoot && (isFixtures(d.Name()) || notOurCode[d.Name()]) {
 				return fs.SkipDir
 			}
 			return nil
@@ -54,8 +75,15 @@ func packageImports(t *testing.T) map[string][]string {
 		if parseErr != nil {
 			return parseErr
 		}
-		dir := filepath.ToSlash(filepath.Dir(path))
-		dir = strings.TrimPrefix(dir, "../")
+		dir, relErr := filepath.Rel(treeRoot, filepath.Dir(path))
+		if relErr != nil {
+			return relErr
+		}
+		dir = filepath.ToSlash(dir)
+		if dir == "." {
+			// The root package has no directory of its own; the empty name is how the rules say it.
+			dir = ""
+		}
 
 		for _, spec := range file.Imports {
 			quoted, unquoteErr := strconv.Unquote(spec.Path.Value)
@@ -78,15 +106,17 @@ func TestLayerDependencies(t *testing.T) {
 
 	// forbid maps a package prefix to the internal packages it must not reach.
 	forbid := []struct {
-		owner    string
-		against  []string
-		explain  string
-		internal bool // only check module-internal imports
+		owner   string
+		against []string
+		explain string
 	}{
-		{"internal/domain", []string{modulePath}, "domain is entities and rules, with no dependency on the rest of the app", true},
-		{"internal/platform", []string{modulePath}, "platform is stdlib-only by design", true},
-		{"internal/infra", []string{modulePath + "/internal/usecase", modulePath + "/internal/transport"}, "infrastructure is called by use cases, never the other way round", true},
-		{"internal/usecase", []string{modulePath + "/internal/infra", modulePath + "/internal/transport"}, "use cases declare what they need; only the composition root wires implementations", true},
+		{"internal/domain", []string{modulePath},
+			"domain is entities and rules, with no dependency on the rest of the app"},
+		{"internal/platform", []string{modulePath}, "platform is stdlib-only by design"},
+		{"internal/infra", []string{modulePath + "/internal/usecase", modulePath + "/internal/transport"},
+			"infrastructure is called by use cases, never the other way round"},
+		{"internal/usecase", []string{modulePath + "/internal/infra", modulePath + "/internal/transport"},
+			"use cases declare what they need; only the composition root wires implementations"},
 	}
 
 	for _, rule := range forbid {
@@ -117,19 +147,22 @@ func TestLayerDependencies(t *testing.T) {
 				continue
 			}
 			if next := strings.Split(other, "/")[0]; next != feature {
-				t.Errorf("%s imports %s — use cases must not import each other, inject an interface instead", dir, target)
+				t.Errorf("%s imports %s — use cases must not import each other, inject an interface instead",
+					dir, target)
 			}
 		}
 	}
 
-	// Wails belongs to the transport layer alone.
+	// Wails belongs to the transport layer alone. The root package is exempt: main.go is the
+	// composition root, and holding the *application.App it builds is its whole job.
 	for dir, list := range imports {
-		if strings.HasPrefix(dir, "internal/transport") {
+		if dir == "" || strings.HasPrefix(dir, "internal/transport") {
 			continue
 		}
 		for _, target := range list {
 			if strings.HasPrefix(target, wailsPkg) {
-				t.Errorf("%s imports %s — only internal/transport may depend on the desktop framework", dir, target)
+				t.Errorf("%s imports %s — only internal/transport may depend on the desktop framework", dir,
+					target)
 			}
 		}
 	}
@@ -138,7 +171,7 @@ func TestLayerDependencies(t *testing.T) {
 // TestPackageNames rejects the names that hide a package's job. Naming is checked because it is
 // the cheapest signal that a package has grown a second responsibility.
 func TestPackageNames(t *testing.T) {
-	err := filepath.WalkDir("..", func(path string, d fs.DirEntry, err error) error {
+	err := filepath.WalkDir(treeRoot, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
@@ -146,8 +179,7 @@ func TestPackageNames(t *testing.T) {
 			return nil
 		}
 		name := d.Name()
-		if name == "testdata" || strings.HasPrefix(name, ".") || name == "frontend" ||
-			name == "build" || name == "extension" || name == "bin" {
+		if path != treeRoot && (isFixtures(name) || notOurCode[name]) {
 			return fs.SkipDir
 		}
 		if forbiddenNames[name] {

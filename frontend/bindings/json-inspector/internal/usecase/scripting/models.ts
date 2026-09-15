@@ -6,7 +6,8 @@
 import * as domain$0 from "../../domain/models.js";
 
 /**
- * Level is one step of a chain: a collection, a collection inside one, or a request, and what it runs.
+ * Level is one step of a chain: a collection, a collection inside one, or a request, and what it
+ * runs.
  */
 export interface Level {
     "nodeId": string;

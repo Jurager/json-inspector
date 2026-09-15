@@ -78,7 +78,7 @@ var (
 	promptRe = regexp.MustCompile("^(?:\\$" + jsSpaceClass + "+|PS" + jsSpaceClass + "[^>\n]*>" +
 		jsSpaceClass + "*|>" + jsSpaceClass + "+|" + cursorChar + jsSpaceClass + "+)+")
 
-	crlfRe       = regexp.MustCompile("\\r\\n?")
+	crlfRe       = regexp.MustCompile(`\r\n?`)
 	sudoRe       = regexp.MustCompile("^sudo" + jsSpaceClass + "+")
 	trailingFDRe = regexp.MustCompile(jsSpaceClass + "+[0-9]+" + jsSpaceClass + "*$")
 )

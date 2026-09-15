@@ -107,7 +107,11 @@ func (s *RecordsService) Cancel(ctx context.Context, id string) (bool, error) {
 
 // List is what the panel draws: everything but the body text, so two hundred rows do not carry two
 // hundred documents and selecting one costs nothing until its body is opened.
-func (s *RecordsService) List(ctx context.Context, source domain.RecordSource, limit int) ([]domain.Record, error) {
+func (s *RecordsService) List(
+	ctx context.Context,
+	source domain.RecordSource,
+	limit int,
+) ([]domain.Record, error) {
 	return s.records.List(ctx, source, limit)
 }
 
@@ -120,7 +124,11 @@ func (s *RecordsService) Record(ctx context.Context, id string) (domain.Record, 
 // Body is the call a viewer makes for a body that did not travel with the record — either because
 // it is large or because the record arrived in a list. An absent side is an empty string, not an
 // error: "this request had no body" is an answer, not a failure.
-func (s *RecordsService) Body(ctx context.Context, id string, side domain.BodySide) (string, error) {
+func (s *RecordsService) Body(
+	ctx context.Context,
+	id string,
+	side domain.BodySide,
+) (string, error) {
 	body, err := s.records.Body(ctx, id, side)
 	if errors.Is(err, domain.ErrNotFound) {
 		return "", nil
@@ -146,6 +154,9 @@ func (s *RecordsService) Prune(ctx context.Context) (int, error) {
 
 // ImportLegacy moves the history the old frontend kept in localStorage into the database, once. The
 // payload is the raw string: reading that shape is this side's job, not the window's.
-func (s *RecordsService) ImportLegacy(ctx context.Context, raw string) (record.ImportReport, error) {
+func (s *RecordsService) ImportLegacy(
+	ctx context.Context,
+	raw string,
+) (record.ImportReport, error) {
 	return s.records.ImportLegacy(ctx, raw)
 }

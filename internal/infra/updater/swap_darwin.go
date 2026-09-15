@@ -32,7 +32,8 @@ func swapAndRelaunch(archivePath string) error {
 	}
 	defer os.RemoveAll(staging)
 
-	if out, err := exec.Command("ditto", "-x", "-k", archivePath, staging).CombinedOutput(); err != nil {
+	if out, err := exec.Command("ditto", "-x", "-k", archivePath,
+		staging).CombinedOutput(); err != nil {
 		return fmt.Errorf("extracting update: %s", strings.TrimSpace(string(out)))
 	}
 

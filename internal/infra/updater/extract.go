@@ -8,7 +8,21 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
 )
+
+// archiveTarget is where one entry of an archive is written. `../../x` as an entry name would
+// otherwise resolve outside destDir and the file would land wherever it names — an archive is a
+// downloaded file, and the names inside it are not something this app has any reason to trust.
+func archiveTarget(destDir, name string) (string, error) {
+	target := filepath.Join(destDir, filepath.Clean(filepath.FromSlash(name)))
+
+	rel, err := filepath.Rel(destDir, target)
+	if err != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(os.PathSeparator)) {
+		return "", fmt.Errorf("archive entry %q escapes the destination", name)
+	}
+	return target, nil
+}
 
 func extractZip(src, destDir string) error {
 	r, err := zip.OpenReader(src)
@@ -32,7 +46,10 @@ func extractZipFile(f *zip.File, destDir string) error {
 	}
 	defer rc.Close()
 
-	target := filepath.Join(destDir, filepath.Clean(f.Name))
+	target, err := archiveTarget(destDir, f.Name)
+	if err != nil {
+		return err
+	}
 	if f.FileInfo().IsDir() {
 		return os.MkdirAll(target, 0o755)
 	}
@@ -73,7 +90,10 @@ func extractTarGz(src, destDir string) error {
 			return err
 		}
 
-		target := filepath.Join(destDir, filepath.Clean(hdr.Name))
+		target, err := archiveTarget(destDir, hdr.Name)
+		if err != nil {
+			return err
+		}
 		switch hdr.Typeflag {
 		case tar.TypeDir:
 			if err := os.MkdirAll(target, 0o755); err != nil {

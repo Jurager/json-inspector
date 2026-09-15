@@ -22,14 +22,20 @@ type collectionSender struct {
 
 var _ collection.Sender = collectionSender{}
 
-func (s collectionSender) Send(ctx context.Context, req collection.RunRequest) (domain.Record, error) {
+func (s collectionSender) Send(
+	ctx context.Context,
+	req collection.RunRequest,
+) (domain.Record, error) {
 	prepared, err := s.drafts.Prepare(ctx, draft.Seed{
-		Method:  req.Method,
-		URL:     req.URL,
-		Body:    req.Body,
-		Headers: req.Headers,
-		Cookies: req.Cookies,
-		Auth:    req.Auth,
+		Method:   req.Method,
+		URL:      req.URL,
+		Body:     req.Body,
+		BodyKind: req.BodyKind,
+		Form:     req.Form,
+		BodyFile: req.BodyFile,
+		Headers:  req.Headers,
+		Cookies:  req.Cookies,
+		Auth:     req.Auth,
 	})
 	if err != nil {
 		return domain.Record{}, err
@@ -39,5 +45,7 @@ func (s collectionSender) Send(ctx context.Context, req collection.RunRequest) (
 	// The scripts of everything above this request run around it, and they are found by where it came
 	// from: the node, and the run whose own variables they share.
 	input.Node, input.Run = req.NodeID, req.Run
-	return s.records.SendAndWait(ctx, input)
+	// The space the run resolved travels with each request rather than being read again here: a run
+	// of fifty requests must not scatter them across two spaces.
+	return s.records.SendAndWait(ctx, req.Workspace, input)
 }

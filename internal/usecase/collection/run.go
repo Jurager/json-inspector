@@ -107,7 +107,11 @@ func (u *UseCase) Stop() bool {
 
 // LastRun is what the overview draws when it opens. Absent is an answer — nothing has been run here
 // yet — and it is nil rather than an error, because a collection nobody has run is not a problem.
-func (u *UseCase) LastRun(ctx context.Context, collectionID string, nodeID string) (*domain.CollectionRun, error) {
+func (u *UseCase) LastRun(
+	ctx context.Context,
+	collectionID string,
+	nodeID string,
+) (*domain.CollectionRun, error) {
 	run, ok, err := u.store.LastRun(ctx, collectionID, nodeID)
 	if err != nil || !ok {
 		return nil, err
@@ -127,7 +131,7 @@ func (u *UseCase) execute(workspace string, run domain.CollectionRun, requests [
 			break
 		}
 
-		result := u.attempt(ctx, item, int64(position), run.ID)
+		result := u.attempt(ctx, workspace, item, int64(position), run.ID)
 		// The row goes in before it is counted: a run whose results cannot be written is over, and
 		// a summary that counts a row the database does not have is a summary that lies.
 		if err := u.store.AppendRunResult(ctx, run.ID, result); err != nil {
@@ -167,6 +171,7 @@ func (u *UseCase) execute(workspace string, run domain.CollectionRun, requests [
 // behind it, which is the opposite of what a run is for.
 func (u *UseCase) attempt(
 	ctx context.Context,
+	workspace string,
 	item runnable,
 	position int64,
 	runID string,
@@ -181,7 +186,7 @@ func (u *UseCase) attempt(
 		return result
 	}
 
-	rec, err := u.sender.Send(ctx, requestFrom(full, item.auth, runID))
+	rec, err := u.sender.Send(ctx, requestFrom(workspace, full, item.auth, runID))
 	if err != nil {
 		result.Error = err.Error()
 		return result
@@ -214,16 +219,25 @@ func (u *UseCase) attempt(
 // and the authorization the levels above it answered with. The URL is the request's own — a query
 // string is a URL's rows, not a second copy of them — so the parameters travel for the record and
 // do not rewrite the address.
-func requestFrom(node domain.CollectionNode, auth *domain.Auth, runID string) RunRequest {
+func requestFrom(
+	workspace string,
+	node domain.CollectionNode,
+	auth *domain.Auth,
+	runID string,
+) RunRequest {
 	request := RunRequest{
-		Run:     runID,
-		NodeID:  node.ID,
-		Method:  node.Method,
-		URL:     node.URL,
-		Body:    node.Body,
-		Headers: []domain.HeaderPair{},
-		Cookies: orEmptyCookies(node.Cookies),
-		Auth:    auth,
+		Run:       runID,
+		NodeID:    node.ID,
+		Workspace: workspace,
+		Method:    node.Method,
+		URL:       node.URL,
+		Body:      node.Body,
+		BodyKind:  node.BodyKind,
+		Form:      node.Form,
+		BodyFile:  node.BodyFile,
+		Headers:   []domain.HeaderPair{},
+		Cookies:   orEmptyCookies(node.Cookies),
+		Auth:      auth,
 	}
 	for _, row := range node.Headers {
 		if row.Enabled && strings.TrimSpace(row.Name) != "" {
@@ -240,10 +254,10 @@ type runnable struct {
 	auth *domain.Auth
 }
 
-// requestsUnder lists what a run walks, in the order the tree draws it: depth first, so a collection
-// is followed by what is inside it. A request is a list of one, which is why running a single saved
-// request and running a collection are the same call — and a collection inside a collection is run
-// by its own id, which is what running it on its own means.
+// requestsUnder lists what a run walks, in the order the tree draws it: depth first, so a
+// collection is followed by what is inside it. A request is a list of one, which is why running a
+// single saved request and running a collection are the same call — and a collection inside a
+// collection is run by its own id, which is what running it on its own means.
 //
 // A node the collection does not have is not an empty run: it is a node the window knows and this
 // tree does not, which is a deletion it has not heard about yet.

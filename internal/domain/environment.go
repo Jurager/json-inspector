@@ -9,8 +9,8 @@ const (
 	VariableSecret VariableKind = "secret"
 )
 
-// Variable is one `{{name}}` value. A secret's value is stored here like any other — the OS
-// keychain is gone, because it only ever worked on macOS — so masking is what keeps it out of
+// Variable is one `{{name}}` value. A secret's value is stored here like any other — the database
+// keeps it as plain text, which is what portability costs — so masking is what keeps it out of
 // everything the user can see or copy.
 type Variable struct {
 	ID       string       `json:"id"`

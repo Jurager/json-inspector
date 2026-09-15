@@ -23,7 +23,14 @@ import (
 //
 // A boundary handed in is reused rather than minted, which is what lets the live and the written
 // copy be two renderings of one encoding instead of two encodings that happen to look alike.
-func (u *UseCase) renderBody(kind domain.BodyKind, text string, file string, rows []domain.FormRow, boundary string, masked bool) (body string, used string, err error) {
+func (u *UseCase) renderBody(
+	kind domain.BodyKind,
+	text string,
+	file string,
+	rows []domain.FormRow,
+	boundary string,
+	masked bool,
+) (body string, used string, err error) {
 	switch kind {
 	case domain.BodyForm:
 		return u.renderForm(rows, boundary, masked)
@@ -36,9 +43,13 @@ func (u *UseCase) renderBody(kind domain.BodyKind, text string, file string, row
 	}
 }
 
-// renderForm is the Form-Data grid as a multipart body. Only the rows that are switched on and named
-// go out: a blank key is a part no server can read.
-func (u *UseCase) renderForm(rows []domain.FormRow, boundary string, masked bool) (string, string, error) {
+// renderForm is the Form-Data grid as a multipart body. Only the rows that are switched on and
+// named go out: a blank key is a part no server can read.
+func (u *UseCase) renderForm(
+	rows []domain.FormRow,
+	boundary string,
+	masked bool,
+) (string, string, error) {
 	var buf bytes.Buffer
 	writer := multipart.NewWriter(&buf)
 	if boundary != "" {
@@ -113,8 +124,8 @@ func (u *UseCase) renderFile(path string, masked bool) (string, string, error) {
 }
 
 // typeOfFile is what a part or a whole body declares itself as. The extension is all there is to go
-// on without opening the file, and it is enough — it is what every client uses. An unknown one still
-// declares the bytes rather than nothing at all.
+// on without opening the file, and it is enough — it is what every client uses. An unknown one
+// still declares the bytes rather than nothing at all.
 func typeOfFile(path string) string {
 	if guessed := mime.TypeByExtension(filepath.Ext(path)); guessed != "" {
 		return guessed
@@ -122,8 +133,8 @@ func typeOfFile(path string) string {
 	return "application/octet-stream"
 }
 
-// escapeQuotes is what multipart uses for a name or a filename it writes into a header: a quote in a
-// file name would otherwise end the parameter and start something else.
+// escapeQuotes is what multipart uses for a name or a filename it writes into a header: a quote in
+// a file name would otherwise end the parameter and start something else.
 var quoteEscaper = strings.NewReplacer("\\", "\\\\", `"`, "\\\"")
 
 func escapeQuotes(s string) string {

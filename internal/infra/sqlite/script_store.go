@@ -1,5 +1,6 @@
-// What the scripting feature keeps: the code of every level, and the report of every run.
 package sqlite
+
+// What the scripting feature keeps: the code of every level, and the report of every run.
 
 import (
 	"context"
@@ -13,8 +14,8 @@ import (
 )
 
 // encodeScripts keeps "not set here" apart from "nothing to run": the column is NULL for the first
-// and a JSON object for the second, which is the difference between inheriting and having nothing to
-// add. An empty object is still a value, and it is written as one.
+// and a JSON object for the second, which is the difference between inheriting and having nothing
+// to add. An empty object is still a value, and it is written as one.
 func encodeScripts(scripts *domain.Scripts) (sql.NullString, error) {
 	if scripts == nil {
 		return sql.NullString{}, nil
@@ -59,9 +60,13 @@ func (s *Store) Scripts(ctx context.Context, workspaceID, id string) (*domain.Sc
 }
 
 // SaveScripts writes what is set on a level. NULL stays NULL: a level with no code of its own is a
-// level that inherits, and writing an empty object there would turn "take the parents" into "nothing
-// to run" — the two the column exists to tell apart.
-func (s *Store) SaveScripts(ctx context.Context, workspaceID, id string, scripts *domain.Scripts) error {
+// level that inherits, and writing an empty object there would turn "take the parents" into
+// "nothing to run" — the two the column exists to tell apart.
+func (s *Store) SaveScripts(
+	ctx context.Context,
+	workspaceID, id string,
+	scripts *domain.Scripts,
+) error {
 	encoded, err := encodeScripts(scripts)
 	if err != nil {
 		return err
@@ -96,9 +101,9 @@ func (s *Store) SaveScripts(ctx context.Context, workspaceID, id string, scripts
 	return fmt.Errorf("level %s: %w", id, domain.ErrNotFound)
 }
 
-// SaveScriptRun writes one execution of one script with everything it printed and asserted. It is one
-// transaction because it is one report: a run whose lines were only half written would lie about what
-// happened, and the tab draws exactly this.
+// SaveScriptRun writes one execution of one script with everything it printed and asserted. It is
+// one transaction because it is one report: a run whose lines were only half written would lie
+// about what happened, and the tab draws exactly this.
 func (s *Store) SaveScriptRun(ctx context.Context, workspaceID string, run domain.ScriptRun) error {
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
@@ -161,7 +166,8 @@ func (s *Store) ScriptRuns(ctx context.Context, recordID string) ([]domain.Scrip
 	runs := []domain.ScriptRun{}
 	byID := map[string]int{}
 	for rows.Next() {
-		run := domain.ScriptRun{RecordID: recordID, Logs: []domain.ScriptLog{}, Tests: []domain.TestResult{}}
+		run := domain.ScriptRun{RecordID: recordID, Logs: []domain.ScriptLog{},
+			Tests: []domain.TestResult{}}
 		var nodeID sql.NullString
 		if err := rows.Scan(&run.ID, &nodeID, &run.Scope, &run.OK, &run.Error,
 			&run.DurationUs, &run.CreatedAt); err != nil {
@@ -189,11 +195,16 @@ func (s *Store) ScriptRuns(ctx context.Context, recordID string) ([]domain.Scrip
 
 // attachLogs reads every line of every run in one query and hangs them where they belong: two runs
 // are two rows of the same report, and the tab draws them together.
-func (s *Store) attachLogs(ctx context.Context, runs []domain.ScriptRun, byID map[string]int) error {
+func (s *Store) attachLogs(
+	ctx context.Context,
+	runs []domain.ScriptRun,
+	byID map[string]int,
+) error {
 	rows, err := s.db.QueryContext(ctx,
 		`SELECT run_id, level, message
 		   FROM script_logs
-		  WHERE run_id IN (SELECT id FROM script_runs WHERE record_seq = (SELECT seq FROM records WHERE id = ?))
+		  WHERE run_id IN (SELECT id FROM script_runs
+		                    WHERE record_seq = (SELECT seq FROM records WHERE id = ?))
 		  ORDER BY run_id, position`, runs[0].RecordID)
 	if err != nil {
 		return fmt.Errorf("reading the logs of record %s: %w", runs[0].RecordID, err)
@@ -213,11 +224,16 @@ func (s *Store) attachLogs(ctx context.Context, runs []domain.ScriptRun, byID ma
 	return rows.Err()
 }
 
-func (s *Store) attachTests(ctx context.Context, runs []domain.ScriptRun, byID map[string]int) error {
+func (s *Store) attachTests(
+	ctx context.Context,
+	runs []domain.ScriptRun,
+	byID map[string]int,
+) error {
 	rows, err := s.db.QueryContext(ctx,
 		`SELECT run_id, name, passed, error, duration_us
 		   FROM test_results
-		  WHERE run_id IN (SELECT id FROM script_runs WHERE record_seq = (SELECT seq FROM records WHERE id = ?))
+		  WHERE run_id IN (SELECT id FROM script_runs
+		                    WHERE record_seq = (SELECT seq FROM records WHERE id = ?))
 		  ORDER BY run_id, position`, runs[0].RecordID)
 	if err != nil {
 		return fmt.Errorf("reading the tests of record %s: %w", runs[0].RecordID, err)

@@ -1,6 +1,7 @@
-// Package draft owns the request being composed: its model, the transforms between what the window
-// types and what the request is made of, and the preview it draws the command line from.
 package draft
+
+// The transforms between what the window types and the parts a request is made of: the address and
+// its rows, and the jar a `Cookie` header comes to.
 
 import (
 	"net/url"
@@ -170,4 +171,22 @@ func headerFromCookies(rows []domain.CookieRow) string {
 		parts = append(parts, name+"="+row.Value)
 	}
 	return strings.Join(parts, "; ")
+}
+
+// rowsFromURL reads the query string into rows and keeps what the previous set of rows contributes:
+// the ids of the ones that stayed, and the ones switched off, which the URL does not mention.
+func (u *UseCase) rowsFromURL(raw string, existing []domain.Row) []domain.Row {
+	rows := reconcile(paramsFromURL(raw), existing)
+	for i := range rows {
+		if rows[i].ID == "" {
+			rows[i].ID = u.ids()
+		}
+	}
+	return rows
+}
+
+// syncURL writes the parameter rows back into the URL, which is what actually goes out.
+func syncURL(d *domain.Draft) {
+	base, _ := queryOf(d.URL)
+	d.URL = joinURL(base, d.Params)
 }

@@ -26,8 +26,8 @@ func systemIsDark() bool {
 
 // appearanceFor is the palette the material behind the window is chosen by. "Follow the system" is
 // resolved here rather than left to AppKit, as macOS could do: the material is one of two, so the
-// system's own answer has to be known when it is picked, and the window's appearance is what carries
-// that answer to the re-tint when the system changes under a running app.
+// system's own answer has to be known when it is picked, and the window's appearance is what
+// carries that answer to the re-tint when the system changes under a running app.
 func appearanceFor(theme domain.Theme) domain.Theme {
 	if theme != domain.ThemeSystem {
 		return theme

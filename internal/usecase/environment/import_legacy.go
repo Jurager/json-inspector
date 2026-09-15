@@ -48,11 +48,11 @@ type ImportReport struct {
 
 // ImportLegacy moves the environments the old frontend kept in localStorage into the database.
 //
-// Secret values came from the OS keychain then and live in the database now: they are read once,
-// here, through the SecretSource — which is why the keychain code outlives this import by a release
-// and not longer. A secret that cannot be read is a warning, not a failure: the variable keeps its
-// kind and an empty value, and the report names it.
-func (u *UseCase) ImportLegacy(ctx context.Context, raw string, secrets SecretSource) (ImportReport, error) {
+// A secret comes over as its name and its kind and nothing else: values lived in the OS keychain
+// then, which held them on one platform only and is gone now. Secrets are rows in the database
+// here — where they are kept is the one thing this side does not decide — so a secret is a warning
+// rather than a failure: the variable is there, and its value is one to enter again.
+func (u *UseCase) ImportLegacy(ctx context.Context, raw string) (ImportReport, error) {
 	var report ImportReport
 
 	claimed, err := u.store.ClaimImport(ctx, LegacySource)
@@ -81,7 +81,7 @@ func (u *UseCase) ImportLegacy(ctx context.Context, raw string, secrets SecretSo
 		return report, nil
 	}
 
-	if err := u.writeLegacy(ctx, *state, secrets, &report); err != nil {
+	if err := u.writeLegacy(ctx, *state, &report); err != nil {
 		finish := u.store.FinishImport(ctx, LegacySource, "failed", err.Error())
 		if finish != nil {
 			log.Printf("[import] recording the failure: %v", finish)
@@ -119,7 +119,7 @@ func parseLegacy(raw string) (*legacyState, error) {
 // writeLegacy restores the old localStorage payload. It lands in the default workspace and not in
 // whichever one happens to be on screen: the import is a one-time repair of what this installation
 // kept before environments moved into the database, and it must not follow the user around spaces.
-func (u *UseCase) writeLegacy(ctx context.Context, state legacyState, secrets SecretSource, report *ImportReport) error {
+func (u *UseCase) writeLegacy(ctx context.Context, state legacyState, report *ImportReport) error {
 	const workspace = domain.WorkspacePersonalID
 
 	for i, legacyEnv := range state.Environments {
@@ -136,11 +136,9 @@ func (u *UseCase) writeLegacy(ctx context.Context, state legacyState, secrets Se
 		report.Environments++
 
 		for j, legacyVar := range legacyEnv.Vars {
-			v, err := u.legacyVariable(ctx, legacyVar, domain.EnvScope{Environment: env.ID}, j+1, secrets, report)
-			if err != nil {
-				return err
-			}
-			if err := u.store.SaveVariable(ctx, workspace, domain.EnvScope{Environment: env.ID}, v); err != nil {
+			v := u.legacyVariable(legacyVar, j+1, report)
+			if err := u.store.SaveVariable(ctx, workspace, domain.EnvScope{Environment: env.ID},
+				v); err != nil {
 				return err
 			}
 			report.Variables++
@@ -148,10 +146,7 @@ func (u *UseCase) writeLegacy(ctx context.Context, state legacyState, secrets Se
 	}
 
 	for j, legacyVar := range state.Globals {
-		v, err := u.legacyVariable(ctx, legacyVar, domain.EnvScope{}, j+1, secrets, report)
-		if err != nil {
-			return err
-		}
+		v := u.legacyVariable(legacyVar, j+1, report)
 		if err := u.store.SaveVariable(ctx, workspace, domain.EnvScope{}, v); err != nil {
 			return err
 		}
@@ -166,17 +161,14 @@ func (u *UseCase) writeLegacy(ctx context.Context, state legacyState, secrets Se
 	return nil
 }
 
-// legacyVariable carries one variable over, pulling a secret's value out of the keychain on the way.
-// The old key was the scope's id or the literal "globals", and the old account name was
-// `env:<scope>:<name>` — both are that code's spelling, kept here on purpose.
+// legacyVariable carries one variable over. A text variable brings its value, which was in the
+// payload. A secret brings its name and its kind and no value: what it held lived in the keychain,
+// on one platform only, and the report names it rather than carrying a stale copy.
 func (u *UseCase) legacyVariable(
-	ctx context.Context,
 	legacy legacyVariable,
-	scope domain.EnvScope,
 	position int,
-	secrets SecretSource,
 	report *ImportReport,
-) (domain.Variable, error) {
+) domain.Variable {
 	kind := domain.VariableText
 	if legacy.Kind == string(domain.VariableSecret) {
 		kind = domain.VariableSecret
@@ -185,32 +177,19 @@ func (u *UseCase) legacyVariable(
 	v := domain.Variable{
 		ID:       firstNonEmpty(legacy.ID, u.ids()),
 		Name:     legacy.Name,
-		Value:    legacy.Value,
 		Kind:     kind,
 		Enabled:  legacy.Enabled,
 		Position: position,
 	}
-	if kind != domain.VariableSecret || secrets == nil {
-		return v, nil
+	if kind != domain.VariableSecret {
+		v.Value = legacy.Value
+		return v
 	}
 
 	report.Secrets++
-	scopeKey := scope.Environment
-	if scopeKey == "" {
-		scopeKey = "globals"
-	}
-	value, err := secrets.Get(ctx, scopeKey, legacy.Name)
-	switch {
-	case err != nil:
-		report.Warnings = append(report.Warnings,
-			fmt.Sprintf("secret %q was not read from the keychain: %v", legacy.Name, err))
-	case value == "":
-		report.Warnings = append(report.Warnings,
-			fmt.Sprintf("secret %q: no value in the keychain, enter it again", legacy.Name))
-	default:
-		v.Value = value
-	}
-	return v, nil
+	report.Warnings = append(report.Warnings,
+		fmt.Sprintf("secret %q: its value lived in the keychain, enter it again", legacy.Name))
+	return v
 }
 
 func firstNonEmpty(values ...string) string {

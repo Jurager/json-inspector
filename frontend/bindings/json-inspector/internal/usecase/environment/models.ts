@@ -6,6 +6,15 @@
 import * as domain$0 from "../../domain/models.js";
 
 /**
+ * EnvironmentPatch is a partial update: a nil field is left as it is.
+ */
+export interface EnvironmentPatch {
+    "name"?: string | null;
+    "color"?: string | null;
+    "readonly"?: boolean | null;
+}
+
+/**
  * ImportReport says what an import did, so the screen can mention it once and the log keeps it.
  */
 export interface ImportReport {
@@ -18,15 +27,6 @@ export interface ImportReport {
      * Completed is false when the import had already run, or has nothing to read.
      */
     "completed": boolean;
-}
-
-/**
- * Patch is a partial update: a nil field is left as it is.
- */
-export interface Patch {
-    "name"?: string | null;
-    "color"?: string | null;
-    "readonly"?: boolean | null;
 }
 
 /**

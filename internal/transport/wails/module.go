@@ -47,6 +47,7 @@ type ServicesIn struct {
 	Bridge       *BridgeService
 	Workspaces   *WorkspaceService
 	Search       *SearchService
+	Commands     *CommandService
 }
 
 var Module = fx.Module("wails",
@@ -55,7 +56,6 @@ var Module = fx.Module("wails",
 		// case and the adapter that serves it. Everything above this line is a constructor.
 		func(store *sqlite.Store) environment.Store { return store },
 		func(store *sqlite.Store) settings.Store { return store },
-		func() environment.SecretSource { return keychainSecrets{} },
 		func(host *Host) settings.Notifier { return newBus(host) },
 		func(store *sqlite.Store) record.Store { return store },
 		func(store *sqlite.Store) draft.Store { return store },
@@ -68,6 +68,10 @@ var Module = fx.Module("wails",
 		func(host *Host) record.Notifier { return newBus(host) },
 		func(uc *settings.UseCase) record.RetentionSource { return settingsRetention(uc) },
 		func(uc *environment.UseCase) draft.VariableSource { return environmentVariables{uc} },
+		// The same adapter twice, as two ports: an export asks the environments what a text's
+		// `{{tokens}}` come to, exactly as the draft does, and neither feature knows the other.
+		func(uc *environment.UseCase) variableSource { return environmentVariables{uc} },
+		func(uc *record.UseCase) recordSource { return uc },
 		func(r *files.Reader) draft.FileSource { return r },
 		// The schemes are the outside world: two of them fetch a token or answer a challenge, and
 		// which ones those are is not something a use case should have to know.
@@ -112,9 +116,9 @@ var Module = fx.Module("wails",
 		NewBridgeService,
 		NewWorkspaceService,
 		NewSearchService,
+		NewCommandService,
 		newCaptureIngest,
-		newApplication,
-	),
+		newApplication),
 	fx.Invoke(setup),
 )
 
@@ -175,12 +179,13 @@ func setup(
 	settingsService := application.NewService(in.Settings)
 	recordsService := application.NewService(in.Records)
 	draftService := application.NewService(in.Drafts)
-	environments := application.NewService(in.Environments)
-	collections := application.NewService(in.Collections)
-	scripting := application.NewService(in.Scripting)
+	environmentsService := application.NewService(in.Environments)
+	collectionsService := application.NewService(in.Collections)
+	scriptingService := application.NewService(in.Scripting)
 	bridgeService := application.NewService(in.Bridge)
-	workspaces := application.NewService(in.Workspaces)
+	workspacesService := application.NewService(in.Workspaces)
 	searchService := application.NewService(in.Search)
+	commandService := application.NewService(in.Commands)
 
 	app.RegisterService(system)
 	app.RegisterService(settingsService)
@@ -190,12 +195,13 @@ func setup(
 	// between a window that explains itself and one where half the controls fail. The frontend
 	// reads StartupStatus and renders the failure instead of reaching for these.
 	if status.Ready() {
-		app.RegisterService(environments)
-		app.RegisterService(collections)
-		app.RegisterService(scripting)
+		app.RegisterService(environmentsService)
+		app.RegisterService(collectionsService)
+		app.RegisterService(scriptingService)
 		app.RegisterService(bridgeService)
-		app.RegisterService(workspaces)
+		app.RegisterService(workspacesService)
 		app.RegisterService(searchService)
+		app.RegisterService(commandService)
 	}
 
 	// The window is translucent: what the chrome and the overlays paint is a glass material, and the
@@ -233,9 +239,10 @@ func setup(
 		prepareGlassWindow(mainWin, theme)
 		host.MarkReady()
 	})
-	app.Event.OnApplicationEvent(events.Common.ApplicationLaunchedWithUrl, func(e *application.ApplicationEvent) {
-		host.HandleURLOpen(e.Context().URL())
-	})
+	app.Event.OnApplicationEvent(events.Common.ApplicationLaunchedWithUrl,
+		func(e *application.ApplicationEvent) {
+			host.HandleURLOpen(e.Context().URL())
+		})
 	// While the app follows the system, the OS switching its own theme is a theme change like any
 	// other — and one the frontend cannot pass on, since the material is not the page's to move.
 	app.Event.OnApplicationEvent(events.Common.ThemeChanged, func(*application.ApplicationEvent) {

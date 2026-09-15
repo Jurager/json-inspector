@@ -73,8 +73,8 @@ func TestDefaultsAreFilledIn(t *testing.T) {
 	if auth.Type != AuthBearer {
 		t.Errorf("type = %q, want the one asked for", auth.Type)
 	}
-	if auth.Get("prefix") != "Bearer" {
-		t.Errorf("prefix = %q, want the scheme's own default", auth.Get("prefix"))
+	if auth.Answer("prefix") != "Bearer" {
+		t.Errorf("prefix = %q, want the scheme's own default", auth.Answer("prefix"))
 	}
 	if _, ok := auth.Fields["token"]; ok {
 		t.Error("a field with no default belongs absent, not empty: empty is an answer nobody gave")
@@ -84,7 +84,7 @@ func TestDefaultsAreFilledIn(t *testing.T) {
 	for _, scheme := range AuthSchemes() {
 		filled := WithDefaults(scheme.Type)
 		for _, field := range scheme.Fields {
-			if field.Kind == FieldSelect && filled.Get(field.Key) == "" {
+			if field.Kind == FieldSelect && filled.Answer(field.Key) == "" {
 				t.Errorf("%s: select %q starts with nothing chosen", scheme.Type, field.Key)
 			}
 		}
@@ -97,11 +97,11 @@ func TestWithDoesNotReachThrough(t *testing.T) {
 	original := NewAuth(AuthBearer).With("token", "first")
 	edited := original.With("token", "second")
 
-	if original.Get("token") != "first" {
-		t.Errorf("original = %q, want it left alone", original.Get("token"))
+	if original.Answer("token") != "first" {
+		t.Errorf("original = %q, want it left alone", original.Answer("token"))
 	}
-	if edited.Get("token") != "second" {
-		t.Errorf("edited = %q, want the new answer", edited.Get("token"))
+	if edited.Answer("token") != "second" {
+		t.Errorf("edited = %q, want the new answer", edited.Answer("token"))
 	}
 }
 
@@ -115,29 +115,30 @@ func TestAnswersToOtherSchemesAreKept(t *testing.T) {
 	}}
 	normalized := switched.Normalized()
 
-	if normalized.Get("token") != "left-over" {
-		t.Errorf("token = %q, want the answer kept for the scheme it belongs to", normalized.Get("token"))
+	if normalized.Answer("token") != "left-over" {
+		t.Errorf("token = %q, want the answer kept for the scheme it belongs to",
+			normalized.Answer("token"))
 	}
-	if normalized.Get("username") != "user" {
-		t.Errorf("username = %q, want the answer that was given", normalized.Get("username"))
+	if normalized.Answer("username") != "user" {
+		t.Errorf("username = %q, want the answer that was given", normalized.Answer("username"))
 	}
 
 	// And coming back to that scheme finds it: nothing between the two reads takes it away.
 	back := Auth{Type: AuthBearer, Fields: normalized.Fields}.Normalized()
-	if back.Get("token") != "left-over" {
-		t.Errorf("token = %q, want what was there before the switch", back.Get("token"))
+	if back.Answer("token") != "left-over" {
+		t.Errorf("token = %q, want what was there before the switch", back.Answer("token"))
 	}
 
 	// The one thing the window never sends is what a field starts at, because the window is not the
 	// side that knows: a select has a first choice whether or not anyone picked one.
 	filled := NewAuth(AuthAPIKey).Normalized()
-	if filled.Get("place") != "header" {
-		t.Errorf("place = %q, want the scheme's own first choice", filled.Get("place"))
+	if filled.Answer("place") != "header" {
+		t.Errorf("place = %q, want the scheme's own first choice", filled.Answer("place"))
 	}
 	// An answer already given wins over the default, including an empty one: a prefix somebody
 	// cleared is a prefix they do not want.
 	cleared := NewAuth(AuthBearer).With("prefix", "")
-	if cleared.Normalized().Get("prefix") != "" {
+	if cleared.Normalized().Answer("prefix") != "" {
 		t.Error("a prefix somebody cleared came back")
 	}
 
