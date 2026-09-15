@@ -1,1 +1,0 @@
-fetch('https://api.example.com/articles', {"method":"POST","headers":[["X-A","1"],["X-B","2"]]})

@@ -1,6 +1,6 @@
 import { AuthType } from '../../bindings/json-inspector/internal/domain'
 import type { Auth, AuthToken, BodyKind, CookieRow, FormRow, ProjectedRow, Row, RowKind, Scripts } from '../../bindings/json-inspector/internal/domain'
-import type { RowPatch, Seed } from '../../bindings/json-inspector/internal/usecase/draft'
+import type { CommandResult, RowPatch, Seed } from '../../bindings/json-inspector/internal/usecase/draft'
 
 // A request nobody has authorized yet, and what every reader falls back on. «Нет» is an answer and
 // not the absence of one, which is why it is written down rather than left undefined.
@@ -82,8 +82,12 @@ export interface RequestSource {
   patchRow(kind: RowKind, id: string, patch: RowPatch): Promise<void>
   toggleRow(kind: RowKind, id: string, enabled: boolean): Promise<void>
   setOpenChip(chip: ChipName | null): void
-  // A whole request handed over — a pasted command — replacing what is being composed.
+  // A whole request handed over — a record opened in the line — replacing what is being composed.
   replace(seed: Seed): Promise<void>
+  // A command pasted into the line: read on the other side, and the draft replaced with what it
+  // came to. The reading is returned so the window can word the toast; when it is not a command at
+  // all, nothing was replaced and the caller puts the text in the field itself.
+  pasteCommand(text: string): Promise<CommandResult>
   send(): Promise<void>
   cancel(): Promise<void>
   // A send that failed on this side has nothing to wait for any more.

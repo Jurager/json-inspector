@@ -1,1 +1,0 @@
-fetch("https://api.example.com/articles", {"headers": {"accept": "application/vnd.api+json"}})

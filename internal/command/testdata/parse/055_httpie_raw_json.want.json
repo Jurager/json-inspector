@@ -1,8 +1,0 @@
-{
-  "kind": "ok",
-  "format": "httpie",
-  "method": "POST",
-  "url": "https://api.example.com/articles",
-  "headers": [],
-  "body": "{\"a\":1}"
-}

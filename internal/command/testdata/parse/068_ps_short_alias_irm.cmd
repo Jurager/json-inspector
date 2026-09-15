@@ -1,1 +1,0 @@
-irm 'https://api.example.com/articles'

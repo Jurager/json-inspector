@@ -70,7 +70,8 @@ async function loadSample() {
   // record the mirror does not hold.
   store.prepend(record)
   store.activeView = 'request'
-  await store.selectManual(record.id)
+  // A sample is meant to be played with, so it opens in the request as well as in the pane.
+  await store.openInRequest(record.id)
 }
 
 function openAbout() {

@@ -101,7 +101,10 @@ func TestLineLength(t *testing.T) {
 
 	walkGoFiles(t, func(path, source string) {
 		for number, line := range strings.Split(source, "\n") {
-			if width := utf8.RuneCountInString(line); width > limit {
+			// The carriage return is dropped before counting: a file an editor saved with CRLF
+			// endings would otherwise have every line reported one character too long, which is a
+			// rule about line endings rather than about line length.
+			if width := utf8.RuneCountInString(strings.TrimSuffix(line, "\r")); width > limit {
 				t.Errorf("%s:%d is %d characters — the rule is %d (CLAUDE.md, «Правила проекта»)",
 					path, number+1, width, limit)
 			}

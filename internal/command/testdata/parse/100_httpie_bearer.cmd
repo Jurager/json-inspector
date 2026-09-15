@@ -1,1 +1,0 @@
-http --bearer tok-1 https://api.example.com/articles

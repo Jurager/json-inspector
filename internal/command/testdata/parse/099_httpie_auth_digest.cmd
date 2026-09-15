@@ -1,1 +1,0 @@
-http --auth user:secret --auth-type digest https://api.example.com/articles

@@ -1,8 +1,0 @@
-{
-  "kind": "ok",
-  "format": "fetch",
-  "method": "POST",
-  "url": "https://api.example.com/articles",
-  "headers": [],
-  "body": ""
-}

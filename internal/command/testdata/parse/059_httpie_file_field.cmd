@@ -1,1 +1,0 @@
-http POST https://api.example.com/articles file@photo.png

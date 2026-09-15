@@ -6,6 +6,78 @@
 import * as domain$0 from "../../domain/models.js";
 
 /**
+ * CommandFormat is the notation a request is written out in. The reader knows one of them; the
+ * writer knows all five.
+ */
+export enum CommandFormat {
+    /**
+     * The Go zero value for the underlying type of the enum.
+     */
+    $zero = "",
+
+    FormatCurl = "curl",
+    FormatFetch = "fetch",
+    FormatWget = "wget",
+    FormatHTTPie = "httpie",
+    FormatPowerShell = "powershell",
+};
+
+/**
+ * CommandKind is what reading the text came to.
+ */
+export enum CommandKind {
+    /**
+     * The Go zero value for the underlying type of the enum.
+     */
+    $zero = "",
+
+    KindNone = "none",
+    KindOK = "ok",
+    KindError = "error",
+};
+
+/**
+ * CommandReason is why a command was recognised but could not be read. These cross to the window,
+ * which has a sentence for each, so the values are a contract with the locale files rather than a
+ * name for anything on this side.
+ */
+export enum CommandReason {
+    /**
+     * The Go zero value for the underlying type of the enum.
+     */
+    $zero = "",
+
+    ReasonNoURL = "no-url",
+    ReasonBadQuotes = "bad-quotes",
+    ReasonLeftover = "leftover",
+    ReasonUnsupportedMultipart = "unsupported-multipart",
+};
+
+/**
+ * CommandResult is the outcome of reading a pasted command. KindNone is "not a command at all,
+ * leave the field alone", which is what most pastes come to; KindError carries the reason the
+ * window phrases.
+ * 
+ * A command that was read is a Seed — the same whole request that "открыть в запросе" produces and
+ * that the draft already knows how to take.
+ */
+export interface CommandResult {
+    "kind": CommandKind;
+    "seed": Seed;
+    "reason": CommandReason;
+}
+
+/**
+ * Paste is a pasted command applied to the draft: what the reading came to, and the draft as it
+ * stands when there turned out to be something to replace it with. State is absent for the pastes
+ * that were not commands at all, which is most of them.
+ */
+export interface Paste {
+    "reading": CommandResult;
+    "state"?: State | null;
+}
+
+/**
  * Preview is what the command line draws and cannot work out from the draft alone: which of its
  * `{{tokens}}` mean nothing. Whether the request can go out follows from that and from a URL the
  * window itself is holding, so there is no verdict here — only what the window cannot see for

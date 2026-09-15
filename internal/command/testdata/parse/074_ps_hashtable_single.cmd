@@ -1,1 +1,0 @@
-Invoke-RestMethod -Uri 'https://api.example.com/articles' -Headers @{ Accept = 'application/json' }

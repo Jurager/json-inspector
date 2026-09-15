@@ -5,8 +5,8 @@ import (
 	"strings"
 	"testing"
 
-	"json-inspector/internal/command"
 	"json-inspector/internal/domain"
+	"json-inspector/internal/usecase/draft"
 )
 
 // fakeRecords is the history as the export sees it: one request, with its body kept apart the way
@@ -63,7 +63,7 @@ func newCommandService() *CommandService {
 // resolved. The values themselves never cross back into the window: this is the whole reason the
 // substitution happens here and not there.
 func TestExportMasksASecretAndResolvesTheRest(t *testing.T) {
-	text, err := newCommandService().Export(context.Background(), "rec-1", command.FormatCurl, false)
+	text, err := newCommandService().Export(context.Background(), "rec-1", draft.FormatCurl)
 	if err != nil {
 		t.Fatalf("Export: %v", err)
 	}
@@ -79,46 +79,5 @@ func TestExportMasksASecretAndResolvesTheRest(t *testing.T) {
 	}
 	if !strings.Contains(text, "-X POST") {
 		t.Errorf("export = %q, want the method the record was sent with", text)
-	}
-}
-
-// A snippet shared with the tokens intact is the other half of the same gesture: the variables are
-// resolved where the request is sent, not where it is copied.
-func TestExportCanKeepTheTokens(t *testing.T) {
-	text, err := newCommandService().Export(context.Background(), "rec-1", command.FormatCurl, true)
-	if err != nil {
-		t.Fatalf("Export: %v", err)
-	}
-
-	if !strings.Contains(text, "{{token}}") || !strings.Contains(text, "{{host}}") {
-		t.Errorf("export = %q, want the tokens as they were written", text)
-	}
-	if strings.Contains(text, "••••") {
-		t.Errorf("export = %q, want no mask where the tokens are kept", text)
-	}
-}
-
-// Pasting something that is not a command is not a failure: the window lets the text through.
-func TestParseOfSomethingElseIsNotAnError(t *testing.T) {
-	svc := newCommandService()
-
-	for _, text := range []string{"https://api.example.com/articles", "просто текст", ""} {
-		result, err := svc.Parse(context.Background(), text)
-		if err != nil {
-			t.Fatalf("Parse(%q): %v", text, err)
-		}
-		if result.Kind != command.KindNone {
-			t.Errorf("Parse(%q) = %q, want none", text, result.Kind)
-		}
-	}
-
-	result, err := svc.Parse(context.Background(),
-		"curl -X POST https://api.example.com -d '{\"a\":1}'")
-	if err != nil {
-		t.Fatalf("Parse: %v", err)
-	}
-	if result.Kind != command.KindOK || result.Format != command.FormatCurl ||
-		result.Request.Method != "POST" {
-		t.Errorf("Parse = %+v, want a POST read as curl", result)
 	}
 }

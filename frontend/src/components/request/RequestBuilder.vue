@@ -19,8 +19,8 @@ import type { ChipName, RequestSource } from '../../lib/requestSource'
 import { usePlatform } from '../../composables/usePlatform'
 import { registerUrlField } from '../../composables/urlFocus'
 import { tokenSegments } from '../../lib/vars'
-import { CommandService } from '../../../bindings/json-inspector/internal/transport/wails'
-import { Format, Kind } from '../../../bindings/json-inspector/internal/command'
+import { looksLikeCommand } from '../../lib/commandShape'
+import { CommandKind } from '../../../bindings/json-inspector/internal/usecase/draft'
 import { useToast } from '../../composables/useToast'
 import { describeFailure, useMessages } from '../../i18n'
 
@@ -37,17 +37,6 @@ const store: RequestSource = props.source === 'collection' ? collections : reque
 const { shortcut } = usePlatform()
 const envStore = useEnvironmentsStore()
 const toast = useToast()
-
-// Wire formats, not words: a cURL command is called cURL in every language. An index signature
-// rather than Record<Format, …>: the enum's `$zero` is not a format, and the map is only ever read
-// with one that is.
-const FORMAT_LABELS: { [format: string]: string } = {
-  [Format.FormatCurl]: 'cURL',
-  [Format.FormatFetch]: 'fetch',
-  [Format.FormatWget]: 'wget',
-  [Format.FormatHTTPie]: 'HTTPie',
-  [Format.FormatPowerShell]: 'PowerShell',
-}
 
 const sendShortcut = computed(() => shortcut('↵'))
 
@@ -172,46 +161,34 @@ function onWindowKeydown(e: KeyboardEvent) {
   }
 }
 
-// A paste is read by the parser in Go, and the answer arrives after the browser has already decided
-// what to do with the event — so the paste is taken from it up front and, when the text turns out
-// not to be a command at all, put into the field here. The alternative is deciding in this window
-// whether the text is a command, which is the parser over again.
+// A paste is read on the other side, which is where the parsing lives — quoting dialects are logic,
+// not drawing. What stays here is the decision the browser forces: `preventDefault` has to be
+// called before any answer could arrive, so this has to know whether the paste is worth
+// interrupting. That is the whole of what looksLikeCommand does, and it is allowed to be wrong: an
+// address pasted into the address field — the common case — is never intercepted, and a text that
+// slips through as prose is pasted by the browser as text.
 async function onUrlPaste(e: ClipboardEvent) {
   const input = e.target as HTMLInputElement
   const text = e.clipboardData?.getData('text/plain') ?? ''
+  if (!looksLikeCommand(text)) return
+
   e.preventDefault()
+  const reading = await store.pasteCommand(text)
 
-  let result
-  try {
-    result = await CommandService.Parse(text)
-  } catch {
+  if (reading.kind === CommandKind.KindError) {
+    toast.show(t('request.pasteFailed', { reason: t(`request.parseError.${reading.reason}`) }), 'error')
+    return
+  }
+  if (reading.kind !== CommandKind.KindOK) {
+    // It looked like a command and turned out not to be: the paste the browser was not allowed to
+    // make itself, made here.
     insertAtCaret(input, text)
     return
   }
 
-  if (result.kind === Kind.KindNone) {
-    insertAtCaret(input, text)
-    return
-  }
-  if (result.kind === Kind.KindError) {
-    toast.show(t('request.pasteFailed', { reason: t(`request.parseError.${result.reason}`) }), 'error')
-    return
-  }
-
-  // A pasted command is a whole request, not an edit to one: it goes over as a seed and the draft
-  // becomes it. The credential goes as the scheme it is, so the Auth chip shows what the command
-  // asked for and the answers stay editable — a header somebody wrote by hand stays a header.
-  void store.replace({
-    method: result.request.method,
-    url: result.request.url,
-    headers: (result.request.headers ?? []).map((h) => ({ name: h.name, value: h.value })),
-    body: result.request.body,
-    cookies: [],
-    auth: result.request.auth ?? undefined,
-  })
   store.setOpenChip(null)
   void nextTick(syncUrlScroll)
-  toast.show(t('request.pasteRecognised', { format: FORMAT_LABELS[result.format] }))
+  toast.show(t('request.pasteRecognised'))
 }
 
 // insertAtCaret is the paste the browser was not allowed to make itself: the same text where the

@@ -1,1 +1,0 @@
-wget --user-agent='curl/8' https://api.example.com/articles

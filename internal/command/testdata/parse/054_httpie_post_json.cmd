@@ -1,1 +1,0 @@
-http POST https://api.example.com/articles name=test

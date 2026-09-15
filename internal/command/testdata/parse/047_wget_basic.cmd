@@ -1,1 +1,0 @@
-wget https://api.example.com/articles

@@ -23,7 +23,16 @@ import {
   type Row,
   type Scripts,
 } from '../../bindings/json-inspector/internal/domain'
-import { TextField, type Preview, type RowPatch, type Seed, type TextResult } from '../../bindings/json-inspector/internal/usecase/draft'
+import {
+  CommandKind,
+  TextField,
+  type CommandResult,
+  type Preview,
+  type RowPatch,
+  type Seed,
+  type State,
+  type TextResult,
+} from '../../bindings/json-inspector/internal/usecase/draft'
 import type { RunProgress } from '../../bindings/json-inspector/internal/usecase/collection'
 import type { Level } from '../../bindings/json-inspector/internal/usecase/scripting'
 import type { NodeEditor } from '../../bindings/json-inspector/internal/transport/wails/models'
@@ -566,7 +575,8 @@ export const useCollectionsStore = defineStore('collections', {
       return this.cookies.map((r) => r.id ?? '')
     },
 
-    // A whole request handed to the card: a pasted command, or a link followed out of a response.
+    // A whole request handed to the card: a link followed out of a response, or a record opened in
+    // it.
     async replace(seed: Seed) {
       // A flush of the text being replaced must not land on the draft that replaced it.
       this.clearFlush()
@@ -577,6 +587,24 @@ export const useCollectionsStore = defineStore('collections', {
       this.bufferedUrl = false
       this.bufferedBody = false
       this.apply(await DraftService.Replace(id, seed))
+    },
+
+    // A command pasted into a card's line. Reading it and handing it to the draft is one call on the
+    // other side; what stays here is the buffering, which belongs to the window. See the command
+    // line's own pasteCommand for why the reading travels back.
+    async pasteCommand(text: string): Promise<CommandResult> {
+      this.clearFlush()
+      const id = this.draftId()
+      if (!id) return { kind: CommandKind.KindNone } as CommandResult
+
+      this.urlRev += 1
+      this.bodyRev += 1
+      this.bufferedUrl = false
+      this.bufferedBody = false
+
+      const pasted = await DraftService.PasteCommand(id, text)
+      if (pasted.state) this.apply(pasted.state)
+      return pasted.reading
     },
 
     setOpenChip(chip: ChipName | null) {

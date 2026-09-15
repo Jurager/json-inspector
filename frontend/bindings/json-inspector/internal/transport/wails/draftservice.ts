@@ -50,6 +50,16 @@ export function ObtainAuth(draftID: domain$0.DraftID): $CancellablePromise<draft
 }
 
 /**
+ * PasteCommand reads a pasted command and, when it is one, replaces the draft with it. The reading
+ * travels back with the answer: the window words a command it could not read, and says which tool
+ * it recognised when it could. A paste that was never a command comes back with nothing but the
+ * reading, and the window puts the text in the field itself.
+ */
+export function PasteCommand(id: domain$0.DraftID, text: string): $CancellablePromise<draft$0.Paste> {
+    return $Call.ByID(3796290180, id, text);
+}
+
+/**
  * PatchDerived and RemoveDerived are the same edits made to a row the authorization projected
  * rather than to one a person wrote. Such a row has no id — it is not stored — so it is named by
  * what it is: which list it is in, what it is called, and for an edit, what it now says.

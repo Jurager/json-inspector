@@ -1,1 +1,0 @@
-PS> Invoke-RestMethod -Uri 'https://api.example.com/articles'

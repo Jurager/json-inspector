@@ -1,1 +1,0 @@
-wget --header='Accept: application/json' https://api.example.com/articles

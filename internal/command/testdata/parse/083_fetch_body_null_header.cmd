@@ -1,1 +1,0 @@
-fetch('https://api.example.com/articles', {"headers":{"X-Empty":null}})

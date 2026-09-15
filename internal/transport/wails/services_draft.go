@@ -231,6 +231,27 @@ func (s *DraftService) Replace(
 	return s.answered(ctx, state, err)
 }
 
+// PasteCommand reads a pasted command and, when it is one, replaces the draft with it. The reading
+// travels back with the answer: the window words a command it could not read, and says which tool
+// it recognised when it could. A paste that was never a command comes back with nothing but the
+// reading, and the window puts the text in the field itself.
+func (s *DraftService) PasteCommand(
+	ctx context.Context,
+	id domain.DraftID,
+	text string,
+) (draft.Paste, error) {
+	pasted, err := s.drafts.PasteCommand(ctx, id, text)
+	if err != nil || pasted.State == nil {
+		return pasted, err
+	}
+	state, err := s.answered(ctx, *pasted.State, nil)
+	if err != nil {
+		return pasted, err
+	}
+	pasted.State = &state
+	return pasted, nil
+}
+
 // bodyFileFilter is deliberately wide: a form field can be any file, and offering "*.json" would be
 // telling the user what they are about to send. The name it is offered under is the window's, for
 // the same reason the title is: it is a word.

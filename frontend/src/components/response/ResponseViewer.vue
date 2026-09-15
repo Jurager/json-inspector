@@ -10,7 +10,6 @@ import {
   DropdownMenuTrigger,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuSeparator,
 } from '../ui/dropdown-menu'
 import type { RecordView } from '../../lib/requestRecord'
 import { tryParseJson, prettyJson, highlightJson } from '../../lib/json'
@@ -25,12 +24,12 @@ import RequestCookiesTab from './RequestCookiesTab.vue'
 import TimingsTab from './TimingsTab.vue'
 import ScriptsTab from './ScriptsTab.vue'
 import { RecordSource } from '../../../bindings/json-inspector/internal/domain'
-import { useRequestsStore } from '../../stores/requests'
+import { recordSeed, useRequestsStore } from '../../stores/requests'
 import { useCollectionsStore } from '../../stores/collections'
 import type { InspectorHost } from '../../lib/requestSource'
 import { copyToClipboard } from '../../lib/clipboard'
 import { CommandService } from '../../../bindings/json-inspector/internal/transport/wails'
-import { Format } from '../../../bindings/json-inspector/internal/command'
+import { CommandFormat } from '../../../bindings/json-inspector/internal/usecase/draft'
 import { usePlatform } from '../../composables/usePlatform'
 import { useMessages } from '../../i18n'
 import { focusUrlField } from '../../composables/urlFocus'
@@ -231,14 +230,9 @@ function goBack() {
 }
 
 function openInRequest() {
-  // The whole record becomes the request being composed, the jar it was sent with and all.
-  void requests.replace({
-    method: props.record.method,
-    url: props.record.url,
-    headers: props.record.requestHeaders,
-    body: props.record.requestBody,
-    cookies: props.record.requestCookies,
-  })
+  // The whole record becomes the request being composed, the jar it was sent with and all. Which
+  // rail is on screen does not change: the button is answered where it was pressed.
+  void requests.replace(recordSeed(props.record, props.record.requestBody))
   requests.setOpenChip(null)
   requests.activeView = 'request'
   focusUrlField()
@@ -295,21 +289,23 @@ function onWindowKeydown(e: KeyboardEvent) {
 onMounted(() => window.addEventListener('keydown', onWindowKeydown))
 onBeforeUnmount(() => window.removeEventListener('keydown', onWindowKeydown))
 
-const COPY_FORMATS: { id: Format; label: string }[] = [
-  { id: Format.FormatCurl, label: 'cURL' },
-  { id: Format.FormatFetch, label: 'fetch (JS)' },
-  { id: Format.FormatWget, label: 'wget' },
-  { id: Format.FormatHTTPie, label: 'HTTPie' },
-  { id: Format.FormatPowerShell, label: 'PowerShell' },
+// Wire formats, not words: a cURL command is called cURL in every language. An index signature
+// rather than Record<CommandFormat, …>: the enum's `$zero` is not a format, and the map is only
+// ever read with one that is.
+const COPY_FORMATS: { id: CommandFormat; label: string }[] = [
+  { id: CommandFormat.FormatCurl, label: 'cURL' },
+  { id: CommandFormat.FormatFetch, label: 'fetch (JS)' },
+  { id: CommandFormat.FormatWget, label: 'wget' },
+  { id: CommandFormat.FormatHTTPie, label: 'HTTPie' },
+  { id: CommandFormat.FormatPowerShell, label: 'PowerShell' },
 ]
 
 const copied = ref(false)
 
-// The command is written on the side that holds the values: a secret leaves as dots, and the values
-// of the other `{{tokens}}` are resolved where they live rather than in this window. `keepTokens`
-// asks for the snippet with the tokens intact instead of the values they stand for.
-async function copyAs(format: Format, { keepTokens = false } = {}) {
-  const text = await CommandService.Export(props.record.id, format, keepTokens)
+// The command is written on the side that holds the values: a record carries its secrets as dots
+// and nothing else, so what lands in the clipboard is text that can be pasted anywhere.
+async function copyAs(format: CommandFormat) {
+  const text = await CommandService.Export(props.record.id, format)
   if (await copyToClipboard(text)) {
     copied.value = true
     setTimeout(() => (copied.value = false), 1500)
@@ -390,8 +386,6 @@ async function copyAs(format: Format, { keepTokens = false } = {}) {
           <DropdownMenuItem v-for="f in COPY_FORMATS" :key="f.id" @select="copyAs(f.id)">
             {{ f.label }}
           </DropdownMenuItem>
-          <DropdownMenuSeparator />
-          <DropdownMenuItem @select="copyAs(Format.FormatCurl, { keepTokens: true })">{{ t('response.copyAsCurlTokens') }}</DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
     </div>

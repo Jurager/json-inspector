@@ -1,1 +1,0 @@
-http get https://api.example.com/articles

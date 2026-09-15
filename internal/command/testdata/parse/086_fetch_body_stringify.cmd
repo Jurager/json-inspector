@@ -1,1 +1,0 @@
-fetch('https://api.example.com/articles', { method: 'POST', body: JSON.stringify({ a: 1 }) })

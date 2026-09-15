@@ -20,6 +20,7 @@ import {
 } from '../../bindings/json-inspector/internal/domain'
 import {
   TextField,
+  type CommandResult,
   type Preview,
   type RowPatch,
   type Seed,
@@ -370,6 +371,29 @@ export const useRequestsStore = defineStore('requests', {
       this.apply(await DraftService.Replace(DRAFT, seed))
     },
 
+    // A command pasted into the line. Reading it and handing it to the draft is one call on the
+    // other side — carrying the request across the window only to send it back would be this side
+    // taking apart what Go had just built. What stays here is the buffering: which text the window
+    // is holding is the window's business, and a flush of the text being replaced must not land on
+    // the draft that replaced it.
+    //
+    // The reading comes back either way. A paste that was not a command returns no state at all,
+    // and the window puts the text in the field itself.
+    async pasteCommand(text: string): Promise<CommandResult> {
+      if (this.flushTimer) {
+        clearTimeout(this.flushTimer)
+        this.flushTimer = null
+      }
+      this.urlRev += 1
+      this.bodyRev += 1
+      this.bufferedUrl = false
+      this.bufferedBody = false
+
+      const pasted = await DraftService.PasteCommand(DRAFT, text)
+      if (pasted.state) this.apply(pasted.state)
+      return pasted.reading
+    },
+
     idsOf(kind: RowKind): string[] {
       if (kind === RowKind.RowParams) return this.params.map((r) => r.id)
       if (kind === RowKind.RowHeaders) return this.headers.map((r) => r.id)
@@ -433,7 +457,20 @@ export const useRequestsStore = defineStore('requests', {
       }
     },
 
+    // A record picked out of the list: the pane shows it, and the command line is not touched.
+    // Looking at what was sent and composing it again are two gestures, and this is the first one —
+    // a click on a row used to do both, so opening a record to read its response silently replaced
+    // whatever was being typed.
     async selectManual(id: string) {
+      if (!this.records.some((r) => r.id === id)) return
+      this.manualId = id
+      await this.loadBodies(id)
+    },
+
+    // «Открыть в „Запросе"» — the record becomes the request being composed, the jar it was sent
+    // with and all. The pane goes on showing it, which is what makes this the same gesture as
+    // selecting it plus one thing more.
+    async openInRequest(id: string) {
       const record = this.records.find((r) => r.id === id)
       if (!record) return
       this.manualId = id
@@ -569,7 +606,14 @@ export const useRequestsStore = defineStore('requests', {
 // A record as the draft takes it: what "открыть в запросе" hands over. The jar comes from the
 // record's own rows, and the Cookie header is left beside them for the side that decides which of
 // the two goes out.
-export function recordSeed(record: Record, requestBody: string): Seed {
+//
+// It asks for the four fields a seed is made of rather than for a whole record, because the shape
+// the pane draws a record in (RecordView) is not the shape the table stores one in — its two bodies
+// are text by then, not references to text.
+export function recordSeed(
+  record: Pick<Record, 'method' | 'url' | 'requestHeaders' | 'requestCookies'>,
+  requestBody: string
+): Seed {
   return {
     method: record.method,
     url: record.url,

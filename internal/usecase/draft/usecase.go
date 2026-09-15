@@ -1,5 +1,11 @@
 // Package draft owns the request being composed: its model, the transforms between the text the
 // window types and the parts a request is made of, and the preview the command line draws.
+//
+// It owns one transform more than the typing: a command pasted into the line, read back into the
+// same Seed that "открыть в запросе" and a saved request produce. Reading and writing commands live
+// here rather than in a package of their own because a command *is* a request in another notation —
+// the thing this package is about — and because the window that pastes one is pasting it into a
+// draft.
 package draft
 
 import (

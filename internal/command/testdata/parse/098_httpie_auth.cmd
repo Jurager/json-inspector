@@ -1,1 +1,0 @@
-http --auth user:secret https://api.example.com/articles

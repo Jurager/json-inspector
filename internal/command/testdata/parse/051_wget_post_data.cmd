@@ -1,1 +1,0 @@
-wget --post-data='a=1' https://api.example.com/articles

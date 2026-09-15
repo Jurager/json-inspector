@@ -1,8 +1,0 @@
-{
-  "kind": "ok",
-  "format": "powershell",
-  "method": "POST",
-  "url": "$baseUrl",
-  "headers": [],
-  "body": ""
-}
