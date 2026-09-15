@@ -221,7 +221,6 @@ watch(() => [store.focusTabId, store.records.length, props.sourceKind] as const,
     <div v-if="records.length === 0 && !browser" class="empty">
       <Icon name="clock" :size="30" :stroke-width="1.6" class="empty-icon" />
       <div class="empty-text">
-        <span class="empty-title">{{ t('history.nothingYet') }}</span>
         <span class="empty-hint">{{ emptyHint }}</span>
       </div>
     </div>

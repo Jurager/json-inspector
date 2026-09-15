@@ -325,7 +325,6 @@ const en = {
   },
 
   workspace: {
-    sendRequest: 'Send a request',
     orLoadSample: 'Submit a request to obtain detailed information.',
     sendDoesNotSave: 'Sending does not save your edit — “Save” in the status bar does.',
     chooseRequest: 'Choose a request',
@@ -352,7 +351,6 @@ const en = {
     tab: 'Tab',
     clear: 'Clear',
     clearTab: 'Clear this tab',
-    nothingYet: 'Nothing yet',
     filter: 'Filter by URL, method or status…',
   },
 

@@ -88,7 +88,6 @@ const sidePanelShown = computed(() => {
           <div v-else class="empty">
             <Icon name="arrow-up-right" :size="32" :stroke-width="1.6" class="empty-icon" />
             <div class="empty-text">
-              <span class="empty-title">{{ t('workspace.sendRequest') }}</span>
               <span class="empty-hint">{{ t('workspace.orLoadSample') }}</span>
             </div>
           </div>
@@ -108,7 +107,6 @@ const sidePanelShown = computed(() => {
             <div v-else class="empty">
               <Icon name="arrow-up-right" :size="32" :stroke-width="1.6" class="empty-icon" />
               <div class="empty-text">
-                <span class="empty-title">{{ t('workspace.sendRequest') }}</span>
                 <span class="empty-hint">{{ t('workspace.sendDoesNotSave') }}</span>
               </div>
             </div>

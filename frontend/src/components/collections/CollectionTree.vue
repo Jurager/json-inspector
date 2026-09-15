@@ -49,10 +49,12 @@ interface Row {
   depth: number
   expandable: boolean
   expanded: boolean
-  // The collection this row sits in. A row is dropped into a level, and this is which one.
+  // The collection the row sits in. A row is dropped into a level, and this is which one; a row at the
+  // top of the tree sits in none of them, which is the empty id Go reads as "the top level". A
+  // collection's own row is not inside itself: what its id names is the level it holds.
   collectionId: string
-  // Where the row stands among the children of that collection, requests and collections counted
-  // together — the index a drop names.
+  // Where the row stands among the rows of that level, requests and collections counted together — the
+  // index a drop names.
   position: number
   // A collection that follows another one carries the line the design separates them with.
   divider: boolean
@@ -76,15 +78,18 @@ const walkable = computed<Row[]>(() => flatten(filterTree(store.tree, store.filt
 function flatten(tree: Collection[], allOpen: boolean): Row[] {
   const rows: Row[] = []
   for (const collection of tree) {
-    rows.push(...level(collection, collection.id, 0, allOpen, rows.length === 0 ? false : true))
+    // Top-level collections stand on the workspace's own level, which has no id: an empty one is what a
+    // drop beside them names, and Go reads it as the top level.
+    rows.push(...level(collection, '', 0, allOpen, rows.length === 0 ? false : true))
   }
   return rows
 }
 
 // level draws one collection and everything inside it: its own request rows and the collections nested
 // in it, in the order Go keeps them in — one number line, requests and collections alternating by
-// position.
-function level(collection: Collection, collectionId: string, depth: number, allOpen: boolean, divider: boolean): Row[] {
+// position. holderId is the level the collection itself is a row of: the empty one at the top of the
+// tree, and the collection holding it everywhere below.
+function level(collection: Collection, holderId: string, depth: number, allOpen: boolean, divider: boolean): Row[] {
   const expanded = allOpen || searching.value || store.expanded[collection.id]
   const children = childrenOf(collection)
 
@@ -98,7 +103,7 @@ function level(collection: Collection, collectionId: string, depth: number, allO
       depth,
       expandable: children.length > 0,
       expanded: !!expanded,
-      collectionId: collection.id,
+      collectionId: holderId,
       position: collection.position,
       // The design draws a hairline above every collection but the first of a level: the trees of two
       // collections are two things, and without the line a name under a subtree reads as its child.
@@ -111,7 +116,7 @@ function level(collection: Collection, collectionId: string, depth: number, allO
   // after every move, and a drop has to name a place among the rows the window drew.
   children.forEach((child, at) => {
     if (child.kind === 'collection') {
-      rows.push(...level(child.collection, child.collection.id, depth + 1, allOpen, false))
+      rows.push(...level(child.collection, collection.id, depth + 1, allOpen, false))
       return
     }
     rows.push({
@@ -123,7 +128,7 @@ function level(collection: Collection, collectionId: string, depth: number, allO
       depth: depth + 1,
       expandable: false,
       expanded: false,
-      collectionId,
+      collectionId: collection.id,
       position: at,
       divider: false,
     })
@@ -169,7 +174,7 @@ function acceptsDrag(dragged: Row, collectionId: string): boolean {
 // its level. A row dropped into a collection joins the end of it; dropped above or below another row
 // it takes that row's place, counted in the level as it looks now — the row being carried included.
 function dropOn(dragged: Row, target: DropTarget) {
-  const place = placeOf(target)
+  const place = placeOf(dragged, target)
   if (!place) return
   if (dragged.kind === 'collection') {
     void store.moveCollection(dragged.id, place.collectionId, place.position)
@@ -178,7 +183,7 @@ function dropOn(dragged: Row, target: DropTarget) {
   void store.moveNode(dragged.id, place.collectionId, place.position)
 }
 
-function placeOf(target: DropTarget): { collectionId: string; position: number } | null {
+function placeOf(dragged: Row, target: DropTarget): { collectionId: string; position: number } | null {
   if (target.zone === 'inside') {
     const collection = findCollection(store.tree, target.id)
     if (!collection) return null
@@ -187,6 +192,19 @@ function placeOf(target: DropTarget): { collectionId: string; position: number }
 
   const at = visible.value.find((row) => row.id === target.id)
   if (!at) return null
+
+  // A request has no level of its own beside a top-level collection: the empty id is the top of the
+  // tree, and a request lives in a collection and nowhere else. There the line above the row is the head
+  // of that collection and the line below is its tail — which is where a request dropped there lands.
+  if (at.collectionId === '' && dragged.kind === 'request') {
+    const root = findCollection(store.tree, at.id)
+    if (!root) return null
+    return { collectionId: root.id, position: target.zone === 'before' ? 0 : childrenOf(root).length }
+  }
+
+  // Otherwise the row takes a place in the level the row it was dropped beside stands on — for a
+  // collection that is the level holding it, not the one it holds — and at the top of the tree that
+  // level has no id at all, which is how Go is told the row belongs there.
   return { collectionId: at.collectionId, position: at.position + (target.zone === 'after' ? 1 : 0) }
 }
 
@@ -375,10 +393,13 @@ function focusNextFrame(el: HTMLInputElement | null) {
 // What is typed here is the name and nothing else: the row carries no method, and the request is made
 // as GET — the method is chosen in the card the row opens, where the address is filled in too.
 function startCreating(row: Row) {
-  creating.value = { collectionId: row.collectionId }
+  // The request joins the collection the menu was opened on: a collection's own row is that collection,
+  // while a request's row names the level it sits in.
+  const collectionId = row.kind === 'collection' ? row.id : row.collectionId
+  creating.value = { collectionId }
   creatingName.value = t('collections.newRequest')
   creatingInvalid.value = false
-  store.expanded[row.collectionId] = true
+  store.expanded[collectionId] = true
   nextTick(() => {
     focusNextFrame(creatingInput.value)
     creatingInput.value?.select()

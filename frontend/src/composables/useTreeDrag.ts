@@ -15,9 +15,9 @@ export interface DraggableRow {
   name: string
   method: string
   depth: number
-  /** The collection the row sits in. */
+  /** The collection the row sits in — the empty id for a row at the top of the tree. */
   collectionId: string
-  /** Its place among the children of that collection, counted as the level looks now. */
+  /** Its place among the rows of that level, counted as the level looks now. */
   position: number
 }
 
