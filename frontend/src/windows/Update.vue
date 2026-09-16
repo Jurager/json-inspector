@@ -116,8 +116,13 @@ async function onSkip() {
   padding-top: 50px;
 }
 
+/* Left, like the main window's titlebar and like the platform: the design centres it because it draws
+   macOS, where the system draws the title and this bar does not exist. */
 .update-bar {
-  @apply relative flex-none h-13 flex items-center justify-center bg-bg-sidebar border-b border-border;
+  @apply relative flex-none h-13 flex items-center justify-start px-3;
+  border-bottom: 1px solid var(--glass-chrome-border);
+  background: var(--glass-chrome);
+  backdrop-filter: var(--blur-chrome);
   --wails-draggable: drag;
 }
 

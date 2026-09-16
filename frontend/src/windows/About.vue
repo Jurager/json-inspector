@@ -77,8 +77,15 @@ onMounted(async () => {
   padding-top: 50px;
 }
 
+/* Where the bar is ours the title reads from the left, as the main window's does and as the platform
+   puts it; the design centres it because it draws macOS, where this bar is not drawn at all and the
+   system writes the title itself. The inset is the main titlebar's own `px-3`, so the two rows start
+   at the same place. */
 .about-bar {
-  @apply relative flex-none h-13 flex items-center justify-center bg-bg-sidebar border-b border-border;
+  @apply relative flex-none h-13 flex items-center justify-start px-3;
+  border-bottom: 1px solid var(--glass-chrome-border);
+  background: var(--glass-chrome);
+  backdrop-filter: var(--blur-chrome);
   --wails-draggable: drag;
 }
 
