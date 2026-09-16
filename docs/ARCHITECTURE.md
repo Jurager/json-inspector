@@ -394,5 +394,8 @@ Traps we have already stepped on:
 - **SQLite pragmas live in the DSN.** `foreign_keys` applies to a connection, and the pool hands out
   different ones, so `db.Exec("PRAGMA …")` silently disables all `ON DELETE CASCADE`. The `store_test.go`
   test checks exactly the connection the pool hands out.
-- **Before `Run()` Wails has no window implementation**, so `app.Dialog` panics. A database startup error
-  is remembered in `Status` and drawn by the frontend on a reduced set of services.
+- **Before `Run()` Wails has no window implementation**, so `app.Dialog` panics. Everything that has to
+  work before the app has any data at all — making the data folder, opening the database, bringing the
+  schema up to date — is recorded in `Status` rather than returned, and drawn by the frontend on a
+  reduced set of services. A constructor that returns one of those errors takes the app down before
+  there is a window to show it in, and a release build has no console to say so either.

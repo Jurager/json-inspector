@@ -1,7 +1,6 @@
 <script setup lang="ts">
-import Dialog from '../ui/dialog/Dialog.vue'
+import Alert from '../ui/alert/Alert.vue'
 import { Button } from '../ui/button'
-import Icon from '../ui/Icon.vue'
 import { useCollectionsStore } from '../../stores/collections'
 import { useMessages } from '../../i18n'
 
@@ -13,58 +12,18 @@ const { t } = useMessages()
 </script>
 
 <template>
-  <Dialog
+  <Alert
     :open="store.pendingLeave !== null"
-    class="w-[420px] p-5 system"
-    @escape-key-down.prevent
-    @update:open="store.answerUnsaved('cancel')"
+    icon="bookmark"
+    :title="t('collections.unsavedTitle', { name: store.pendingLeave?.name })"
+    :hint="t('collections.unsavedHint')"
+    @cancel="store.answerUnsaved('cancel')"
   >
-    <div class="head">
-      <span class="icon"><Icon name="bookmark" :size="16" /></span>
-      <span class="title">{{ t('collections.unsavedTitle', { name: store.pendingLeave?.name }) }}</span>
-    </div>
-    <p class="hint">
-      {{ t('collections.unsavedHint') }}
-    </p>
-    <div class="actions">
-      <Button class="discard" @click="store.answerUnsaved('discard')">{{ t('common.discard') }}</Button>
-      <span class="spacer"></span>
-      <Button @click="store.answerUnsaved('cancel')">{{ t('common.cancel') }}</Button>
-      <Button variant="primary" @click="store.answerUnsaved('save')">{{ t('common.save') }}</Button>
-    </div>
-  </Dialog>
+    <!-- «Не сохранять» stands apart on the left: the one button that throws something away is not
+         the one a hand reaches for by accident. -->
+    <Button class="text-red" @click="store.answerUnsaved('discard')">{{ t('common.discard') }}</Button>
+    <span class="flex-1" />
+    <Button @click="store.answerUnsaved('cancel')">{{ t('common.cancel') }}</Button>
+    <Button variant="primary" @click="store.answerUnsaved('save')">{{ t('common.save') }}</Button>
+  </Alert>
 </template>
-
-<style scoped>
-@reference "../../style.css";
-
-.head {
-  @apply flex items-center gap-2.5;
-}
-
-.icon {
-  @apply flex-none inline-flex items-center justify-center w-7 h-7 rounded-lg text-accent bg-accent-soft;
-}
-
-.title {
-  @apply text-[14px] font-semibold;
-}
-
-.hint {
-  @apply mt-2.5 mb-4 text-[12.5px] text-text-secondary;
-}
-
-.actions {
-  @apply flex items-center gap-2;
-}
-
-/* «Не сохранять» stands apart on the left: the one button that throws something away is not the one
-   a hand reaches for by accident. */
-.discard {
-  @apply text-red;
-}
-
-.spacer {
-  @apply flex-1;
-}
-</style>

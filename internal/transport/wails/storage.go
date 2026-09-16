@@ -6,6 +6,7 @@ import (
 	"log"
 
 	"json-inspector/internal/infra/sqlite"
+	"json-inspector/internal/platform"
 	"json-inspector/migrations"
 )
 
@@ -18,10 +19,18 @@ type InitFunc func(ctx context.Context) error
 // before the app runs. A failure is recorded rather than returned: returning it from a service's
 // start-up aborts the run before any window exists, which is the blank window this avoids.
 //
-// The returned function is what the failure screen's "Retry" calls; opening and migrating are
-// both repeatable, so a retry after a locked file or a full disk is safe.
-func openStorage(store *sqlite.Store, status *Status) InitFunc {
+// The returned function is what the failure screen's "Retry" calls; making the folder, opening and
+// migrating are all repeatable, so a retry after a locked folder or a full disk is safe.
+func openStorage(store *sqlite.Store, status *Status, dir platform.DataDir) InitFunc {
 	init := func(ctx context.Context) error {
+		// The folder first: this is where startup stops on a locked path or one a policy redirected,
+		// and until it exists the database cannot even be named. It is also the one refusal with no
+		// file to point at and no folder to open, so the screen says less for it and offers less —
+		// see the failure screen in App.vue.
+		if err := dir.Create(); err != nil {
+			status.Fail(FailureDataDir, err.Error())
+			return err
+		}
 		if err := store.Open(ctx); err != nil {
 			status.Fail(FailureDatabase, err.Error())
 			return err

@@ -83,6 +83,14 @@ export const useRequestsStore = defineStore('requests', {
 
     // ---- the draft -------------------------------------------------------
     draft: null as Draft | null,
+    // The draft's own revision as it was when the line was last filled — a record opened, a command
+    // pasted, the workspace's draft as this session found it. Every edit Go counts moves the draft's
+    // revision on, so comparing the two is what says whether the person has touched the line; see
+    // lineDirty.
+    lineRevision: 0,
+    // A record waiting for an answer: opening one replaces what the line is composing, which is not
+    // done quietly, and the click waits here until the window says what to do with the work.
+    pendingOpen: null as null | { resolve: (ok: boolean) => void },
     // What the draft's authorization comes to, as Go worked it out: the rows it puts in the parameter
     // and header lists, and the state of a token somebody else issued. Neither is part of the draft.
     projected: [] as ProjectedRow[],
@@ -122,6 +130,22 @@ export const useRequestsStore = defineStore('requests', {
     accepts(state) {
       return (record: Record) =>
         !state.workspaceId || !record.workspaceId || record.workspaceId === state.workspaceId
+    },
+
+    // Whether the line holds work of its own: a request somebody typed or edited here, which a
+    // record opened over it would throw away.
+    //
+    // It is the draft's revision against the one the line was filled at, and not a look at what is
+    // in the line. Opening a record and then another one throws nothing away — the first is a
+    // record, it is in the history, and the line was holding a copy of it — so the two look
+    // different while neither is work. What is work is an edit, Go counts every one of them in
+    // Draft.Revision, and the count only moves when somebody touches the line.
+    //
+    // The address is asked for as well: a line with nothing in it is not a request, whatever else
+    // was changed about it.
+    lineDirty(state): boolean {
+      if (!state.draft || !state.draft.url.trim()) return false
+      return state.draft.revision !== state.lineRevision
     },
 
     // The draft, read the way the command line reads it: a text that is being typed is the window's,
@@ -216,6 +240,9 @@ export const useRequestsStore = defineStore('requests', {
 
     async loadDraft() {
       this.apply(await DraftService.Snapshot(DRAFT))
+      // The line is where this workspace left it. Whatever was typed here yesterday is not an edit
+      // somebody made now, and asking about it is asking the wrong question.
+      this.lineRevision = this.draft?.revision ?? 0
     },
 
     // The code of the request being composed: written into the draft's own row, and read back from it.
@@ -369,6 +396,8 @@ export const useRequestsStore = defineStore('requests', {
       this.bufferedUrl = false
       this.bufferedBody = false
       this.apply(await DraftService.Replace(DRAFT, seed))
+      // Filled, not edited: what stands in the line is that request and nothing of anybody's own.
+      this.lineRevision = this.draft?.revision ?? 0
     },
 
     // A command pasted into the line. Reading it and handing it to the draft is one call on the
@@ -390,7 +419,12 @@ export const useRequestsStore = defineStore('requests', {
       this.bufferedBody = false
 
       const pasted = await DraftService.PasteCommand(DRAFT, text)
-      if (pasted.state) this.apply(pasted.state)
+      if (pasted.state) {
+        this.apply(pasted.state)
+        // A command is a request handed over whole, like a record: the line holds it and nothing of
+        // anybody's own.
+        this.lineRevision = this.draft?.revision ?? 0
+      }
       return pasted.reading
     },
 
@@ -457,27 +491,42 @@ export const useRequestsStore = defineStore('requests', {
       }
     },
 
-    // A record picked out of the list: the pane shows it, and the command line is not touched.
-    // Looking at what was sent and composing it again are two gestures, and this is the first one —
-    // a click on a row used to do both, so opening a record to read its response silently replaced
-    // whatever was being typed.
+    // A record picked out of the history — a click on a row, the palette landing on it, the arrow
+    // that walks the list. It becomes the request being composed, the jar it was sent with and all,
+    // and the pane goes on showing it: in this rail a record *is* a request that was made, so there
+    // is nothing else for the line to hold, and a row lit while the line holds something else would
+    // name a request it has nothing to do with.
+    //
+    // It replaces what was being typed, which is why the window is asked first when the line holds
+    // work of its own — see lineDirty and the alert that answers it.
     async selectManual(id: string) {
-      if (!this.records.some((r) => r.id === id)) return
-      this.manualId = id
-      await this.loadBodies(id)
-    },
-
-    // «Открыть в „Запросе"» — the record becomes the request being composed, the jar it was sent
-    // with and all. The pane goes on showing it, which is what makes this the same gesture as
-    // selecting it plus one thing more.
-    async openInRequest(id: string) {
       const record = this.records.find((r) => r.id === id)
       if (!record) return
-      this.manualId = id
+      if (this.lineDirty && !(await this.confirmOpen())) return
+
       const bodies = await this.loadBodies(id)
+      this.manualId = id
       await this.replace(recordSeed(record, bodies.request ?? record.requestBody?.inline ?? ''))
     },
 
+    // The click waits here until the window answers. Nothing is dropped before that: what the
+    // answer decides is whether the record is opened at all, so the pending call is held and not
+    // acted on — a record opened over unsaved work is not a thing to do and undo.
+    confirmOpen(): Promise<boolean> {
+      return new Promise((resolve) => {
+        this.pendingOpen = { resolve }
+      })
+    },
+
+    answerUnsaved(action: 'discard' | 'cancel') {
+      const pending = this.pendingOpen
+      if (!pending) return
+      this.pendingOpen = null
+      pending.resolve(action === 'discard')
+    },
+
+    // A capture is a different thing: the browser rail has no command line, so there a record is
+    // only shown. «Открыть в „Запросе"» on one is what carries it across — see ResponseViewer.
     async selectBrowser(id: string) {
       this.browserId = id
       await this.loadBodies(id)
@@ -536,6 +585,10 @@ export const useRequestsStore = defineStore('requests', {
       await this.flush()
       this.loading = true
       const id = await RecordsService.Send(DRAFT)
+      // What the line holds is a record from this moment on — it is in the history, and sending does
+      // not change the draft — so it stops being work of its own. A line edited after this is work
+      // again, which is what the revision moving on says.
+      this.lineRevision = this.draft?.revision ?? 0
       // The answer can be back before this call is, and the claim has already adopted it and turned
       // the spinner off: putting the id back would leave the button waiting for what it just got.
       this.claim(id)

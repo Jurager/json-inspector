@@ -25,6 +25,7 @@ import SearchPalette from './components/search/SearchPalette.vue'
 import WorkspaceCreateDialog from './components/workspaces/WorkspaceCreateDialog.vue'
 import WorkspaceSettingsDialog from './components/workspaces/WorkspaceSettingsDialog.vue'
 import UnsavedChangesDialog from './components/collections/UnsavedChangesDialog.vue'
+import UnsavedLineDialog from './components/request/UnsavedLineDialog.vue'
 import Toast from './components/ui/Toast.vue'
 import { Button } from './components/ui/button'
 
@@ -66,6 +67,15 @@ const startupTitle = computed(() => {
   return kind && te(key) ? t(key) : t('startup.title')
 })
 
+// The folder's refusal is not the database's with a different title: there is no database file
+// behind it yet. So the sentence about one surviving would be a lie, the path below would name a
+// file that is not there, and the folder the other button opens is the one that could not be made.
+// What is left is the title, the system's own reason, and a button that can be pressed again —
+// which is the whole point of that screen, since a locked or redirected folder is usually temporary.
+// The kind is Go's FailureDataDir, and it reaches the window as a plain string: it names a message
+// key above, so it could not be an enum and still be worded here.
+const folderRefused = computed(() => startup.value?.failure?.kind === 'data-dir')
+
 onMounted(loadStartup)
 
 // The status bar's "Доступна версия X" is a pointer to the window that can act on it.
@@ -94,17 +104,17 @@ function closeSheet() {
 
     <div v-if="startup && !startup.ready" class="startup-failure">
       <div class="startup-title">{{ startupTitle }}</div>
-      <p class="startup-hint">{{ t('startup.hint') }}</p>
+      <p v-if="!folderRefused" class="startup-hint">{{ t('startup.hint') }}</p>
       <pre v-if="startup.failure?.detail" class="startup-detail">{{ startup.failure.detail }}</pre>
       <div class="startup-actions">
         <Button variant="primary" :disabled="retrying" @click="retryInit">
           {{ retrying ? t('startup.retrying') : t('startup.retry') }}
         </Button>
-        <Button variant="outline" @click="SystemService.OpenDataFolder()">
+        <Button v-if="!folderRefused" variant="outline" @click="SystemService.OpenDataFolder()">
           {{ t('startup.openDataFolder') }}
         </Button>
       </div>
-      <div class="startup-path">{{ startup.dbPath }}</div>
+      <div v-if="!folderRefused" class="startup-path">{{ startup.dbPath }}</div>
     </div>
 
     <template v-else>
@@ -138,6 +148,8 @@ function closeSheet() {
   <!-- One alert for the whole window: what asks to leave a card with unsaved edits is not always
        the same view. -->
   <UnsavedChangesDialog v-if="startup?.ready" />
+  <!-- And its twin for the command line, which asks before a record from history replaces it. -->
+  <UnsavedLineDialog v-if="startup?.ready" />
 
   <Toast />
 </template>

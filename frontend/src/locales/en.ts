@@ -308,6 +308,8 @@ const en = {
     },
     send: 'Send',
     saveToCollection: 'Save to a collection',
+    unsavedTitle: 'The changes will be lost',
+    unsavedHint: 'If the changes are important, save the request to a collection; otherwise, it will be lost.',
     placeholderName: 'name',
     placeholderValue: 'value',
     placeholderKey: 'key',

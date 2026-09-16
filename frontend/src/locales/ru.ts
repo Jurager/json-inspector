@@ -283,6 +283,8 @@ const ru = {
     },
     send: 'Отправить',
     saveToCollection: 'Сохранить в коллекцию',
+    unsavedTitle: 'Изменения пропадут',
+    unsavedHint: 'Если изменения важны — сохраните запрос в коллекцию, иначе он потеряется.',
     placeholderName: 'имя',
     placeholderValue: 'значение',
     placeholderKey: 'ключ',
