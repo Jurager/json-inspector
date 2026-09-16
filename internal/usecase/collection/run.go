@@ -234,7 +234,7 @@ func requestFrom(
 		Form:      node.Form,
 		BodyFile:  node.BodyFile,
 		Headers:   []domain.HeaderPair{},
-		Cookies:   orEmptyCookies(node.Cookies),
+		Cookies:   domain.OrEmpty(node.Cookies),
 		Auth:      auth,
 	}
 	for _, row := range node.Headers {

@@ -20,15 +20,15 @@ func (s *Store) SaveRecord(ctx context.Context, workspaceID string, rec domain.R
 	}
 	defer func() { _ = tx.Rollback() }()
 
-	requestHeaders, err := json.Marshal(orEmptyPairs(rec.RequestHeaders))
+	requestHeaders, err := json.Marshal(domain.OrEmpty(rec.RequestHeaders))
 	if err != nil {
 		return fmt.Errorf("saving record %s: %w", rec.ID, err)
 	}
-	responseHeaders, err := json.Marshal(orEmptyPairs(rec.ResponseHeaders))
+	responseHeaders, err := json.Marshal(domain.OrEmpty(rec.ResponseHeaders))
 	if err != nil {
 		return fmt.Errorf("saving record %s: %w", rec.ID, err)
 	}
-	cookies, err := json.Marshal(orEmptyCookies(rec.RequestCookies))
+	cookies, err := json.Marshal(domain.OrEmpty(rec.RequestCookies))
 	if err != nil {
 		return fmt.Errorf("saving record %s: %w", rec.ID, err)
 	}
@@ -355,20 +355,6 @@ func (s *Store) Prune(
 		}
 	}
 	return total, nil
-}
-
-func orEmptyPairs(pairs []domain.HeaderPair) []domain.HeaderPair {
-	if pairs == nil {
-		return []domain.HeaderPair{}
-	}
-	return pairs
-}
-
-func orEmptyCookies(cookies []domain.CookieRow) []domain.CookieRow {
-	if cookies == nil {
-		return []domain.CookieRow{}
-	}
-	return cookies
 }
 
 func nullIfZero(value int) any {

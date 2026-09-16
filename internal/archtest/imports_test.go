@@ -168,6 +168,24 @@ func TestLayerDependencies(t *testing.T) {
 	}
 }
 
+// TestPkgIsStandalone holds the one thing pkg/ claims: what lives there is a tool we carry along,
+// not part of the architecture. The claim is exactly one property, and this is it — the package
+// imports nothing of ours. Anything that reaches for `json-inspector/...` knows about our entities
+// or our scenarios, and so belongs under internal/ with the layers that describe them.
+func TestPkgIsStandalone(t *testing.T) {
+	for dir, list := range packageImports(t) {
+		if dir != "pkg" && !strings.HasPrefix(dir, "pkg/") {
+			continue
+		}
+		for _, target := range list {
+			if target == modulePath || strings.HasPrefix(target, modulePath+"/") {
+				t.Errorf("%s imports %s — a package under pkg/ must not import this module "+
+					"(docs/ARCHITECTURE.md, «Слои»)", dir, target)
+			}
+		}
+	}
+}
+
 // TestPackageNames rejects the names that hide a package's job. Naming is checked because it is
 // the cheapest signal that a package has grown a second responsibility.
 func TestPackageNames(t *testing.T) {

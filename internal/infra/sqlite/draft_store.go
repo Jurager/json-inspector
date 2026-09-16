@@ -59,11 +59,11 @@ func (s *Store) Draft(
 // SaveDraft writes a draft whole: it is one row's worth of state, and a partial write of it would
 // be a request composed of two different moments.
 func (s *Store) SaveDraft(ctx context.Context, workspaceID string, draft domain.Draft) error {
-	params, err := json.Marshal(orEmptyRows(draft.Params))
+	params, err := json.Marshal(domain.OrEmpty(draft.Params))
 	if err != nil {
 		return fmt.Errorf("saving draft %s: %w", draft.ID, err)
 	}
-	headers, err := json.Marshal(orEmptyRows(draft.Headers))
+	headers, err := json.Marshal(domain.OrEmpty(draft.Headers))
 	if err != nil {
 		return fmt.Errorf("saving draft %s: %w", draft.ID, err)
 	}
@@ -71,11 +71,11 @@ func (s *Store) SaveDraft(ctx context.Context, workspaceID string, draft domain.
 	if err != nil {
 		return fmt.Errorf("saving draft %s: %w", draft.ID, err)
 	}
-	cookies, err := json.Marshal(orEmptyCookies(draft.Cookies))
+	cookies, err := json.Marshal(domain.OrEmpty(draft.Cookies))
 	if err != nil {
 		return fmt.Errorf("saving draft %s: %w", draft.ID, err)
 	}
-	form, err := json.Marshal(orEmptyFormRows(draft.Form))
+	form, err := json.Marshal(domain.OrEmpty(draft.Form))
 	if err != nil {
 		return fmt.Errorf("saving draft %s: %w", draft.ID, err)
 	}
@@ -98,18 +98,4 @@ func (s *Store) SaveDraft(ctx context.Context, workspaceID string, draft domain.
 		return fmt.Errorf("saving draft %s: %w", draft.ID, err)
 	}
 	return nil
-}
-
-func orEmptyRows(rows []domain.Row) []domain.Row {
-	if rows == nil {
-		return []domain.Row{}
-	}
-	return rows
-}
-
-func orEmptyFormRows(rows []domain.FormRow) []domain.FormRow {
-	if rows == nil {
-		return []domain.FormRow{}
-	}
-	return rows
 }

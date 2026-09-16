@@ -108,7 +108,7 @@ func (u *UseCase) ImportLegacy(ctx context.Context, raw string) (ImportReport, e
 
 	records, skipped, err := parseLegacy(raw)
 	if err != nil {
-		finish := u.store.FinishImport(ctx, LegacySource, "failed", err.Error())
+		finish := u.store.FinishImport(ctx, LegacySource, domain.ImportFailed, err.Error())
 		if finish != nil {
 			log.Printf("[import] recording the failure: %v", finish)
 		}
@@ -117,7 +117,8 @@ func (u *UseCase) ImportLegacy(ctx context.Context, raw string) (ImportReport, e
 	report.Skipped = skipped
 
 	if len(records) == 0 {
-		if err := u.store.FinishImport(ctx, LegacySource, "done", "nothing to import"); err != nil {
+		err := u.store.FinishImport(ctx, LegacySource, domain.ImportDone, "nothing to import")
+		if err != nil {
 			return report, err
 		}
 		return report, nil
@@ -139,7 +140,7 @@ func (u *UseCase) ImportLegacy(ctx context.Context, raw string) (ImportReport, e
 	if err != nil {
 		detail = []byte("{}")
 	}
-	if err := u.store.FinishImport(ctx, LegacySource, "done", string(detail)); err != nil {
+	if err := u.store.FinishImport(ctx, LegacySource, domain.ImportDone, string(detail)); err != nil {
 		return report, err
 	}
 	report.Completed = true
@@ -193,8 +194,8 @@ func parseLegacy(raw string) ([]domain.Record, int, error) {
 			TLSUs:           millisToMicros(old.TLSMs),
 			WaitUs:          millisToMicros(old.WaitMs),
 			DownloadUs:      millisToMicros(old.DownloadMs),
-			RequestHeaders:  orEmptyPairs(old.RequestHeaders),
-			ResponseHeaders: orEmptyPairs(old.ResponseHeaders),
+			RequestHeaders:  domain.OrEmpty(old.RequestHeaders),
+			ResponseHeaders: domain.OrEmpty(old.ResponseHeaders),
 			RequestCookies:  old.RequestCookies,
 			// The legacy store kept what it had and never said whether it was short; nothing here can
 			// claim otherwise.

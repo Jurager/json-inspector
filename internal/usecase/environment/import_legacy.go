@@ -68,21 +68,22 @@ func (u *UseCase) ImportLegacy(ctx context.Context, raw string) (ImportReport, e
 	if err != nil {
 		// A payload we cannot read is still a payload we are done with: retrying it forever would
 		// keep the screen in "importing" for no reason.
-		finish := u.store.FinishImport(ctx, LegacySource, "failed", err.Error())
+		finish := u.store.FinishImport(ctx, LegacySource, domain.ImportFailed, err.Error())
 		if finish != nil {
 			log.Printf("[import] recording the failure: %v", finish)
 		}
 		return report, fmt.Errorf("reading ji-env-v1: %w", err)
 	}
 	if state == nil {
-		if err := u.store.FinishImport(ctx, LegacySource, "done", "nothing to import"); err != nil {
+		err := u.store.FinishImport(ctx, LegacySource, domain.ImportDone, "nothing to import")
+		if err != nil {
 			return report, err
 		}
 		return report, nil
 	}
 
 	if err := u.writeLegacy(ctx, *state, &report); err != nil {
-		finish := u.store.FinishImport(ctx, LegacySource, "failed", err.Error())
+		finish := u.store.FinishImport(ctx, LegacySource, domain.ImportFailed, err.Error())
 		if finish != nil {
 			log.Printf("[import] recording the failure: %v", finish)
 		}
@@ -93,7 +94,7 @@ func (u *UseCase) ImportLegacy(ctx context.Context, raw string) (ImportReport, e
 	if err != nil {
 		detail = []byte("{}")
 	}
-	if err := u.store.FinishImport(ctx, LegacySource, "done", string(detail)); err != nil {
+	if err := u.store.FinishImport(ctx, LegacySource, domain.ImportDone, string(detail)); err != nil {
 		return report, err
 	}
 	report.Completed = true

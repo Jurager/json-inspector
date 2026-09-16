@@ -24,7 +24,7 @@ type Store interface {
 
 	// The one-time import of what the old frontend kept in localStorage.
 	ClaimImport(ctx context.Context, source string) (bool, error)
-	FinishImport(ctx context.Context, source, status, detail string) error
+	FinishImport(ctx context.Context, source string, status domain.ImportStatus, detail string) error
 }
 
 // Scope answers which workspace the window is showing. It is a port of this feature's own rather

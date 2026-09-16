@@ -24,7 +24,7 @@ type Store interface {
 	Prune(ctx context.Context, workspaceID string, opts domain.PruneOptions) (int, error)
 
 	ClaimImport(ctx context.Context, source string) (bool, error)
-	FinishImport(ctx context.Context, source, status, detail string) error
+	FinishImport(ctx context.Context, source string, status domain.ImportStatus, detail string) error
 }
 
 // Request is a request on its way out. It is declared here rather than borrowed from the HTTP

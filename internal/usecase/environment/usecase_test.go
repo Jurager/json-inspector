@@ -18,7 +18,7 @@ type fakeStore struct {
 	envs    []domain.Environment
 	vars    map[string]fakeVar
 	active  string
-	imports map[string]string
+	imports map[string]domain.ImportStatus
 }
 
 type fakeVar struct {
@@ -27,7 +27,7 @@ type fakeVar struct {
 }
 
 func newFakeStore() *fakeStore {
-	return &fakeStore{vars: map[string]fakeVar{}, imports: map[string]string{}}
+	return &fakeStore{vars: map[string]fakeVar{}, imports: map[string]domain.ImportStatus{}}
 }
 
 // fakeScope answers with the workspace the test is working in. The store below keeps one flat
@@ -133,14 +133,19 @@ func (f *fakeStore) SetActiveEnvironment(_ context.Context, _ string, id string)
 }
 
 func (f *fakeStore) ClaimImport(_ context.Context, source string) (bool, error) {
-	if status, ok := f.imports[source]; ok && status != "pending" {
+	if status, ok := f.imports[source]; ok && status != domain.ImportPending {
 		return false, nil
 	}
-	f.imports[source] = "pending"
+	f.imports[source] = domain.ImportPending
 	return true, nil
 }
 
-func (f *fakeStore) FinishImport(_ context.Context, source, status, _ string) error {
+func (f *fakeStore) FinishImport(
+	_ context.Context,
+	source string,
+	status domain.ImportStatus,
+	_ string,
+) error {
 	f.imports[source] = status
 	return nil
 }

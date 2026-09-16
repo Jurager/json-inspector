@@ -29,12 +29,12 @@ type fakeStore struct {
 	pruned   []domain.PruneOptions
 	listed   []int
 	saveFail error
-	imports  map[string]string
+	imports  map[string]domain.ImportStatus
 	askedIn  []string
 }
 
 func newFakeStore() *fakeStore {
-	return &fakeStore{bodies: map[string]string{}, imports: map[string]string{}}
+	return &fakeStore{bodies: map[string]string{}, imports: map[string]domain.ImportStatus{}}
 }
 
 func (f *fakeStore) SaveRecord(_ context.Context, workspaceID string, rec domain.Record) error {
@@ -118,14 +118,19 @@ func (f *fakeStore) Prune(
 }
 
 func (f *fakeStore) ClaimImport(_ context.Context, source string) (bool, error) {
-	if status, ok := f.imports[source]; ok && status != "pending" {
+	if status, ok := f.imports[source]; ok && status != domain.ImportPending {
 		return false, nil
 	}
-	f.imports[source] = "pending"
+	f.imports[source] = domain.ImportPending
 	return true, nil
 }
 
-func (f *fakeStore) FinishImport(_ context.Context, source, status, _ string) error {
+func (f *fakeStore) FinishImport(
+	_ context.Context,
+	source string,
+	status domain.ImportStatus,
+	_ string,
+) error {
 	f.imports[source] = status
 	return nil
 }

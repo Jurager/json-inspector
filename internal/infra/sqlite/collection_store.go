@@ -246,15 +246,15 @@ func encodeAuth(auth *domain.Auth) (sql.NullString, error) {
 // SaveNode writes one node whole: a node is edited in one place — the card in "Коллекциях" — and
 // saved by one gesture.
 func (s *Store) SaveNode(ctx context.Context, node domain.CollectionNode) error {
-	params, err := json.Marshal(orEmptyRows(node.Params))
+	params, err := json.Marshal(domain.OrEmpty(node.Params))
 	if err != nil {
 		return fmt.Errorf("saving node %s: %w", node.ID, err)
 	}
-	headers, err := json.Marshal(orEmptyRows(node.Headers))
+	headers, err := json.Marshal(domain.OrEmpty(node.Headers))
 	if err != nil {
 		return fmt.Errorf("saving node %s: %w", node.ID, err)
 	}
-	cookies, err := json.Marshal(orEmptyCookies(node.Cookies))
+	cookies, err := json.Marshal(domain.OrEmpty(node.Cookies))
 	if err != nil {
 		return fmt.Errorf("saving node %s: %w", node.ID, err)
 	}
@@ -266,7 +266,7 @@ func (s *Store) SaveNode(ctx context.Context, node domain.CollectionNode) error 
 	if err != nil {
 		return fmt.Errorf("saving node %s: %w", node.ID, err)
 	}
-	form, err := json.Marshal(orEmptyFormRows(node.Form))
+	form, err := json.Marshal(domain.OrEmpty(node.Form))
 	if err != nil {
 		return fmt.Errorf("saving node %s: %w", node.ID, err)
 	}

@@ -42,8 +42,8 @@ func (u *UseCase) Ingest(ctx context.Context, in IngestInput) (domain.Record, er
 			TabURL:      in.TabURL,
 			FavIconURL:  in.FavIconURL,
 		},
-		RequestHeaders:  orEmptyPairs(in.RequestHeaders),
-		ResponseHeaders: orEmptyPairs(in.ResponseHeaders),
+		RequestHeaders:  domain.OrEmpty(in.RequestHeaders),
+		ResponseHeaders: domain.OrEmpty(in.ResponseHeaders),
 		// A body that came in from outside is never marked short: nothing in what arrived says it was
 		// cut, and guessing would be worse than taking it whole.
 		RequestBody:   bodyRef(in.RequestBody, false),
@@ -109,11 +109,4 @@ func millisToMicros(ms int64) *int64 {
 	}
 	us := ms * 1000
 	return &us
-}
-
-func orEmptyPairs(pairs []domain.HeaderPair) []domain.HeaderPair {
-	if pairs == nil {
-		return []domain.HeaderPair{}
-	}
-	return pairs
 }

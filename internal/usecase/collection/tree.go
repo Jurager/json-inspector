@@ -97,13 +97,13 @@ func (u *UseCase) CreateNode(
 		Position:     position,
 		Method:       defaultMethod(in.Method),
 		URL:          strings.TrimSpace(in.URL),
-		Params:       orEmptyRows(in.Params),
-		Headers:      orEmptyRows(in.Headers),
+		Params:       domain.OrEmpty(in.Params),
+		Headers:      domain.OrEmpty(in.Headers),
 		Body:         in.Body,
 		BodyKind:     domain.KindOf(in.BodyKind),
 		Form:         withFormIDs(u.ids, in.Form),
 		BodyFile:     in.BodyFile,
-		Cookies:      orEmptyCookies(in.Cookies),
+		Cookies:      domain.OrEmpty(in.Cookies),
 		// The auth is stored the way the tree keeps one: «нет» with nothing behind it is a level
 		// nobody has answered anything at, and storing it as a value would make a request saved from
 		// the command line stop inheriting — which is not what «нет» means there, where nothing is
@@ -304,16 +304,16 @@ func (u *UseCase) SaveNode(
 	stored.Description = strings.TrimSpace(edited.Description)
 	stored.Method = defaultMethod(edited.Method)
 	stored.URL = edited.URL
-	stored.Params = orEmptyRows(edited.Params)
-	stored.Headers = orEmptyRows(edited.Headers)
+	stored.Params = domain.OrEmpty(edited.Params)
+	stored.Headers = domain.OrEmpty(edited.Headers)
 	stored.Body = edited.Body
 	// What the body was composed as travels with the text: a form and a file are fields of their own
 	// in the model, and a save that wrote the text without them would turn a multipart request back
 	// into raw text the next time it was opened.
 	stored.BodyKind = domain.KindOf(edited.BodyKind)
-	stored.Form = orEmptyFormRows(edited.Form)
+	stored.Form = domain.OrEmpty(edited.Form)
 	stored.BodyFile = edited.BodyFile
-	stored.Cookies = orEmptyCookies(edited.Cookies)
+	stored.Cookies = domain.OrEmpty(edited.Cookies)
 	stored.Auth = edited.Auth
 	if err := u.store.SaveNode(ctx, stored); err != nil {
 		return nil, err
@@ -333,25 +333,4 @@ func defaultMethod(method string) string {
 		return "GET"
 	}
 	return method
-}
-
-func orEmptyRows(rows []domain.Row) []domain.Row {
-	if rows == nil {
-		return []domain.Row{}
-	}
-	return rows
-}
-
-func orEmptyCookies(cookies []domain.CookieRow) []domain.CookieRow {
-	if cookies == nil {
-		return []domain.CookieRow{}
-	}
-	return cookies
-}
-
-func orEmptyFormRows(rows []domain.FormRow) []domain.FormRow {
-	if rows == nil {
-		return []domain.FormRow{}
-	}
-	return rows
 }

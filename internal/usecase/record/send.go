@@ -190,7 +190,7 @@ func (u *UseCase) Cancel(id string) bool {
 // itself — a Digest answer comes from a challenge that had not arrived when the request was
 // prepared, and a record without it would be the record of the request that was refused.
 func sentHeaders(masked []domain.HeaderPair, resp *domain.Response) []domain.HeaderPair {
-	return append(orEmptyPairs(masked), resp.SentHeaders...)
+	return append(domain.OrEmpty(masked), resp.SentHeaders...)
 }
 
 func (u *UseCase) recordFrom(
@@ -225,7 +225,7 @@ func (u *UseCase) recordFrom(
 		RequestBytes:    int64(len(pass.Request.Body)),
 		ResponseBytes:   int64(len(resp.Body)),
 		RequestHeaders:  sentHeaders(masked.Headers, resp),
-		ResponseHeaders: orEmptyPairs(resp.Headers),
+		ResponseHeaders: domain.OrEmpty(resp.Headers),
 		RequestCookies:  in.Cookies,
 		RequestBody:     bodyRef(masked.Body, false),
 		ResponseBody:    bodyRef(resp.Body, resp.BodyTruncated),

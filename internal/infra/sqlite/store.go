@@ -12,8 +12,8 @@ import (
 	// Registers the "sqlite" driver. Pure Go, which is what lets Windows keep CGO_ENABLED=0.
 	_ "modernc.org/sqlite"
 
-	"json-inspector/internal/migrate"
 	"json-inspector/internal/platform"
+	"json-inspector/pkg/migrate"
 )
 
 // sidecarSuffixes are the files SQLite writes next to the database in WAL mode. They hold the
