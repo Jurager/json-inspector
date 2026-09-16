@@ -1,151 +1,196 @@
 # JSON Inspector
 
-Десктопный инспектор для работы с **JSON и JSON:API** (https://jsonapi.org/).
+A desktop HTTP client for macOS, Windows and Linux, with a browser extension that captures what a page
+actually sends and a viewer that understands JSON:API.
 
-Большие JSON:API-ответы сложно анализировать: данные распределены между `data`, `included`, `attributes` и `relationships`, а связанные ресурсы приходится искать вручную.
+Everything lives in a SQLite file on your machine: no account, no sync server, no telemetry. The app
+talks to the network only for the requests you make and for the update check.
 
-**JSON Inspector** превращает такой ответ в удобное интерактивное представление, где связанные ресурсы можно быстро просматривать, исследовать и визуализировать.
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/media/screenshot-dark.png">
+  <img src="docs/media/screenshot-light.png" alt="A request with its JSON:API response: resources, attributes and clickable relationships" width="880">
+</picture>
 
-Стек: **Go + Wails v3 + Vue 3 (TypeScript)**.
+*A request from history, its response read as a graph: `articles` open with its attributes, and
+`author` / `comments` link to the resources they point at.*
 
-## Возможности
+## Contents
 
-* **HTTP-запросы** — метод, URL, заголовки, тело запроса и отправка. Поддерживаются JSON, JSON:API и другие форматы ответов.
-* **JSON:API-дерево** — наглядное представление `data`, `included`, `attributes` и `relationships`.
-* **Навигация по связям** — клик по `relationship` мгновенно переводит к связанному ресурсу в `data` или `included`.
-* **Связанные ресурсы по URL** — если ресурс отсутствует в текущем документе, его можно открыть через `links.related`.
-* **Пагинация** — переходы по `self`, `next`, `prev` и другим ссылкам.
-* **Карта объекта** — интерактивная карта связей между ресурсами.
-* **Режим браузера** — Chrome-расширение перехватывает запросы выбранной вкладки и передаёт их в инспектор.
-* **Автообновление** — приложение само проверяет новые версии и обновляется из окна «О программе».
+- [What it does](#what-it-does)
+- [Install](#install)
+- [First run](#first-run)
+- [The browser extension](#the-browser-extension)
+- [Keyboard](#keyboard)
+- [Where your data lives](#where-your-data-lives)
+- [Build from source](#build-from-source)
+- [Tests](#tests)
+- [Releasing](#releasing)
+- [Documentation](#documentation)
+- [License](#license)
 
-## Установка
+## What it does
 
-Скачайте нужный файл со страницы [Releases](https://github.com/Jurager/json-inspector/releases).
+It sends HTTP requests and shows what came back. Everything a desktop client in this family has is
+here: a request line with query parameters, headers, a body and authorization as chips inside it;
+collections of requests in a tree, run one by one or in sequence; environments with `{{variables}}` and
+secrets; the whole history, searchable, each entry replayable as a draft.
 
-### macOS
+Two things are less common:
 
-`json-inspector-darwin-universal.dmg` — откройте образ и перетащите `json-inspector.app` в «Программы». Сборка универсальная: работает и на Apple Silicon, и на Intel.
+- **Capture from the browser.** The Chrome extension in `extension/` hands over the requests the page
+  in a selected tab is making — the real ones, with the real headers and bodies. A request you cannot
+  reproduce by hand becomes one you can replay and edit.
+- **JSON:API read as a graph.** A JSON:API answer is a graph: resources in `data`, more in `included`,
+  stitched together by `relationships`. The viewer draws that graph instead of the wall of JSON.
+  Clicking a relationship lands on the resource it points to, `links.related` opens one that is not in
+  the document at all, and `self` / `next` / `prev` are followed as links rather than by editing the
+  URL.
 
-### Windows
+Responses and requests can be copied out in five formats — cURL, fetch, wget, HTTPie, PowerShell — so
+what you built here can be used anywhere else.
 
-`json-inspector-windows-amd64-installer.exe` — запустите установщик. Он ставится в профиль пользователя (права администратора не нужны) и регистрирует схему `json-inspector://`, по которой расширение открывает приложение на нужной вкладке.
+## Install
 
-### Linux
+Downloads are on the [Releases](https://github.com/Jurager/json-inspector/releases) page.
 
-Пакет `.deb`, `.rpm` или `.AppImage`. Пакет ставит `.desktop`-файл и регистрирует схему `json-inspector://` через xdg-mime — из `tar.gz` этого не происходит, там просто бинарник, и ссылки из расширения работать не будут. Требуется GTK4 и WebKitGTK 6.0: Ubuntu 24.04+, Debian 13+, Fedora 41+.
+| Platform | File | Notes |
+| --- | --- | --- |
+| macOS 12+ | `json-inspector-darwin-universal.dmg` | Universal: Apple Silicon and Intel |
+| Windows 10+ | `json-inspector-windows-amd64-installer.exe` | Per-user install, no administrator rights. Registers the `json-inspector://` scheme |
+| Linux | `.deb` | Needs GTK4 and WebKitGTK 6.0 (Ubuntu 24.04+, Debian 13+). Installs a `.desktop` entry and registers the URL scheme |
 
-Рядом с установщиками в релизе лежат те же сборки в виде архивов (`…-darwin-{arm64,amd64}.app.zip`, `…-windows-amd64.exe.zip`, `…-linux-amd64.tar.gz`) — их скачивает встроенное автообновление. Для macOS публикуются оба имени архитектур с одной и той же универсальной сборкой, чтобы обновление находилось и на Intel.
+The same builds are published as archives next to the installers: `…-darwin-{arm64,amd64}.app.zip`,
+`…-windows-amd64.exe.zip`, `…-linux-amd64.tar.gz`. Those are what the built-in updater downloads — not
+something to install by hand. macOS gets both architecture names for one universal build, or an Intel
+machine would never find its update.
 
-## Использование
+To update, use the rail menu or `Ctrl+U` / `⌘U`: the About window checks and offers the new version,
+with what changed and the choice to skip it or be reminded later. Updates are verified by checksum, and
+a macOS bundle by its code signature as well.
 
-Запустите `json-inspector` или откройте `json-inspector.app`.
+## First run
 
-### Запрос
+Type a URL into the request line and press **Send**. The chips in that line — Query, Headers, Auth,
+Body, Scripts — open over the response without moving it.
 
-Введите URL и отправьте запрос.
+With no server to talk to yet, pick **Load a sample** from the rail menu: it sends nothing and loads a
+JSON:API document, so the tree, the relationships and the map have something to show.
 
-Кнопка **«Образец»** загружает встроенный JSON:API-документ, поэтому дерево и карта объекта можно посмотреть без подключения к серверу.
+The rail on the left switches between the three places requests come from: **Request** for what you type
+here, **Browser** for what the extension captured, **Collections** for what you saved.
 
-### Браузер
+## The browser extension
 
-Для работы с запросами из браузера установите Chrome-расширение из директории `extension/`.
+It is loaded unpacked from this repository — it is not published to the Web Store.
 
-1. Откройте `chrome://extensions`.
-2. Включите **Режим разработчика**.
-3. Нажмите **«Загрузить распакованное»**.
-4. Выберите директорию `extension/`.
-5. Откройте нужную вкладку браузера.
-6. Включите **«Перехватывать эту вкладку»** в попапе расширения.
+1. Open `chrome://extensions` and turn on **Developer mode**.
+2. Choose **Load unpacked** and select the `extension/` folder.
+3. Open the tab you want to watch and start capturing it from the extension popup.
 
-После этого запросы выбранной вкладки будут появляться в режиме **«Браузер»**.
+Captured requests appear under **Browser**, and the extension's link opens the app on the tab you were
+looking at, through the `json-inspector://` scheme.
 
-## Обновление
+## Keyboard
 
-При запуске приложение проверяет [GitHub Releases](https://github.com/Jurager/json-inspector/releases). Найденная версия показывается ссылкой **«Доступна версия X»** в статус-баре. Проверка выполняется не чаще одного раза в сутки и не запускается для dev-сборок.
+| Keys | What it does |
+| --- | --- |
+| `Ctrl/⌘ K` | Search across collections, history, environments and settings |
+| `Ctrl/⌘ E` | Environments and variables |
+| `Ctrl/⌘ ↵` | Send the request |
+| `Ctrl/⌘ F` | Search inside the response |
+| `Ctrl/⌘ U` | Check for updates |
 
-Обновление живёт в окне **«О программе»** (меню приложения, `⌘U` — «Проверить обновления…», либо пункт в меню рейла): одна кнопка и одна строка статуса под ней. Кнопка проверяет и предлагает обновить, строка показывает, когда проверяли в последний раз, идёт ли запрос или версия уже последняя. Ссылка в статус-баре открывает это же окно.
+Shortcuts are bound to the physical key, not the letter, so they work the same on a non-Latin layout.
 
-При обновлении:
+## Where your data lives
 
-* macOS — заменяется весь `.app`-бандл и проверяется его кодовая подпись;
-* Windows/Linux — архив проверяется по `sha256`, после чего выполняется атомарная замена и перезапуск приложения.
+One SQLite file in your user configuration directory:
 
-## Разработка
+| Platform | Path |
+| --- | --- |
+| macOS | `~/Library/Application Support/json-inspector/app.db` |
+| Windows | `%APPDATA%\json-inspector\app.db` |
+| Linux | `~/.config/json-inspector/app.db` |
 
-### Требования
+**Secrets are stored in that file as plain text.** It is a deliberate trade: the app works the same way
+on every platform and depends on no keychain, and a password you can read in a file you own is better
+than one you cannot recover at all. The file and its write-ahead log are created readable only by you,
+and secret values are marked as such in the interface and kept out of logs.
 
-* Go ≥ 1.25
-* Node.js
-* Wails v3 CLI и раннер Taskfile
+One thing to know about that trade: a request you copy out — as cURL, fetch or any of the other formats
+— carries the credential with it, because a request is copied whole. Copying one is a deliberate act,
+and the secret goes wherever you paste it. Delete the database file and you have deleted everything.
 
-```bash
-go install github.com/wailsapp/wails/v3/cmd/wails3@v3.0.0-beta.20
+## Build from source
+
+Go, Node.js, the Wails 3 CLI and [Task](https://taskfile.dev):
+
+```sh
+go install github.com/wailsapp/wails/v3/cmd/wails3@v3.0.0-beta.22
 go install github.com/go-task/task/v3/cmd/task@latest
 ```
 
-Версия `wails3` должна совпадать с версией `github.com/wailsapp/wails/v3` в `go.mod` и с `@wailsio/runtime` в `frontend/package.json`: они общаются по одному IPC-протоколу, и при расхождении окно открывается пустым без внятной ошибки. Wails v3 пока в статусе beta — версия пинится точно, обновление выносится в отдельный коммит с прогоном ручного чек-листа.
+The versions of `wails3`, of the Go module `github.com/wailsapp/wails/v3` and of `@wailsio/runtime` in
+`frontend/package.json` have to match: the three speak one IPC protocol, and a mismatch shows itself as
+a blank window rather than an error. `task verify` compares the Go and JS sides.
 
-### Сборка
-
-```bash
-task build             # бинарник в bin/
-task run               # запустить собранное
-task dev               # режим разработки с пересборкой на лету
-task package           # → dist/ для текущей ОС
+```sh
+task dev       # the window, rebuilding as you edit; the dev server is on 9245
+task build     # binary into bin/
+task run       # run what was built
+task package   # → dist/ for the current platform
 ```
 
-Команда собирает приложение для текущей платформы. Упаковка доступна только на «своей» ОС: DMG собирается на macOS, установщик NSIS — на Windows (нужен `makensis`), `.deb`/`.rpm`/AppImage — на Linux.
+`task --list` has the rest. Packaging only works on the platform it is for: DMG on macOS, the NSIS
+installer on Windows (it needs `makensis`), the `.deb` on Linux.
 
-`task package` кладёт в `dist/` два вида артефактов: то, что скачивает встроенный апдейтер (имена — контракт с `internal/update/assetName()`), и установщики для людей:
+**After changing a bound Go method, regenerate the bindings in the same change:**
 
-| ОС | для апдейтера | для установки руками |
-| --- | --- | --- |
-| macOS | `*.app.zip` (universal, под обоими именами архитектур) | `*.dmg` |
-| Windows | `*.exe.zip` | `*-installer.exe` |
-| Linux | `*.tar.gz` | `.deb`, `.rpm`, `.AppImage` |
+```sh
+wails3 generate bindings -clean=true -ts -i
+```
 
-Весь билд — один корневой `Taskfile.yml`; `task --list` показывает доступные задачи. Версия бинарника приходит из `-X main.version` — её передаёт тег, а номер сборки — из `-X main.build` (номер прогона CI; в локальных сборках пусто, и окно «О программе» показывает просто версию). Версии, которые читают упаковщики (`build/config.yml`, оба `Info.plist`, `nfpm.yaml`, `info.json`), проставляет `task set:version VERSION=0.1.3`; в релизном workflow это тоже делает тег.
+Renaming or deleting one breaks the frontend at runtime, not at build time — calls go by numeric id,
+and `vue-tsc` cannot see it.
 
-## Публикация релиза
+## Tests
 
-Релизы собираются автоматически через GitHub Actions при отправке тега `v*`.
+```sh
+go vet ./... && go test ./...                  # includes archtest: layering and naming, as a test
+cd frontend && npx vue-tsc --noEmit            # frontend types against the bindings
+cd frontend && node scripts/check-messages.mjs # the two message catalogues agree
+```
 
-```bash
+`internal/archtest` enforces the rules written down in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md):
+which layer may import which, and that packages are named for what they provide. A violation fails
+`go test`, so the architecture is a build gate rather than a convention.
+
+## Releasing
+
+Tag and push; GitHub Actions builds all three platforms, publishes the artefacts, adds
+`checksums.txt` and writes the release.
+
+```sh
 git tag v1.0.0
 git push origin v1.0.0
 ```
 
-CI собирает приложения для macOS, Windows и Linux, формирует `checksums.txt` и публикует готовые артефакты в GitHub Release.
+Write the release body by hand, one change per line, each starting with a list marker: the update
+window shows it as "What's new", and a generated list of pull requests reads like noise there.
 
-## Структура
+The version reaches the binary through `-ldflags -X json-inspector/internal/platform.version`, and the
+build number through `…platform.build`. The app's name, bundle identifier, publisher and description are
+declared once in `internal/platform/identity.go`, written into the files the packagers read
+(`build/config.yml`, both `Info.plist` files, `info.json`, the Windows manifest, `nfpm.yaml`) by
+`internal/tools/manifest`, and checked against Go by that tool's test.
 
-```text
-.
-├── main.go                    # вход Wails v3: приложение, окна, меню
-├── app.go                     # сервис с bound-методами
-├── window.go                  # имена окон, deep-link схема, ShowAbout
-├── menu.go                    # нативное меню (только macOS)
-├── build/                     # config.yml, иконки, ассеты упаковки (plist, nsi, nfpm)
-├── internal/bridge/           # WebSocket-сервер для браузерного расширения
-├── internal/update/           # автообновление через GitHub Releases
-├── internal/tools/            # build-утилиты (проставление версии в ассеты)
-├── frontend/                  # Vue 3 + TypeScript
-│   ├── bindings/              # сгенерировано `wails3 generate bindings` (коммитится)
-│   ├── src/lib/jsonapi.ts     # разбор JSON:API на стороне интерфейса
-│   └── src/windows/           # отдельные окна (About), своя точка входа Vite
-└── extension/                 # Chrome-расширение (MV3)
-```
+## Documentation
 
-### Фронтенд: куда что кладём
+- [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) — layers, the tree, how to add a feature, review checklist.
+- [docs/FRONTEND.md](docs/FRONTEND.md) — where things live in the frontend, the primitives, the theme.
+- [docs/RECOMENDATIONS.md](docs/RECOMENDATIONS.md) — the naming, import and test-double rules this project adds on top of Google's Go style guide.
+- [design_handoff_json_inspector/](design_handoff_json_inspector/) — the design handoff, the source of truth for how the app looks.
 
-Компоненты лежат в папке своей фичи, плоского списка в `components/` нет: `request/` (командная строка и её поповеры), `response/` (зона ответа и его вкладки), `json/` (дерево, карта схемы, инспектор узла), `history/`, `environments/`, `browser/`, `layout/` (шапка, рейл, рабочая область, статус-бар) и `ui/`.
+## License
 
-* `components/ui/` — общие примитивы. Поведение берём у `reka-ui` (фокус, Escape, клик снаружи, ARIA, позиционирование), вид — наши классы (`.menu`, `.menu-item`), поэтому перевод меню на примитив не меняет картинку. Правило простое: если поповер или диалог понадобился второй раз — он идёт в `ui/`, а не пишется заново.
-  * `ui/button` — `Button` (варианты `outline` / `primary` / `ghost` / `quiet`, размеры `sm` / `md` / `lg`) и `IconButton` (варианты `outline` / `bare` / `subtle` / `danger`, размеры `sm` / `md` / `lg`). Метрики — из макета, в одном месте; кнопку в компоненте не стилизуем заново, а берём отсюда. За пределами слоя остаются только собственные виды: чипы, теги, тайлы рейла, сегментированные контролы и кнопки заголовка окна (`.cap-btn`).
-  * `ui/input` — `Input`: поле из макета (32px и радиус 8px в `md`, 28px и радиус 7px в `sm`, фон `--bg-inset`, рамка `--border`, на фокусе — акцентная рамка и кольцо `--accent-soft`). Вариант `bare` — то же поле без оформления, для инпутов внутри контейнера, который рисует рамку сам (пилюли фильтра, поле URL в командной строке). Разметку (`flex-1`, `w-full`) задаёт вызывающий. Наружу отдаёт только `focus()`.
-  * `ui/tooltip` — `Tooltip`: поведение у `reka-ui`, плашка — глобальный класс `.tooltip` в `style.css` (он попадает на элемент, который primitive строит внутри своего портала, и скоуп вызывающего туда не доезжает) на токенах `--tip-bg` / `--tip-text`. У `IconButton` есть проп `hint`: у глифа нет подписи, поэтому подсказка нужна, а на выключенной кнопке `hint` отдаётся нативным `title` — у `disabled`-элемента нет pointer-событий, ловить подсказке нечего. Подсказка не выскакивает сама: `composables/useHoverArrival` держит её выключенной, если элемент появился прямо под курсором (панель открылась там, где щёлкнули), а `ignoreNonKeyboardFocus` (в `ui/Tooltip` включён по умолчанию) пропускает только фокус с клавиатуры — панель, открываясь, сама ставит фокус на свою первую кнопку, и та иначе мигала бы подсказкой. Нативные `title` остаются там, где они и уместны: обрезанные значения (`v.name`, `r.url`), контролы с видимой подписью, объяснения выключенного состояния у обычных кнопок, кнопки заголовка окна.
-* тема — класс `dark`/`light` на `<html>`: палитры в `style.css` (`:root` и `:root.dark`), значение в `localStorage` под `ji-theme-v1`, ставит `composables/useTheme.ts`. Смена темы идёт растущим кругом из левого верхнего угла — заливка приходит по диагонали и достаёт правый нижний угол последним (view transition, `@keyframes theme-wipe` в `style.css`); там, где API нет, — мгновенно. Пилюля переключателя едет своим слоем внутри перехода: имя слоя (`view-transition-name: theme-indicator`) ставится в колбэке перехода и снимается после него, поэтому старый снимок остаётся целым — с пилюлей там, где её оставил пользователь, в прежней палитре, — а новый отдаёт её отдельному слою, и тот уезжает, когда заливка доходит до него — момент считается по геометрии (`fillArrival` в `lib/themeWipe.ts`: где пилюля и каков размер окна), иначе он совпадает с заливкой ровно в одном размере окна из всех. Положение пилюли откладывается до того же колбэка (`onPaint` в `useTheme`), там же меряется её пробег и момент отрыва. Ехать должен только фон, а пилюля непрозрачна и накрыла бы глиф сегмента, на который едет: поэтому копии трёх глифов лежат отдельным слоем над ней (`theme-glyphs` в `ThemeSwitch.vue`, те же 24×22 и те же отступы, что у кнопок, — рисуются только на время заливки) и держат иконки на месте. Клик во время заливки перезапускает её сразу (`skipTransition`), но обработчик кнопки при этом не сработает: Chromium на время перехода отдаёт hit-test себе, и события приходят с целью `<html>` — поэтому переключатель, пока идёт заливка, ловит `pointerdown` по координатам, измеренным до заморозки. Новые тёмные правила писать только в `:root.dark` — медиазапроса `prefers-color-scheme` там больше нет. Те же правила продублированы инлайновым скриптом в `index.html` и `about.html`: он ставит класс до первой отрисовки, чтобы тёмное окно не мигало светлым, и меняется вместе с композаблом.
-* `composables/` — повторяющаяся реактивная логика (`useTheme`, `useResizableWidth`, `useUpdateCheck` для окна About) и модульные синглтоны без реактивности (`urlFocus`: поле командной строки живёт меньше, чем запрос фокуса к нему).
-* `lib/` — чистые функции без Vue: разбор (`jsonapi`, `schema`, `vars`, `dotenv`), форматирование (`format`), сборка текста (`export`), адаптеры форм биндингов (`headers`). Ключи хранилища объявлены там, где читаются, и называются `*_STORAGE_KEY` (`ji-theme-v1`, `ji-env-v1`, `ji-history-v1`, `ji-ui-v1`) — строку ключа в компонент не тащим. Тесты — рядом (`*.test.ts`), Vitest пока не подключён.
-* `stores/` — Pinia и состояние приложения.
+[MIT](LICENSE.md)

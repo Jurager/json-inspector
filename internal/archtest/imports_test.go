@@ -180,7 +180,7 @@ func TestPkgIsStandalone(t *testing.T) {
 		for _, target := range list {
 			if target == modulePath || strings.HasPrefix(target, modulePath+"/") {
 				t.Errorf("%s imports %s — a package under pkg/ must not import this module "+
-					"(docs/ARCHITECTURE.md, «Слои»)", dir, target)
+					"(docs/ARCHITECTURE.md, \"Layers\")", dir, target)
 			}
 		}
 	}

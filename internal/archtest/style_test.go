@@ -33,8 +33,8 @@ func TestNoGetPrefix(t *testing.T) {
 		if allowedGetPrefix[name] {
 			return
 		}
-		t.Errorf("%s: %s is named with a Get prefix — the noun says it better (RECOMENDATIONS.md, "+
-			"«Имена функций и методов»)", pos, name)
+		t.Errorf("%s: %s is named with a Get prefix — the noun says it better "+
+			"(RECOMENDATIONS.md, \"Names of functions and methods\")", pos, name)
 	})
 }
 
@@ -53,7 +53,7 @@ func TestNoRepeatedPackageName(t *testing.T) {
 			return
 		}
 		t.Errorf("%s: %s repeats its package name — at the call site it reads as %s.%s "+
-			"(RECOMENDATIONS.md, «Избегайте повторений»)", pos, name, pkg, name)
+			"(RECOMENDATIONS.md, \"Avoid repetition\")", pos, name, pkg, name)
 	})
 }
 
@@ -69,8 +69,9 @@ func TestImportGroups(t *testing.T) {
 				kinds[importKind(line)] = true
 			}
 			if len(kinds) > 1 {
-				t.Errorf("%s: one import group holds %s — split it (RECOMENDATIONS.md, «Порядок "+
-					"импорта»)", path, strings.Join(sortedKeys(kinds), " and "))
+				t.Errorf("%s: one import group holds %s — split it "+
+					"(RECOMENDATIONS.md, \"Import order\")", path,
+					strings.Join(sortedKeys(kinds), " and "))
 			}
 		}
 
@@ -81,7 +82,7 @@ func TestImportGroups(t *testing.T) {
 		want := sortImports(order)
 		if strings.Join(order, "|") != strings.Join(want, "|") {
 			t.Errorf("%s: import groups are %v, want %v — standard library, then everything else, "+
-				"then this module (RECOMENDATIONS.md, «Порядок импорта»)",
+				"then this module (RECOMENDATIONS.md, \"Import order\")",
 				path, order, want)
 		}
 
