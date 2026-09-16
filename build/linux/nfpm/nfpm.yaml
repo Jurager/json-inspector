@@ -19,26 +19,9 @@ contents:
   - src: "./build/linux/json-inspector.desktop"
     dst: "/usr/share/applications/json-inspector.desktop"
 
-# Default dependencies for the GTK4 + WebKitGTK 6.0 stack (Ubuntu 24.04+ / Debian 13+)
 depends:
   - libgtk-4-1
   - libwebkitgtk-6.0-4
 
-overrides:
-  rpm:
-    depends:
-      - gtk4
-      - webkitgtk6.0
-
-  archlinux:
-    depends:
-      - gtk4
-      - webkitgtk-6.0
-
-# Needed on install: without it the .desktop entry and the json-inspector:// scheme stay
-# unregistered.
 scripts:
   postinstall: "./build/linux/nfpm/scripts/postinstall.sh"
-
-# Built with -tags gtk3 instead (legacy WebKit2GTK 4.1, removed in v3.1)? Swap the depends/overrides
-# above for gtk3 + libwebkit2gtk-4.1-0 (webkit2gtk4.1 on rpm/archlinux).

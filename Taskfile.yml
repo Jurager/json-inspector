@@ -303,47 +303,29 @@ tasks:
         -outputfile "{{.ROOT_DIR}}/build/linux/{{.APP_NAME}}.desktop"
 
   linux:package:
-    desc: Package the Linux artifacts — .tar.gz, .deb, .rpm, .AppImage — into dist/
+    desc: Package the Linux artifacts — .tar.gz and .deb — into dist/
     platforms: [linux]
     deps:
       - task: linux:build
       - task: linux:dotdesktop
     cmds:
       - mkdir -p dist
+      # The tarball is not a second way to install: it is what the app's own updater downloads and
+      # swaps in, so its name and its contents are a contract with internal/infra/updater.
       - cd {{.BIN_DIR}} && tar -czf "../dist/{{.APP_NAME}}-linux-{{.ARCH | default ARCH}}.tar.gz" "{{.APP_NAME}}"
-      - task: linux:nfpm
-        vars:
-          FORMAT: deb
-      - task: linux:nfpm
-        vars:
-          FORMAT: rpm
-      - task: linux:appimage
-      - cp {{.BIN_DIR}}/*.deb {{.BIN_DIR}}/*.rpm {{.BIN_DIR}}/*.AppImage dist/
+      - task: linux:deb
+      - cp {{.BIN_DIR}}/*.deb dist/
       - ls -la dist
 
-  linux:nfpm:
-    desc: Create a .deb or .rpm package via nfpm
+  linux:deb:
+    desc: Create the .deb package via nfpm
     internal: true
     platforms: [linux]
     deps:
       - task: linux:build
       - task: linux:dotdesktop
     cmds:
-      - wails3 tool package -name "{{.APP_NAME}}" -format {{.FORMAT}} -config ./build/linux/nfpm/nfpm.yaml -out {{.ROOT_DIR}}/{{.BIN_DIR}}
-
-  linux:appimage:
-    desc: Create an AppImage
-    platforms: [linux]
-    deps:
-      - task: linux:build
-      - task: linux:dotdesktop
-    cmds:
-      - cp build/appicon.png {{.APP_PATH}}.png
-      - >-
-        wails3 generate appimage -binary "{{.ROOT_DIR}}/{{.APP_PATH}}"
-        -icon "{{.ROOT_DIR}}/{{.APP_PATH}}.png"
-        -desktopfile "{{.ROOT_DIR}}/build/linux/{{.APP_NAME}}.desktop"
-        -outputdir "{{.ROOT_DIR}}/{{.BIN_DIR}}"
+      - wails3 tool package -name "{{.APP_NAME}}" -format deb -config ./build/linux/nfpm/nfpm.yaml -out {{.ROOT_DIR}}/{{.BIN_DIR}}
 
   linux:run:
     desc: Run the built binary
