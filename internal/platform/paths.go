@@ -17,7 +17,7 @@ func NewDataDir() (DataDir, error) {
 		return "", fmt.Errorf("resolving the config directory: %w", err)
 	}
 
-	dir := filepath.Join(base, "json-inspector")
+	dir := filepath.Join(base, DataDirName)
 	// Restrict access because the database may contain sensitive data.
 	if err := os.MkdirAll(dir, 0o700); err != nil {
 		return "", fmt.Errorf("creating %s: %w", dir, err)

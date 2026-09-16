@@ -16,9 +16,6 @@ import (
 )
 
 const (
-	repoOwner = "Jurager"
-	repoName  = "json-inspector"
-
 	checkTimeout    = 5 * time.Second
 	downloadTimeout = 5 * time.Minute
 )
@@ -34,11 +31,12 @@ type Source struct {
 }
 
 func NewSource(info platform.BuildInfo) *Source {
-	return &Source{userAgent: "json-inspector/" + info.Version}
+	return &Source{userAgent: platform.Slug + "/" + info.Version}
 }
 
 func releasesURL() string {
-	return fmt.Sprintf("https://api.github.com/repos/%s/%s/releases", repoOwner, repoName)
+	return fmt.Sprintf("https://api.github.com/repos/%s/%s/releases",
+		platform.RepoOwner, platform.Slug)
 }
 
 // assetName is the archive published for the running platform. The release is built per OS and
@@ -46,11 +44,11 @@ func releasesURL() string {
 func assetName() string {
 	switch runtime.GOOS {
 	case "darwin":
-		return fmt.Sprintf("json-inspector-%s-%s.app.zip", runtime.GOOS, runtime.GOARCH)
+		return fmt.Sprintf("%s-%s-%s.app.zip", platform.Slug, runtime.GOOS, runtime.GOARCH)
 	case "windows":
-		return fmt.Sprintf("json-inspector-%s-%s.exe.zip", runtime.GOOS, runtime.GOARCH)
+		return fmt.Sprintf("%s-%s-%s.exe.zip", platform.Slug, runtime.GOOS, runtime.GOARCH)
 	default:
-		return fmt.Sprintf("json-inspector-%s-%s.tar.gz", runtime.GOOS, runtime.GOARCH)
+		return fmt.Sprintf("%s-%s-%s.tar.gz", platform.Slug, runtime.GOOS, runtime.GOARCH)
 	}
 }
 

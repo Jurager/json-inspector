@@ -8,6 +8,8 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+
+	"json-inspector/internal/platform"
 )
 
 func swapAndRelaunch(archivePath string) error {
@@ -37,9 +39,9 @@ func swapAndRelaunch(archivePath string) error {
 		return fmt.Errorf("extracting update: %s", strings.TrimSpace(string(out)))
 	}
 
-	newBundle := filepath.Join(staging, "json-inspector.app")
+	newBundle := filepath.Join(staging, platform.Slug+".app")
 	if _, err := os.Stat(newBundle); err != nil {
-		return fmt.Errorf("archive does not contain json-inspector.app")
+		return fmt.Errorf("archive does not contain %s.app", platform.Slug)
 	}
 
 	if err := verifySignature(newBundle); err != nil {

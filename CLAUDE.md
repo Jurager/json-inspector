@@ -41,6 +41,7 @@ cd frontend && npx vue-tsc --noEmit        # типы фронта
 |---|---|
 | База | `platform.DataDir()` → `os.UserConfigDir()/json-inspector/app.db` |
 | Схема | `migrations/NNN_*.sql`, раннер — `pkg/migrate` |
+| Имя, идентификатор, версия | `internal/platform/identity.go`; в файлы упаковщиков пишет `internal/tools/manifest`, расхождение ловит его же тест |
 | Привязанные к фронту сервисы | `internal/transport/wails/services_*.go` |
 | Имена и типы событий | `internal/transport/wails/events.go` (единственное место) |
 | Движок запросов | `internal/infra/httpx` |

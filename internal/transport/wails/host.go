@@ -7,13 +7,14 @@ import (
 	"github.com/wailsapp/wails/v3/pkg/application"
 
 	"json-inspector/internal/domain"
+	"json-inspector/internal/platform"
 	"json-inspector/internal/usecase/update"
 )
 
 const (
 	// Must match `protocols:` in build/config.yml, which is what registers the
 	// scheme with the OS (macOS Info.plist, Windows installer registry).
-	deepLinkScheme = "json-inspector"
+	deepLinkScheme = platform.Scheme
 
 	windowMain     = "main"
 	windowAbout    = "about"

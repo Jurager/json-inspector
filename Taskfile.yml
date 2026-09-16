@@ -1,17 +1,33 @@
 version: '3'
 
 vars:
-  APP_NAME: json-inspector
+  # The app's identity is declared in internal/platform, and the files the packagers read are written
+  # from there by internal/tools/manifest. These are asked for rather than repeated: the .desktop
+  # entry is generated here, and a second copy of the name and the description is what let four
+  # different wordings of the description accumulate across the repository.
+  #
+  # They come first because a variable is resolved where it stands: `APP_PATH` below refers to
+  # `APP_NAME`, and with the two the other way round it quietly came out as `bin/.exe`.
+  PRODUCT_NAME:
+    sh: go run ./internal/tools/manifest -print name
+  PRODUCT_DESCRIPTION:
+    sh: go run ./internal/tools/manifest -print description
+  # The slug names the artefacts — the binary, the release archives — and the updater looks for the
+  # same name inside an archive, so it is read from the one declaration for the same reason.
+  APP_NAME:
+    sh: go run ./internal/tools/manifest -print slug
+  # The .desktop entry claims to handle the app's URL scheme, and the scheme is registered with the OS
+  # by the plists and by the installer; a second spelling here would leave the link dead on Linux.
+  APP_SCHEME:
+    sh: go run ./internal/tools/manifest -print scheme
+
   BIN_DIR: bin
   APP_PATH: '{{.BIN_DIR}}/{{.APP_NAME}}'
   VITE_PORT: '{{.WAILS_VITE_PORT | default 9245}}'
   VERSION: '{{.VERSION | default "dev"}}'
   BUILD: '{{.BUILD | default ""}}'
 
-  PRODUCT_NAME: "JSON Inspector"
-  PRODUCT_DESCRIPTION: "Inspect JSON with environment variables, schema mapping, and browser request interception."
-
-  LDFLAGS: '-w -s -X main.version={{.VERSION}} -X main.build={{.BUILD}}'
+  LDFLAGS: '-w -s -X json-inspector/internal/platform.version={{.VERSION}} -X json-inspector/internal/platform.build={{.BUILD}}'
   BUILD_FLAGS: '{{if eq .DEV "true"}}-buildvcs=false -gcflags=all="-l"{{else}}-tags production -trimpath -buildvcs=false -ldflags="{{.LDFLAGS}}"{{end}}'
 
 tasks:
@@ -74,7 +90,7 @@ tasks:
   set:version:
     desc: Stamp the release version into the files the packagers read
     cmds:
-      - go run ./internal/tools/stamp -version {{.VERSION}}
+      - go run ./internal/tools/manifest -version {{.VERSION}}
 
   clean:
     desc: Remove all build output
@@ -283,7 +299,7 @@ tasks:
         -icon "{{.APP_NAME}}"
         -keywords ""
         -categories "Development;"
-        -mimetype "x-scheme-handler/json-inspector;"
+        -mimetype "x-scheme-handler/{{.APP_SCHEME}};"
         -outputfile "{{.ROOT_DIR}}/build/linux/{{.APP_NAME}}.desktop"
 
   linux:package:

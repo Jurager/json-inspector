@@ -3,5 +3,5 @@ package platform
 import "go.uber.org/fx"
 
 var Module = fx.Module("platform",
-	fx.Provide(NewDataDir, NewIDGen),
+	fx.Provide(NewDataDir, NewIDGen, NewBuildInfo),
 )

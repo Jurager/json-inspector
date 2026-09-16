@@ -146,7 +146,7 @@ func (s *Server) handleHealth(w http.ResponseWriter, r *http.Request) {
 	// decide whether the app is up, and a version nobody can act on is worse than none.
 	_ = json.NewEncoder(w).Encode(map[string]string{
 		"status":  "ok",
-		"name":    "json-inspector",
+		"name":    s.build.Slug,
 		"version": s.build.Version,
 	})
 }

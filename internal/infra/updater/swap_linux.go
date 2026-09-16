@@ -7,6 +7,8 @@ import (
 	"os"
 	"path/filepath"
 	"syscall"
+
+	"json-inspector/internal/platform"
 )
 
 func swapAndRelaunch(archivePath string) error {
@@ -27,9 +29,9 @@ func swapAndRelaunch(archivePath string) error {
 	if err := extractTarGz(archivePath, dir); err != nil {
 		return fmt.Errorf("extracting update: %w", err)
 	}
-	newExe := filepath.Join(dir, "json-inspector")
+	newExe := filepath.Join(dir, platform.Slug)
 	if _, err := os.Stat(newExe); err != nil {
-		return fmt.Errorf("archive does not contain json-inspector")
+		return fmt.Errorf("archive does not contain %s", platform.Slug)
 	}
 	if err := os.Chmod(newExe, 0o755); err != nil {
 		return err

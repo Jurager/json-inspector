@@ -149,7 +149,7 @@ func newApplication(host *Host, info platform.BuildInfo, assets Assets) *applica
 			ApplicationShouldTerminateAfterLastWindowClosed: true,
 		},
 		SingleInstance: &application.SingleInstanceOptions{
-			UniqueID:               "com.jurager.json-inspector",
+			UniqueID:               info.Identifier,
 			EncryptionKey:          singleInstanceKey,
 			OnSecondInstanceLaunch: host.OnSecondInstance,
 		},

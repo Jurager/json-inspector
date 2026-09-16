@@ -8,6 +8,8 @@ import (
 	"os/exec"
 	"path/filepath"
 	"syscall"
+
+	"json-inspector/internal/platform"
 )
 
 func swapAndRelaunch(archivePath string) error {
@@ -28,9 +30,9 @@ func swapAndRelaunch(archivePath string) error {
 	if err := extractZip(archivePath, dir); err != nil {
 		return fmt.Errorf("extracting update: %w", err)
 	}
-	newExe := filepath.Join(dir, "json-inspector.exe")
+	newExe := filepath.Join(dir, platform.Slug+".exe")
 	if _, err := os.Stat(newExe); err != nil {
-		return fmt.Errorf("archive does not contain json-inspector.exe")
+		return fmt.Errorf("archive does not contain %s.exe", platform.Slug)
 	}
 
 	// Windows will not let a running .exe be overwritten, so the swap cannot happen here: a shell

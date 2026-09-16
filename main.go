@@ -28,21 +28,7 @@ var assets embed.FS
 //go:embed build/appicon.png
 var appIcon []byte
 
-var version = "dev"
-
-// build is the CI run number, empty for local builds.
-var build = ""
-
-const (
-	appName = "JSON Inspector"
-	// The bundle's own description. It is a single field of the platform's manifest, set once at build
-	// time, so it cannot follow the language the window is in — the app's name cannot either. Of the
-	// two languages it could be written in, English is the one the manifest is read in.
-	appDescription = "A JSON:API viewer: environment variables, a schema map, and captured " +
-		"browser requests."
-
-	shutdownTimeout = 5 * time.Second
-)
+const shutdownTimeout = 5 * time.Second
 
 func main() {
 	os.Exit(run())
@@ -60,12 +46,6 @@ func appOptions() []fx.Option {
 		usecase.Module,
 		wails.Module,
 		fx.Supply(
-			platform.BuildInfo{
-				Version:     version,
-				Build:       build,
-				Name:        appName,
-				Description: appDescription,
-			},
 			wails.Assets{FS: assets, Icon: appIcon},
 			bridge.Port(bridge.DefaultPort),
 			httpx.Config{},

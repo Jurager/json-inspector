@@ -5,7 +5,7 @@ version: "0.1.2"
 section: "default"
 priority: "extra"
 maintainer: ${GIT_COMMITTER_NAME} <${GIT_COMMITTER_EMAIL}>
-description: "Просмотр JSON:API: подстановка переменных окружения, карта схемы, перехват запросов из браузера."
+description: "Inspect JSON with environment variables, schema mapping, and browser request interception."
 vendor: "Yuri Gerasimov"
 homepage: "https://github.com/Jurager/json-inspector"
 license: "MIT"
