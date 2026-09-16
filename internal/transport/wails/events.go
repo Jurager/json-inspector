@@ -6,11 +6,11 @@ import (
 	"github.com/wailsapp/wails/v3/pkg/application"
 
 	"json-inspector/internal/domain"
-	"json-inspector/internal/infra/updater"
 	"json-inspector/internal/transport/bridge"
 	"json-inspector/internal/usecase/collection"
 	"json-inspector/internal/usecase/record"
 	"json-inspector/internal/usecase/settings"
+	"json-inspector/internal/usecase/update"
 	"json-inspector/internal/usecase/workspace"
 )
 
@@ -20,7 +20,7 @@ const (
 	eventCaptureState        = "capture-state"
 	eventCaptureDisconnected = "capture-disconnected"
 	eventOpenTab             = "open-tab"
-	eventUpdateAvailable     = "update-available"
+	eventUpdateChanged       = "update-changed"
 	eventUpdateCheck         = "update-check"
 )
 
@@ -30,7 +30,7 @@ func init() {
 	application.RegisterEvent[bridge.CaptureState](eventCaptureState)
 	application.RegisterEvent[application.Void](eventCaptureDisconnected)
 	application.RegisterEvent[int](eventOpenTab)
-	application.RegisterEvent[*updater.Info](eventUpdateAvailable)
+	application.RegisterEvent[*update.Info](eventUpdateChanged)
 	application.RegisterEvent[application.Void](eventUpdateCheck)
 	// A preference change reaches every window: the About window draws in the same palette, and every
 	// window is written in the same language.

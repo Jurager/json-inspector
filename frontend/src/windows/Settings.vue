@@ -5,17 +5,21 @@ import { useSettings } from '../composables/useSettings'
 import { useTheme } from '../composables/useTheme'
 import { useLocale } from '../composables/useLocale'
 import { usePlatform } from '../composables/usePlatform'
-import { useMessages } from '../i18n'
+import { useUpdateCheck } from '../composables/useUpdateCheck'
+import { formatCheckedAt, useMessages } from '../i18n'
 import Icon from '../components/ui/Icon.vue'
-import { Language, Retention, Theme } from '../../bindings/json-inspector/internal/domain'
+import UpdateCheck from '../components/update/UpdateCheck.vue'
+import { Switch } from '../components/ui/switch'
+import { Language, Retention, Theme, UpdateChannel } from '../../bindings/json-inspector/internal/domain'
 
-// The handoff's categories, without the ones the app has nothing to put in yet: proxy, sync, updates
-// and the account screen are not built, and a category that opens onto an empty pane is worse than a
+// The handoff's categories, without the ones the app has nothing to put in yet: proxy, sync and the
+// account screen are not built, and a category that opens onto an empty pane is worse than a
 // category that is not there.
 const CATEGORIES = [
   { id: 'general', icon: 'settings-2', label: 'settings.general' },
   { id: 'appearance', icon: 'contrast', label: 'settings.appearance' },
   { id: 'language', icon: 'globe', label: 'settings.language' },
+  { id: 'updates', icon: 'download', label: 'settings.updates' },
 ] as const
 
 type CategoryId = (typeof CATEGORIES)[number]['id']
@@ -24,7 +28,8 @@ const { t } = useMessages()
 const { customTitlebar } = usePlatform()
 const { theme, setTheme } = useTheme()
 const { language, setLanguage } = useLocale()
-const { settings, loadSettings, setRetention } = useSettings()
+const { settings, loadSettings, setRetention, setUpdateCheck, setUpdateChannel } = useSettings()
+const { checkedAt } = useUpdateCheck()
 
 const active = ref<CategoryId>('general')
 
@@ -48,9 +53,22 @@ const RETENTIONS = [
   { value: Retention.RetainForever, label: 'settings.retentionForever' },
 ] as const
 
+const CHANNELS = [
+  { value: UpdateChannel.ChannelStable, label: 'settings.channelStable' },
+  { value: UpdateChannel.ChannelBeta, label: 'settings.channelBeta' },
+] as const
+
 // The stored choice until the window has read it: the same default Go answers with, so the select
 // shows something true rather than nothing.
 const retention = computed(() => settings.value?.historyRetention ?? Retention.RetainForever)
+const autoCheck = computed(() => settings.value?.updateCheckAuto ?? true)
+const channel = computed(() => settings.value?.updateChannel ?? UpdateChannel.ChannelStable)
+
+// The date of the last check, which the handoff puts under the switch rather than beside the button:
+// it describes how the app behaves on its own, and that is what the switch decides.
+const lastChecked = computed(() =>
+  checkedAt.value ? t('update.lastChecked', { at: formatCheckedAt(checkedAt.value) }) : ''
+)
 
 onMounted(() => {
   void loadSettings()
@@ -127,7 +145,7 @@ onMounted(() => {
             </div>
           </template>
 
-          <template v-else>
+          <template v-else-if="active === 'language'">
             <h2 class="pane-title">{{ t('settings.language') }}</h2>
             <div class="row">
               <div class="row-text">
@@ -143,6 +161,40 @@ onMounted(() => {
                   {{ t(option.label) }}
                 </option>
               </select>
+            </div>
+          </template>
+
+          <template v-else>
+            <h2 class="pane-title">{{ t('settings.updates') }}</h2>
+            <div class="row">
+              <div class="row-text">
+                <div class="row-label">{{ t('settings.checkAutomatically') }}</div>
+                <div v-if="lastChecked" class="row-hint">{{ lastChecked }}</div>
+              </div>
+              <Switch
+                :model-value="autoCheck"
+                :aria-label="t('settings.checkAutomatically')"
+                @update:model-value="setUpdateCheck(!!$event)"
+              />
+            </div>
+            <div class="row">
+              <div class="row-text">
+                <div class="row-label">{{ t('settings.channel') }}</div>
+              </div>
+              <select
+                class="select"
+                :value="channel"
+                @change="
+                  setUpdateChannel(($event.target as HTMLSelectElement).value as UpdateChannel)
+                "
+              >
+                <option v-for="option in CHANNELS" :key="option.value" :value="option.value">
+                  {{ t(option.label) }}
+                </option>
+              </select>
+            </div>
+            <div class="row row-plain">
+              <UpdateCheck inline />
             </div>
           </template>
         </div>
@@ -228,6 +280,12 @@ onMounted(() => {
 .row {
   @apply flex items-start justify-between gap-6 py-3.5;
   border-bottom: 1px solid var(--border);
+}
+
+/* The check button and its answer are one row of controls, not a label with a control beside it:
+   they take the whole width and start at the left edge. */
+.row-plain {
+  @apply justify-start;
 }
 
 .row-text {

@@ -3,16 +3,13 @@ import { computed, onMounted, ref } from 'vue'
 import { Window } from '@wailsio/runtime'
 import { SystemService } from '../../bindings/json-inspector/internal/transport/wails'
 import { usePlatform } from '../composables/usePlatform'
-import { useUpdateCheck } from '../composables/useUpdateCheck'
-import { Button } from '../components/ui/button'
-import Icon from '../components/ui/Icon.vue'
-import { formatCheckedAt, useMessages } from '../i18n'
+import UpdateCheck from '../components/update/UpdateCheck.vue'
+import { useMessages } from '../i18n'
 import { formatVersion } from '../lib/format'
 import logoUrl from '../assets/logo.svg'
 
 const { t } = useMessages()
 const { customTitlebar } = usePlatform()
-const { phase, latest, checkedAt, error, check, install } = useUpdateCheck()
 
 const version = ref('')
 const build = ref('')
@@ -23,26 +20,6 @@ const versionLabel = computed(() => {
   const v = formatVersion(version.value)
   return build.value ? `${v} (${build.value})` : v
 })
-
-const buttonLabel = computed(() => {
-  switch (phase.value) {
-    case 'checking':
-      return t('about.checking')
-    case 'installing':
-      return t('about.installing')
-    case 'available':
-      return t('about.update')
-    case 'uptodate':
-    case 'error':
-      return t('about.checkAgain')
-    default:
-      return t('about.check')
-  }
-})
-
-const busy = computed(() => phase.value === 'checking' || phase.value === 'installing')
-
-const act = computed(() => (phase.value === 'available' ? install : check))
 
 onMounted(async () => {
   // The title bar this window draws is ours, but the taskbar reads the platform's name for it — and
@@ -76,28 +53,7 @@ onMounted(async () => {
       <div class="about-name">{{ appName }}</div>
       <div class="about-version">{{ t('about.version', { version: versionLabel || '…' }) }}</div>
 
-      <Button class="about-check" variant="primary" size="lg" :disabled="busy" @click="act">
-        <span v-if="busy" class="about-spinner"></span>
-        {{ buttonLabel }}
-      </Button>
-
-      <div class="about-status">
-        <template v-if="phase === 'uptodate'">
-          <span class="about-ok">
-            <Icon name="check" :size="13" :stroke-width="2.4" />
-            <span>{{ t('about.upToDate') }}</span>
-          </span>
-        </template>
-        <template v-else-if="phase === 'checking'">{{ t('about.checkingLong') }}</template>
-        <template v-else-if="phase === 'installing'">{{ t('about.downloading') }}</template>
-        <template v-else-if="phase === 'available'">
-          {{ t('about.available', { version: formatVersion(latest) }) }}
-        </template>
-        <template v-else-if="phase === 'error'">
-          <span class="about-error">{{ error }}</span>
-        </template>
-        <template v-else>{{ t('about.lastChecked', { at: formatCheckedAt(checkedAt) }) }}</template>
-      </div>
+      <UpdateCheck />
 
       <div class="about-divider"></div>
       <div class="about-copy">
@@ -153,30 +109,6 @@ onMounted(async () => {
 
 .about-version {
   @apply font-mono text-xs text-text-tertiary tabular-nums mb-[18px];
-}
-
-.about-check {
-  @apply min-w-[186px];
-}
-
-/* White on the accent button, where the app's own `.spinner` (accent ring) would vanish. */
-.about-spinner {
-  @apply w-[13px] h-[13px] rounded-full inline-block mr-1.5;
-  border: 2px solid rgba(255, 255, 255, 0.45);
-  border-top-color: #fff;
-  animation: spin 0.7s linear infinite;
-}
-
-.about-status {
-  @apply h-7 mt-3 flex items-center justify-center text-xs text-text-tertiary;
-}
-
-.about-ok {
-  @apply inline-flex items-center gap-[5px] text-green font-medium;
-}
-
-.about-error {
-  @apply text-red;
 }
 
 .about-divider {

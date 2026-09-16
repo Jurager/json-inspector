@@ -19,6 +19,7 @@ export {
     SearchNoteKind,
     SearchTarget,
     Theme,
+    UpdateChannel,
     VariableKind,
     WorkspaceKind
 } from "./models.js";

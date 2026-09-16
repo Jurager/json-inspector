@@ -146,18 +146,34 @@ const ru = {
   about: {
     title: 'О программе',
     version: 'Версия {version}',
-    check: 'Проверить обновления',
-    checking: 'Проверяем…',
-    installing: 'Обновление…',
-    update: 'Обновить',
-    checkAgain: 'Проверить снова',
-    upToDate: 'Установлена последняя версия',
-    checkingLong: 'Проверяем обновления…',
-    downloading: 'Скачиваем и проверяем…',
-    available: 'Доступна версия {version}',
-    lastChecked: 'Последняя проверка: {at}',
     copyright: '© {year} {name}.',
     rights: 'Все права защищены.',
+  },
+
+  // Updating is drawn by two windows — the About window and the settings window — off the same
+  // button and the same line, so its words are one set rather than two that would drift apart.
+  update: {
+    title: 'Обновление {app}',
+    check: 'Проверить обновления',
+    checking: 'Проверяем…',
+    checkAgain: 'Проверить снова',
+    showUpdate: 'Показать обновление',
+    checkingLong: 'Проверяем обновления…',
+    upToDate: 'Установлена последняя версия',
+    lastChecked: 'Последняя проверка: {at}',
+    availableLink: 'Доступна версия {version} — посмотреть',
+    availableLinkShort: 'Доступна версия {version}',
+    // Only reachable if the release is skipped or superseded between opening the window and drawing it.
+    none: 'Обновление не найдено',
+    available: 'Доступна версия {version}',
+    current: '{app} · сейчас установлена {version}',
+    whatsNew: 'Что нового',
+    // A release whose body carries no list is not an error: nobody wrote down what changed.
+    noNotes: 'К этой версии не приложено описания изменений.',
+    skip: 'Пропустить эту версию',
+    remindLater: 'Напомнить позже',
+    installAndRestart: 'Обновить и перезапустить',
+    installing: 'Устанавливаем обновление…',
   },
 
   request: {
@@ -581,6 +597,7 @@ const ru = {
       personalWorkspace: 'Пространство по умолчанию удалить нельзя.',
       workspaceMissing: 'Этого пространства больше нет.',
       unknownRetention: 'Неизвестный срок хранения: {retention}',
+      unknownUpdateChannel: 'Неизвестный канал обновлений: {channel}',
     },
     requestFailed: 'Запрос не выполнен: {error}',
     updateCheckFailed: 'Не удалось проверить обновления',
@@ -604,6 +621,11 @@ const ru = {
     general: 'Общие',
     appearance: 'Внешний вид',
     language: 'Язык',
+    updates: 'Обновления',
+    checkAutomatically: 'Проверять обновления автоматически',
+    channel: 'Канал обновлений',
+    channelStable: 'Стабильный',
+    channelBeta: 'Бета',
     theme: 'Тема',
     interfaceLanguage: 'Язык интерфейса',
     // The handoff promises a restart here; the app changes the language on the spot, and a description

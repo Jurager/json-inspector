@@ -7,7 +7,7 @@ import (
 	"github.com/wailsapp/wails/v3/pkg/application"
 
 	"json-inspector/internal/domain"
-	"json-inspector/internal/infra/updater"
+	"json-inspector/internal/usecase/update"
 )
 
 const (
@@ -18,6 +18,7 @@ const (
 	windowMain     = "main"
 	windowAbout    = "about"
 	windowSettings = "settings"
+	windowUpdate   = "update"
 
 	// The About panel is sized to its content (design section 07): 336 wide, fixed. Both
 	// heights are measured from About.vue — the design's stack plus the chrome above it, which
@@ -26,6 +27,14 @@ const (
 	aboutHeightBarred   = 449 // our own 52px bar above the body
 	aboutHeightInset    = 425 // macOS: the body's own top padding stands in for the title bar
 	aboutTitleBarHeight = 50
+
+	// The update window is the dialog the design draws over the About window, promoted to a window of
+	// its own: 560 wide, and 488 tall as the sum of the design's own stack — the 52px header, 28 and
+	// 24 of padding, the 56px release header, the "Что нового" box at its 220px cap, the two 18px
+	// gaps and the 50px footer. The changelog list scrolls inside its box, so the window is sized for
+	// the tallest case and does not resize.
+	updateWidth  = 560
+	updateHeight = 488
 
 	// The settings window is the size the handoff draws (section 09): 1160 x 700. Its own minimum is
 	// the point below which the 208px category column and a setting's row stop fitting side by side.
@@ -64,7 +73,7 @@ type Host struct {
 	// Raised before the window can take an event: a deep link can arrive before the frontend mounts.
 	// The latest of each wins, and MarkReady plays them back.
 	pendingTab         int
-	pendingUpdate      *updater.Info
+	pendingUpdate      *update.Info
 	pendingUpdateCheck bool
 }
 
@@ -135,7 +144,7 @@ func (h *Host) MarkReady() {
 	// The update first: the status bar takes its "доступна версия" link, then the rail
 	// switches to the tab.
 	if u != nil {
-		h.Emit(eventUpdateAvailable, u)
+		h.Emit(eventUpdateChanged, u)
 	}
 	if tab > 0 {
 		h.Emit(eventOpenTab, tab)

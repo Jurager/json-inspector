@@ -1,13 +1,14 @@
-package updater
+package update
 
 import (
 	"strconv"
 	"strings"
 )
 
-// Comparing versions. The app is released by tag, so this is comparisons of dotted numbers
-// rather than anything semver-shaped: a tag with a suffix or a fourth part is read as far as
-// it can be and no further.
+// Comparing versions. The app is released by tag, so this is a comparison of dotted numbers rather
+// than anything semver-shaped: a tag with a suffix or a fourth part is read as far as it can be and
+// no further. Both halves have to parse — a version nobody can read is not a version to be told
+// about, and guessing in that direction would offer an update that may not exist.
 
 func parseVersion(v string) ([]int, bool) {
 	v = strings.TrimPrefix(strings.TrimSpace(v), "v")

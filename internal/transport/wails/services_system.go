@@ -4,14 +4,12 @@ import (
 	"context"
 	"errors"
 
-	"github.com/wailsapp/wails/v3/pkg/application"
-
-	"json-inspector/internal/infra/updater"
 	"json-inspector/internal/platform"
 )
 
-// SystemService is the app talking about itself: what it is, what its window does, when it last
-// checked for a release, and whether it managed to open its own data.
+// SystemService is the app talking about itself: what it is, what its windows do, and whether it
+// managed to open its own data. Updating has a service of its own; everything that belongs to no
+// feature in particular stays here.
 type SystemService struct {
 	host    *Host
 	info    platform.BuildInfo
@@ -63,43 +61,6 @@ func (s *SystemService) ShowSettings() {
 	s.host.ShowSettings()
 }
 
-// RequestUpdateCheck reuses or opens the About window and asks it to run a check.
-func (s *SystemService) RequestUpdateCheck() {
-	s.host.RequestUpdateCheck()
-}
-
-// TakeUpdateCheckRequest reports and clears a request parked by RequestUpdateCheck.
-func (s *SystemService) TakeUpdateCheckRequest() bool {
-	return s.host.TakeUpdateCheckRequest()
-}
-
-// CheckForUpdates answers the About window's own check. A release it finds is also announced to
-// the main window, so the status bar's link appears without waiting for the next launch — the
-// one place a manual check and the startup check have to agree.
-func (s *SystemService) CheckForUpdates() (*updater.Info, error) {
-	u, err := updater.Check()
-	if err != nil {
-		return nil, err
-	}
-	if u.Available {
-		s.host.AnnounceUpdate(&u)
-	}
-	return &u, nil
-}
-
-// UpdateStatus is what the last check saw, without touching the network.
-func (s *SystemService) UpdateStatus() (*updater.Info, error) {
-	info, err := updater.Status()
-	if err != nil {
-		return nil, err
-	}
-	return &info, nil
-}
-
-func (s *SystemService) UpdateNow(version string) error {
-	return updater.Install(version)
-}
-
 // StartupStatus is what the frontend reads first: without a database there is nothing else to
 // show, and this is where it learns why.
 func (s *SystemService) StartupStatus() StartupStatus {
@@ -126,16 +87,4 @@ func (s *SystemService) OpenDataFolder() error {
 		return errors.New("the application is not ready yet")
 	}
 	return app.Env.OpenFileManager(string(s.dataDir), false)
-}
-
-// ServiceStartup starts the launch-time update check on a goroutine of its own: it reaches the
-// network, and a window that waited for it would open seconds late. The answer is parked until the
-// page can take an event.
-func (s *SystemService) ServiceStartup(_ context.Context, _ application.ServiceOptions) error {
-	go func() {
-		if u := updater.StartupCheck(); u != nil {
-			s.host.AnnounceUpdate(u)
-		}
-	}()
-	return nil
 }

@@ -14,6 +14,7 @@ import (
 	"json-inspector/internal/infra/httpx"
 	"json-inspector/internal/infra/scriptengine"
 	"json-inspector/internal/infra/sqlite"
+	"json-inspector/internal/infra/updater"
 	"json-inspector/internal/platform"
 	"json-inspector/internal/usecase/collection"
 	"json-inspector/internal/usecase/draft"
@@ -22,6 +23,7 @@ import (
 	"json-inspector/internal/usecase/scripting"
 	"json-inspector/internal/usecase/search"
 	"json-inspector/internal/usecase/settings"
+	"json-inspector/internal/usecase/update"
 	"json-inspector/internal/usecase/workspace"
 )
 
@@ -39,6 +41,7 @@ type ServicesIn struct {
 	fx.In
 	System       *SystemService
 	Settings     *SettingsService
+	Update       *UpdateService
 	Records      *RecordsService
 	Drafts       *DraftService
 	Environments *EnvironmentsService
@@ -88,6 +91,12 @@ var Module = fx.Module("wails",
 		// of its own.
 		func(store *sqlite.Store) search.Index { return store },
 		func(store *sqlite.Store) search.Scope { return store },
+		// Updating is the case the split is for: the mechanism talks to GitHub and replaces the running
+		// binary, the use case decides what is worth offering, and the two meet only here.
+		updater.NewSource,
+		func(source *updater.Source) update.Releases { return source },
+		func(store *sqlite.Store) update.State { return store },
+		func(uc *settings.UseCase) update.Settings { return uc },
 
 		// Every feature that keeps something per space asks the same question of the same adapter:
 		// which workspace is on screen. It is one port per feature and one implementation here, which
@@ -108,6 +117,7 @@ var Module = fx.Module("wails",
 		openStorage,
 		NewSystemService,
 		NewSettingsService,
+		NewUpdateService,
 		NewRecordsService,
 		NewDraftService,
 		NewEnvironmentsService,
@@ -174,6 +184,7 @@ func setup(
 	host.SetLanguage(language)
 	system := application.NewService(in.System)
 	settingsService := application.NewService(in.Settings)
+	updateService := application.NewService(in.Update)
 	recordsService := application.NewService(in.Records)
 	draftService := application.NewService(in.Drafts)
 	environmentsService := application.NewService(in.Environments)
@@ -192,6 +203,10 @@ func setup(
 	// between a window that explains itself and one where half the controls fail. The frontend
 	// reads StartupStatus and renders the failure instead of reaching for these.
 	if status.Ready() {
+		// Updating is in this half because what the last check saw is kept in the database: without
+		// one there is nowhere to remember a release, and offering to install it would be a promise the
+		// app cannot keep across the restart it is about to perform.
+		app.RegisterService(updateService)
 		app.RegisterService(environmentsService)
 		app.RegisterService(collectionsService)
 		app.RegisterService(scriptingService)

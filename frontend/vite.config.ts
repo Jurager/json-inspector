@@ -26,7 +26,8 @@ export default defineConfig({
       input: {
         main: 'index.html',
         about: 'about.html',
-        settings: 'settings.html'
+        settings: 'settings.html',
+        update: 'update.html'
       }
     }
   }

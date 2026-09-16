@@ -1,6 +1,10 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
-import { RecordsService, SystemService } from '../../../bindings/json-inspector/internal/transport/wails'
+import {
+  RecordsService,
+  SystemService,
+  UpdateService,
+} from '../../../bindings/json-inspector/internal/transport/wails'
 import { useEnvironmentsStore } from '../../stores/environments'
 import { useRequestsStore } from '../../stores/requests'
 import { useCollectionsStore } from '../../stores/collections'
@@ -84,8 +88,10 @@ function openSettings() {
   SystemService.ShowSettings()
 }
 
+// The rail's update badge asks the About window to check, which is where the answer is drawn: it is
+// a window of its own, and this one cannot show the result.
 function requestUpdateCheck() {
-  SystemService.RequestUpdateCheck()
+  UpdateService.RequestCheck()
 }
 
 async function selectSource(view: RailView) {

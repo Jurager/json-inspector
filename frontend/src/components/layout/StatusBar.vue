@@ -19,7 +19,7 @@ import { BridgeService } from '../../../bindings/json-inspector/internal/transpo
 import Icon from '../ui/Icon.vue'
 import { IconButton } from '../ui/button'
 import { ListSide } from '../../../bindings/json-inspector/internal/domain'
-import type { Info as UpdateInfo } from '../../../bindings/json-inspector/internal/infra/updater'
+import type { Info as UpdateInfo } from '../../../bindings/json-inspector/internal/usecase/update'
 
 const props = defineProps<{ updateInfo: UpdateInfo | null }>()
 const emit = defineEmits<{ (e: 'open-update'): void }>()

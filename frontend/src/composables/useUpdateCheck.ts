@@ -1,36 +1,41 @@
 import { onMounted, onBeforeUnmount, ref } from 'vue'
 import { Events } from '@wailsio/runtime'
-import { SystemService } from '../../bindings/json-inspector/internal/transport/wails'
+import { UpdateService } from '../../bindings/json-inspector/internal/transport/wails'
+import type { Info as UpdateInfo } from '../../bindings/json-inspector/internal/usecase/update'
 import { describeFailure, t as tr } from '../i18n'
 
 // Where the update check can be. The design draws the first three; the rest are the same line
 // carrying what it doesn't cover — an update to install, the install itself, and failures.
 export type UpdatePhase = 'idle' | 'checking' | 'uptodate' | 'available' | 'installing' | 'error'
 
-// The About window's own state: it is a separate document, so nothing here is shared with the
-// main window's link — the two meet in the backend, not in module state.
+// Three windows show this and each is a document of its own, so nothing here is shared between them:
+// the About window, the settings window and the update window meet in the backend and in the event
+// below, not in module state.
 const phase = ref<UpdatePhase>('idle')
 const latest = ref('')
+const notes = ref<string[]>([])
 const checkedAt = ref(0)
 const error = ref('')
 
 let off: (() => void) | null = null
 
 export function useUpdateCheck() {
-  async function applyStatus() {
-    try {
-      const s = await SystemService.UpdateStatus()
-      if (!s) return
-      // An update that the last check found is offered without asking again. Never over a
-      // check that has already started or finished: this answer is the older of the two.
-      if (s.available && phase.value === 'idle') {
-        latest.value = s.latest
-        phase.value = 'available'
-      }
-      if (phase.value === 'idle') checkedAt.value = s.checkedAt ?? 0
-    } catch {
-      // No backend answer (or a plain browser): the line stays on "no check yet".
+  // What the app knows about updates, in the one shape every window draws from. A reply that has no
+  // time on it is a check that never ran: the line stays empty rather than claiming the app is up to
+  // date on the strength of a question nobody asked.
+  function apply(info: UpdateInfo | null) {
+    if (!info) return
+    latest.value = info.latest ?? ''
+    notes.value = info.notes ?? []
+    checkedAt.value = info.checkedAt ?? 0
+    // An install in flight is the one state a reply must not overwrite: the app is about to replace
+    // itself, and no answer from before that is more true than the screen already saying so.
+    if (phase.value === 'installing') return
+    if (!info.checkedAt) {
+      phase.value = 'idle'
+      return
     }
+    phase.value = info.available ? 'available' : 'uptodate'
   }
 
   async function check() {
@@ -38,14 +43,7 @@ export function useUpdateCheck() {
     phase.value = 'checking'
     error.value = ''
     try {
-      const u = await SystemService.CheckForUpdates()
-      checkedAt.value = u?.checkedAt ?? Date.now()
-      if (u?.available) {
-        latest.value = u.latest
-        phase.value = 'available'
-      } else {
-        phase.value = 'uptodate'
-      }
+      apply(await UpdateService.Check())
     } catch {
       error.value = tr('errors.updateCheckFailed')
       phase.value = 'error'
@@ -58,26 +56,46 @@ export function useUpdateCheck() {
     error.value = ''
     try {
       // The app replaces its own binary and relaunches, so this call does not return.
-      await SystemService.UpdateNow(latest.value)
+      await UpdateService.Install(latest.value)
     } catch (e) {
       error.value = tr('errors.updateFailed', { error: describeFailure(e) })
       phase.value = 'error'
     }
   }
 
-  // A check asked for from the main window or the menu. Both entry points take the parked
-  // request: the method clears it, so exactly one of them acts on it.
+  // "Пропустить эту версию": the backend answers with what it has to say now, and every window is
+  // told as well — the window that asked is closing, and the ones staying open are showing the
+  // release it just dropped.
+  async function skip() {
+    try {
+      apply(await UpdateService.Skip())
+    } catch (e) {
+      error.value = tr('errors.updateFailed', { error: describeFailure(e) })
+      phase.value = 'error'
+    }
+  }
+
+  function openWindow() {
+    UpdateService.ShowWindow()
+  }
+
+  // A check asked for from the main window or the menu. Both entry points take the parked request:
+  // the method clears it, so exactly one of them acts on it.
   async function checkIfRequested() {
     try {
-      if (await SystemService.TakeUpdateCheckRequest()) check()
+      if (await UpdateService.TakeRequest()) check()
     } catch {
       // Nothing to do: the window is usable without a check.
     }
   }
 
   onMounted(async () => {
-    if (!off) off = Events.On('update-check', checkIfRequested)
-    await applyStatus()
+    if (!off) off = Events.On('update-changed', (ev) => apply(ev.data as UpdateInfo))
+    try {
+      apply(await UpdateService.Status())
+    } catch {
+      // No backend answer (or a plain browser): the line stays on "no check yet".
+    }
     await checkIfRequested()
   })
 
@@ -86,5 +104,5 @@ export function useUpdateCheck() {
     off = null
   })
 
-  return { phase, latest, checkedAt, error, check, install }
+  return { phase, latest, notes, checkedAt, error, check, install, skip, openWindow }
 }

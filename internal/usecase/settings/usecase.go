@@ -52,6 +52,12 @@ func (u *UseCase) Snapshot(ctx context.Context) (domain.Settings, error) {
 	if retention := domain.Retention(stored[domain.SettingHistoryRetention]); retention.Valid() {
 		out.HistoryRetention = retention
 	}
+	if auto, ok := parseBool(stored[domain.SettingUpdateAuto]); ok {
+		out.UpdateCheckAuto = auto
+	}
+	if channel := domain.UpdateChannel(stored[domain.SettingUpdateChannel]); channel.Valid() {
+		out.UpdateChannel = channel
+	}
 	return out, nil
 }
 
@@ -168,6 +174,32 @@ func (u *UseCase) SetRetention(
 			domain.Args{"retention": string(retention)})
 	}
 	if err := u.save(ctx, domain.SettingHistoryRetention, string(retention)); err != nil {
+		return domain.Settings{}, err
+	}
+	return u.Snapshot(ctx)
+}
+
+// SetUpdateCheck stores whether the app may look for a release on its own. Turning it off stops the
+// background check only: a check the user asks for is theirs to ask, and an app that refuses one
+// would be pretending the feature is gone rather than switched off.
+func (u *UseCase) SetUpdateCheck(ctx context.Context, auto bool) (domain.Settings, error) {
+	if err := u.save(ctx, domain.SettingUpdateAuto, strconv.FormatBool(auto)); err != nil {
+		return domain.Settings{}, err
+	}
+	return u.Snapshot(ctx)
+}
+
+// SetUpdateChannel stores which releases may be offered. The choice is not applied to a check that
+// already ran: the next one asks the new channel, and the last answer stays on screen until then.
+func (u *UseCase) SetUpdateChannel(
+	ctx context.Context,
+	channel domain.UpdateChannel,
+) (domain.Settings, error) {
+	if !channel.Valid() {
+		return domain.Settings{}, domain.Refuse(domain.CodeUnknownChannel, domain.ErrNotAllowed,
+			domain.Args{"channel": string(channel)})
+	}
+	if err := u.save(ctx, domain.SettingUpdateChannel, string(channel)); err != nil {
 		return domain.Settings{}, err
 	}
 	return u.Snapshot(ctx)

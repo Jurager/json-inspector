@@ -11,6 +11,7 @@ import * as ScriptingService from "./scriptingservice.js";
 import * as SearchService from "./searchservice.js";
 import * as SettingsService from "./settingsservice.js";
 import * as SystemService from "./systemservice.js";
+import * as UpdateService from "./updateservice.js";
 import * as WorkspaceService from "./workspaceservice.js";
 export {
     BridgeService,
@@ -23,6 +24,7 @@ export {
     SearchService,
     SettingsService,
     SystemService,
+    UpdateService,
     WorkspaceService
 };
 

@@ -1,7 +1,7 @@
 package wails
 
 import (
-	"json-inspector/internal/infra/updater"
+	"json-inspector/internal/usecase/update"
 )
 
 // What the app tells a window that is already open: which tab to show, and that a release is
@@ -20,8 +20,11 @@ func (h *Host) OpenTab(tab int) {
 	h.Emit(eventOpenTab, tab)
 }
 
-// AnnounceUpdate tells the window a release is available, parked until the page can take one.
-func (h *Host) AnnounceUpdate(u *updater.Info) {
+// PublishUpdate tells every window that the update state moved, parked until the page can take one.
+// It is published on a check and on a skip, not only when a release turns up: a skip has to reach
+// the windows that are showing the release just as much as a find does, and the About window is a
+// document of its own that cannot see the update window's click.
+func (h *Host) PublishUpdate(u *update.Info) {
 	h.mu.Lock()
 	if !h.ready.Load() {
 		h.pendingUpdate = u
@@ -29,12 +32,14 @@ func (h *Host) AnnounceUpdate(u *updater.Info) {
 		return
 	}
 	h.mu.Unlock()
-	h.Emit(eventUpdateAvailable, u)
+	h.Emit(eventUpdateChanged, u)
 }
 
-// RequestUpdateCheck parks a check for the About window and asks it to run one. The request is
-// parked as well as sent, because only the About window listens for it here — and a window that
-// is being created right now has no listeners yet. It picks the parked request up on mount.
+// RequestUpdateCheck parks a check for the About window and asks it to run one. Both halves are
+// needed and they cover different cases: the event reaches a window that is already open, and the
+// flag reaches one that is being created right now, which has no listeners yet and picks the
+// request up as it mounts. Neither alone is enough — an open window never mounts again, and a
+// window that does not exist yet hears nothing.
 //
 // The flag is cleared by TakeUpdateCheckRequest alone, never here: that is what makes the two
 // paths deliver exactly one check between them, however they interleave.

@@ -66,3 +66,22 @@ func (s *SettingsService) SetRetention(
 ) (domain.Settings, error) {
 	return s.settings.SetRetention(ctx, retention)
 }
+
+// SetUpdateCheck stores whether the app may look for a release on its own. It broadcasts nothing:
+// the window that changed it draws the switch itself, and the next launch is what the preference
+// is for.
+func (s *SettingsService) SetUpdateCheck(
+	ctx context.Context,
+	auto bool,
+) (domain.Settings, error) {
+	return s.settings.SetUpdateCheck(ctx, auto)
+}
+
+// SetUpdateChannel stores which releases may be offered. A check already run keeps its answer on
+// screen until the next one asks the new channel.
+func (s *SettingsService) SetUpdateChannel(
+	ctx context.Context,
+	channel domain.UpdateChannel,
+) (domain.Settings, error) {
+	return s.settings.SetUpdateChannel(ctx, channel)
+}

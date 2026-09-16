@@ -64,7 +64,7 @@ internal/
     httpx/                    движок запросов
     authflow/                 схемы авторизации: чем каждая отвечает на провод
     scriptengine/             песочница скриптов (goja + prelude.js)
-    updater/                  самообновление
+    updater/                  самообновление: GitHub, архив, подмена бинаря — только механизм
   transport/
     wails/                    привязанные сервисы, события, окна, меню
     bridge/                   WebSocket-сервер расширения

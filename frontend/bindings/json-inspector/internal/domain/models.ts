@@ -157,6 +157,7 @@ export enum Code {
     CodeUnknownLanguage = "unknownLanguage",
     CodeUnknownListSide = "unknownListSide",
     CodeUnknownRetention = "unknownRetention",
+    CodeUnknownChannel = "unknownUpdateChannel",
     CodePersonalWorkspace = "personalWorkspace",
     CodeWorkspaceMissing = "workspaceMissing",
 };
@@ -934,6 +935,8 @@ export interface Settings {
     "sideWidth": number;
     "listSide": ListSide;
     "historyRetention": Retention;
+    "updateCheckAuto": boolean;
+    "updateChannel": UpdateChannel;
 }
 
 /**
@@ -960,6 +963,22 @@ export enum Theme {
     ThemeLight = "light",
     ThemeDark = "dark",
     ThemeSystem = "system",
+};
+
+/**
+ * UpdateChannel is which releases the app is willing to be offered.
+ * 
+ * It is a question rather than a constant because a pre-release is the right answer for a user who
+ * wants one and a wrecked install for a user who does not — so the release source cannot pick.
+ */
+export enum UpdateChannel {
+    /**
+     * The Go zero value for the underlying type of the enum.
+     */
+    $zero = "",
+
+    ChannelStable = "stable",
+    ChannelBeta = "beta",
 };
 
 /**

@@ -10,9 +10,6 @@ import type { Events } from "@wailsio/runtime";
 import type * as domain$0 from "../../../../../json-inspector/internal/domain/models.js";
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: Unused imports
-import type * as updater$0 from "../../../../../json-inspector/internal/infra/updater/models.js";
-// eslint-disable-next-line @typescript-eslint/ban-ts-comment
-// @ts-ignore: Unused imports
 import type * as bridge$0 from "../../../../../json-inspector/internal/transport/bridge/models.js";
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: Unused imports
@@ -23,6 +20,9 @@ import type * as record$0 from "../../../../../json-inspector/internal/usecase/r
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: Unused imports
 import type * as settings$0 from "../../../../../json-inspector/internal/usecase/settings/models.js";
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-ignore: Unused imports
+import type * as update$0 from "../../../../../json-inspector/internal/usecase/update/models.js";
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: Unused imports
 import type * as workspace$0 from "../../../../../json-inspector/internal/usecase/workspace/models.js";
@@ -40,7 +40,7 @@ declare module "@wailsio/runtime" {
             "request:finished": record$0.RequestFinished;
             "settings:language": settings$0.LanguageChanged;
             "settings:theme": settings$0.ThemeChanged;
-            "update-available": updater$0.Info | null;
+            "update-changed": update$0.Info | null;
             "update-check": void;
             "workspace:changed": workspace$0.Changed;
         }

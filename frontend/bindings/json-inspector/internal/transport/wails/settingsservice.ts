@@ -41,6 +41,23 @@ export function SetTheme(theme: domain$0.Theme): $CancellablePromise<domain$0.Se
     return $Call.ByID(817907931, theme);
 }
 
+/**
+ * SetUpdateChannel stores which releases may be offered. A check already run keeps its answer on
+ * screen until the next one asks the new channel.
+ */
+export function SetUpdateChannel(channel: domain$0.UpdateChannel): $CancellablePromise<domain$0.Settings> {
+    return $Call.ByID(1307526778, channel);
+}
+
+/**
+ * SetUpdateCheck stores whether the app may look for a release on its own. It broadcasts nothing:
+ * the window that changed it draws the switch itself, and the next launch is what the preference
+ * is for.
+ */
+export function SetUpdateCheck(auto: boolean): $CancellablePromise<domain$0.Settings> {
+    return $Call.ByID(1861163125, auto);
+}
+
 export function Snapshot(): $CancellablePromise<domain$0.Settings> {
     return $Call.ByID(3127333622);
 }

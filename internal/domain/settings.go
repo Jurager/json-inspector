@@ -9,6 +9,8 @@ const (
 	SettingSideWidth        = "ui.sideWidth"
 	SettingListSide         = "ui.listSide"
 	SettingHistoryRetention = "history.retention"
+	SettingUpdateAuto       = "update.checkAutomatically"
+	SettingUpdateChannel    = "update.channel"
 )
 
 // Theme is the user's choice; which palette it means is decided in the window, because "system" is
@@ -75,13 +77,15 @@ func (s ListSide) Valid() bool {
 // Settings is everything the app remembers about how it is set up, in the order the screen shows
 // it. Defaults live in one place — the use case's — so a fresh database and a missing row agree.
 type Settings struct {
-	Theme            Theme     `json:"theme"`
-	Language         Language  `json:"language"`
-	InspectorOpen    bool      `json:"inspectorOpen"`
-	InspectorWidth   int       `json:"inspectorWidth"`
-	SideWidth        int       `json:"sideWidth"`
-	ListSide         ListSide  `json:"listSide"`
-	HistoryRetention Retention `json:"historyRetention"`
+	Theme            Theme         `json:"theme"`
+	Language         Language      `json:"language"`
+	InspectorOpen    bool          `json:"inspectorOpen"`
+	InspectorWidth   int           `json:"inspectorWidth"`
+	SideWidth        int           `json:"sideWidth"`
+	ListSide         ListSide      `json:"listSide"`
+	HistoryRetention Retention     `json:"historyRetention"`
+	UpdateCheckAuto  bool          `json:"updateCheckAuto"`
+	UpdateChannel    UpdateChannel `json:"updateChannel"`
 }
 
 // DefaultSettings is what the app runs with before anyone has changed anything.
@@ -94,6 +98,10 @@ func DefaultSettings() Settings {
 		SideWidth:        DefaultSideWidth,
 		ListSide:         ListSideLeft,
 		HistoryRetention: RetainForever,
+		// Updating is on until someone turns it off: an app that never mentions a release is one
+		// where a security fix goes unnoticed, and "off" is one click away in the settings.
+		UpdateCheckAuto: true,
+		UpdateChannel:   ChannelStable,
 	}
 }
 

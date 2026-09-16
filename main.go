@@ -16,7 +16,6 @@ import (
 	"json-inspector/internal/infra/httpx"
 	"json-inspector/internal/infra/scriptengine"
 	"json-inspector/internal/infra/sqlite"
-	"json-inspector/internal/infra/updater"
 	"json-inspector/internal/platform"
 	"json-inspector/internal/transport/bridge"
 	"json-inspector/internal/transport/wails"
@@ -75,9 +74,6 @@ func appOptions() []fx.Option {
 }
 
 func run() int {
-	updater.CurrentVersion = version
-	updater.CurrentBuild = build
-
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 

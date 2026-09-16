@@ -42,6 +42,7 @@ const (
 	CodeUnknownLanguage    Code = "unknownLanguage"
 	CodeUnknownListSide    Code = "unknownListSide"
 	CodeUnknownRetention   Code = "unknownRetention"
+	CodeUnknownChannel     Code = "unknownUpdateChannel"
 	CodePersonalWorkspace  Code = "personalWorkspace"
 	CodeWorkspaceMissing   Code = "workspaceMissing"
 )

@@ -41,6 +41,38 @@ func (h *Host) ShowAbout() {
 	})
 }
 
+// ShowUpdate opens the window that describes the release the last check found, or brings the open
+// one forward. It is a window of its own rather than a dialog inside the About window because what
+// it holds does not fit there: the About panel is 336 wide and this one is 560.
+func (h *Host) ShowUpdate() {
+	app := h.App()
+	if app == nil {
+		return
+	}
+	if w, ok := h.windowByName(windowUpdate); ok {
+		bringToFront(w)
+		return
+	}
+
+	app.Window.NewWithOptions(application.WebviewWindowOptions{
+		Name:      windowUpdate,
+		Title:     h.windowTitle(),
+		Width:     updateWidth,
+		Height:    updateHeight,
+		MinWidth:  updateWidth,
+		MinHeight: updateHeight,
+		// This flag disables resizing; v3 inverted it from v2's Resizable.
+		DisableResize:    true,
+		Frameless:        UseCustomTitlebar(),
+		BackgroundColour: application.NewRGB(255, 255, 255),
+		URL:              "/update.html" + h.windowQuery(false),
+		Mac: application.MacWindow{
+			TitleBar:                application.MacTitleBarHiddenInset,
+			InvisibleTitleBarHeight: aboutTitleBarHeight,
+		},
+	})
+}
+
 func (h *Host) windowByName(name string) (application.Window, bool) {
 	app := h.App()
 	if app == nil {

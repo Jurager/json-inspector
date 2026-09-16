@@ -14,7 +14,16 @@ let layoutTimer: ReturnType<typeof setTimeout> | null = null
 const LAYOUT_DEBOUNCE_MS = 400
 
 export function useSettings() {
-  return { settings, loadSettings, setTheme, setLanguage, setLayout, setRetention }
+  return {
+    settings,
+    loadSettings,
+    setTheme,
+    setLanguage,
+    setLayout,
+    setRetention,
+    setUpdateCheck,
+    setUpdateChannel,
+  }
 }
 
 async function loadSettings(): Promise<void> {
@@ -71,4 +80,15 @@ function setLayout(patch: LayoutPatch): void {
 
 async function setRetention(retention: Settings['historyRetention']): Promise<void> {
   settings.value = await SettingsService.SetRetention(retention)
+}
+
+// Whether the app may look for a release on its own. The switch moves on the caller's side and the
+// stored answer is what comes back: an update check nobody asked for is not a thing to run on the
+// click that turns it on.
+async function setUpdateCheck(auto: boolean): Promise<void> {
+  settings.value = await SettingsService.SetUpdateCheck(auto)
+}
+
+async function setUpdateChannel(channel: Settings['updateChannel']): Promise<void> {
+  settings.value = await SettingsService.SetUpdateChannel(channel)
 }

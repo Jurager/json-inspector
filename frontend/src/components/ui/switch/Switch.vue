@@ -1,8 +1,9 @@
 <script setup lang="ts">
 import { SwitchRoot, SwitchThumb, type SwitchRootProps } from 'reka-ui'
 
-// Proportions from the extension popup's switch: a 44x26 track, a 20px knob inset by 3px.
-// No call site yet — the sheet's "секрет/текст" is a tag in the handoff, not a toggle.
+// The handoff's switch: a 38x22 track with an 18px knob inset by 2px, and green when on. Green is
+// the design's own colour for "this is on" — it is not the accent, and the two must not be confused
+// with each other on a settings row where both appear.
 const props = defineProps<SwitchRootProps>()
 
 defineOptions({ inheritAttrs: false })
@@ -19,28 +20,42 @@ defineOptions({ inheritAttrs: false })
 
 .switch {
   @apply relative flex-none rounded-full cursor-pointer;
-  width: 44px;
-  height: 26px;
+  width: 38px;
+  height: 22px;
   background: var(--border-strong);
-  transition: background 0.2s ease;
+  transition: background 0.15s ease;
 }
 
 .switch[data-state='checked'] {
-  background: var(--accent);
+  background: var(--green);
+}
+
+.switch:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
 }
 
 .thumb {
   @apply block rounded-full;
-  width: 20px;
-  height: 20px;
-  margin: 3px;
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 18px;
+  height: 18px;
   background: #fff;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
-  transition: transform 0.2s ease;
+  transition: transform 0.15s ease;
 }
 
-/* 44 - 3 - 20 - 3 */
+/* 38 - 2 - 18 - 2 */
 .switch[data-state='checked'] .thumb {
-  transform: translateX(18px);
+  transform: translateX(16px);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .switch,
+  .thumb {
+    transition: none;
+  }
 }
 </style>
