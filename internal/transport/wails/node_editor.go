@@ -17,7 +17,7 @@ type NodeEditor struct {
 
 // OpenNode puts a saved request into the draft its card edits, and answers with everything the card
 // draws. Opening is what a save starts over from as well: a draft that has just been opened has
-// nothing unsaved in it, which is where the window's "Не сохранено" comes from and goes.
+// nothing unsaved in it, which is where the window's "Unsaved" comes from and goes.
 func (s *CollectionsService) OpenNode(ctx context.Context, id string) (NodeEditor, error) {
 	node, err := s.collections.Node(ctx, id)
 	if err != nil {
@@ -74,7 +74,7 @@ func (s *CollectionsService) editor(
 // draftOfNode is a saved request seen as something to edit. Rows keep their ids, so an editor that
 // is open on one of them stays on it.
 func draftOfNode(node domain.CollectionNode) domain.Draft {
-	// A node with no auth of its own inherits one, and «Наследовать» is how the draft says that: the
+	// A node with no auth of its own inherits one, and «Inherit» is how the draft says that: the
 	// card draws the choice, and the tree is asked for the answer when the request goes out.
 	auth := domain.Auth{Type: domain.AuthInherit}
 	if node.Auth != nil {
@@ -96,8 +96,8 @@ func draftOfNode(node domain.CollectionNode) domain.Draft {
 }
 
 // nodeFromDraft is the other direction. The two answers that are not credentials are stored as the
-// absence of an answer, so a card that never touched the chip cannot turn «взять у папки» into «нет
-// здесь» — the two are different answers, and only one of them was given. What a card was holding
+// absence of an answer, so a card that never touched the chip cannot turn «Inherit» into «None» —
+// the two are different answers, and only one of them was given. What a card was holding
 // when it gave one of them stays with it, which is domain.Auth.Stored's job, not this one's.
 func nodeFromDraft(node domain.CollectionNode, d domain.Draft) domain.CollectionNode {
 	node.Method = d.Method

@@ -72,7 +72,7 @@ func (s *runState) get(call goja.FunctionCall) goja.Value {
 		text(call.Argument(1)))
 	if err != nil {
 		// A scope that cannot be read is thrown and not answered with nothing: a script that checks a
-		// token has to be able to tell "его нет" from "его не прочитали".
+		// token has to be able to tell "there is none" from "it could not be read".
 		panic(s.vm.NewGoError(err))
 	}
 	if ok {

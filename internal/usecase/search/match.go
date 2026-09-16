@@ -26,8 +26,8 @@ func matched(needle string, hits []domain.SearchHit) []domain.SearchHit {
 // needle arrives folded.
 //
 // Comparison is case-insensitive the way a person expects, which is why it happens here and not in
-// SQL: SQLite folds case for ASCII alone, so a LIKE would make «Пользователи» unfindable by
-// «польз».
+// SQL: SQLite folds case for ASCII alone, so a LIKE would leave «Пользователи» unfindable by
+// «польз» — what is searched is whatever a person typed, and can be in any script.
 func matchFolded(needle string, hit domain.SearchHit) (domain.SearchMatch, bool) {
 	title := strings.ToLower(hit.Title)
 	switch {

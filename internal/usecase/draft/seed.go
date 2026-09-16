@@ -49,7 +49,7 @@ func authOf(seed Seed) domain.Auth {
 	return seed.Auth.Normalized()
 }
 
-// Prepared is the draft the window is editing, ready to go out. inherits is what its «Наследовать»
+// Prepared is the draft the window is editing, ready to go out. inherits is what its «Inherit»
 // resolves to, and the caller is the one that knows: the draft holds what was typed, and where in a
 // tree the request sits is not part of that. It is nil for a draft with nothing above it, which is
 // the command line's.

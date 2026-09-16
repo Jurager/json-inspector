@@ -1,23 +1,12 @@
 version: '3'
 
 vars:
-  # The app's identity is declared in internal/platform, and the files the packagers read are written
-  # from there by internal/tools/manifest. These are asked for rather than repeated: the .desktop
-  # entry is generated here, and a second copy of the name and the description is what let four
-  # different wordings of the description accumulate across the repository.
-  #
-  # They come first because a variable is resolved where it stands: `APP_PATH` below refers to
-  # `APP_NAME`, and with the two the other way round it quietly came out as `bin/.exe`.
   PRODUCT_NAME:
     sh: go run ./internal/tools/manifest -print name
   PRODUCT_DESCRIPTION:
     sh: go run ./internal/tools/manifest -print description
-  # The slug names the artefacts — the binary, the release archives — and the updater looks for the
-  # same name inside an archive, so it is read from the one declaration for the same reason.
   APP_NAME:
     sh: go run ./internal/tools/manifest -print slug
-  # The .desktop entry claims to handle the app's URL scheme, and the scheme is registered with the OS
-  # by the plists and by the installer; a second spelling here would leave the link dead on Linux.
   APP_SCHEME:
     sh: go run ./internal/tools/manifest -print scheme
 
@@ -188,9 +177,6 @@ tasks:
       - 'go build {{.BUILD_FLAGS}} -o "{{.OUTPUT}}"'
     vars:
       OUTPUT: '{{.OUTPUT | default .APP_PATH}}'
-      # The tag is what turns the webview transparent so the window's vibrancy can be seen
-      # (window_darwin_glass.go). It has to share one -tags with production: a second -tags flag would
-      # replace the first and take production with it.
       BUILD_FLAGS: '{{if eq .DEV "true"}}-buildvcs=false -gcflags=all="-l" -tags private_mac_apis{{else}}-tags production,private_mac_apis -trimpath -buildvcs=false -ldflags="{{.LDFLAGS}}"{{end}}'
     env:
       GOOS: darwin
@@ -310,8 +296,6 @@ tasks:
       - task: linux:dotdesktop
     cmds:
       - mkdir -p dist
-      # The tarball is not a second way to install: it is what the app's own updater downloads and
-      # swaps in, so its name and its contents are a contract with internal/infra/updater.
       - cd {{.BIN_DIR}} && tar -czf "../dist/{{.APP_NAME}}-linux-{{.ARCH | default ARCH}}.tar.gz" "{{.APP_NAME}}"
       - task: linux:deb
       - cp {{.BIN_DIR}}/*.deb dist/

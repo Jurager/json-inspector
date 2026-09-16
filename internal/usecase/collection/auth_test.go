@@ -49,7 +49,7 @@ func bearer(token string) domain.Auth {
 }
 
 // bearerRef is the same answer where the tree holds one by pointer. Nil there means «nothing said
-// here» — a level whose requests inherit past it — which is a different thing from «нет».
+// here» — a level whose requests inherit past it — which is a different thing from «None».
 func bearerRef(token string) *domain.Auth {
 	auth := bearer(token)
 	return &auth
@@ -93,7 +93,7 @@ func TestAuthIsInheritedDownTheTree(t *testing.T) {
 		t.Errorf("own = %+v, want the request's own", got)
 	}
 
-	// «Нет» is not an answer that stops the walk: a level with nothing of its own lets the one below
+	// «None» is not an answer that stops the walk: a level with nothing of its own lets the one below
 	// it inherit from the one above.
 	if _, err := a.uc.SaveAuth(ctx, a.nestedID, domain.Auth{Type: domain.AuthNone}); err != nil {
 		t.Fatalf("SaveAuth nested none: %v", err)
@@ -111,7 +111,7 @@ func TestAuthIsInheritedDownTheTree(t *testing.T) {
 	}
 }
 
-// «Нет» says who authorizes the request rather than what with, so choosing it is not an erasure:
+// «None» says who authorizes the request rather than what with, so choosing it is not an erasure:
 // the answers a level was given before stay with it, and the level that did answer is the one
 // above.
 func TestNoKeepsWhatWasAlreadyFilled(t *testing.T) {
@@ -125,7 +125,7 @@ func TestNoKeepsWhatWasAlreadyFilled(t *testing.T) {
 		t.Fatalf("SaveAuth nested: %v", err)
 	}
 
-	// The tab sends the whole answer, so «нет» arrives carrying the fields it was holding.
+	// The tab sends the whole answer, so «None» arrives carrying the fields it was holding.
 	if _, err := a.uc.SaveAuth(ctx, a.nestedID, domain.Auth{
 		Type:   domain.AuthNone,
 		Fields: map[string]string{"prefix": "Bearer", "token": "вложенная"},
@@ -133,14 +133,14 @@ func TestNoKeepsWhatWasAlreadyFilled(t *testing.T) {
 		t.Fatalf("SaveAuth nested none: %v", err)
 	}
 
-	// Nothing inside authorizes itself with what the nested level held: it said «нет» there, and the
+	// Nothing inside authorizes itself with what the nested level held: it said «None» there, and the
 	// nearest level that did answer is the collection around it.
 	if got, _ := a.uc.AuthFor(ctx,
 		domain.DraftID(a.insideID)); got == nil || got.Answer("token") != "коллекция" {
 		t.Errorf("inside = %+v, want the outer collection's", got)
 	}
 
-	// Changing one's mind back finds the token, because «нет» did not throw it away — which is the
+	// Changing one's mind back finds the token, because «None» did not throw it away — which is the
 	// whole difference between this and a level nobody has ever touched.
 	tree, err := a.uc.Tree(ctx)
 	if err != nil {
@@ -177,7 +177,7 @@ func TestAuthForAnswersNothingOutsideTheTree(t *testing.T) {
 	}
 }
 
-// The command line can never answer «Наследовать» — nothing is above it — so «нет» is its unset
+// The command line can never answer «Inherit» — nothing is above it — so «None» is its unset
 // state, and stored as a value it would keep a saved request from inheriting the collection.
 func TestARequestSavedFromTheCommandLineInherits(t *testing.T) {
 	ctx := context.Background()
@@ -188,7 +188,7 @@ func TestARequestSavedFromTheCommandLineInherits(t *testing.T) {
 	}
 
 	// Exactly what the window hands SaveDraft: the draft's own auth, which a fresh one carries as
-	// «нет» with no answers in it.
+	// «None» with no answers in it.
 	fresh := domain.NewDraft().Auth
 	_, tree, err := a.uc.CreateNode(ctx, NodeDraft{
 		CollectionID: a.collectionID, Name: "С командной строки", Auth: &fresh,

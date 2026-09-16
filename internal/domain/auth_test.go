@@ -52,15 +52,15 @@ func TestEverySchemeDescribesItself(t *testing.T) {
 			}
 
 			if scheme.NeedsParent && scheme.Type != AuthInherit {
-				t.Errorf("%q says it needs a level above it, which only «Наследовать» means", scheme.Type)
+				t.Errorf("%q says it needs a level above it, which only «Inherit» means", scheme.Type)
 			}
 		})
 	}
 
-	// The segmented control is drawn from the same list, and every scheme in the «Ещё» menu is one
+	// The segmented control is drawn from the same list, and every scheme in the «More» menu is one
 	// nobody reached by accident: a registry that named none of them primary would have no control.
 	if primary == 0 {
-		t.Error("every scheme is behind «Ещё»: there would be no segmented control at all")
+		t.Error("every scheme is behind «More»: there would be no segmented control at all")
 	}
 }
 

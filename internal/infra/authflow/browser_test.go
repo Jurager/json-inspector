@@ -2,6 +2,7 @@ package authflow
 
 import (
 	"context"
+	"io"
 	"net/http"
 	"net/url"
 	"strings"
@@ -18,6 +19,9 @@ type browserThatFollows struct {
 	t      *testing.T
 	answer func(authorize url.URL) (redirect string, fragment string)
 	opened string
+	// page is what the last answer said, which is where the words on it are read from: a browser is
+	// the only party that ever sees these pages.
+	page string
 }
 
 func (b *browserThatFollows) OpenURL(raw string) error {
@@ -36,25 +40,33 @@ func (b *browserThatFollows) follow(redirect, fragment string) {
 		// A browser that opens nothing, which is what a test of the waiting needs.
 		return
 	}
+	b.read(redirect)
 	if fragment == "" {
-		if _, err := http.Get(redirect); err != nil {
-			b.t.Errorf("following the redirect: %v", err)
-		}
 		return
 	}
 	// The fragment never reaches a server, so the page serves a script that posts it back. A browser
 	// without a script engine is one that does the script's work itself.
-	page, err := http.Get(redirect)
-	if err != nil {
-		b.t.Errorf("loading the page: %v", err)
-		return
-	}
-	defer page.Body.Close()
-
 	target := strings.TrimSuffix(redirect, "/callback") + "/token"
 	if _, err := http.PostForm(target, formOf(fragment)); err != nil {
 		b.t.Errorf("posting the answer back: %v", err)
 	}
+}
+
+// read loads a page and keeps it: a person looking at the browser sees this body and nothing else.
+func (b *browserThatFollows) read(redirect string) {
+	answer, err := http.Get(redirect)
+	if err != nil {
+		b.t.Errorf("loading the page: %v", err)
+		return
+	}
+	defer answer.Body.Close()
+
+	body, err := io.ReadAll(answer.Body)
+	if err != nil {
+		b.t.Errorf("reading the page: %v", err)
+		return
+	}
+	b.page = string(body)
 }
 
 func formOf(fragment string) url.Values {
@@ -213,5 +225,177 @@ func TestTheWaitEndsWithTheContext(t *testing.T) {
 		}
 	case <-time.After(5 * time.Second):
 		t.Fatal("giving up on a sign-in did not end the wait")
+	}
+}
+
+// windowPages are the words a window hands over. None of them reads as any other, so a page showing
+// the wrong one of three is a page a test can tell apart from the right one.
+func windowPages() domain.SignInPages {
+	return domain.SignInPages{
+		Waiting: domain.SignInPage{Title: "waiting title", Text: "waiting text"},
+		Done:    domain.SignInPage{Title: "done title", Text: "done text"},
+		Refused: domain.SignInPage{Title: "refused title", Text: "refused text"},
+		Failed:  "failed text",
+	}
+}
+
+// A window that hands over nothing does not take the words away. The bindings are called by number,
+// so this is the shape of a window running the bundle from before this method's second argument: it
+// sends one and leaves the rest empty, and a blank page is worse than a page in the wrong language.
+func TestAWindowThatSaysNothingDoesNotBlankThePage(t *testing.T) {
+	endpoint := &spyTokenEndpoint{token: "issued-for-a-code", expiry: 3600}
+	srv := endpoint.server(t)
+
+	browser := &browserThatFollows{t: t, answer: func(authorize url.URL) (string, string) {
+		return authorize.Query().Get("redirect_uri") + "?code=the-code&state=" +
+			authorize.Query().Get("state"), ""
+	}}
+	auth := oauthAuth(map[string]string{
+		"grant": "authorization_code", "authUrl": "https://idp.example.com/authorize",
+		"tokenUrl": srv.URL, "clientId": "id",
+	})
+
+	pages := windowPages()
+	materializer := New(srv.Client(), browser)
+	materializer.SetPages(pages)
+	// What an older window's call comes to: the first argument reaches the menu, and nothing else.
+	materializer.SetPages(domain.SignInPages{})
+	if _, err := materializer.Materialize(context.Background(), auth,
+		domain.AuthRequest{}); err != nil {
+		t.Fatalf("Materialize: %v", err)
+	}
+
+	assertPage(t, browser.page, pages.Done)
+}
+
+// assertPage is that a page says the words it was handed, in its title bar and in its body.
+func assertPage(t *testing.T, page string, want domain.SignInPage) {
+	t.Helper()
+	if !strings.Contains(page, "<title>"+want.Title+"</title>") {
+		t.Errorf("the page has no title %q:\n%s", want.Title, page)
+	}
+	if !strings.Contains(page, want.Text) {
+		t.Errorf("the page does not say %q:\n%s", want.Text, page)
+	}
+}
+
+// The page that ends a sign-in is worded by the window. Go serves it and has no catalogue to word
+// it from, so the alternative to these words arriving is a page in no language at all.
+func TestThePageThatEndsASignInCarriesTheWindowsWords(t *testing.T) {
+	endpoint := &spyTokenEndpoint{token: "issued-for-a-code", expiry: 3600}
+	srv := endpoint.server(t)
+
+	browser := &browserThatFollows{t: t, answer: func(authorize url.URL) (string, string) {
+		return authorize.Query().Get("redirect_uri") + "?code=the-code&state=" +
+			authorize.Query().Get("state"), ""
+	}}
+	auth := oauthAuth(map[string]string{
+		"grant": "authorization_code", "authUrl": "https://idp.example.com/authorize",
+		"tokenUrl": srv.URL, "clientId": "id",
+	})
+
+	pages := windowPages()
+	materializer := New(srv.Client(), browser)
+	materializer.SetPages(pages)
+	_, err := materializer.Materialize(context.Background(), auth, domain.AuthRequest{})
+	if err != nil {
+		t.Fatalf("Materialize: %v", err)
+	}
+
+	assertPage(t, browser.page, pages.Done)
+}
+
+// The page for a provider that said no is worded by the window too, and it is not the page for a
+// sign-in that worked: they say different things to a person.
+func TestThePageForARefusalCarriesTheWindowsWords(t *testing.T) {
+	browser := &browserThatFollows{t: t, answer: func(authorize url.URL) (string, string) {
+		return authorize.Query().Get("redirect_uri") + "?error=access_denied&state=" +
+			authorize.Query().Get("state"), ""
+	}}
+	auth := oauthAuth(map[string]string{
+		"grant": "authorization_code", "authUrl": "https://idp.example.com/authorize",
+		"tokenUrl": "https://idp.example.com/token", "clientId": "id",
+	})
+
+	pages := windowPages()
+	materializer := New(nil, browser)
+	materializer.SetPages(pages)
+	_, err := materializer.Materialize(context.Background(), auth, domain.AuthRequest{})
+	if err == nil {
+		t.Fatal("a refusal at the provider was reported as a sign-in")
+	}
+
+	assertPage(t, browser.page, pages.Refused)
+}
+
+// The waiting page is the one page whose words are read by a script rather than drawn: one of them
+// is the body until the answer comes back, and the other two are what replaces it either way.
+func TestTheWaitingPageCarriesTheWindowsWords(t *testing.T) {
+	browser := &browserThatFollows{t: t, answer: func(authorize url.URL) (string, string) {
+		return authorize.Query().Get("redirect_uri"),
+			"access_token=from-the-fragment&expires_in=60&state=" + authorize.Query().Get("state")
+	}}
+	auth := oauthAuth(map[string]string{
+		"grant": "implicit", "authUrl": "https://idp.example.com/authorize", "clientId": "id",
+	})
+
+	pages := windowPages()
+	materializer := New(nil, browser)
+	materializer.SetPages(pages)
+	_, err := materializer.Materialize(context.Background(), auth, domain.AuthRequest{})
+	if err != nil {
+		t.Fatalf("Materialize: %v", err)
+	}
+
+	assertPage(t, browser.page, pages.Waiting)
+	for _, word := range []string{pages.Done.Text, pages.Failed} {
+		if !strings.Contains(browser.page, word) {
+			t.Errorf("the waiting page's script does not carry %q:\n%s", word, browser.page)
+		}
+	}
+}
+
+// A word is a sentence the window sent, not markup, and it stands in three contexts: a title, a
+// body, and a string inside the waiting page's script. A translation with an ampersand or an angle
+// bracket in it — which one has every right to contain — must arrive as text in all three, or the
+// page is broken by its own words.
+func TestAWordIsTextAndNotMarkup(t *testing.T) {
+	word := `A & B </title><script>alert(1)</script> 'quoted'`
+
+	browser := &browserThatFollows{t: t, answer: func(authorize url.URL) (string, string) {
+		return authorize.Query().Get("redirect_uri"),
+			"access_token=from-the-fragment&expires_in=60&state=" + authorize.Query().Get("state")
+	}}
+	auth := oauthAuth(map[string]string{
+		"grant": "implicit", "authUrl": "https://idp.example.com/authorize", "clientId": "id",
+	})
+
+	pages := domain.SignInPages{
+		Waiting: domain.SignInPage{Title: word, Text: word},
+		Done:    domain.SignInPage{Title: word, Text: word},
+		Refused: domain.SignInPage{Title: word, Text: word},
+		Failed:  word,
+	}
+	materializer := New(nil, browser)
+	materializer.SetPages(pages)
+	_, err := materializer.Materialize(context.Background(), auth, domain.AuthRequest{})
+	if err != nil {
+		t.Fatalf("Materialize: %v", err)
+	}
+
+	// The page's own script opens and closes exactly once. Every `<script>` beyond that one is a
+	// word that arrived as markup — walked out of the title, out of the body, or out of the string
+	// it stands in inside the script — and a page with one of those is a page its own words broke.
+	if opened, closed := strings.Count(browser.page, "<script>"),
+		strings.Count(browser.page, "</script>"); opened != 1 || closed != 1 {
+		t.Errorf("the page has %d <script> and %d </script>, want one of each:\n%s",
+			opened, closed, browser.page)
+	}
+	// And the word is there: escaped, but the sentence a person reads is the one that was sent.
+	if !strings.Contains(browser.page, "A &amp; B") {
+		t.Errorf("the word did not reach the page as text:\n%s", browser.page)
+	}
+	if !strings.Contains(browser.page, `A \u0026 B`) {
+		t.Errorf("the word did not reach the script as a string:\n%s", browser.page)
 	}
 }

@@ -31,7 +31,7 @@ export interface Auth {
  */
 export interface AuthToken {
     /**
-     * Held is whether there is a token at all, which is what the design says «Нет токена» about.
+     * Held is whether there is a token at all, which is what the design says «No token» about.
      */
     "held": boolean;
 
@@ -54,7 +54,7 @@ export enum AuthType {
     AuthNone = "none",
 
     /**
-     * AuthInherit is «Наследовать»: the level above decides. Only a request in a tree can say it:
+     * AuthInherit is «Inherit»: the level above decides. Only a request in a tree can say it:
      * the command line cannot, because nothing is above it.
      */
     AuthInherit = "inherit",
@@ -689,13 +689,13 @@ export interface Scheme {
     "label": string;
 
     /**
-     * Menu is the same name where the scheme sits in the «Ещё» menu, for the schemes the design
+     * Menu is the same name where the scheme sits in the «More» menu, for the schemes the design
      * spells out there and shortens in the control. Empty means the label does for both.
      */
     "menu"?: string;
 
     /**
-     * Primary is a scheme that sits in the segmented control. The rest are behind «Ещё», which is
+     * Primary is a scheme that sits in the segmented control. The rest are behind «More», which is
      * where the design puts the ones a request rarely needs.
      */
     "primary": boolean;
@@ -714,7 +714,7 @@ export interface Scheme {
     "fetches"?: boolean;
 
     /**
-     * Note is a message key for a line the scheme says about itself: «Нет» and «Наследовать» have
+     * Note is a message key for a line the scheme says about itself: «None» and «Inherit» have
      * nothing to fill in and explain themselves instead, and a scheme whose working is invisible —
      * Digest answers a challenge the server has not sent yet — says so under its fields.
      */
@@ -781,7 +781,7 @@ export interface Scripts {
 /**
  * SearchGroup is one area's answer: the rows the window draws, and how many the area found before
  * the list was cut. The two are separate because the heading counts matches, not shown rows —
- * "Запросы · 8" over a list of five is the design's own wording.
+ * "Requests · 8" over a list of five is the design's own wording.
  */
 export interface SearchGroup {
     "kind": SearchKind;
@@ -872,7 +872,7 @@ export interface SearchNote {
 
 /**
  * SearchNoteKind is what a row says on the right, as a shape rather than a sentence. The window
- * words it from its catalogue — "текущее", "8 запросов" — because the words are the catalogue's and
+ * words it from its catalogue — "current", "8 requests" — because the words are the catalogue's and
  * the counting is not.
  */
 export enum SearchNoteKind {
@@ -940,8 +940,46 @@ export interface Settings {
 }
 
 /**
+ * SignInPage is one page a sign-in puts in a browser: the word in its title bar, and the sentence
+ * in its body.
+ */
+export interface SignInPage {
+    "title": string;
+    "text": string;
+}
+
+/**
+ * SignInPages is what a browser is told while a sign-in is in flight, as the window words it. Go
+ * serves these pages and cannot word them: the catalogue lives in the window, and "system" — a
+ * language the webview resolves — is answered there and not here. The native menu's labels travel
+ * the same way, for the same reason; this is the second surface drawn outside the page.
+ */
+export interface SignInPages {
+    /**
+     * Waiting is the page the implicit grant shows while it hands the browser's own fragment back.
+     */
+    "waiting": SignInPage;
+
+    /**
+     * Done is the page for a sign-in that is over: the provider answered, and the tab can be closed.
+     */
+    "done": SignInPage;
+
+    /**
+     * Refused is the page for a provider that said no.
+     */
+    "refused": SignInPage;
+
+    /**
+     * Failed is what the waiting page says when the fragment did not make it back — a failure of that
+     * one request rather than of the sign-in, so it is a line and not a page.
+     */
+    "failed": string;
+}
+
+/**
  * TestResult is one assertion a script made. The name is the script's own — `pm.test('...')` — and
- * a failure carries the reason beside it, because "не прошло" without why is not a report.
+ * a failure carries the reason beside it, because "it failed" without why is not a report.
  */
 export interface TestResult {
     "name": string;

@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"html/template"
 	"net"
 	"net/http"
 	"sync"
@@ -29,19 +30,15 @@ type Browser interface {
 // to giving up is a send that never returns.
 const signInTimeout = 5 * time.Minute
 
-// browserExchange is the two grants that need a person. No browser means no exchange: a test, or a
-// platform this app cannot open one on, gets a grant that refuses rather than one that waits five
-// minutes for nothing.
-func browserExchange(browser Browser) codeExchange {
-	if browser == nil {
-		return nil
-	}
-	return func(ctx context.Context, auth domain.Auth) (string, time.Time, error) {
-		return signIn(ctx, browser, auth)
-	}
-}
-
-func signIn(ctx context.Context, browser Browser, auth domain.Auth) (string, time.Time, error) {
+// signIn is the two grants that need a person: a loopback listener for the answer to arrive at, a
+// browser sent to the provider, and a wait. What the browser is shown while it waits comes from the
+// window — see domain.SignInPages — because Go has no catalogue to word it from.
+func signIn(
+	ctx context.Context,
+	browser Browser,
+	auth domain.Auth,
+	pages domain.SignInPages,
+) (string, time.Time, error) {
 	implicit := auth.OrDefault("grant") == grantImplicit
 	config := oauthConfig(auth)
 
@@ -64,7 +61,7 @@ func signIn(ctx context.Context, browser Browser, auth domain.Auth) (string, tim
 
 	answers := make(chan signInAnswer, 1)
 	server := &http.Server{
-		Handler:           &callback{state: state, implicit: implicit, answers: answers},
+		Handler:           &callback{state: state, implicit: implicit, answers: answers, pages: pages},
 		ReadHeaderTimeout: 10 * time.Second,
 	}
 	go func() { _ = server.Serve(listener) }()
@@ -115,6 +112,8 @@ type callback struct {
 	state    string
 	implicit bool
 	answers  chan<- signInAnswer
+	// pages is what those answers say, in the words the window handed over.
+	pages domain.SignInPages
 	// once guards the channel: a person who reloads the page, or a provider that sends two requests
 	// at once, must not block on a channel nobody is reading any more. Handlers run on their own
 	// goroutines, so this is a lock and not a flag.
@@ -134,18 +133,17 @@ func (c *callback) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			}
 			if failure := query.Get("error"); failure != "" {
 				c.deliver(signInAnswer{err: fmt.Errorf("signing in at the provider: %s", failure)})
-				writePage(w, "Отказано", "Провайдер не выдал доступ. Вернитесь в приложение.")
+				writePage(w, pageTemplate, c.pages.Refused)
 				return
 			}
 			c.deliver(signInAnswer{code: query.Get("code")})
-			writePage(w, "Готово", "Можно закрыть эту вкладку и вернуться в приложение.")
+			writePage(w, pageTemplate, c.pages.Done)
 			return
 		}
 		// The implicit grant's answer is after the `#`, and a server never receives a fragment: the
 		// page reads it in the browser and hands it back in a request of its own. So the state is not
 		// checked here — there is nothing here to check it against — but in that request.
-		w.Header().Set("Content-Type", "text/html; charset=utf-8")
-		_, _ = w.Write([]byte(fragmentPage))
+		writePage(w, fragmentTemplate, c.pages)
 
 	case "/token":
 		if !c.implicit {
@@ -219,22 +217,35 @@ func nonce() (string, error) {
 	return hex.EncodeToString(buf), nil
 }
 
-// fragmentPage is what the implicit grant's redirect serves: it hands the browser's own fragment
-// back in a request of its own, because a fragment never reaches a server.
-const fragmentPage = `<!doctype html><meta charset="utf-8"><title>Готово</title>
-<body style="font: 14px system-ui; padding: 2rem">
-Отдаём токен приложению…
+// pageTemplate is one page a sign-in puts in the browser, and fragmentTemplate is the implicit
+// grant's redirect page: it hands the browser's own fragment back in a request of its own,
+// because a fragment never reaches a server.
+//
+// The words go in through html/template rather than a format string, and that is not decoration: a
+// word is a sentence the window sent, and one with an ampersand or a bracket in it — which a
+// translation has every right to contain — must reach the page as text instead of becoming one.
+// Escaping for a script is the same statement in the other context, and html/template reads which
+// one it is writing into.
+var (
+	pageTemplate = template.Must(template.New("page").Parse(
+		`<!doctype html><meta charset="utf-8"><title>{{.Title}}</title>
+<body style="font: 14px system-ui; padding: 2rem">{{.Text}}</body>`))
+
+	fragmentTemplate = template.Must(template.New("fragment").Parse(
+		`<!doctype html><meta charset="utf-8"><title>{{.Waiting.Title}}</title>
+<body style="font: 14px system-ui; padding: 2rem">{{.Waiting.Text}}
 <script>
   fetch('/token', { method: 'POST', body: location.hash.slice(1),
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' } })
-    .then(() => { document.body.textContent =
-      'Можно закрыть эту вкладку и вернуться в приложение.' })
-    .catch(() => { document.body.textContent = 'Не удалось передать токен приложению.' })
+    .then(() => { document.body.textContent = '{{.Done.Text}}' })
+    .catch(() => { document.body.textContent = '{{.Failed}}' })
 </script>
-</body>`
+</body>`))
+)
 
-func writePage(w http.ResponseWriter, title, text string) {
+func writePage(w http.ResponseWriter, page *template.Template, data any) {
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	_, _ = fmt.Fprintf(w, `<!doctype html><meta charset="utf-8"><title>%s</title>
-<body style="font: 14px system-ui; padding: 2rem">%s</body>`, title, text)
+	// A failure here is the client having gone away, not a mistake in the page: both templates are
+	// parsed and checked at start-up, and their data is a struct of strings.
+	_ = page.Execute(w, data)
 }

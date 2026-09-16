@@ -2,7 +2,7 @@
 // window types and the parts a request is made of, and the preview the command line draws.
 //
 // It owns one transform more than the typing: a command pasted into the line, read back into the
-// same Seed that "открыть в запросе" and a saved request produce. Reading and writing commands live
+// same Seed that "Open in Request" and a saved request produce. Reading and writing commands live
 // here rather than in a package of their own because a command *is* a request in another notation —
 // the thing this package is about — and because the window that pastes one is pasting it into a
 // draft.
@@ -117,7 +117,7 @@ func (u *UseCase) Open(ctx context.Context, d domain.Draft) (State, error) {
 	d = u.withRowIDs(d)
 	// The rows follow the address, exactly as they do when it is typed: a request that came from a
 	// file has an address and maybe no rows of its own, and a card that opened it would otherwise
-	// show an empty Параметры list beside a query string.
+	// show an empty Query list beside a filled-in query string.
 	d.Params = u.rowsFromURL(d.URL, d.Params)
 	// The revision counts the edits made since the draft was opened, and the window reads "nothing
 	// unsaved" out of it — a draft that has just been opened is the saved request, not an edit of it.

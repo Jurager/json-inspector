@@ -616,6 +616,26 @@ const ru = {
     checkUpdates: 'Проверить обновления…',
   },
 
+  // The pages a sign-in puts in the browser. Like the menu's words they are not read from here by the
+  // page that draws them — Go serves those pages and has no catalogue — so they travel to Go as they
+  // stand, and this is where they are worded.
+  signIn: {
+    // The implicit grant's page, shown while it hands the browser's own fragment back.
+    waiting: {
+      title: 'Готово',
+      text: 'Отдаём токен приложению…',
+    },
+    done: {
+      title: 'Готово',
+      text: 'Можно закрыть эту вкладку и вернуться в приложение.',
+    },
+    refused: {
+      title: 'Отказано',
+      text: 'Провайдер не выдал доступ. Вернитесь в приложение.',
+    },
+    failed: 'Не удалось передать токен приложению.',
+  },
+
   settings: {
     title: 'Настройки',
     general: 'Общие',

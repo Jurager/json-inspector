@@ -104,10 +104,10 @@ func (u *UseCase) CreateNode(
 		Form:         withFormIDs(u.ids, in.Form),
 		BodyFile:     in.BodyFile,
 		Cookies:      domain.OrEmpty(in.Cookies),
-		// The auth is stored the way the tree keeps one: «нет» with nothing behind it is a level
+		// The auth is stored the way the tree keeps one: «None» with nothing behind it is a level
 		// nobody has answered anything at, and storing it as a value would make a request saved from
-		// the command line stop inheriting — which is not what «нет» means there, where nothing is
-		// above it and the chip offers no «Наследовать» to pick instead.
+		// the command line stop inheriting — which is not what «None» means there, where nothing is
+		// above it and the chip offers no «Inherit» to pick instead.
 		Auth: storedAuth(in.Auth),
 	}
 	if err := u.store.SaveNode(ctx, node); err != nil {

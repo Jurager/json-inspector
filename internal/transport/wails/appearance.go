@@ -34,7 +34,7 @@ func (h *Host) tint(theme domain.Theme) {
 	appearance := appearanceFor(theme)
 	if h.tinted.Load() {
 		if applied, _ := h.appliedAppearance.Load().(string); applied == string(appearance) {
-			// A different choice that resolves to the palette already in force — «системная» under a dark
+			// A different choice that resolves to the palette already in force — «System» under a dark
 			// system while the app is dark — must not repaint the window: there is nothing to re-tint.
 			return
 		}

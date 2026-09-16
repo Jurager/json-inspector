@@ -103,7 +103,7 @@ func (s *CollectionsService) Describe(
 	return s.collections.Describe(ctx, id, description)
 }
 
-// SaveAuth writes what a collection authorizes its requests with. «Нет» is the same call with an
+// SaveAuth writes what a collection authorizes its requests with. «None» is the same call with an
 // empty auth: a level that has none is a level the ones below it inherit past, and the overview
 // then draws the tab the way a collection without one looks.
 func (s *CollectionsService) SaveAuth(

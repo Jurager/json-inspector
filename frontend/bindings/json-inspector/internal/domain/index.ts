@@ -57,6 +57,8 @@ export type {
     SearchOpen,
     SearchResult,
     Settings,
+    SignInPage,
+    SignInPages,
     TestResult,
     Variable,
     Workspace,

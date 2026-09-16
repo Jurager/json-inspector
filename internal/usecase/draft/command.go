@@ -33,7 +33,7 @@ const (
 
 // KindNone is "not a command at all, leave the field alone", which is what most pastes come to;
 // KindError carries the reason the window phrases. A command that was read is a Seed — the same
-// whole request "открыть в запросе" produces.
+// whole request "Open in Request" produces.
 type CommandResult struct {
 	Kind   CommandKind   `json:"kind"`
 	Seed   Seed          `json:"seed"`

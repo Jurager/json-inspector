@@ -98,7 +98,7 @@ export function Node(id: string): $CancellablePromise<domain$0.CollectionNode> {
 /**
  * OpenNode puts a saved request into the draft its card edits, and answers with everything the card
  * draws. Opening is what a save starts over from as well: a draft that has just been opened has
- * nothing unsaved in it, which is where the window's "Не сохранено" comes from and goes.
+ * nothing unsaved in it, which is where the window's "Unsaved" comes from and goes.
  */
 export function OpenNode(id: string): $CancellablePromise<$models.NodeEditor> {
     return $Call.ByID(1109881158, id);
@@ -118,7 +118,7 @@ export function Run(collectionID: string, nodeID: string): $CancellablePromise<s
 }
 
 /**
- * SaveAuth writes what a collection authorizes its requests with. «Нет» is the same call with an
+ * SaveAuth writes what a collection authorizes its requests with. «None» is the same call with an
  * empty auth: a level that has none is a level the ones below it inherit past, and the overview
  * then draws the tab the way a collection without one looks.
  */

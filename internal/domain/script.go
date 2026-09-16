@@ -100,7 +100,7 @@ const (
 // of the other two reads that one alone, which is what tells a script whether a name is set in the
 // environment or only borrowed from a run.
 //
-// Reading answers with an error and not with nothing: `нет значения` and `не удалось прочитать` are
+// Reading answers with an error and not with nothing: `no value` and `could not be read` are
 // different answers, and a script that asks is entitled to tell them apart.
 type VarStore interface {
 	Lookup(scope VarScope, name string) (string, bool, error)
@@ -135,7 +135,7 @@ type ScriptLog struct {
 }
 
 // TestResult is one assertion a script made. The name is the script's own — `pm.test('...')` — and
-// a failure carries the reason beside it, because "не прошло" without why is not a report.
+// a failure carries the reason beside it, because "it failed" without why is not a report.
 type TestResult struct {
 	Name       string `json:"name"`
 	Passed     bool   `json:"passed"`

@@ -9,8 +9,9 @@ import (
 )
 
 // Matching is the search use case's, not this layer's: SQLite folds case for ASCII alone, so a LIKE
-// here would make «Пользователи» unfindable by «польз» — the names in this app are Russian. Each
-// method therefore hands over its whole area, which the schema keeps small on purpose.
+// here would leave «Пользователи» unfindable by «польз»: what is searched is whatever a person
+// typed, and can be in any script. Each method therefore hands over its whole area, which the
+// schema keeps small on purpose.
 
 // FindRequests reads every saved request with the collections above it, so that a row can name the
 // way down to itself.

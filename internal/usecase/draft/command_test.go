@@ -89,7 +89,7 @@ func TestPastingACommandReplacesTheDraft(t *testing.T) {
 
 // A credential pasted as a header reaches the Auth chip. Every tool that copies a request out of a
 // browser writes it that way — devtools writes `-H 'Authorization: …'` and never `-u` — so a header
-// left as a header would mean the chip stayed on «Нет» for the shape of command people actually
+// left as a header would mean the chip stayed on «None» for the shape of command people actually
 // paste, and the fields behind it unfilled.
 func TestAPastedCredentialReachesTheChip(t *testing.T) {
 	for _, tc := range []struct {

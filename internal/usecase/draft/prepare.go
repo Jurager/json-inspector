@@ -102,8 +102,8 @@ func authRequest(
 }
 
 // authToApply is the authorization this request goes out with: the one the draft chose, or — when
-// it chose «Наследовать» — the one the levels above it answered with, which the caller resolved.
-// Nothing above a request is «нет»: a request that inherits from nothing sends no credentials.
+// it chose «Inherit» — the one the levels above it answered with, which the caller resolved.
+// Nothing above a request is «None»: a request that inherits from nothing sends no credentials.
 func authToApply(chosen domain.Auth, inherits *domain.Auth) domain.Auth {
 	if chosen.Type != domain.AuthInherit {
 		return chosen

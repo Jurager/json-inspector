@@ -32,7 +32,7 @@ const (
 )
 
 // SearchNoteKind is what a row says on the right, as a shape rather than a sentence. The window
-// words it from its catalogue — "текущее", "8 запросов" — because the words are the catalogue's and
+// words it from its catalogue — "current", "8 requests" — because the words are the catalogue's and
 // the counting is not.
 type SearchNoteKind string
 
@@ -98,7 +98,7 @@ type SearchHit struct {
 
 // SearchGroup is one area's answer: the rows the window draws, and how many the area found before
 // the list was cut. The two are separate because the heading counts matches, not shown rows —
-// "Запросы · 8" over a list of five is the design's own wording.
+// "Requests · 8" over a list of five is the design's own wording.
 type SearchGroup struct {
 	Kind  SearchKind  `json:"kind"`
 	Total int         `json:"total"`

@@ -14,16 +14,22 @@ import { Call as $Call, CancellablePromise as $CancellablePromise } from "@wails
 
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: Unused imports
+import * as domain$0 from "../../domain/models.js";
+
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-ignore: Unused imports
 import * as $models from "./models.js";
 
 /**
- * ApplyLanguage is the window handing over the words the native menu needs. The menu is drawn by
- * the system rather than by the page, and Go cannot resolve "system" — that is a question only the
- * webview can ask — so this is the one piece of the interface that is sent instead of read from the
- * catalogue.
+ * ApplyLanguage is the window handing over the words of the two surfaces Go draws but does not own:
+ * the native menu, which the system draws, and the pages a sign-in puts in the browser. Neither can
+ * be worded here — the catalogue is the window's, and Go cannot resolve "system", which is a
+ * question only the webview can ask — so this is the one piece of the interface that is sent
+ * instead of read. The two travel together because they are needed at the same two moments: as the
+ * window mounts, and again whenever the language moves.
  */
-export function ApplyLanguage(labels: $models.MenuLabels): $CancellablePromise<void> {
-    return $Call.ByID(2222094836, labels);
+export function ApplyLanguage(labels: $models.MenuLabels, pages: domain$0.SignInPages): $CancellablePromise<void> {
+    return $Call.ByID(2222094836, labels, pages);
 }
 
 /**
@@ -46,7 +52,7 @@ export function OpenDataFolder(): $CancellablePromise<void> {
 }
 
 /**
- * RetryInit re-runs the startup step behind the failure screen's "Повторить" — the database may
+ * RetryInit re-runs the startup step behind the failure screen's "Retry" — the database may
  * have been locked, the disk full, the directory permissions wrong.
  */
 export function RetryInit(): $CancellablePromise<$models.StartupStatus> {

@@ -646,6 +646,26 @@ const en = {
     checkUpdates: 'Check for updates…',
   },
 
+  // The pages a sign-in puts in the browser. Like the menu's words they are not read from here by the
+  // page that draws them — Go serves those pages and has no catalogue — so they travel to Go as they
+  // stand, and this is where they are worded.
+  signIn: {
+    // The implicit grant's page, shown while it hands the browser's own fragment back.
+    waiting: {
+      title: 'Done',
+      text: 'Handing the token to the application…',
+    },
+    done: {
+      title: 'Done',
+      text: 'You can close this tab and go back to the application.',
+    },
+    refused: {
+      title: 'Refused',
+      text: 'The provider did not grant access. Go back to the application.',
+    },
+    failed: 'Could not hand the token to the application.',
+  },
+
   settings: {
     title: 'Settings',
     general: 'General',

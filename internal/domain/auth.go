@@ -8,7 +8,7 @@ type AuthType string
 const (
 	AuthNone AuthType = "none"
 
-	// AuthInherit is «Наследовать»: the level above decides. Only a request in a tree can say it:
+	// AuthInherit is «Inherit»: the level above decides. Only a request in a tree can say it:
 	// the command line cannot, because nothing is above it.
 	AuthInherit AuthType = "inherit"
 
@@ -21,7 +21,7 @@ const (
 	AuthAWS    AuthType = "aws"
 )
 
-// The two answers to «Добавить в»: where a scheme puts what it carries. A credential in a query
+// The two answers to «Add to»: where a scheme puts what it carries. A credential in a query
 // string is the same credential, and some servers only read it there.
 const (
 	PlaceHeader = "header"
@@ -66,22 +66,22 @@ func (a Auth) OrDefault(key string) string {
 	return ""
 }
 
-// IsNone is a level that says it sends no credentials. «Наследовать» is not this: it is a level
-// that has not answered, which is a different thing from one that answered «нет».
+// IsNone is a level that says it sends no credentials. «Inherit» is not this: it is a level
+// that has not answered, which is a different thing from one that answered «None».
 func (a Auth) IsNone() bool { return a.Type == AuthNone }
 
-// Answered is whether a level has said anything about authorization at all. «Нет» and
-// «Наследовать» are answers about who authorizes the request rather than credentials, so the
-// walk goes past them: «нет» on a folder means "not here", not "stop here".
+// Answered is whether a level has said anything about authorization at all. «None» and
+// «Inherit» are answers about who authorizes the request rather than credentials, so the
+// walk goes past them: «None» on a folder means "not here", not "stop here".
 //
-// It reads the type and never the fields: a level that said «нет» keeps the answers it was given
+// It reads the type and never the fields: a level that said «None» keeps the answers it was given
 // before changing its mind, and the walk does not read fields either.
 func (a *Auth) Answered() bool {
 	return a != nil && a.Type != AuthNone && a.Type != AuthInherit && a.Type != ""
 }
 
 // Stored is the auth as a tree keeps it: nil for a level nobody has answered anything at, which
-// is what an absent one means. «Нет» with answers behind it is kept as itself, so that changing
+// is what an absent one means. «None» with answers behind it is kept as itself, so that changing
 // one's mind back finds them — the walk reads Auth.Answered either way and goes past.
 func (a Auth) Stored() *Auth {
 	if !a.Answered() && len(a.Fields) == 0 {
@@ -199,10 +199,10 @@ type Scheme struct {
 	// Label is a message key for the scheme's name where it is offered. The window holds no map of
 	// its own: a scheme named here is named everywhere.
 	Label string `json:"label"`
-	// Menu is the same name where the scheme sits in the «Ещё» menu, for the schemes the design
+	// Menu is the same name where the scheme sits in the «More» menu, for the schemes the design
 	// spells out there and shortens in the control. Empty means the label does for both.
 	Menu string `json:"menu,omitempty"`
-	// Primary is a scheme that sits in the segmented control. The rest are behind «Ещё», which is
+	// Primary is a scheme that sits in the segmented control. The rest are behind «More», which is
 	// where the design puts the ones a request rarely needs.
 	Primary bool `json:"primary"`
 	// NeedsParent is a scheme that only makes sense where there is a level above: a command line has
@@ -212,7 +212,7 @@ type Scheme struct {
 	// Fetches is a scheme whose credential is not typed in and not computed here either: it is asked
 	// for, and the window offers to ask and to forget rather than only to fill fields in.
 	Fetches bool `json:"fetches,omitempty"`
-	// Note is a message key for a line the scheme says about itself: «Нет» and «Наследовать» have
+	// Note is a message key for a line the scheme says about itself: «None» and «Inherit» have
 	// nothing to fill in and explain themselves instead, and a scheme whose working is invisible —
 	// Digest answers a challenge the server has not sent yet — says so under its fields.
 	Note string `json:"note,omitempty"`
@@ -417,7 +417,7 @@ type AuthOutput struct {
 // request never passes through the window — and a value that is never sent is a value that cannot
 // leak into a screenshot, a log or an export.
 type AuthToken struct {
-	// Held is whether there is a token at all, which is what the design says «Нет токена» about.
+	// Held is whether there is a token at all, which is what the design says «No token» about.
 	Held bool `json:"held"`
 	// ExpiresAt is unix milliseconds, and zero when the provider did not say. A token with no expiry
 	// is kept for as long as the window is open: the provider has said all it is going to say.
@@ -427,6 +427,29 @@ type AuthToken struct {
 // Expired is a token that was good and no longer is. A provider that named no expiry never expires.
 func (t AuthToken) Expired(now time.Time) bool {
 	return t.Held && t.ExpiresAt > 0 && now.UnixMilli() >= t.ExpiresAt
+}
+
+// SignInPage is one page a sign-in puts in a browser: the word in its title bar, and the sentence
+// in its body.
+type SignInPage struct {
+	Title string `json:"title"`
+	Text  string `json:"text"`
+}
+
+// SignInPages is what a browser is told while a sign-in is in flight, as the window words it. Go
+// serves these pages and cannot word them: the catalogue lives in the window, and "system" — a
+// language the webview resolves — is answered there and not here. The native menu's labels travel
+// the same way, for the same reason; this is the second surface drawn outside the page.
+type SignInPages struct {
+	// Waiting is the page the implicit grant shows while it hands the browser's own fragment back.
+	Waiting SignInPage `json:"waiting"`
+	// Done is the page for a sign-in that is over: the provider answered, and the tab can be closed.
+	Done SignInPage `json:"done"`
+	// Refused is the page for a provider that said no.
+	Refused SignInPage `json:"refused"`
+	// Failed is what the waiting page says when the fragment did not make it back — a failure of that
+	// one request rather than of the sign-in, so it is a line and not a page.
+	Failed string `json:"failed"`
 }
 
 // DigestCredentials is what a Digest scheme gives the engine rather than the request: the header
@@ -454,7 +477,7 @@ type ProjectedRow struct {
 	Editable bool `json:"editable"`
 }
 
-// Empty is a scheme that put nothing on the request: «нет», «наследовать», a field nobody filled
+// Empty is a scheme that put nothing on the request: «None», «Inherit», a field nobody filled
 // in. An empty `Bearer ` is a header the server reads as a mistake, so nothing is the honest
 // answer.
 func (o AuthOutput) Empty() bool { return len(o.Headers) == 0 && len(o.Query) == 0 }

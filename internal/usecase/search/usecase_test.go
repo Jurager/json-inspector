@@ -104,7 +104,7 @@ func TestQueryLeavesOutTheAreasThatFoundNothing(t *testing.T) {
 	}
 }
 
-// The heading counts what was found, not what is drawn: "Запросы · 8" over five rows is the
+// The heading counts what was found, not what is drawn: "Requests · 8" over five rows is the
 // design's own wording, and a group cut to five must still say eight.
 func TestQueryCountsEverythingItFound(t *testing.T) {
 	hits := []domain.SearchHit{}

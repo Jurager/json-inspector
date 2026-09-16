@@ -210,7 +210,7 @@ func TestAWrittenAuthorizationHeaderTakesTheChallengeAway(t *testing.T) {
 	}
 }
 
-// «Наследовать» is answered by whoever knows the tree: the draft is told what the levels above it
+// «Inherit» is answered by whoever knows the tree: the draft is told what the levels above it
 // said, and a request with nothing above it sends no credentials at all.
 func TestInheritedAuthIsWhatTheCallerResolved(t *testing.T) {
 	ctx := context.Background()
@@ -243,7 +243,7 @@ func TestInheritedAuthIsWhatTheCallerResolved(t *testing.T) {
 		t.Errorf("headers = %+v, want the inherited authorization in them", prepared.Headers)
 	}
 
-	// Nothing above is not «нет» written down somewhere: the request simply goes out with nothing.
+	// Nothing above is not «None» written down somewhere: the request simply goes out with nothing.
 	auth.answer = domain.AuthOutput{}
 	prepared, err = uc.Prepared(ctx, domain.DraftCommandLine, nil)
 	if err != nil {

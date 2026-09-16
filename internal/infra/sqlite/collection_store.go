@@ -243,7 +243,7 @@ func encodeAuth(auth *domain.Auth) (sql.NullString, error) {
 	return sql.NullString{String: string(encoded), Valid: true}, nil
 }
 
-// SaveNode writes one node whole: a node is edited in one place — the card in "Коллекциях" — and
+// SaveNode writes one node whole: a node is edited in one place — the card in "Collections" — and
 // saved by one gesture.
 func (s *Store) SaveNode(ctx context.Context, node domain.CollectionNode) error {
 	params, err := json.Marshal(domain.OrEmpty(node.Params))

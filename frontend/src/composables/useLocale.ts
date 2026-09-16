@@ -52,15 +52,24 @@ const locale = computed<Locale>(() =>
   language.value === DomainLanguage.LanguageSystem ? systemLanguage : toLocale(language.value)
 )
 
-// The native menu is drawn by the system rather than by the page, and Go cannot resolve "system" — so
-// its few words are the one thing handed over instead of read from the catalogue. It is asked once
-// the window knows what the language is, and again whenever it moves.
-function applyMenu() {
-  void SystemService.ApplyLanguage({
-    about: t('rail.about'),
-    help: t('menu.help'),
-    checkUpdates: t('menu.checkUpdates'),
-  })
+// Two surfaces are drawn outside the page — the native menu, by the system, and the page a sign-in
+// puts in the browser, by Go — and neither can read the catalogue. Go cannot resolve "system" either.
+// So their words are the one thing handed over instead of read, and they go together: they are needed
+// at the same two moments, as the window learns the language and whenever it moves.
+function applyLanguage() {
+  void SystemService.ApplyLanguage(
+    {
+      about: t('rail.about'),
+      help: t('menu.help'),
+      checkUpdates: t('menu.checkUpdates'),
+    },
+    {
+      waiting: { title: t('signIn.waiting.title'), text: t('signIn.waiting.text') },
+      done: { title: t('signIn.done.title'), text: t('signIn.done.text') },
+      refused: { title: t('signIn.refused.title'), text: t('signIn.refused.text') },
+      failed: t('signIn.failed'),
+    },
+  )
 }
 
 function persist(next: Language) {
@@ -80,7 +89,7 @@ function choose(next: Language) {
   i18n.global.locale.value = locale.value
   document.documentElement.lang = locale.value
   persist(next)
-  applyMenu()
+  applyLanguage()
 }
 
 // The About window is a separate app, and it follows along on this event: a change made in either
@@ -105,8 +114,8 @@ void loadSettings().then(() => {
 // the window's URL carried nothing.
 document.documentElement.lang = locale.value
 
-// And the native menu is told the words it cannot look up itself.
-applyMenu()
+// And Go is told the words it cannot look up itself.
+applyLanguage()
 
 export function useLocale() {
   return {

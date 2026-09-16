@@ -92,7 +92,7 @@ export function RemoveRow(draftID: domain$0.DraftID, kind: domain$0.RowKind, id:
 }
 
 /**
- * Replace hands a draft a whole request: "открыть в запросе" on a record, or a command pasted into
+ * Replace hands a draft a whole request: "Open in Request" on a record, or a command pasted into
  * the command line.
  */
 export function Replace(id: domain$0.DraftID, seed: draft$0.Seed): $CancellablePromise<draft$0.State> {

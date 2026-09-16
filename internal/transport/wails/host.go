@@ -31,7 +31,7 @@ const (
 
 	// The update window is the dialog the design draws over the About window, promoted to a window of
 	// its own: 560 wide, and 488 tall as the sum of the design's own stack — the 52px header, 28 and
-	// 24 of padding, the 56px release header, the "Что нового" box at its 220px cap, the two 18px
+	// 24 of padding, the 56px release header, the "What's new" box at its 220px cap, the two 18px
 	// gaps and the 50px footer. The changelog list scrolls inside its box, so the window is sized for
 	// the tallest case and does not resize.
 	updateWidth  = 560
@@ -142,7 +142,7 @@ func (h *Host) MarkReady() {
 	h.pendingTab, h.pendingUpdate = 0, nil
 	h.mu.Unlock()
 
-	// The update first: the status bar takes its "доступна версия" link, then the rail
+	// The update first: the status bar takes its "Version … is available" link, then the rail
 	// switches to the tab.
 	if u != nil {
 		h.Emit(eventUpdateChanged, u)

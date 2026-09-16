@@ -178,7 +178,7 @@ func TestATokenIsAskedForOnceAndKept(t *testing.T) {
 		t.Error("a token good for an hour is reported as expired")
 	}
 
-	// Dropping it is what «Очистить» does: the next send asks for another one.
+	// Dropping it is what «Clear» does: the next send asks for another one.
 	materializer.Forget(auth)
 	if materializer.Held(auth).Held {
 		t.Error("the token survived being dropped")
@@ -215,7 +215,7 @@ func TestATokenAboutToDieIsAskedForAgain(t *testing.T) {
 }
 
 // Drawing is not asking. A window painting rows while a person types must not send anything
-// anywhere, and «Нет токена» is what it says until there is one.
+// anywhere, and «No token» is what it says until there is one.
 func TestDrawingDoesNotAskForAToken(t *testing.T) {
 	endpoint := &spyTokenEndpoint{token: "issued", expiry: 3600}
 	srv := endpoint.server(t)
@@ -332,7 +332,7 @@ func TestAFetchedTokenCanTravelInTheQuery(t *testing.T) {
 	}
 }
 
-// Obtain is what «Получить токен» does, and it reaches the provider even though nothing has been
+// Obtain is what «Get a token» does, and it reaches the provider even though nothing has been
 // sent: the user asked for it in so many words.
 func TestObtainAsksWithoutSendingAnything(t *testing.T) {
 	endpoint := &spyTokenEndpoint{token: "issued-by-hand", expiry: 3600}

@@ -482,7 +482,7 @@ func TestRunPublishesEveryRequestAsItGoes(t *testing.T) {
 	r.notifier.mu.Unlock()
 
 	// The window draws the status bar from these, so they have to count up and end at the total —
-	// a run that reported the total only at the end would show "0 из 2" until it was over.
+	// a run that reported the total only at the end would show "0 / 2" until it was over.
 	if len(progress) != 2 {
 		t.Fatalf("published %d progress events, want one per request", len(progress))
 	}

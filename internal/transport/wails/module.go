@@ -79,7 +79,12 @@ var Module = fx.Module("wails",
 		// The schemes are the outside world: two of them fetch a token or answer a challenge, and
 		// which ones those are is not something a use case should have to know.
 		func(engine *httpx.Engine, host *Host) *authflow.Materializer {
-			return authflow.New(engine.Client(), host)
+			auth := authflow.New(engine.Client(), host)
+			// The words a sign-in puts in the browser are not known yet: the language is a question only
+			// the webview can answer, and it answers once the page is up. English stands until
+			// ApplyLanguage brings the window's own — the menu is built twice for the same reason.
+			auth.SetPages(signInPagesFallback)
+			return auth
 		},
 		func(auth *authflow.Materializer) draft.AuthMaterializer { return auth },
 		func(engine *scriptengine.Engine) scripting.Engine { return engine },

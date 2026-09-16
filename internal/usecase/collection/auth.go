@@ -9,7 +9,7 @@ import (
 )
 
 // SaveAuth writes what a level authorizes its requests with. The tab sends its whole state, so
-// «нет» over a filled-in Bearer is an answer about who authorizes, not an erasure — that
+// «None» over a filled-in Bearer is an answer about who authorizes, not an erasure — that
 // distinction is domain.Auth.Stored's to draw, which is why it lives there.
 func (u *UseCase) SaveAuth(
 	ctx context.Context,
@@ -87,7 +87,7 @@ func inheritUnder(
 	return nil, false
 }
 
-// Both walks over the tree go through here, so «нет» means the same thing in a run as in a card.
+// Both walks over the tree go through here, so «None» means the same thing in a run as in a card.
 func answerOf(level *domain.Auth, inherited *domain.Auth) *domain.Auth {
 	if level.Answered() {
 		return level
@@ -95,7 +95,7 @@ func answerOf(level *domain.Auth, inherited *domain.Auth) *domain.Auth {
 	return inherited
 }
 
-// A request with nothing above it authorizes itself with «нет».
+// A request with nothing above it authorizes itself with «None».
 func actionable(auth *domain.Auth) domain.Auth {
 	if auth == nil {
 		return domain.NewAuth(domain.AuthNone)
@@ -103,7 +103,7 @@ func actionable(auth *domain.Auth) domain.Auth {
 	return *auth
 }
 
-// A nil auth stays nil — a level nobody touched; «нет» with no answers behind it is stored as
+// A nil auth stays nil — a level nobody touched; «None» with no answers behind it is stored as
 // nothing, so the level still inherits.
 func storedAuth(auth *domain.Auth) *domain.Auth {
 	if auth == nil {

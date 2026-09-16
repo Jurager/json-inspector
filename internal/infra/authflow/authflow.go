@@ -24,12 +24,18 @@ type Materializer struct {
 	// client is what the app sends every request with, so the token endpoint gets the same proxy and
 	// the same timeout as anything else.
 	client *http.Client
-	// exchange is nil where there is nothing to open; the two grants that need a browser then refuse
-	// instead of hanging.
+	// browser is where the two grants that need a person are sent. Nil where there is nothing to open.
+	browser Browser
+	// exchange is browser as the scheme table asks for it, and nil where browser is nil: the two
+	// grants that need one then refuse instead of hanging.
 	exchange codeExchange
 
 	mu     sync.Mutex
 	tokens map[string]issued
+	// pages is what a sign-in puts in the browser. The window hands it over as it mounts — see
+	// SetPages — and it is read when a sign-in starts rather than captured, so a language changed
+	// while one is waiting is not frozen into the page that ends it.
+	pages domain.SignInPages
 }
 
 // issued is a token with its expiry. A provider that named none has said all it will, and the token
@@ -46,12 +52,42 @@ const expiryDelta = 10 * time.Second
 // New builds the materializer. A nil browser leaves the two grants that need one unable to run —
 // the honest answer where there is nothing to open.
 func New(client *http.Client, browser Browser) *Materializer {
-	return &Materializer{client: client, exchange: browserExchange(browser),
-		tokens: map[string]issued{}}
+	m := &Materializer{client: client, browser: browser, tokens: map[string]issued{}}
+	if browser != nil {
+		m.exchange = m.signIn
+	}
+	return m
+}
+
+// SetPages is the window handing over the words a sign-in puts in the browser. They cannot be
+// written here: the catalogue is the window's, and the language it resolves "system" to is the
+// webview's to answer. The native menu's labels arrive the same way and for the same reason.
+//
+// A window that hands over nothing is not a window asking for a blank page, and it is a real
+// caller: the bindings are called by number, so a window running the bundle from before this method
+// had its second argument sends one and leaves the rest empty. What stands then is the fallback,
+// which is a page in the wrong language — better than a page with no words on it at all.
+func (m *Materializer) SetPages(pages domain.SignInPages) {
+	if pages == (domain.SignInPages{}) {
+		return
+	}
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.pages = pages
+}
+
+// signIn is the exchange the two browser grants go through. It is a method and not a value built at
+// New time because the words it writes arrive later — the window hands them over as it mounts — and
+// the page that ends a sign-in has to be in the language that is in force when it starts.
+func (m *Materializer) signIn(ctx context.Context, auth domain.Auth) (string, time.Time, error) {
+	m.mu.Lock()
+	pages := m.pages
+	m.mu.Unlock()
+	return signIn(ctx, m.browser, auth, pages)
 }
 
 // Materialize answers with what the scheme puts on the request. A scheme that is not in the table —
-// «нет», «наследовать», or one whose working is not written yet — puts nothing there, which is the
+// «None», «Inherit», or one whose working is not written yet — puts nothing there, which is the
 // same answer an unfilled field gets.
 func (m *Materializer) Materialize(
 	ctx context.Context,
@@ -77,7 +113,7 @@ func (m *Materializer) Materialize(
 
 // Project answers without asking anybody for anything: a window drawing rows while a person types
 // is not the moment to go and get a token. A fetched scheme draws nothing until one is held, which
-// is what «Нет токена» says.
+// is what «No token» says.
 func (m *Materializer) Project(
 	auth domain.Auth,
 	req domain.AuthRequest,
@@ -116,7 +152,7 @@ func (m *Materializer) Forget(auth domain.Auth) {
 }
 
 // Held is whether a scheme has a token at this moment and until when, which is all the window is
-// told: it draws «Нет токена» or that there is one, and never the value itself.
+// told: it draws «No token» or that there is one, and never the value itself.
 func (m *Materializer) Held(auth domain.Auth) domain.AuthToken {
 	m.mu.Lock()
 	defer m.mu.Unlock()

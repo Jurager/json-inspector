@@ -66,7 +66,7 @@ type AuthMaterializer interface {
 	// what it was given has nothing to obtain and nothing to drop.
 	Obtain(ctx context.Context, auth domain.Auth) error
 	Forget(auth domain.Auth)
-	// Held is whether a scheme has a token at this moment, which is what the window draws «Нет
-	// токена» from. The token itself does not come back: see domain.AuthToken.
+	// Held is whether a scheme has a token at this moment, which is what the window draws «No
+	// token» from. The token itself does not come back: see domain.AuthToken.
 	Held(auth domain.Auth) domain.AuthToken
 }

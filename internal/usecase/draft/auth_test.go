@@ -215,18 +215,18 @@ func TestAnUnusedSchemesAnswersAreNotSubstituted(t *testing.T) {
 	}
 }
 
-// «Наследовать» is not this feature's to answer — a draft cannot walk a tree — so the answer is
+// «Inherit» is not this feature's to answer — a draft cannot walk a tree — so the answer is
 // handed in, and the rows it comes to are worked out the same way a request's own are. That is what
 // makes a request inside a collection show the credential it inherited in its header list.
 func TestAnInheritedAuthorizationIsProjectedFromWhatIsHandedIn(t *testing.T) {
 	line := newLine(t)
 	line.setAuth(t, domain.NewAuth(domain.AuthInherit))
 
-	// The draft on its own knows nothing above it, and asks with «нет» rather than guessing: there is
+	// The draft on its own knows nothing above it, and asks with «None» rather than guessing: there is
 	// no scheme to project and so no row.
 	state := line.state(t)
 	if !line.auth.shown[len(line.auth.shown)-1].IsNone() {
-		t.Errorf("the scheme was asked with %q, want «нет» for a walk the draft cannot make",
+		t.Errorf("the scheme was asked with %q, want «None» for a walk the draft cannot make",
 			line.auth.shown[len(line.auth.shown)-1].Type)
 	}
 	if len(state.Projected) != 0 {

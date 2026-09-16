@@ -211,7 +211,7 @@ func (s *DraftService) RemoveDerived(
 	return s.answered(ctx, state, err)
 }
 
-// Replace hands a draft a whole request: "открыть в запросе" on a record, or a command pasted into
+// Replace hands a draft a whole request: "Open in Request" on a record, or a command pasted into
 // the command line.
 func (s *DraftService) Replace(
 	ctx context.Context,

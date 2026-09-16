@@ -55,7 +55,7 @@ export enum CommandReason {
 /**
  * KindNone is "not a command at all, leave the field alone", which is what most pastes come to;
  * KindError carries the reason the window phrases. A command that was read is a Seed — the same
- * whole request "открыть в запросе" produces.
+ * whole request "Open in Request" produces.
  */
 export interface CommandResult {
     "kind": CommandKind;
@@ -102,7 +102,7 @@ export interface RowPatch {
 }
 
 /**
- * Seed is a whole request handed to the draft: what "открыть в запросе" and a pasted command both
+ * Seed is a whole request handed to the draft: what "Open in Request" and a pasted command both
  * produce. Headers are pairs because a request can carry the same name twice.
  */
 export interface Seed {
@@ -158,7 +158,7 @@ export interface State {
     /**
      * Inherited is what the levels above this draft answer with, for a draft that is a node of a
      * tree: the nearest one that gave a credential, or nothing when none did. It is not a getter the
-     * window could have written for itself — «нет» on a folder is a level the walk goes past, and
+     * window could have written for itself — «None» on a folder is a level the walk goes past, and
      * that rule belongs with the walk.
      */
     "inherited"?: domain$0.Auth | null;
@@ -217,7 +217,7 @@ export interface TextResult {
     /**
      * Inherited is what the levels above this draft answer with, for a draft that is a node of a
      * tree: the nearest one that gave a credential, or nothing when none did. It is not a getter the
-     * window could have written for itself — «нет» on a folder is a level the walk goes past, and
+     * window could have written for itself — «None» on a folder is a level the walk goes past, and
      * that rule belongs with the walk.
      */
     "inherited"?: domain$0.Auth | null;

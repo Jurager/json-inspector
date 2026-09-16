@@ -417,7 +417,7 @@ func TestASaveThatFailsIsRolledBack(t *testing.T) {
 	}
 }
 
-// Replace is what "открыть в запросе" and a pasted command both do: the draft becomes that request,
+// Replace is what "Open in Request" and a pasted command both do: the draft becomes that request,
 // and the jar comes from the record when there is one and from the header when there is not.
 func TestReplaceTakesTheWholeRequest(t *testing.T) {
 	uc, _ := loaded(t)

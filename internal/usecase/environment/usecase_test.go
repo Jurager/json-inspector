@@ -319,7 +319,7 @@ func TestResolutionOrderAndMasking(t *testing.T) {
 	fill(domain.EnvScope{Environment: env.ID}, secret, "secret", "s3cret", domain.VariableSecret)
 
 	// The environment wins over the globals: the order the design names is
-	// запрос → окружение → глобальные.
+	// Request → Environment → Globals.
 	resolved, err := u.SubstituteTexts(ctx, []string{"{{token}}"}, false)
 	if err != nil {
 		t.Fatalf("SubstituteTexts: %v", err)

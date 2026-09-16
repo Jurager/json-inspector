@@ -35,7 +35,7 @@ type State struct {
 	Token *domain.AuthToken `json:"token,omitempty"`
 	// Inherited is what the levels above this draft answer with, for a draft that is a node of a
 	// tree: the nearest one that gave a credential, or nothing when none did. It is not a getter the
-	// window could have written for itself — «нет» on a folder is a level the walk goes past, and
+	// window could have written for itself — «None» on a folder is a level the walk goes past, and
 	// that rule belongs with the walk.
 	Inherited *domain.Auth `json:"inherited,omitempty"`
 }
@@ -65,7 +65,7 @@ type RowPatch struct {
 	File *bool   `json:"file,omitempty"`
 }
 
-// Seed is a whole request handed to the draft: what "открыть в запросе" and a pasted command both
+// Seed is a whole request handed to the draft: what "Open in Request" and a pasted command both
 // produce. Headers are pairs because a request can carry the same name twice.
 type Seed struct {
 	Method string `json:"method"`

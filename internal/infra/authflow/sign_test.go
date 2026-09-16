@@ -252,7 +252,7 @@ func TestAWSSaysNothingWhenItIsHalfFilled(t *testing.T) {
 }
 
 // The two schemes that mint rather than carry are carried the same way everything else is, which is
-// what makes «Добавить токен в» one field and not three.
+// what makes «Add token to» one field and not three.
 func TestAMintedTokenCanTravelInTheQuery(t *testing.T) {
 	auth := domain.WithDefaults(domain.AuthJWT).
 		With("secret", "s3cret").

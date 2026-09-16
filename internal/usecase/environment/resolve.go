@@ -51,7 +51,7 @@ func (u *UseCase) Missing(ctx context.Context, texts []string) ([]string, error)
 }
 
 // resolver is the lookup the `{{}}` grammar calls: the active environment wins over the globals,
-// which is the order the design names — запрос → окружение → глобальные. Only the send path asks
+// which is the order the design names — Request → Environment → Globals. Only the send path asks
 // for a secret's value; everything else gets its kind and whether a value exists.
 func (u *UseCase) resolver(ctx context.Context, revealSecrets bool) (lookup, error) {
 	workspace, err := u.scope.ActiveWorkspace(ctx)
