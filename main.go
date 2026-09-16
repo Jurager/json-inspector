@@ -31,7 +31,7 @@ var appIcon []byte
 
 var version = "dev"
 
-// build is the CI run number, empty for local builds; shown in brackets in About.
+// build is the CI run number, empty for local builds.
 var build = ""
 
 const (
@@ -42,8 +42,6 @@ const (
 	appDescription = "A JSON:API viewer: environment variables, a schema map, and captured " +
 		"browser requests."
 
-	// How long stopping the graph gets before the process leaves anyway: a hook that hangs — the
-	// bridge socket waiting on a client — must not hold the window open after the user closed it.
 	shutdownTimeout = 5 * time.Second
 )
 
@@ -51,12 +49,8 @@ func main() {
 	os.Exit(run())
 }
 
-// appOptions is the whole app as a dependency graph. It is a function of its own so the wiring can
-// be checked without a window: a missing provider is otherwise a blank screen at startup.
 func appOptions() []fx.Option {
 	return []fx.Option{
-		// Quiet, because a GUI process has no console on most platforms: the failures that matter
-		// are reported through the window, and the ones that are not are logged by run.
 		fx.NopLogger,
 		platform.Module,
 		sqlite.Module,
@@ -75,33 +69,22 @@ func appOptions() []fx.Option {
 			},
 			wails.Assets{FS: assets, Icon: appIcon},
 			bridge.Port(bridge.DefaultPort),
-			// The engine's defaults: env proxy, verified certificates, redirects followed, no jar, a
-			// fresh connection per request. The settings screen is where these end up; the zero value
-			// is what the app answers with until then.
 			httpx.Config{},
 		),
 	}
 }
 
-// run is the composition root and nothing else: every decision about what the app is made of lives
-// in the modules above, and every decision about their order lives in transport/wails.
 func run() int {
-	// The update checker reads these globals itself, so they are set before the graph exists; the
-	// same values travel into the graph as BuildInfo for everything that only displays them.
 	updater.CurrentVersion = version
 	updater.CurrentBuild = build
 
-	// SIGTERM is how a session manager stops the app — systemd, a container, a logout — and it is
-	// not os.Interrupt, which is only what Ctrl-C sends. On Windows the signal is never delivered,
-	// and asking for it costs nothing.
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
 	var app *application.App
 
 	graph := fx.New(append(appOptions(), fx.Populate(&app))...)
-	// Stopping after Run returns is what puts the database close last: fx hooks run on the way
-	// out, and by then every service has already been shut down.
+
 	defer func() {
 		shutdown, cancel := context.WithTimeout(context.Background(), shutdownTimeout)
 		defer cancel()

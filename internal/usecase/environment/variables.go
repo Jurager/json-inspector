@@ -7,7 +7,6 @@ import (
 
 	"json-inspector/internal/domain"
 	"json-inspector/internal/dotenv"
-	"json-inspector/internal/vars"
 )
 
 // Variable reads one variable by name in the scope a script names — the active environment, or the
@@ -58,7 +57,7 @@ func (u *UseCase) SetVariable(
 	name = strings.TrimSpace(name)
 	// A name no `{{token}}` can carry is a row nobody can use: the script would be writing into a
 	// place the request it is running around cannot read.
-	if name == "" || !vars.ValidName(name) {
+	if name == "" || !validName(name) {
 		return fmt.Errorf("variable name %q: %w", name, domain.ErrNotAllowed)
 	}
 
@@ -152,7 +151,7 @@ func (u *UseCase) AddVariable(
 	}
 
 	name := strings.TrimSpace(draft.Name)
-	if name != "" && !vars.ValidName(name) {
+	if name != "" && !validName(name) {
 		return domain.EnvState{}, fmt.Errorf("variable name: %w", domain.ErrNotAllowed)
 	}
 	if draft.Kind != domain.VariableSecret {
@@ -204,7 +203,7 @@ func (u *UseCase) UpdateVariable(
 	}
 
 	name := strings.TrimSpace(patch.Name)
-	if name != "" && !vars.ValidName(name) {
+	if name != "" && !validName(name) {
 		return domain.EnvState{}, fmt.Errorf("variable name: %w", domain.ErrNotAllowed)
 	}
 

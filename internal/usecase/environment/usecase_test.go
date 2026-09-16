@@ -9,7 +9,6 @@ import (
 	"json-inspector/internal/domain"
 	"json-inspector/internal/dotenv"
 	"json-inspector/internal/platform"
-	"json-inspector/internal/vars"
 )
 
 // fakeStore is the in-memory double for the feature's port. It keeps the same rules the SQL does —
@@ -337,7 +336,7 @@ func TestResolutionOrderAndMasking(t *testing.T) {
 	if err != nil {
 		t.Fatalf("SubstituteTexts (masked): %v", err)
 	}
-	if masked[0] != "env-value/"+vars.SecretMask {
+	if masked[0] != "env-value/"+secretMask {
 		t.Errorf("masked = %q, want the secret replaced by the mask", masked[0])
 	}
 

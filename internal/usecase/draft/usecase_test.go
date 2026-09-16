@@ -9,7 +9,6 @@ import (
 
 	"json-inspector/internal/domain"
 	"json-inspector/internal/platform"
-	"json-inspector/internal/vars"
 )
 
 type fakeStore struct {
@@ -45,57 +44,66 @@ func (f *fakeStore) SaveDraft(_ context.Context, _ string, draft domain.Draft) e
 	return nil
 }
 
-// fakeVars is the environment feature as the draft sees it: values for the names it knows, nothing
-// for the rest, and a secret that leaves as its mask.
+// fakeMask is the literal a faked secret leaves as, written here the way the other fakes in this
+// package write it: the draft never learns what the mask is made of.
+const fakeMask = "••••"
+
+// fakeVars is the environment feature as the draft sees it: a value for each name it knows, and a
+// secret that leaves as its mask.
+//
+// It reads `{{name}}` with a blunt scan and no rules of its own — no escaping, no trimming, no
+// notion of which names are well formed. Those are the environment's and are tested there; what a
+// test of the draft needs is an answer to the two questions the port asks, not a second copy of the
+// grammar.
 type fakeVars struct {
 	values map[string]string
 	secret map[string]bool
 }
 
-func (f fakeVars) resolver() vars.Resolver {
-	return func(name string) (domain.Resolution, bool) {
-		value, ok := f.values[name]
-		if !ok {
-			return domain.Resolution{}, false
-		}
-		kind := domain.VariableText
-		if f.secret[name] {
-			kind = domain.VariableSecret
-		}
-		return domain.Resolution{Value: value, Kind: kind, Source: "env", HasValue: value != ""}, true
-	}
-}
-
 func (f fakeVars) Missing(_ context.Context, texts []string) ([]string, error) {
-	_, got := missingIn(texts, f.resolver())
-	return got, nil
+	out, seen := []string{}, map[string]bool{}
+	for _, text := range texts {
+		for _, name := range f.mentioned(text) {
+			if _, known := f.values[name]; known || seen[name] {
+				continue
+			}
+			seen[name] = true
+			out = append(out, name)
+		}
+	}
+	return out, nil
 }
 
 func (f fakeVars) SubstituteTexts(_ context.Context, texts []string, mask bool) ([]string, error) {
 	out := make([]string, len(texts))
 	for i, text := range texts {
-		if mask {
-			out[i] = vars.SubstituteMasked(text, f.resolver())
-			continue
+		for name, value := range f.values {
+			if mask && f.secret[name] {
+				value = fakeMask
+			}
+			text = strings.ReplaceAll(text, "{{"+name+"}}", value)
 		}
-		out[i] = vars.Substitute(text, f.resolver())
+		out[i] = text
 	}
 	return out, nil
 }
 
-// missingIn is the merge the environment feature does, kept here so the fake answers the same way.
-func missingIn(texts []string, resolve vars.Resolver) (map[string]bool, []string) {
-	seen := map[string]bool{}
+// mentioned is the names a text writes between braces, in the order they appear.
+func (f fakeVars) mentioned(text string) []string {
 	out := []string{}
-	for _, text := range texts {
-		for _, name := range vars.Missing(text, resolve) {
-			if !seen[name] {
-				seen[name] = true
-				out = append(out, name)
-			}
+	for i := 0; i+1 < len(text); i++ {
+		if text[i] != '{' || text[i+1] != '{' {
+			continue
 		}
+		rest := text[i+2:]
+		end := strings.Index(rest, "}}")
+		if end == -1 {
+			break
+		}
+		out = append(out, strings.TrimSpace(rest[:end]))
+		i += end + 3
 	}
-	return seen, out
+	return out
 }
 
 // fakeFiles is the file system as the draft sees it. read is the count of reads, so a test can say
@@ -499,13 +507,13 @@ func TestPreparedFillsAndMasks(t *testing.T) {
 	if prepared.MaskedURL != "https://api.example.com/a?x=1" {
 		t.Errorf("masked url = %q", prepared.MaskedURL)
 	}
-	if prepared.MaskedBody != "body "+vars.SecretMask {
+	if prepared.MaskedBody != "body "+fakeMask {
 		t.Errorf("masked body = %q, want the secret replaced", prepared.MaskedBody)
 	}
-	if prepared.MaskedHeaders[0].Value != "Bearer "+vars.SecretMask {
+	if prepared.MaskedHeaders[0].Value != "Bearer "+fakeMask {
 		t.Errorf("masked authorization = %q", prepared.MaskedHeaders[0].Value)
 	}
-	if prepared.MaskedHeaders[2].Value != "s="+vars.SecretMask {
+	if prepared.MaskedHeaders[2].Value != "s="+fakeMask {
 		t.Errorf("masked cookie header = %q", prepared.MaskedHeaders[2].Value)
 	}
 	// The jar itself travels as it was typed: it is the draft's, and a record hands it back.

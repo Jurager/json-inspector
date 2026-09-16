@@ -26,7 +26,7 @@ main.go ──► transport/ ──► usecase/ ──► domain/
                 │             │
                 └──► infra/ ◄─┘
                        ▲
-  vars/ dotenv/ postman/ — чистые: stdlib, а vars ещё и domain
+  dotenv/ postman/ — чистые: stdlib
 ```
 
 | Слой | Можно импортировать | Нельзя |
@@ -63,7 +63,7 @@ internal/
     wails/                    привязанные сервисы, события, окна, меню
     bridge/                   WebSocket-сервер расширения
   migrate/                    раннер миграций + testdata
-  vars/ dotenv/ postman/                      чистые алгоритмы, тесты рядом
+  dotenv/ postman/                            чистые алгоритмы, тесты рядом
   platform/                   пути, id, идентичность сборки
   archtest/                   правило зависимостей и нейминга тестом
 ```

@@ -4,7 +4,6 @@ import (
 	"context"
 
 	"json-inspector/internal/domain"
-	"json-inspector/internal/vars"
 )
 
 // SubstituteTexts fills texts in with their variables, in the order they were given: a request is
@@ -24,11 +23,7 @@ func (u *UseCase) SubstituteTexts(
 	}
 	out := make([]string, len(texts))
 	for i, text := range texts {
-		if mask {
-			out[i] = vars.SubstituteMasked(text, resolver)
-			continue
-		}
-		out[i] = vars.Substitute(text, resolver)
+		out[i] = interpolate(text, resolver, mask)
 	}
 	return out, nil
 }
@@ -44,7 +39,7 @@ func (u *UseCase) Missing(ctx context.Context, texts []string) ([]string, error)
 	out := []string{}
 	seen := map[string]bool{}
 	for _, text := range texts {
-		for _, name := range vars.Missing(text, resolver) {
+		for _, name := range missing(text, resolver) {
 			if seen[name] {
 				continue
 			}
@@ -58,7 +53,7 @@ func (u *UseCase) Missing(ctx context.Context, texts []string) ([]string, error)
 // resolver is the lookup the `{{}}` grammar calls: the active environment wins over the globals,
 // which is the order the design names — запрос → окружение → глобальные. Only the send path asks
 // for a secret's value; everything else gets its kind and whether a value exists.
-func (u *UseCase) resolver(ctx context.Context, revealSecrets bool) (vars.Resolver, error) {
+func (u *UseCase) resolver(ctx context.Context, revealSecrets bool) (lookup, error) {
 	workspace, err := u.scope.ActiveWorkspace(ctx)
 	if err != nil {
 		return nil, err
