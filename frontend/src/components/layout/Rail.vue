@@ -75,7 +75,7 @@ async function loadSample() {
   store.prepend(record)
   store.activeView = 'request'
   // A sample is meant to be played with, so it opens in the request as well as in the pane.
-  await store.openInRequest(record.id)
+  await store.selectManual(record.id)
 }
 
 function openAbout() {

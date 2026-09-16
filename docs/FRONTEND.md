@@ -40,6 +40,10 @@ classes. The rule is one: **needed a second time, it goes into `ui/` instead of 
 - `ui/dialog`, `ui/popover`, `ui/dropdown-menu`, `ui/context-menu`, `ui/tabs`, `ui/checkbox`,
   `ui/tooltip` — `reka-ui` primitives under our classes. The tooltip's plate is the global `.tooltip`
   class in `style.css`: it lands in the primitive's portal, where the caller's scope does not reach.
+- `ui/alert` — the frame of the question that stands between a click and unsaved work: an icon, a
+  title, a hint, and the caller's own buttons in a slot. Two places ask it — a collection card and the
+  command line — and only the caller knows what discarding throws away, which is why the answers are
+  its business and the frame is not.
 
 Outside that layer only our own shapes remain: chips, tags, rail tiles, segmented controls and the
 window's caption buttons (`.cap-btn`). Next to the primitives sit `Icon.vue` — every glyph in one
