@@ -1,131 +1,220 @@
 import { defineStore } from 'pinia'
-import {
-  missingTokens,
-  substituteTokens,
-  substituteTokensMasked,
-  type VarKind,
-  type VarResolution,
-} from '../lib/vars'
-import type { DotenvEntry } from '../lib/dotenv'
-import { App as Backend } from '../../bindings/json-inspector'
+import type { VarResolution } from '../lib/vars'
+import { EnvironmentsService } from '../../bindings/json-inspector/internal/transport/wails'
+import { VariableKind } from '../../bindings/json-inspector/internal/domain'
+import { t as tr } from '../i18n'
+import type { EnvScope, EnvState, Environment, Variable } from '../../bindings/json-inspector/internal/domain'
+import type { ImportReport } from '../../bindings/json-inspector/internal/usecase/environment'
 
-export interface Variable {
-  id: string
+// What the environments lived in before they moved into the database.
+const LEGACY_KEY = 'ji-env-v1'
+
+/** One row of the `.env` import dialog: what was found, and what to do with it. */
+export interface ImportChoice {
   name: string
   value: string
-  kind: VarKind
-  enabled: boolean
-}
-
-export interface InheritedVariable extends Variable {
-  overridden: boolean
-}
-
-export interface Environment {
-  id: string
-  name: string
-  color?: 'green' | 'orange' | 'red' | 'purple'
-  readonly: boolean
-  vars: Variable[]
-}
-
-interface Persisted {
-  environments: Environment[]
-  globals: Variable[]
-  activeId: string | null
-}
-
-const ENVIRONMENTS_STORAGE_KEY = 'ji-env-v1'
-
-let seq = 0
-function nextId(prefix: string): string {
-  seq += 1
-  return `${prefix}-${Date.now().toString(36)}-${seq}`
-}
-
-function newVar(name = '', value = '', kind: VarKind = 'text'): Variable {
-  return { id: nextId('var'), name, value, kind, enabled: true }
-}
-
-function defaultState(): Persisted {
-  const local: Environment = {
-    id: nextId('env'),
-    name: 'Local · dev',
-    readonly: false,
-    vars: [newVar('baseUrl', 'http://localhost:8000')],
-  }
-  return { environments: [local], globals: [], activeId: local.id }
-}
-
-function loadState(): Persisted {
-  try {
-    const raw = localStorage.getItem(ENVIRONMENTS_STORAGE_KEY)
-    if (!raw) return defaultState()
-    const parsed = JSON.parse(raw)
-    if (!parsed || !Array.isArray(parsed.environments) || !Array.isArray(parsed.globals)) {
-      return defaultState()
-    }
-    return {
-      environments: parsed.environments,
-      globals: parsed.globals,
-      activeId: typeof parsed.activeId === 'string' ? parsed.activeId : null,
-    }
-  } catch {
-    return defaultState()
-  }
-}
-
-export interface ImportChoice extends DotenvEntry {
+  secret: boolean
   mode: 'replace' | 'skip'
 }
 
+function scopeOf(envId: string | null): EnvScope {
+  return envId === null ? {} : { environment: envId }
+}
+
+// The wire marks a list as possibly null because Go can marshal a nil slice that way; the app never
+// means that, so the mirror settles it once here instead of at every use.
+export type Env = Omit<Environment, 'vars'> & { vars: Variable[] }
+
+// The mirror: every field comes from Go, and nothing here is derived state that Go also holds. The
+// one exception is resolution below, which stays local while the draft it serves is still local —
+// it reads the same values and kinds Go does, so the two cannot disagree.
 export const useEnvironmentsStore = defineStore('environments', {
   state: () => ({
-    ...loadState(),
+    envState: null as EnvState | null,
     // Session-only: an unlock must not outlive the sheet that made it.
     unlockedEnvIds: [] as string[],
     sheetOpen: false,
     sheetFocus: null as { envId: string | null; varName: string } | null,
     editedEnvId: null as string | null,
-    secretValues: {} as Record<string, string>,
-    isKeychainAvailable: true,
+    // Values the user asked to see, by variable id. Filled by reveal() alone, dropped when the
+    // sheet closes: a secret is not carried around just because it exists.
+    revealed: {} as Record<string, string>,
+    importReport: null as ImportReport | null,
   }),
 
   getters: {
-    activeEnvironment(state): Environment | null {
-      return state.environments.find((e) => e.id === state.activeId) ?? null
+    environments(state): Env[] {
+      return (state.envState?.environments ?? []).map((e) => ({ ...e, vars: e.vars ?? [] }))
+    },
+
+    globals(state): Variable[] {
+      return state.envState?.globals ?? []
+    },
+
+    activeId(state): string | null {
+      return state.envState?.activeId || null
+    },
+
+    activeEnvironment(): Env | null {
+      return this.environments.find((e) => e.id === this.activeId) ?? null
     },
   },
 
   actions: {
+    // ---- state from Go ---------------------------------------------------
+
+    async load() {
+      this.envState = await EnvironmentsService.Snapshot()
+    },
+
+    // What a workspace switch leaves behind: every environment on screen belongs to the space being
+    // left, and so does the unlock the user gave one of them for this session. A revealed secret is
+    // dropped for the same reason — it is a value of a variable that is no longer there.
+    forget() {
+      this.envState = null
+      this.unlockedEnvIds = []
+      this.revealed = {}
+      this.editedEnvId = null
+      this.sheetFocus = null
+      this.importReport = null
+    },
+
+    // The old build kept environments and their secrets in localStorage, apart from the secret
+    // values themselves, which lived in the OS keychain — those do not come over, and the import
+    // reports them by name. The raw string goes over as it is, reading that shape being Go's job,
+    // and the key is dropped only once the import is through.
+    async importLegacyOnce() {
+      const raw = localStorage.getItem(LEGACY_KEY)
+      if (raw === null) return
+      try {
+        this.importReport = await EnvironmentsService.ImportLegacy(raw)
+        localStorage.removeItem(LEGACY_KEY)
+        this.envState = await EnvironmentsService.Snapshot()
+      } catch {
+        // The key stays: the next launch tries again, which is how a database that was locked or
+        // read-only recovers once the user fixes it.
+      }
+    },
+
+    // A fresh database has nowhere to type a base URL, which is a poor first screen.
+    async ensureDefaults() {
+      if (this.environments.length > 0 || this.globals.length > 0) return
+      this.envState = await EnvironmentsService.EnsureDefaults()
+    },
+
+    // ---- environments ----------------------------------------------------
+
+    async setActive(id: string | null) {
+      this.envState = await EnvironmentsService.ActivateEnvironment(id ?? '')
+    },
+
+    async addEnv(name = tr('environments.new')): Promise<string> {
+      this.envState = await EnvironmentsService.CreateEnvironment(name)
+      return this.activeId ?? ''
+    },
+
+    async removeEnv(id: string) {
+      this.envState = await EnvironmentsService.DeleteEnvironment(id)
+      this.unlockedEnvIds = this.unlockedEnvIds.filter((x) => x !== id)
+      // Values revealed for a variable that no longer exists go with it.
+      const live = new Set(this.environments.flatMap((e) => e.vars.map((v) => v.id)))
+      for (const key of Object.keys(this.revealed)) {
+        if (!live.has(key)) delete this.revealed[key]
+      }
+    },
+
+    async renameEnv(id: string, name: string) {
+      this.envState = await EnvironmentsService.UpdateEnvironment(id, { name })
+    },
+
+    async setEnvReadonly(id: string, readonly: boolean) {
+      this.envState = await EnvironmentsService.UpdateEnvironment(id, { readonly })
+    },
+
+    // ---- variables -------------------------------------------------------
+
+    // The sheet's "add row" leaves this empty; the .env dialog fills it in. The new row lands last
+    // in its scope, which is what addVar's caller gets back.
+    async addVar(envId: string | null, init: Partial<Variable> = {}): Promise<string> {
+      this.envState = await EnvironmentsService.AddVariable(scopeOf(envId), {
+        name: init.name ?? '',
+        kind: init.kind ?? VariableKind.VariableText,
+        value: init.value ?? '',
+      })
+      return this.varsOf(envId).at(-1)?.id ?? ''
+    },
+
+    // A value that is absent means "leave the stored one alone": the sheet never has a secret's
+    // value to send back, so renaming one must not blank it.
+    async updateVar(envId: string | null, varId: string, patch: Partial<Variable>) {
+      const current = this.varsOf(envId).find((v) => v.id === varId)
+      if (!current) return
+      this.envState = await EnvironmentsService.UpdateVariable(scopeOf(envId), {
+        id: varId,
+        name: patch.name ?? current.name,
+        kind: patch.kind ?? current.kind,
+        enabled: patch.enabled ?? current.enabled,
+        setValue: patch.value !== undefined,
+        value: patch.value ?? '',
+      })
+      // A value the user just typed is the one they should see, revealed or not.
+      if (patch.value !== undefined && (patch.kind ?? current.kind) === VariableKind.VariableSecret) {
+        this.revealed[varId] = patch.value
+      }
+    },
+
+    async removeVar(envId: string | null, varId: string) {
+      this.envState = await EnvironmentsService.RemoveVariable(scopeOf(envId), varId)
+      delete this.revealed[varId]
+    },
+
+    async importDotenv(envId: string | null, entries: ImportChoice[]) {
+      // The dialog decides what happens to a name that is already there; Go merges what it is given.
+      const kept = entries
+        .filter((e) => e.mode === 'replace' && e.name.trim() !== '')
+        .map((e) => ({ name: e.name.trim(), value: e.value, secret: e.secret }))
+      if (kept.length === 0) return
+      this.envState = await EnvironmentsService.ImportEntries(scopeOf(envId), kept)
+    },
+
+    // ---- secrets ---------------------------------------------------------
+
+    // The eye button: the only path from a stored secret to the window.
+    async reveal(varId: string): Promise<string> {
+      const value = await EnvironmentsService.Reveal(varId)
+      this.revealed[varId] = value
+      return value
+    },
+
+    hide(varId: string) {
+      delete this.revealed[varId]
+    },
+
+    isRevealed(varId: string): boolean {
+      return this.revealed[varId] !== undefined
+    },
+
+    // ---- resolution over the mirror --------------------------------------
+    // What is left of it is what the window draws: the tooltip over a `{{token}}` pill, and the
+    // export templates. Filling a request in is Go's now, values and all.
+
+    effectiveValue(v: Variable): string {
+      if (v.kind !== VariableKind.VariableSecret) return v.value ?? ''
+      return this.revealed[v.id] ?? ''
+    },
+
     resolveVariable(name: string): VarResolution | null {
       const env = this.activeEnvironment
       if (env) {
         const v = env.vars.find((x) => x.name === name && x.enabled)
-        if (v) return { value: this.effectiveValue(env.id, v), source: 'env', kind: v.kind }
+        if (v) return { value: this.effectiveValue(v), source: 'env', kind: v.kind }
       }
       const g = this.globals.find((x) => x.name === name && x.enabled)
-      if (g) return { value: this.effectiveValue(null, g), source: 'global', kind: g.kind }
+      if (g) return { value: this.effectiveValue(g), source: 'global', kind: g.kind }
       return null
     },
 
-    effectiveValue(envId: string | null, v: Variable): string {
-      return v.kind === 'secret' ? (this.secretValues[secretKey(envId, v.name)] ?? '') : v.value
-    },
-
-    substitute(text: string): string {
-      return substituteTokens(text, this.resolveVariable)
-    },
-
-    maskSecrets(text: string): string {
-      return substituteTokensMasked(text, this.resolveVariable)
-    },
-
-    missingVarNames(text: string): string[] {
-      return missingTokens(text, this.resolveVariable)
-    },
-
-    rowsFor(envId: string | null): { own: Variable[]; inherited: InheritedVariable[] } {
+    rowsFor(envId: string | null): { own: Variable[]; inherited: (Variable & { overridden: boolean })[] } {
       const own = this.varsOf(envId)
       // Edited in the "Глобальные" scope itself, so nothing is inherited there.
       if (envId === null) return { own, inherited: [] }
@@ -142,195 +231,15 @@ export const useEnvironmentsStore = defineStore('environments', {
       return this.environments.find((e) => e.id === envId)?.vars ?? []
     },
 
-    persist() {
-      try {
-        const data: Persisted = {
-          environments: this.environments,
-          globals: this.globals,
-          activeId: this.activeId,
-        }
-        localStorage.setItem(ENVIRONMENTS_STORAGE_KEY, JSON.stringify(data))
-      } catch {
-        // ignore quota/availability errors — losing persistence beats losing the app
-      }
+    envById(envId: string | null): Env | null {
+      if (envId === null) return null
+      return this.environments.find((e) => e.id === envId) ?? null
     },
 
-    setActive(id: string | null) {
-      this.activeId = id
-      this.persist()
-    },
-
-    addEnv(name = 'Новое окружение'): string {
-      const env: Environment = { id: nextId('env'), name, readonly: false, vars: [] }
-      this.environments.push(env)
-      this.persist()
-      return env.id
-    },
-
-    removeEnv(id: string) {
-      const doomed = this.environments.find((e) => e.id === id)
-      this.environments = this.environments.filter((e) => e.id !== id)
-      // Falls back to "Без окружения" rather than promoting a neighbour the user didn't choose.
-      if (this.activeId === id) this.activeId = null
-      this.unlockedEnvIds = this.unlockedEnvIds.filter((x) => x !== id)
-      for (const k of Object.keys(this.secretValues)) {
-        if (k.startsWith(id + ':')) delete this.secretValues[k]
-      }
-      // A deleted environment must not leave credentials behind in the keychain.
-      for (const v of doomed?.vars ?? []) {
-        if (v.kind === 'secret') this.deleteSecretFromKeychain(id, v.name)
-      }
-      this.persist()
-    },
-
-    renameEnv(id: string, name: string) {
-      const env = this.environments.find((e) => e.id === id)
-      if (!env) return
-      env.name = name
-      this.persist()
-    },
-
-    setEnvReadonly(id: string, readonly: boolean) {
-      const env = this.environments.find((e) => e.id === id)
-      if (!env) return
-      env.readonly = readonly
-      this.persist()
-    },
-
-    addVar(envId: string | null, init: Partial<Variable> = {}): string {
-      const v: Variable = {
-        id: nextId('var'),
-        name: init.name ?? '',
-        value: init.value ?? '',
-        kind: init.kind ?? 'text',
-        enabled: init.enabled ?? true,
-      }
-      this.varsOf(envId).push(v)
-      this.persist()
-      return v.id
-    },
-
-    updateVar(envId: string | null, varId: string, patch: Partial<Variable>) {
-      const v = this.varsOf(envId).find((x) => x.id === varId)
-      if (!v) return
-      const wasKind = v.kind
-      const wasName = v.name
-      const nextName = patch.name ?? v.name
-      const nextKind = patch.kind ?? v.kind
-      const key = secretKey(envId, wasName)
-      const nextKey = secretKey(envId, nextName)
-
-      const renamingSecret = wasKind === 'secret' && nextKind === 'secret' && nextName !== wasName
-      let carried: string | undefined
-
-      if (renamingSecret) {
-        carried = this.secretValues[key] ?? ''
-        this.secretValues[nextKey] = carried
-        delete this.secretValues[key]
-      } else if (wasKind !== 'secret' && nextKind === 'secret') {
-        this.secretValues[nextKey] = v.value
-        carried = v.value
-      } else if (wasKind === 'secret' && nextKind !== 'secret') {
-        if (patch.value === undefined) patch = { ...patch, value: this.secretValues[key] ?? '' }
-        delete this.secretValues[key]
-      }
-
-      const clean = { ...patch }
-      let written = carried
-      if (nextKind === 'secret') {
-        if (clean.value !== undefined) {
-          this.secretValues[nextKey] = clean.value
-          written = clean.value
-        }
-        clean.value = ''
-      }
-      Object.assign(v, clean)
-
-      if (nextKind === 'secret' && written !== undefined) {
-        this.writeSecretToKeychain(envId, nextName, written)
-      }
-      if (wasKind === 'secret' && (nextKind !== 'secret' || renamingSecret)) {
-        this.deleteSecretFromKeychain(envId, wasName)
-      }
-      this.persist()
-    },
-
-    removeVar(envId: string | null, varId: string) {
-      const list = this.varsOf(envId)
-      const v = list.find((x) => x.id === varId)
-      if (!v) return
-      if (v.kind === 'secret') {
-        delete this.secretValues[secretKey(envId, v.name)]
-        this.deleteSecretFromKeychain(envId, v.name)
-      }
-      const at = list.indexOf(v)
-      if (at !== -1) list.splice(at, 1)
-      this.persist()
-    },
-
-    setSecret(envId: string | null, name: string, value: string) {
-      this.secretValues[secretKey(envId, name)] = value
-      this.writeSecretToKeychain(envId, name, value)
-    },
-
-    writeSecretToKeychain(envId: string | null, name: string, value: string) {
-      try {
-        Backend.SecretSet(envId ?? 'globals', name, value).catch(() => {
-          this.isKeychainAvailable = false
-        })
-      } catch {
-        this.isKeychainAvailable = false
-      }
-    },
-
-    deleteSecretFromKeychain(envId: string | null, name: string) {
-      try {
-        Backend.SecretDelete(envId ?? 'globals', name).catch(() => {
-          this.isKeychainAvailable = false
-        })
-      } catch {
-        this.isKeychainAvailable = false
-      }
-    },
-
-    async hydrateSecrets() {
-      const targets: { envId: string | null; name: string }[] = []
-      for (const e of this.environments) {
-        for (const v of e.vars) if (v.kind === 'secret') targets.push({ envId: e.id, name: v.name })
-      }
-      for (const v of this.globals) if (v.kind === 'secret') targets.push({ envId: null, name: v.name })
-
-      for (const t of targets) {
-        try {
-          const value = await Backend.SecretGet(t.envId ?? 'globals', t.name)
-          if (value) this.secretValues[secretKey(t.envId, t.name)] = value
-        } catch {
-          // One failure is enough to know this machine can't store secrets.
-          this.isKeychainAvailable = false
-          return
-        }
-      }
-    },
+    // ---- sheet -----------------------------------------------------------
 
     editEnv(id: string | null) {
       this.editedEnvId = id
-    },
-
-    importDotenv(envId: string | null, entries: ImportChoice[]) {
-      for (const e of entries) {
-        const existing = this.varsOf(envId).find((v) => v.name === e.name)
-        if (existing) {
-          if (e.mode === 'skip') continue
-          this.updateVar(envId, existing.id, {
-            value: e.value,
-            kind: e.secret ? 'secret' : existing.kind,
-          })
-          continue
-        }
-        const id = this.addVar(envId, { name: e.name, kind: e.secret ? 'secret' : 'text' })
-        this.updateVar(envId, id, { value: e.value })
-      }
-      this.persist()
     },
 
     openSheet(focus: { envId: string | null; varName: string } | null = null) {
@@ -343,6 +252,8 @@ export const useEnvironmentsStore = defineStore('environments', {
       this.sheetOpen = false
       this.sheetFocus = null
       this.unlockedEnvIds = []
+      // Everything the user revealed was revealed for that visit.
+      this.revealed = {}
     },
 
     isUnlocked(envId: string | null): boolean {
@@ -354,7 +265,3 @@ export const useEnvironmentsStore = defineStore('environments', {
     },
   },
 })
-
-function secretKey(envId: string | null, name: string): string {
-  return `${envId ?? 'globals'}:${name}`
-}

@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, nextTick, onMounted, ref, watch } from 'vue'
+import { useMessages } from '../../i18n'
 import {
   buildResourceIndex,
   dataResources,
@@ -9,6 +10,8 @@ import {
 } from '../../lib/jsonapi'
 import ResourceNode from './ResourceNode.vue'
 import Icon from '../ui/Icon.vue'
+
+const { t } = useMessages()
 
 const props = withDefaults(
   defineProps<{
@@ -29,14 +32,6 @@ const resourceIndex = computed(() => buildResourceIndex(props.doc))
 const primaryData = computed(() => dataResources(props.doc))
 const included = computed(() => props.doc.included ?? [])
 const errors = computed(() => props.doc.errors ?? [])
-
-function pluralRu(n: number, forms: [string, string, string]): string {
-  const m10 = n % 10
-  const m100 = n % 100
-  if (m10 === 1 && m100 !== 11) return forms[0]
-  if (m10 >= 2 && m10 <= 4 && (m100 < 12 || m100 > 14)) return forms[1]
-  return forms[2]
-}
 
 const includedFlatIndex = computed(() => {
   const map = new Map<string, number>()
@@ -181,11 +176,11 @@ const noResults = computed(
       <pre class="code px-4">{{ metaText }}</pre>
     </div>
 
-    <div v-if="noResults" class="ja-no-results">Ничего не найдено</div>
+    <div v-if="noResults" class="ja-no-results">{{ t('common.nothingFound') }}</div>
 
     <template v-if="filteredData.length">
       <div class="ja-section-title">
-        data · {{ filteredData.length }} {{ pluralRu(filteredData.length, ['ресурс', 'ресурса', 'ресурсов']) }}
+        data · {{ t('counts.resources', filteredData.length) }}
       </div>
       <ResourceNode
         v-for="(r, i) in filteredData"
@@ -203,8 +198,8 @@ const noResults = computed(
     <template v-if="filteredIncluded.length">
       <div class="ja-section-title ja-included-head">
         <span>
-          included · {{ filteredIncluded.length }} {{ pluralRu(filteredIncluded.length, ['ресурс', 'ресурса', 'ресурсов']) }}
-          · {{ typeCounts.length }} {{ pluralRu(typeCounts.length, ['тип', 'типа', 'типов']) }}
+          included · {{ t('counts.resources', filteredIncluded.length) }}
+          · {{ t('json.types', typeCounts.length) }}
         </span>
         <span v-if="typeCounts.length" class="type-chips">
           <button
@@ -217,7 +212,7 @@ const noResults = computed(
             {{ tc.type }} {{ tc.count }}
           </button>
           <button v-if="hiddenTypeCount && !showAllTypes" class="type-chip more" @click="showAllTypes = true">
-            ещё {{ hiddenTypeCount }}
+            {{ t('json.more', { n: hiddenTypeCount }) }}
           </button>
         </span>
       </div>
@@ -229,8 +224,8 @@ const noResults = computed(
           </span>
           <span class="ja-type-badge">{{ g.type }}</span>
           <span class="group-res-count">
-            {{ g.resources.length }} {{ pluralRu(g.resources.length, ['ресурс', 'ресурса', 'ресурсов']) }}
-            <template v-if="!isGroupOpen(g.type)"> — раскрыть группой</template>
+            {{ t('counts.resources', g.resources.length) }}
+            <template v-if="!isGroupOpen(g.type)"> {{ t('json.expandGroup') }}</template>
           </span>
         </button>
         <div v-if="isGroupOpen(g.type)">

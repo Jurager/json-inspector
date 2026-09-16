@@ -3,6 +3,7 @@ import { computed } from 'vue'
 import Icon from '../ui/Icon.vue'
 import { IconButton } from '../ui/button'
 import { useRequestsStore } from '../../stores/requests'
+import { useMessages } from '../../i18n'
 import {
   buildResourceIndex,
   dataResources,
@@ -18,6 +19,8 @@ const props = defineProps<{ doc: JsonApiDocument | null }>()
 const emit = defineEmits<{ (e: 'close'): void; (e: 'fetch', url: string): void }>()
 
 const store = useRequestsStore()
+
+const { t } = useMessages()
 
 const width = computed({
   get: () => store.inspector.width,
@@ -65,9 +68,8 @@ const inspectedNode = computed(() => resolveInspectedNode())
 const relationText = computed(() => {
   const r = inspectedNode.value
   if (!r) return '—'
-  return r.inDoc
-    ? `${r.targetType} · ${r.targetId} — есть в документе, дополнительный запрос не нужен.`
-    : `${r.targetType} · ${r.targetId} — нужен запрос links.related.`
+  const named = { type: r.targetType, id: r.targetId }
+  return r.inDoc ? t('json.inDocument', named) : t('json.needsRelated', named)
 })
 
 const jsonapiVersion = computed(() => {
@@ -95,33 +97,33 @@ function openRelated() {
     <div class="inspector-resize" @mousedown.prevent="startResize"></div>
 
     <div class="inspector-head">
-      <span class="inspector-title">Инспектор узла</span>
-      <IconButton hint="Закрыть" @click="emit('close')"><Icon name="xmark" :size="14" /></IconButton>
+      <span class="inspector-title">{{ t('json.inspector') }}</span>
+      <IconButton :hint="t('common.close')" @click="emit('close')"><Icon name="xmark" :size="14" /></IconButton>
     </div>
 
     <div class="inspector-body">
       <div class="block">
-        <div class="block-title">Путь</div>
+        <div class="block-title">{{ t('json.path') }}</div>
         <div class="block-path mono">{{ path || '—' }}</div>
       </div>
 
       <div class="block">
-        <div class="block-title">Связь</div>
+        <div class="block-title">{{ t('json.relationship') }}</div>
         <div class="block-text">{{ relationText }}</div>
       </div>
 
       <div class="block">
-        <div class="block-title">Схема</div>
+        <div class="block-title">{{ t('json.schema') }}</div>
         <div class="schema-row">
           <span class="dot" :class="jsonapiVersion ? 'dot-green' : 'dot-orange'"></span>
-          <span>{{ jsonapiVersion ? `Соответствует JSON:API ${jsonapiVersion}` : 'Не JSON:API документ' }}</span>
+          <span>{{ jsonapiVersion ? t('json.matches', { version: jsonapiVersion }) : t('json.notJsonApi') }}</span>
         </div>
       </div>
 
       <div class="block">
-        <div class="block-title">Действия</div>
-        <button class="inspector-action" :disabled="!inspectedNode?.relatedUrl" @click="openRelated">Открыть links.related</button>
-        <button class="inspector-action" @click="copyPath">Скопировать путь</button>
+        <div class="block-title">{{ t('json.actions') }}</div>
+        <button class="inspector-action" :disabled="!inspectedNode?.relatedUrl" @click="openRelated">{{ t('json.openRelated') }}</button>
+        <button class="inspector-action" @click="copyPath">{{ t('json.copyPath') }}</button>
       </div>
     </div>
   </div>

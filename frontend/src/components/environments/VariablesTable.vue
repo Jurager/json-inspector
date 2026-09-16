@@ -1,13 +1,17 @@
 <script setup lang="ts">
 import { computed, nextTick, ref, type ComponentPublicInstance } from 'vue'
 import Icon from '../ui/Icon.vue'
-import { useEnvironmentsStore, type Variable } from '../../stores/environments'
+import { useEnvironmentsStore } from '../../stores/environments'
+import { VariableKind } from '../../../bindings/json-inspector/internal/domain'
+import type { Variable } from '../../../bindings/json-inspector/internal/domain'
 import { useSheetNotice } from '../../composables/useSheetNotice'
+import { useMessages } from '../../i18n'
 import { Button, IconButton } from '../ui/button'
 import { Input } from '../ui/input'
 
 const envStore = useEnvironmentsStore()
 const { notice, setNotice, clearNotice } = useSheetNotice()
+const { t } = useMessages()
 
 const envId = computed(() => envStore.editedEnvId)
 const env = computed(() => envStore.environments.find((e) => e.id === envId.value) ?? null)
@@ -31,26 +35,25 @@ const filteredInherited = computed(() => {
   return q ? rows.value.inherited.filter(matches) : rows.value.inherited
 })
 
-const revealed = ref<Set<string>>(new Set())
-
 function isRevealed(v: Variable): boolean {
-  return revealed.value.has(v.id)
+  return envStore.isRevealed(v.id)
 }
 
 function toggleReveal(v: Variable) {
-  const next = new Set(revealed.value)
-  if (next.has(v.id)) next.delete(v.id)
-  else next.add(v.id)
-  revealed.value = next
+  if (envStore.isRevealed(v.id)) {
+    envStore.hide(v.id)
+    return
+  }
+  void envStore.reveal(v.id)
 }
 
 function isSecretMasked(v: Variable): boolean {
-  return v.kind === 'secret' && !isRevealed(v)
+  return v.kind === VariableKind.VariableSecret && !isRevealed(v)
 }
 
-function displayValue(v: Variable, scope: string | null): string {
-  if (v.kind !== 'secret') return v.value
-  return isRevealed(v) ? envStore.effectiveValue(scope, v) : '••••'
+function displayValue(v: Variable): string {
+  if (v.kind !== VariableKind.VariableSecret) return v.value ?? ''
+  return isRevealed(v) ? envStore.effectiveValue(v) : '••••'
 }
 
 interface Editing {
@@ -71,7 +74,7 @@ function startEdit(v: Variable, field: 'name' | 'value', scope: string | null = 
   if (isEnvLocked.value) return
   editing.value = { scope, varId: v.id, field }
   clearNotice()
-  draft.value = field === 'name' ? v.name : envStore.effectiveValue(scope, v)
+  draft.value = field === 'name' ? v.name : envStore.effectiveValue(v)
   nextTick(() => cellInput.value?.focus())
 }
 
@@ -98,11 +101,11 @@ function commit(): boolean {
   if (ed.field === 'name') {
     const name = draft.value.trim()
     if (!name) {
-      setNotice('Имя не может быть пустым')
+      setNotice(t('environments.nameRequired'))
       return false
     }
     if (scopeVars.some((x) => x.id !== v.id && x.name === name)) {
-      setNotice(ed.scope === null ? 'Такое имя уже есть в глобальных' : 'Такое имя уже есть в этом окружении')
+      setNotice(ed.scope === null ? t('environments.nameTakenGlobals') : t('environments.nameTakenHere'))
       return false
     }
     envStore.updateVar(ed.scope, v.id, { name })
@@ -157,21 +160,22 @@ function openGlobal(g: Variable, edit = false) {
   })
 }
 
-function addVar() {
+async function addVar() {
   if (isEnvLocked.value) return
-  const id = envStore.addVar(envId.value, { name: '', value: '' })
+  const id = await envStore.addVar(envId.value, { name: '', value: '' })
   const created = vars.value.find((v) => v.id === id)
   if (created) startEdit(created, 'name')
 }
 
 function removeVar(v: Variable) {
   if (isEnvLocked.value) return
-  envStore.removeVar(envId.value, v.id)
+  void envStore.removeVar(envId.value, v.id)
 }
 
 function toggleKind(v: Variable) {
   if (isEnvLocked.value) return
-  envStore.updateVar(envId.value, v.id, { kind: v.kind === 'secret' ? 'text' : 'secret' })
+  const next = v.kind === VariableKind.VariableSecret ? VariableKind.VariableText : VariableKind.VariableSecret
+  void envStore.updateVar(envId.value, v.id, { kind: next })
 }
 
 function cancelTop(): boolean {
@@ -191,21 +195,21 @@ defineExpose({ cancelTop })
       <span class="toolbar-spacer"></span>
       <Button
         v-if="isEnvLocked"
-        title="Окружение только для чтения"
+        :title="t('environments.locked')"
         @click="envStore.unlock(envStore.editedEnvId as string)"
       >
-        Разблокировать
+        {{ t('environments.unlock') }}
       </Button>
       <div class="filter">
         <Icon name="search" :size="12" />
-        <Input v-model="filter" variant="bare" size="sm" class="flex-1 min-w-0" placeholder="Фильтр по имени" spellcheck="false" />
+        <Input v-model="filter" variant="bare" size="sm" class="flex-1 min-w-0" :placeholder="t('environments.filterByName')" spellcheck="false" />
       </div>
     </div>
 
     <div class="table-head">
-      <div>Переменная</div>
-      <div>Значение</div>
-      <div>Тип</div>
+      <div>{{ t('environments.variable') }}</div>
+      <div>{{ t('environments.value') }}</div>
+      <div>{{ t('environments.kind') }}</div>
       <div></div>
     </div>
 
@@ -244,12 +248,12 @@ defineExpose({ cancelTop })
           />
           <template v-else>
             <span class="cell-text mono" :class="{ masked: isSecretMasked(v) }">{{
-              displayValue(v, envId)
+              displayValue(v)
             }}</span>
             <IconButton
-              v-if="v.kind === 'secret'"
+              v-if="v.kind === VariableKind.VariableSecret"
               size="sm"
-              :hint="isRevealed(v) ? 'Скрыть значение' : 'Показать значение'"
+              :hint="isRevealed(v) ? t('environments.hideValue') : t('environments.showValue')"
               @click.stop="toggleReveal(v)"
             >
               <Icon :name="isRevealed(v) ? 'eye-off' : 'eye'" :size="13" />
@@ -258,44 +262,44 @@ defineExpose({ cancelTop })
         </div>
 
         <div class="cell">
-          <span v-if="isGlobals" class="tag tag-global">глобальная</span>
+          <span v-if="isGlobals" class="tag tag-global">{{ t('environments.global') }}</span>
           <button
             v-else
             class="tag"
-            :class="v.kind === 'secret' ? 'tag-secret' : 'tag-text'"
+            :class="v.kind === VariableKind.VariableSecret ? 'tag-secret' : 'tag-text'"
             :disabled="isEnvLocked"
-            :title="isEnvLocked ? 'Окружение только для чтения' : 'Переключить тип'"
+            :title="isEnvLocked ? t('environments.locked') : t('environments.toggleKind')"
             @click="toggleKind(v)"
           >
-            {{ v.kind === 'secret' ? 'секрет' : 'текст' }}
+            {{ v.kind === VariableKind.VariableSecret ? t('environments.secret') : t('environments.text') }}
           </button>
         </div>
 
         <div class="cell cell-action">
-          <IconButton v-if="!isEnvLocked" variant="danger" size="sm" hint="Удалить" @click="removeVar(v)">
+          <IconButton v-if="!isEnvLocked" variant="danger" size="sm" :hint="t('common.delete')" @click="removeVar(v)">
             <Icon name="trash" :size="13" />
           </IconButton>
         </div>
       </div>
 
       <div v-if="filteredOwn.length === 0 && !isGlobals" class="table-empty">
-        {{ vars.length === 0 ? 'Своих переменных пока нет' : 'Ничего не найдено' }}
+        {{ vars.length === 0 ? t('environments.noOwnVars') : t('common.nothingFound') }}
       </div>
       <div v-else-if="filteredOwn.length === 0" class="table-empty">
-        {{ vars.length === 0 ? 'Переменных пока нет' : 'Ничего не найдено' }}
+        {{ vars.length === 0 ? t('environments.noVars') : t('common.nothingFound') }}
       </div>
 
       <button class="new-row" :disabled="isEnvLocked" @click="addVar">
-        <Icon name="plus" :size="13" />
-        <span>Новая переменная</span>
+        <Icon name="plus" :size="16" />
+        <span>{{ t('environments.newVariable') }}</span>
       </button>
 
       <!-- Inherited globals shown inline, so nobody has to guess where a variable came from. -->
       <template v-if="filteredInherited.length">
         <div class="group-head">
-          <span class="group-title">Наследуется из глобальных</span>
+          <span class="group-title">{{ t('environments.inheritedFromGlobals') }}</span>
           <span class="group-count mono">{{ filteredInherited.length }}</span>
-          <span class="group-hint">действуют во всех окружениях</span>
+          <span class="group-hint">{{ t('environments.applyEverywhere') }}</span>
         </div>
         <div
           v-for="g in filteredInherited"
@@ -304,28 +308,28 @@ defineExpose({ cancelTop })
           :class="{ overridden: g.overridden, flash: flashId === g.id }"
           role="button"
           tabindex="0"
-          title="Перейти к переменной в «Глобальных»"
+          :title="t('environments.goToGlobal')"
           @click="openGlobal(g)"
           @keydown.enter="openGlobal(g)"
         >
           <div class="cell cell-name">
             <Icon name="inherit" :size="11" class="inherit-icon" />
-            <span class="cell-text mono" :title="g.overridden ? 'Перекрыта переменной окружения' : g.name">{{
+            <span class="cell-text mono" :title="g.overridden ? t('environments.overridden') : g.name">{{
               g.name
             }}</span>
           </div>
           <div class="cell cell-value">
-            <span class="cell-text mono">{{ displayValue(g, null) }}</span>
+            <span class="cell-text mono">{{ displayValue(g) }}</span>
           </div>
           <div class="cell">
-            <span v-if="g.overridden" class="tag tag-overridden">перекрыта</span>
-            <span v-else class="tag tag-global">глобальная</span>
+            <span v-if="g.overridden" class="tag tag-overridden">{{ t('environments.overriddenShort') }}</span>
+            <span v-else class="tag tag-global">{{ t('environments.global') }}</span>
           </div>
           <div class="cell cell-action">
             <IconButton
               v-if="!isEnvLocked"
               size="sm"
-              hint="Править глобальную переменную"
+              :hint="t('environments.editGlobal')"
               @click.stop="openGlobal(g, true)"
             >
               <Icon name="pencil" :size="13" />
@@ -337,10 +341,7 @@ defineExpose({ cancelTop })
 
     <div class="sheet-foot">
       <span v-if="notice" class="foot-error">{{ notice }}</span>
-      <span v-else-if="!envStore.isKeychainAvailable" class="foot-warn">
-        Связка ключей недоступна — секреты не сохранятся после выхода
-      </span>
-      <span v-else>Секреты хранятся в связке ключей macOS и не попадают в экспорт коллекции</span>
+      <span v-else>{{ t('environments.secretsNote') }}</span>
     </div>
   </div>
 </template>

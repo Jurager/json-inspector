@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import Icon from '../ui/Icon.vue'
+import { useMessages } from '../../i18n'
 import {
   relIdentifiers,
   resourceKey,
@@ -22,6 +23,8 @@ const emit = defineEmits<{
   (e: 'inspect'): void
 }>()
 
+const { t } = useMessages()
+
 const targets = computed(() => relIdentifiers(props.rel))
 
 function labelFor(type: string, id: string): string {
@@ -41,16 +44,16 @@ function onFetch(url: string) {
 </script>
 
 <template>
-  <span v-if="targets.length === 0" class="rel-chip-empty">пусто</span>
+  <span v-if="targets.length === 0" class="rel-chip-empty">{{ t('json.empty') }}</span>
   <span v-else class="ja-rel-targets">
-    <template v-for="(t, i) in targets" :key="i">
+    <template v-for="(target, i) in targets" :key="i">
       <button
-        v-if="resourceIndex.has(resourceKey(t.type, t.id))"
+        v-if="resourceIndex.has(resourceKey(target.type, target.id))"
         class="rel-chip in-doc"
-        :title="resourceKey(t.type, t.id)"
-        @click="onJump(resourceKey(t.type, t.id))"
+        :title="resourceKey(target.type, target.id)"
+        @click="onJump(resourceKey(target.type, target.id))"
       >
-        {{ labelFor(t.type, t.id) }}
+        {{ labelFor(target.type, target.id) }}
       </button>
       <button
         v-else-if="linkHref(rel.links?.related)"
@@ -58,10 +61,10 @@ function onFetch(url: string) {
         :title="`fetch ${linkHref(rel.links?.related)}`"
         @click="onFetch(linkHref(rel.links?.related))"
       >
-        {{ t.type }}/{{ t.id }}<Icon name="arrow-up-right" :size="12" />
+        {{ target.type }}/{{ target.id }}<Icon name="arrow-up-right" :size="12" />
       </button>
-      <span v-else class="rel-chip missing" :title="'не включён в документ'">
-        {{ t.type }}/{{ t.id }}
+      <span v-else class="rel-chip missing" :title="t('json.notIncluded')">
+        {{ target.type }}/{{ target.id }}
       </span>
     </template>
   </span>

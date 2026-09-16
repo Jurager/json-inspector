@@ -1,17 +1,20 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
-import { App as Backend } from '../../../bindings/json-inspector'
+import { BridgeService } from '../../../bindings/json-inspector/internal/transport/wails'
 import { Browser } from '@wailsio/runtime'
 import { useRequestsStore } from '../../stores/requests'
 import { Button } from '../ui/button'
+import { useMessages } from '../../i18n'
 
 const store = useRequestsStore()
+
+const { t } = useMessages()
 
 const port = ref('')
 
 onMounted(async () => {
   try {
-    port.value = String(await Backend.BridgePort())
+    port.value = String(await BridgeService.Port())
   } catch {
     // Runtime not ready yet.
   }
@@ -20,8 +23,8 @@ onMounted(async () => {
 const statusText = computed(() => {
   const p = port.value || '…'
   return store.capture.connected
-    ? `Расширение подключено · порт ${p} слушает`
-    : `Расширение не найдено · порт ${p} слушает`
+    ? t('browser.connected', { port: p })
+    : t('browser.notFound', { port: p })
 })
 
 function openInstructions() {
@@ -33,27 +36,27 @@ function openInstructions() {
   <div class="browser-empty">
     <div class="empty-box">
       <div class="empty-head">
-        <div class="empty-title">Подключите расширение, чтобы видеть запросы браузера</div>
-        <div class="empty-subtitle">Перехваченные запросы появятся здесь автоматически.</div>
+        <div class="empty-title">{{ t('browser.connectHint') }}</div>
+        <div class="empty-subtitle">{{ t('browser.appearHere') }}</div>
       </div>
 
       <div class="steps">
         <div class="step">
           <span class="step-num">1</span>
-          <span class="step-text">Установите расширение из папки <span class="step-code">extension/</span> в режиме разработчика.</span>
+          <span class="step-text">{{ t('browser.installFrom') }} <span class="step-code">extension/</span> {{ t('browser.inDeveloperMode') }}</span>
         </div>
         <div class="step">
           <span class="step-num">2</span>
-          <span class="step-text">Откройте нужную вкладку и включите «Перехватывать эту вкладку» в попапе.</span>
+          <span class="step-text">{{ t('browser.openTab') }}</span>
         </div>
         <div class="step">
           <span class="step-num">3</span>
-          <span class="step-text">Вернитесь сюда — вкладка появится в списке слева как отдельная группа.</span>
+          <span class="step-text">{{ t('browser.comeBack') }}</span>
         </div>
       </div>
 
       <div class="empty-actions">
-        <Button variant="primary" @click="openInstructions">Открыть инструкцию</Button>
+        <Button variant="primary" @click="openInstructions">{{ t('browser.openGuide') }}</Button>
         <span class="status-line">
           <span class="dot" :class="store.capture.connected ? 'dot-green' : 'dot-orange'"></span>
           <span>{{ statusText }}</span>

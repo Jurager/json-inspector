@@ -1,0 +1,45 @@
+//go:build !darwin && !windows
+
+package updater
+
+import (
+	"fmt"
+	"os"
+	"path/filepath"
+	"syscall"
+
+	"json-inspector/internal/platform"
+)
+
+func swapAndRelaunch(archivePath string) error {
+	exe, err := os.Executable()
+	if err != nil {
+		return err
+	}
+	if resolved, err := filepath.EvalSymlinks(exe); err == nil {
+		exe = resolved
+	}
+
+	dir, err := os.MkdirTemp(filepath.Dir(exe), ".ji-update-*")
+	if err != nil {
+		return err
+	}
+	defer os.RemoveAll(dir)
+
+	if err := extractTarGz(archivePath, dir); err != nil {
+		return fmt.Errorf("extracting update: %w", err)
+	}
+	newExe := filepath.Join(dir, platform.Slug)
+	if _, err := os.Stat(newExe); err != nil {
+		return fmt.Errorf("archive does not contain %s", platform.Slug)
+	}
+	if err := os.Chmod(newExe, 0o755); err != nil {
+		return err
+	}
+
+	if err := os.Rename(newExe, exe); err != nil {
+		return fmt.Errorf("could not replace %s: %w", exe, err)
+	}
+
+	return syscall.Exec(exe, os.Args, os.Environ())
+}

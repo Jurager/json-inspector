@@ -5,39 +5,105 @@ import VarToken from '../ui/VarToken.vue'
 import { PopoverContent } from '../ui/popover'
 import { Button, IconButton } from '../ui/button'
 import { Checkbox } from '../ui/checkbox'
+import ScriptsFields from './ScriptsFields.vue'
+import BodyFields from './BodyFields.vue'
+import AuthFields from './AuthFields.vue'
+import DerivedRow from './DerivedRow.vue'
+import AuthTypeSwitch from './AuthTypeSwitch.vue'
 import { useRequestsStore } from '../../stores/requests'
+import { useCollectionsStore } from '../../stores/collections'
+import { useAuthSchemes } from '../../composables/useAuthSchemes'
+import type { ChipName, RequestSource } from '../../lib/requestSource'
 import { parseTokens, tokenSegments } from '../../lib/vars'
+import { useMessages, formatCheckedAt } from '../../i18n'
+import { DraftID, RowKind, type Auth } from '../../../bindings/json-inspector/internal/domain'
 
-const props = defineProps<{ chip: 'params' | 'headers' | 'auth' | 'body' }>()
+const props = defineProps<{ chip: ChipName; source?: RequestSource }>()
 
-const store = useRequestsStore()
+const { t } = useMessages()
 
-const title = computed(() => {
-  switch (props.chip) {
-    case 'params':
-      return 'Параметры запроса'
-    case 'headers':
-      return 'Заголовки'
-    case 'auth':
-      return 'Авторизация'
-    case 'body':
-      return 'Тело запроса'
-  }
+const requests = useRequestsStore()
+const collections = useCollectionsStore()
+const store: RequestSource = props.source ?? requests
+
+const title = computed(() => t(`request.chips.${props.chip}`))
+
+// Where the code sits in the order, in one line. On the command line there is no collection above the
+// request, so the sentence the design gives the card would be saying something untrue there.
+const scriptsNote = computed(() =>
+  store.scriptsLevel === DraftID.DraftCommandLine
+    ? t('request.scriptsNoteCommandLine')
+    : t('request.scriptsNoteCollection')
+)
+
+const { schemeOf } = useAuthSchemes()
+
+// The scheme the request is authorized with, as Go describes it: which fields to ask for and how to
+// draw them. A card inside a collection may also choose «Наследовать» — the request is one node of a
+// tree, and Go offers that scheme only where there is a level above it.
+const scheme = computed(() => schemeOf(store.auth.type))
+
+// What the level above answers, said in one line: a choice whose meaning is invisible is a choice
+// nobody makes.
+const inheritedLabel = computed(() => {
+  const auth = store.inheritedAuth
+  if (!auth) return t('request.inheritedNothing')
+  const above = schemeOf(auth.type)
+  const kind = above ? t(above.label) : auth.type
+  // The one answer worth repeating is the one that is not a secret: a token is masked in the copy
+  // that outlives the send, and the window is not the side that gets to see it.
+  return t('request.inherited', { kind })
 })
-
-const isBodyDisabled = computed(() => store.draft.method === 'GET' || store.draft.method === 'HEAD')
-
-const AUTH_TYPES = ['none', 'bearer', 'basic', 'oauth2'] as const
-const AUTH_LABELS: Record<string, string> = { none: 'Нет', bearer: 'Bearer', basic: 'Basic', oauth2: 'OAuth 2' }
-
-// The pill moves one segment (+ the 2px gap) per step, animated by a CSS transition on transform.
-const activeAuthIndex = computed(() => AUTH_TYPES.indexOf(store.draft.auth.type))
-const authIndicatorStyle = computed(() => ({
-  transform: `translateX(calc(${activeAuthIndex.value} * (100% + 2px)))`,
-}))
 
 function dismiss() {
   store.setOpenChip(null)
+}
+
+// The scheme is a click, so it is written at once. The answers travel with it rather than being
+// cleared: each scheme keeps its own, so going to look at Basic and coming back finds the token
+// still there — and clicking the scheme already in use is not an answer to anything.
+function selectAuth(type: Auth['type']) {
+  if (type === store.auth.type) return
+  void store.setAuth({ ...store.auth, type })
+}
+
+function setField(key: string, value: string) {
+  void store.setAuth({ ...store.auth, fields: { ...store.auth.fields, [key]: value } })
+}
+
+// What the token block says. A provider that named no expiry never expires to this window's
+// knowledge, and saying "получен" is more honest than inventing a time for it.
+const tokenState = computed(() => {
+  if (!store.token?.held) return t('request.auth.noToken')
+  if (!store.token.expiresAt) return t('request.auth.tokenHeld')
+  return t('request.auth.tokenUntil', { at: formatCheckedAt(store.token.expiresAt) })
+})
+
+// A row edit goes straight over: the rows are Go's, and the answer is what the popover draws.
+function patch(kind: RowKind, id: string, patch: { name?: string; value?: string }) {
+  void store.patchRow(kind, id, patch)
+}
+
+function toggle(kind: RowKind, id: string, enabled: boolean) {
+  void store.toggleRow(kind, id, enabled)
+}
+
+function remove(kind: RowKind, id: string) {
+  void store.removeRow(kind, id)
+}
+
+// The rows the authorization put in the list, kept apart from the ones a person wrote: they are
+// drawn after them, and they are edited through the scheme's fields rather than as rows.
+function projected(kind: RowKind) {
+  return store.projected.filter((row) => row.target === kind)
+}
+
+function patchDerived(target: RowKind, name: string, value: string) {
+  void store.patchDerived(target, name, value)
+}
+
+function removeDerived() {
+  void store.removeDerived()
 }
 
 // A chip button sits outside the popover's own content, so clicking it — even the one already
@@ -73,30 +139,34 @@ function valueClass(v: string): string {
 <template>
   <PopoverContent
     class="chip-popover"
-    :class="{ auth: props.chip === 'auth', spaced: props.chip === 'auth' || props.chip === 'body' }"
+    :class="{
+      auth: props.chip === 'auth',
+      spaced: props.chip === 'auth' || props.chip === 'body' || props.chip === 'scripts',
+      wide: props.chip === 'body',
+    }"
     align="end"
     :side-offset="6"
     @interact-outside="onInteractOutside"
   >
     <div class="popover-head">
       <span class="popover-title">{{ title }}</span>
-      <IconButton hint="Закрыть (Esc)" size="sm" @click="dismiss"><Icon name="xmark" :size="13" /></IconButton>
+      <IconButton :hint="t('common.close')" size="sm" @click="dismiss"><Icon name="xmark" :size="13" /></IconButton>
     </div>
 
     <template v-if="props.chip === 'params' || props.chip === 'headers'">
       <template v-if="props.chip === 'params'">
         <TransitionGroup tag="div" name="row" class="rows">
-          <div v-for="(p, i) in store.draft.params" :key="i" class="row" :class="{ off: !p.enabled }">
-            <Checkbox :model-value="p.enabled" @update:model-value="store.toggleParam(i)" @click.stop />
-            <input :value="p.name" class="row-input mono" placeholder="имя" spellcheck="false" @input="store.updateParam(i, { name: ($event.target as HTMLInputElement).value })" />
+          <div v-for="p in store.params" :key="p.id" class="row" :class="{ off: !p.enabled }">
+            <Checkbox :model-value="p.enabled" @update:model-value="toggle(RowKind.RowParams, p.id, $event)" @click.stop />
+            <input :value="p.name" class="row-input mono" :placeholder="t('request.placeholderName')" spellcheck="false" @input="patch(RowKind.RowParams, p.id, { name: ($event.target as HTMLInputElement).value })" />
             <div class="row-cell">
               <input
                 :value="p.value"
                 class="row-input mono"
                 :class="[valueClass(p.value), { 'row-input-veiled': hasTokens(p.value) }]"
-                placeholder="значение"
+                :placeholder="t('request.placeholderValue')"
                 spellcheck="false"
-                @input="store.updateParam(i, { value: ($event.target as HTMLInputElement).value }); syncCellScroll($event)"
+                @input="patch(RowKind.RowParams, p.id, { value: ($event.target as HTMLInputElement).value }); syncCellScroll($event)"
                 @scroll="syncCellScroll"
               />
               <span
@@ -111,20 +181,30 @@ function valueClass(v: string): string {
                 </template>
               </span>
             </div>
-            <IconButton variant="danger" size="sm" hint="Удалить" @click.stop="store.removeParam(i)"><Icon name="xmark" :size="12" /></IconButton>
+            <IconButton variant="danger" size="sm" :hint="t('common.delete')" @click.stop="remove(RowKind.RowParams, p.id)"><Icon name="trash" :size="13" /></IconButton>
           </div>
         </TransitionGroup>
+        <DerivedRow
+          v-for="row in projected(RowKind.RowParams)"
+          :key="row.name"
+          :row="row"
+          @patch="patchDerived"
+          @remove="removeDerived"
+        />
         <div class="popover-foot">
-          <Button variant="ghost" size="sm" @click="store.addParam()">+ Параметр</Button>
-          <span class="foot-hint">Выключенные не уходят в запрос</span>
+          <Button variant="ghost" size="sm" @click="store.addRow(RowKind.RowParams)">
+            <Icon name="plus" :size="16" />
+            <span>{{ t('request.addParameter') }}</span>
+          </Button>
+          <span class="foot-hint">{{ t('request.paramsFoot') }}</span>
         </div>
       </template>
 
       <template v-else>
         <TransitionGroup tag="div" name="row" class="rows">
-          <div v-for="(h, i) in store.draft.headers" :key="i" class="row" :class="{ off: !h.enabled }">
-            <Checkbox :model-value="h.enabled" @update:model-value="store.toggleHeader(i)" @click.stop />
-            <input :value="h.name" class="row-input mono" placeholder="Header" spellcheck="false" @input="store.updateHeader(i, { name: ($event.target as HTMLInputElement).value })" />
+          <div v-for="h in store.headers" :key="h.id" class="row" :class="{ off: !h.enabled }">
+            <Checkbox :model-value="h.enabled" @update:model-value="toggle(RowKind.RowHeaders, h.id, $event)" @click.stop />
+            <input :value="h.name" class="row-input mono" placeholder="Header" spellcheck="false" @input="patch(RowKind.RowHeaders, h.id, { name: ($event.target as HTMLInputElement).value })" />
             <div class="row-cell">
               <input
                 :value="h.value"
@@ -132,7 +212,7 @@ function valueClass(v: string): string {
                 :class="[valueClass(h.value), { 'row-input-veiled': hasTokens(h.value) }]"
                 placeholder="Value"
                 spellcheck="false"
-                @input="store.updateHeader(i, { value: ($event.target as HTMLInputElement).value }); syncCellScroll($event)"
+                @input="patch(RowKind.RowHeaders, h.id, { value: ($event.target as HTMLInputElement).value }); syncCellScroll($event)"
                 @scroll="syncCellScroll"
               />
               <span
@@ -147,48 +227,68 @@ function valueClass(v: string): string {
                 </template>
               </span>
             </div>
-            <IconButton variant="danger" size="sm" hint="Удалить" @click.stop="store.removeHeader(i)"><Icon name="xmark" :size="12" /></IconButton>
+            <IconButton variant="danger" size="sm" :hint="t('common.delete')" @click.stop="remove(RowKind.RowHeaders, h.id)"><Icon name="trash" :size="13" /></IconButton>
           </div>
         </TransitionGroup>
+        <DerivedRow
+          v-for="row in projected(RowKind.RowHeaders)"
+          :key="row.name"
+          :row="row"
+          @patch="patchDerived"
+          @remove="removeDerived"
+        />
         <div class="popover-foot">
-          <Button variant="ghost" size="sm" @click="store.addHeader()">+ Заголовок</Button>
-          <span class="foot-hint">Accept подставлен по умолчанию</span>
+          <Button variant="ghost" size="sm" @click="store.addRow(RowKind.RowHeaders)">
+            <Icon name="plus" :size="16" />
+            <span>{{ t('request.addHeader') }}</span>
+          </Button>
+          <span class="foot-hint">{{ t('request.headersFoot') }}</span>
         </div>
       </template>
     </template>
 
     <template v-else-if="props.chip === 'auth'">
-      <div class="segmented">
-        <span class="seg-indicator" :style="authIndicatorStyle"></span>
-        <button
-          v-for="t in AUTH_TYPES"
-          :key="t"
-          class="seg"
-          :class="{ active: store.draft.auth.type === t }"
-          @click="store.draft.auth.type = t"
-        >
-          {{ AUTH_LABELS[t] }}
-        </button>
+      <AuthTypeSwitch :can-inherit="store.canInherit" :value="store.auth.type" @select="selectAuth" />
+
+      <div class="auth-body">
+        <!-- «Нет» and «Наследовать» ask for nothing and say what they mean instead. So does a scheme
+             whose working is invisible until the server answers it. -->
+        <p v-if="scheme?.note" class="hint">{{ t(scheme.note) }}</p>
+        <AuthFields
+          v-if="scheme?.fields?.length"
+          :scheme="scheme"
+          :auth="store.auth"
+          @update="setField"
+        />
+        <!-- The part of an authorization that is not a field: a token somebody else issues, and the
+             two things a person can do about it. It is drawn where the scheme says it fetches, so a
+             scheme that carries what the user typed gets no block saying there is no token. -->
+        <div v-if="scheme?.fetches && store.token" class="token">
+          <div class="token-state">
+            <Icon name="lock" :size="13" />
+            <span>{{ tokenState }}</span>
+          </div>
+          <div class="token-actions">
+            <Button variant="primary" size="sm" @click="store.obtainAuth()">
+              {{ t('request.auth.obtain') }}
+            </Button>
+            <Button variant="outline" size="sm" :disabled="!store.token.held" @click="store.forgetAuth()">
+              {{ t('request.auth.forget') }}
+            </Button>
+          </div>
+        </div>
+        <p v-if="store.auth.type === 'inherit'" class="hint">{{ inheritedLabel }}</p>
       </div>
-      <input
-        v-if="store.draft.auth.type !== 'none'"
-        v-model="store.draft.auth.token"
-        class="row-input mono"
-        placeholder="Токен"
-        spellcheck="false"
-      />
-      <div class="hint">Значение можно взять из окружения — переменные подставляются в URL, заголовки и тело.</div>
+
+      <div class="auth-foot">{{ t('request.auth.foot') }}</div>
+    </template>
+
+    <template v-else-if="props.chip === 'scripts'">
+      <ScriptsFields :source="store" :note="scriptsNote" compact />
     </template>
 
     <template v-else>
-      <textarea
-        v-if="!isBodyDisabled"
-        v-model="store.draft.body"
-        class="body-area mono"
-        placeholder="{ ... JSON body ... }"
-        spellcheck="false"
-      ></textarea>
-      <div v-else class="body-area body-disabled">{{ store.draft.method }} не отправляет тело</div>
+      <BodyFields :source="store" />
     </template>
   </PopoverContent>
 </template>
@@ -272,63 +372,29 @@ function valueClass(v: string): string {
   color: var(--tok-num);
 }
 
-.popover-foot {
-  @apply flex items-center justify-between pt-2 pb-0.5 mt-1 border-t border-border px-1;
-}
-
-.foot-hint {
-  @apply text-[11px] text-text-tertiary;
-}
-
 .hint {
   color: var(--text-tertiary);
   font-size: 11.5px;
-  line-height: 1.45;
+  line-height: 1.5;
   padding: 0 4px 2px;
 }
 
-.segmented {
-  @apply relative flex gap-0.5 p-0.5 bg-bg-inset;
-  border-radius: 7px;
+/* The part of an authorization that is not a field. It is a block of its own rather than a row of
+   the form because it is not an answer the user gives: it is what came back when they asked. */
+.token {
+  @apply flex flex-col gap-2 p-2.5 rounded-lg bg-bg-inset border border-border;
 }
 
-.seg-indicator {
-  @apply absolute top-0.5 bottom-0.5 left-0.5 bg-bg-panel;
-  border-radius: 5px;
-  width: calc((100% - 10px) / 4);
-  transition: transform 0.18s cubic-bezier(0.4, 0, 0.2, 1);
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.18), 0 0 0 0.5px var(--border-strong);
+.token-state {
+  @apply flex items-center gap-1.5 text-[11.5px] text-text-secondary;
 }
 
-.seg {
-  @apply relative flex-1 text-center text-xs py-1 border-none bg-transparent text-text-secondary cursor-pointer;
-  border-radius: 5px;
-  transition: color 0.18s ease;
+.token-state svg {
+  @apply flex-none;
 }
 
-.seg.active {
-  @apply font-medium text-text;
+.token-actions {
+  @apply flex gap-1.5;
 }
 
-.body-area {
-  @apply w-full text-xs outline-none select-text;
-  font-family: var(--mono);
-  height: 132px;
-  border-radius: 8px;
-  padding: 8px 10px;
-  background: var(--bg-inset);
-  border: 1px solid var(--border);
-  color: var(--text);
-  resize: vertical;
-}
-
-.body-area:focus {
-  border-color: var(--accent);
-  box-shadow: 0 0 0 3px var(--accent-soft);
-}
-
-.body-disabled {
-  color: var(--text-tertiary);
-  resize: none;
-}
 </style>

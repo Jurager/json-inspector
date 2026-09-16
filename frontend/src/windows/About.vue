@@ -1,16 +1,15 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 import { Window } from '@wailsio/runtime'
-import { App as Backend } from '../../bindings/json-inspector'
+import { SystemService } from '../../bindings/json-inspector/internal/transport/wails'
 import { usePlatform } from '../composables/usePlatform'
-import { useUpdateCheck } from '../composables/useUpdateCheck'
-import { Button } from '../components/ui/button'
-import Icon from '../components/ui/Icon.vue'
-import { formatCheckedAt, formatVersion } from '../lib/format'
+import UpdateCheck from '../components/update/UpdateCheck.vue'
+import { useMessages } from '../i18n'
+import { formatVersion } from '../lib/format'
 import logoUrl from '../assets/logo.svg'
 
+const { t } = useMessages()
 const { customTitlebar } = usePlatform()
-const { phase, latest, checkedAt, error, check, install } = useUpdateCheck()
 
 const version = ref('')
 const build = ref('')
@@ -22,34 +21,17 @@ const versionLabel = computed(() => {
   return build.value ? `${v} (${build.value})` : v
 })
 
-const buttonLabel = computed(() => {
-  switch (phase.value) {
-    case 'checking':
-      return 'Проверяем…'
-    case 'installing':
-      return 'Обновление…'
-    case 'available':
-      return 'Обновить'
-    case 'uptodate':
-    case 'error':
-      return 'Проверить снова'
-    default:
-      return 'Проверить обновления'
-  }
-})
-
-const busy = computed(() => phase.value === 'checking' || phase.value === 'installing')
-
-const act = computed(() => (phase.value === 'available' ? install : check))
-
 onMounted(async () => {
+  // The title bar this window draws is ours, but the taskbar reads the platform's name for it — and
+  // that one is a word, so it comes from the catalogue rather than from Go.
+  void Window.SetTitle(t('about.title'))
   // Cosmetic fields: a failed call just leaves them blank.
   try {
-    version.value = (await Backend.Version()) ?? ''
-    build.value = (await Backend.Build()) ?? ''
+    version.value = (await SystemService.Version()) ?? ''
+    build.value = (await SystemService.Build()) ?? ''
   } catch {}
   try {
-    appName.value = (await Backend.Name()) ?? ''
+    appName.value = (await SystemService.Name()) ?? ''
   } catch {}
 })
 </script>
@@ -57,8 +39,8 @@ onMounted(async () => {
 <template>
   <div class="about-window" :class="{ 'about-window-mac': !customTitlebar }">
     <header v-if="customTitlebar" class="about-bar">
-      <span class="about-bar-title">О программе</span>
-      <button class="cap-btn cap-close" title="Закрыть" @click="Window.Close()">
+      <span class="about-bar-title">{{ t('about.title') }}</span>
+      <button class="cap-btn cap-close" :title="t('common.close')" @click="Window.Close()">
         <span class="cap-icon cap-icon-close">
           <span class="cap-icon-close-bar cap-icon-close-bar-1"></span>
           <span class="cap-icon-close-bar cap-icon-close-bar-2"></span>
@@ -69,31 +51,15 @@ onMounted(async () => {
     <div class="about-body">
       <img class="about-icon" :src="logoUrl" :alt="appName" draggable="false" />
       <div class="about-name">{{ appName }}</div>
-      <div class="about-version">Версия {{ versionLabel || '…' }}</div>
+      <div class="about-version">{{ t('about.version', { version: versionLabel || '…' }) }}</div>
 
-      <Button class="about-check" variant="primary" size="lg" :disabled="busy" @click="act">
-        <span v-if="busy" class="about-spinner"></span>
-        {{ buttonLabel }}
-      </Button>
-
-      <div class="about-status">
-        <template v-if="phase === 'uptodate'">
-          <span class="about-ok">
-            <Icon name="check" :size="13" :stroke-width="2.4" />
-            <span>Установлена последняя версия</span>
-          </span>
-        </template>
-        <template v-else-if="phase === 'checking'">Проверяем обновления…</template>
-        <template v-else-if="phase === 'installing'">Скачиваем и проверяем…</template>
-        <template v-else-if="phase === 'available'">Доступна версия {{ formatVersion(latest) }}</template>
-        <template v-else-if="phase === 'error'">
-          <span class="about-error">{{ error }}</span>
-        </template>
-        <template v-else>Последняя проверка: {{ formatCheckedAt(checkedAt) }}</template>
-      </div>
+      <UpdateCheck />
 
       <div class="about-divider"></div>
-      <div class="about-copy">© {{ year }} {{ appName || 'JSON Inspector' }}.<br />Все права защищены.</div>
+      <div class="about-copy">
+        {{ t('about.copyright', { year, name: appName || 'JSON Inspector' }) }}<br />
+        {{ t('about.rights') }}
+      </div>
     </div>
   </div>
 </template>
@@ -111,8 +77,15 @@ onMounted(async () => {
   padding-top: 50px;
 }
 
+/* Where the bar is ours the title reads from the left, as the main window's does and as the platform
+   puts it; the design centres it because it draws macOS, where this bar is not drawn at all and the
+   system writes the title itself. The inset is the main titlebar's own `px-3`, so the two rows start
+   at the same place. */
 .about-bar {
-  @apply relative flex-none h-13 flex items-center justify-center bg-bg-sidebar border-b border-border;
+  @apply relative flex-none h-13 flex items-center justify-start px-3;
+  border-bottom: 1px solid var(--glass-chrome-border);
+  background: var(--glass-chrome);
+  backdrop-filter: var(--blur-chrome);
   --wails-draggable: drag;
 }
 
@@ -143,30 +116,6 @@ onMounted(async () => {
 
 .about-version {
   @apply font-mono text-xs text-text-tertiary tabular-nums mb-[18px];
-}
-
-.about-check {
-  @apply min-w-[186px];
-}
-
-/* White on the accent button, where the app's own `.spinner` (accent ring) would vanish. */
-.about-spinner {
-  @apply w-[13px] h-[13px] rounded-full inline-block mr-1.5;
-  border: 2px solid rgba(255, 255, 255, 0.45);
-  border-top-color: #fff;
-  animation: spin 0.7s linear infinite;
-}
-
-.about-status {
-  @apply h-7 mt-3 flex items-center justify-center text-xs text-text-tertiary;
-}
-
-.about-ok {
-  @apply inline-flex items-center gap-[5px] text-green font-medium;
-}
-
-.about-error {
-  @apply text-red;
 }
 
 .about-divider {

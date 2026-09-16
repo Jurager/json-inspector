@@ -1,4 +1,5 @@
-import type { RequestRecord } from './requestRecord'
+import type { IngestInput } from '../../bindings/json-inspector/internal/usecase/record'
+import { RecordSource } from '../../bindings/json-inspector/internal/domain'
 
 export const SAMPLE_JSON_API = `{
   "jsonapi": { "version": "1.0" },
@@ -65,18 +66,20 @@ export const SAMPLE_JSON_API = `{
   ]
 }`
 
-export function buildSampleRecord(): Omit<RequestRecord, 'id' | 'startedAt'> {
+// The record the rail's "Загрузить образец" hands to Go. It is a request that was never sent, which
+// is why it goes in as an ingest rather than as an attempt: history does not care which it was.
+export function buildSampleRecord(): IngestInput {
   return {
+    source: RecordSource.SourceManual,
     method: 'GET',
     url: 'http://example.com/articles?include=author,comments',
-    requestHeaders: { Accept: 'application/vnd.api+json' },
+    requestHeaders: [{ name: 'Accept', value: 'application/vnd.api+json' }],
     requestBody: '',
     status: 200,
     statusText: '200 OK',
-    responseHeaders: { 'Content-Type': 'application/vnd.api+json' },
+    responseHeaders: [{ name: 'Content-Type', value: 'application/vnd.api+json' }],
     responseBody: SAMPLE_JSON_API,
     durationMs: 128,
     contentType: 'application/vnd.api+json',
-    source: 'manual',
   }
 }

@@ -1,0 +1,46 @@
+package wails
+
+import (
+	"context"
+
+	"json-inspector/internal/domain"
+	"json-inspector/internal/usecase/draft"
+	"json-inspector/internal/usecase/record"
+)
+
+// requestMask is a request seen the way everything that outlives the send sees it: with a secret's
+// value left as its mask. A pre-request script may have changed the request, and masking that text
+// happens in the feature that owns the values — so the composition asks it again, once, for the
+// request that actually goes out.
+type requestMask struct {
+	drafts *draft.UseCase
+}
+
+var _ record.Masker = requestMask{}
+
+// Mask re-renders a request a script changed. The URL and the headers come from the script's
+// answer, because those are what it rewrote; the body is rendered again from what the prepared
+// attempt is made of, because a form and a file are not text a script could have handed back.
+func (m requestMask) Mask(
+	ctx context.Context,
+	in record.SendInput,
+	sent domain.ScriptRequest,
+) (record.Masked, error) {
+	prepared, err := m.drafts.Prepare(ctx, draft.Seed{
+		Method:   sent.Method,
+		URL:      sent.URL,
+		Body:     in.Body,
+		BodyKind: in.BodyKind,
+		Form:     in.Form,
+		BodyFile: in.BodyFile,
+		Headers:  sent.Headers,
+	})
+	if err != nil {
+		return record.Masked{}, err
+	}
+	return record.Masked{
+		URL:     prepared.MaskedURL,
+		Headers: prepared.MaskedHeaders,
+		Body:    prepared.MaskedBody,
+	}, nil
+}

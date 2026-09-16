@@ -1,14 +1,25 @@
 package main
 
 import (
+	"context"
 	"embed"
 	"log"
+	"os"
+	"os/signal"
+	"syscall"
+	"time"
 
 	"github.com/wailsapp/wails/v3/pkg/application"
-	"github.com/wailsapp/wails/v3/pkg/events"
+	"go.uber.org/fx"
 
-	"json-inspector/internal/bridge"
-	"json-inspector/internal/update"
+	"json-inspector/internal/infra/files"
+	"json-inspector/internal/infra/httpx"
+	"json-inspector/internal/infra/scriptengine"
+	"json-inspector/internal/infra/sqlite"
+	"json-inspector/internal/platform"
+	"json-inspector/internal/transport/bridge"
+	"json-inspector/internal/transport/wails"
+	"json-inspector/internal/usecase"
 )
 
 //go:embed all:frontend/dist
@@ -17,88 +28,58 @@ var assets embed.FS
 //go:embed build/appicon.png
 var appIcon []byte
 
-var version = "dev"
-
-// build is the CI run number, empty for local builds; shown in brackets in About.
-var build = ""
-
-const (
-	appName        = "JSON Inspector"
-	appDescription = "Просмотр JSON:API: подстановка переменных окружения, карта схемы, перехват запросов из браузера."
-)
+const shutdownTimeout = 5 * time.Second
 
 func main() {
-	update.CurrentVersion = version
-	update.CurrentBuild = build
+	os.Exit(run())
+}
 
-	appService := NewApp()
+func appOptions() []fx.Option {
+	return []fx.Option{
+		fx.NopLogger,
+		platform.Module,
+		sqlite.Module,
+		httpx.Module,
+		files.Module,
+		scriptengine.Module,
+		bridge.Module,
+		usecase.Module,
+		wails.Module,
+		fx.Supply(
+			wails.Assets{FS: assets, Icon: appIcon},
+			bridge.Port(bridge.DefaultPort),
+			httpx.Config{},
+		),
+	}
+}
 
-	app := application.New(application.Options{
-		Name:        appName,
-		Description: appDescription,
-		Icon:        appIcon,
-		Services: []application.Service{
-			application.NewService(appService),
-		},
-		Assets: application.AssetOptions{
-			Handler: application.AssetFileServerFS(assets),
-		},
-		Mac: application.MacOptions{
-			ApplicationShouldTerminateAfterLastWindowClosed: true,
-		},
-		SingleInstance: &application.SingleInstanceOptions{
-			UniqueID:               "com.jurager.json-inspector",
-			EncryptionKey:          singleInstanceKey,
-			OnSecondInstanceLaunch: appService.onSecondInstance,
-		},
-	})
-	appService.setApp(app)
+func run() int {
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
 
-	mainWin := app.Window.NewWithOptions(application.WebviewWindowOptions{
-		Name:             windowMain,
-		Title:            appName,
-		Width:            1280,
-		Height:           820,
-		MinWidth:         900,
-		MinHeight:        600,
-		Frameless:        useCustomTitlebar(),
-		BackgroundColour: application.NewRGB(30, 30, 30),
-		URL:              "/",
-		Mac: application.MacWindow{
-			TitleBar:                application.MacTitleBarHiddenInset,
-			InvisibleTitleBarHeight: 50,
-		},
-	})
-	appService.setMainWindow(mainWin)
+	var app *application.App
 
-	mainWin.OnWindowEvent(events.Common.WindowRuntimeReady, func(*application.WindowEvent) {
-		appService.markReady()
-	})
+	graph := fx.New(append(appOptions(), fx.Populate(&app))...)
 
-	app.Event.OnApplicationEvent(events.Common.ApplicationLaunchedWithUrl, func(e *application.ApplicationEvent) {
-		appService.handleURLOpen(e.Context().URL())
-	})
-
-	bridgeServer := bridge.NewServer(bridge.DefaultPort, bridge.Handlers{
-		Request:    appService.onCapturedRequest,
-		State:      appService.onCaptureState,
-		Disconnect: appService.onCaptureDisconnected,
-		Focus:      appService.onFocusRequest,
-	})
-	appService.setBridge(bridgeServer)
-	go func() {
-		if err := bridgeServer.Start(); err != nil {
-			log.Printf("[bridge] error: %v", err)
+	defer func() {
+		shutdown, cancel := context.WithTimeout(context.Background(), shutdownTimeout)
+		defer cancel()
+		if err := graph.Stop(shutdown); err != nil {
+			log.Printf("[app] shutdown: %v", err)
 		}
 	}()
 
-	if useCustomTitlebar() {
-		app.Menu.Set(app.NewMenu())
-	} else {
-		app.Menu.Set(buildMenu(appService))
+	if err := graph.Err(); err != nil {
+		log.Printf("[app] build failed: %v", err)
+		return 1
 	}
-
+	if err := graph.Start(ctx); err != nil {
+		log.Printf("[app] startup failed: %v", err)
+		return 1
+	}
 	if err := app.Run(); err != nil {
-		log.Fatal(err)
+		log.Printf("[app] %v", err)
+		return 1
 	}
+	return 0
 }

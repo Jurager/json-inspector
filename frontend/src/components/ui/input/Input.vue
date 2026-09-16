@@ -18,8 +18,9 @@ const emit = defineEmits<{ 'update:modelValue': [string] }>()
 
 const el = ref<HTMLInputElement | null>(null)
 
-// The only thing callers need from the node is the caret.
-defineExpose({ focus: () => el.value?.focus() })
+// The caret, and the selection: a field that opens on a name the user is expected to type over opens
+// with that name already selected.
+defineExpose({ focus: () => el.value?.focus(), select: () => el.value?.select() })
 </script>
 
 <template>

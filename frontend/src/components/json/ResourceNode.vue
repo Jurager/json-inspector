@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 import Icon from '../ui/Icon.vue'
+import { useMessages } from '../../i18n'
 import { resourceKey, resourceLabel, type Resource, type Relationship } from '../../lib/jsonapi'
 import RelationshipLink from './RelationshipLink.vue'
 import { copyToClipboard } from '../../lib/clipboard'
@@ -19,6 +20,8 @@ const emit = defineEmits<{
 }>()
 
 const open = ref(false)
+
+const { t } = useMessages()
 
 // `<Transition>` is only mounted once a node has actually been opened — a resource list can run
 // into the hundreds, nearly all collapsed, and giving every one of them its own Transition
@@ -121,10 +124,10 @@ async function copyVal(k: string, v: unknown) {
         <div class="ja-body-inner">
           <div v-if="attributes.length" class="ja-section-title" style="padding-left: 0">attributes</div>
           <div v-for="[k, v] in attributes" :key="k" class="ja-attr">
-            <span class="ja-attr-key" title="Скопировать ключ" :class="{ copied: copiedKeys.has(k) }" @click.stop="copyKey(k)">{{ k }}</span>
+            <span class="ja-attr-key" :title="t('json.copyKey')" :class="{ copied: copiedKeys.has(k) }" @click.stop="copyKey(k)">{{ k }}</span>
             <span
               class="ja-attr-val"
-              title="Скопировать значение"
+              :title="t('json.copyValue')"
               :class="[valueClass(v), { copied: copiedVals.has(k) }]"
               @click.stop="copyVal(k, v)"
               >{{ formatValue(v) }}</span

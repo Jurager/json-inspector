@@ -1,17 +1,22 @@
 version: '3'
 
 vars:
-  APP_NAME: json-inspector
+  PRODUCT_NAME:
+    sh: go run ./internal/tools/manifest -print name
+  PRODUCT_DESCRIPTION:
+    sh: go run ./internal/tools/manifest -print description
+  APP_NAME:
+    sh: go run ./internal/tools/manifest -print slug
+  APP_SCHEME:
+    sh: go run ./internal/tools/manifest -print scheme
+
   BIN_DIR: bin
   APP_PATH: '{{.BIN_DIR}}/{{.APP_NAME}}'
   VITE_PORT: '{{.WAILS_VITE_PORT | default 9245}}'
   VERSION: '{{.VERSION | default "dev"}}'
   BUILD: '{{.BUILD | default ""}}'
 
-  PRODUCT_NAME: "JSON Inspector"
-  PRODUCT_DESCRIPTION: "Inspect JSON with environment variables, schema mapping, and browser request interception."
-
-  LDFLAGS: '-w -s -X main.version={{.VERSION}} -X main.build={{.BUILD}}'
+  LDFLAGS: '-w -s -X json-inspector/internal/platform.version={{.VERSION}} -X json-inspector/internal/platform.build={{.BUILD}}'
   BUILD_FLAGS: '{{if eq .DEV "true"}}-buildvcs=false -gcflags=all="-l"{{else}}-tags production -trimpath -buildvcs=false -ldflags="{{.LDFLAGS}}"{{end}}'
 
 tasks:
@@ -74,7 +79,7 @@ tasks:
   set:version:
     desc: Stamp the release version into the files the packagers read
     cmds:
-      - go run ./internal/tools/stamp -version {{.VERSION}}
+      - go run ./internal/tools/manifest -version {{.VERSION}}
 
   clean:
     desc: Remove all build output
@@ -172,6 +177,7 @@ tasks:
       - 'go build {{.BUILD_FLAGS}} -o "{{.OUTPUT}}"'
     vars:
       OUTPUT: '{{.OUTPUT | default .APP_PATH}}'
+      BUILD_FLAGS: '{{if eq .DEV "true"}}-buildvcs=false -gcflags=all="-l" -tags private_mac_apis{{else}}-tags production,private_mac_apis -trimpath -buildvcs=false -ldflags="{{.LDFLAGS}}"{{end}}'
     env:
       GOOS: darwin
       CGO_ENABLED: 1
@@ -279,11 +285,11 @@ tasks:
         -icon "{{.APP_NAME}}"
         -keywords ""
         -categories "Development;"
-        -mimetype "x-scheme-handler/json-inspector;"
+        -mimetype "x-scheme-handler/{{.APP_SCHEME}};"
         -outputfile "{{.ROOT_DIR}}/build/linux/{{.APP_NAME}}.desktop"
 
   linux:package:
-    desc: Package the Linux artifacts — .tar.gz, .deb, .rpm, .AppImage — into dist/
+    desc: Package the Linux artifacts — .tar.gz and .deb — into dist/
     platforms: [linux]
     deps:
       - task: linux:build
@@ -291,39 +297,19 @@ tasks:
     cmds:
       - mkdir -p dist
       - cd {{.BIN_DIR}} && tar -czf "../dist/{{.APP_NAME}}-linux-{{.ARCH | default ARCH}}.tar.gz" "{{.APP_NAME}}"
-      - task: linux:nfpm
-        vars:
-          FORMAT: deb
-      - task: linux:nfpm
-        vars:
-          FORMAT: rpm
-      - task: linux:appimage
-      - cp {{.BIN_DIR}}/*.deb {{.BIN_DIR}}/*.rpm {{.BIN_DIR}}/*.AppImage dist/
+      - task: linux:deb
+      - cp {{.BIN_DIR}}/*.deb dist/
       - ls -la dist
 
-  linux:nfpm:
-    desc: Create a .deb or .rpm package via nfpm
+  linux:deb:
+    desc: Create the .deb package via nfpm
     internal: true
     platforms: [linux]
     deps:
       - task: linux:build
       - task: linux:dotdesktop
     cmds:
-      - wails3 tool package -name "{{.APP_NAME}}" -format {{.FORMAT}} -config ./build/linux/nfpm/nfpm.yaml -out {{.ROOT_DIR}}/{{.BIN_DIR}}
-
-  linux:appimage:
-    desc: Create an AppImage
-    platforms: [linux]
-    deps:
-      - task: linux:build
-      - task: linux:dotdesktop
-    cmds:
-      - cp build/appicon.png {{.APP_PATH}}.png
-      - >-
-        wails3 generate appimage -binary "{{.ROOT_DIR}}/{{.APP_PATH}}"
-        -icon "{{.ROOT_DIR}}/{{.APP_PATH}}.png"
-        -desktopfile "{{.ROOT_DIR}}/build/linux/{{.APP_NAME}}.desktop"
-        -outputdir "{{.ROOT_DIR}}/{{.BIN_DIR}}"
+      - wails3 tool package -name "{{.APP_NAME}}" -format deb -config ./build/linux/nfpm/nfpm.yaml -out {{.ROOT_DIR}}/{{.BIN_DIR}}
 
   linux:run:
     desc: Run the built binary

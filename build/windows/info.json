@@ -6,7 +6,7 @@
 		"0000": {
 			"ProductVersion": "0.1.2",
 			"CompanyName": "Yuri Gerasimov",
-			"FileDescription": "Просмотр JSON:API: подстановка переменных окружения, карта схемы, перехват запросов из браузера.",
+			"FileDescription": "Inspect JSON with environment variables, schema mapping, and browser request interception.",
 			"LegalCopyright": "© 2026, Yuri Gerasimov",
 			"ProductName": "JSON Inspector",
 			"Comments": "JSON Inspector"

@@ -4,15 +4,19 @@ import Icon from '../ui/Icon.vue'
 import { Button, IconButton } from '../ui/button'
 import DeleteEnvDialog from './DeleteEnvDialog.vue'
 import ImportDialog from './ImportDialog.vue'
-import { useEnvironmentsStore, type ImportChoice, type Variable } from '../../stores/environments'
+import { useEnvironmentsStore, type ImportChoice } from '../../stores/environments'
 import { useRequestsStore } from '../../stores/requests'
-import { parseDotenv } from '../../lib/dotenv'
 import { parseTokens } from '../../lib/vars'
+import { EnvironmentsService } from '../../../bindings/json-inspector/internal/transport/wails'
+import type { Variable } from '../../../bindings/json-inspector/internal/domain'
 import { useSheetNotice } from '../../composables/useSheetNotice'
+import { useMessages } from '../../i18n'
 
 const envStore = useEnvironmentsStore()
 const reqStore = useRequestsStore()
 const { setNotice, clearNotice } = useSheetNotice()
+
+const { t } = useMessages()
 
 const envId = computed(() => envStore.editedEnvId)
 const env = computed(() => envStore.environments.find((e) => e.id === envId.value) ?? null)
@@ -27,8 +31,8 @@ function setRenameInput(el: Element | ComponentPublicInstance | null) {
   renameInput.value = (el as HTMLInputElement | null) ?? null
 }
 
-function addEnv() {
-  const id = envStore.addEnv()
+async function addEnv() {
+  const id = await envStore.addEnv()
   envStore.editEnv(id)
   startRename(id, { selectAll: true })
 }
@@ -53,7 +57,7 @@ function commitRename(): boolean {
   const others = envStore.environments.filter((e) => e.id !== id)
   if (!name || others.some((e) => e.name === name)) {
     renameInvalid.value = true
-    setNotice(!name ? 'Имя окружения не может быть пустым' : 'Окружение с таким именем уже есть')
+    setNotice(!name ? t('environments.nameEmpty') : t('environments.nameTaken'))
     renameInput.value?.focus()
     return false
   }
@@ -121,12 +125,15 @@ const displayedConfirmingName = computed(
 )
 
 function isNameReferenced(name: string): boolean {
-  const texts: string[] = [reqStore.draft.url, reqStore.draft.body]
-  for (const p of reqStore.draft.params) texts.push(p.name, p.value)
-  for (const h of reqStore.draft.headers) texts.push(h.name, h.value)
-  for (const r of reqStore.requests) {
-    texts.push(r.url, r.requestBody)
-    for (const [k, v] of Object.entries(r.requestHeaders ?? {})) texts.push(k, v)
+  const texts: string[] = [reqStore.url, reqStore.body]
+  for (const p of reqStore.params) texts.push(p.name, p.value)
+  for (const h of reqStore.headers) texts.push(h.name, h.value)
+  // History keeps a record's URL and headers in full but not its bodies — a body stays in the
+  // database until something opens it — so a name that only ever appeared inside one is missed
+  // here. That is a hint not given, not a wrong answer.
+  for (const r of reqStore.records) {
+    texts.push(r.url)
+    for (const h of r.requestHeaders ?? []) texts.push(h.name, h.value)
   }
   return texts.some((t) => t && parseTokens(t).some((tok) => tok.name === name))
 }
@@ -168,10 +175,11 @@ async function onFileChosen(e: Event) {
   // Reset immediately, so choosing the same file twice still fires a change.
   input.value = ''
   if (!file) return
-  const text = await file.text()
+  // Reading the file is Go's job: the window shows what it found and lets the user decide.
+  const entries = await EnvironmentsService.ParseDotenv(await file.text())
   // Conflicts default to "skip": an import must never overwrite a hand-set value without saying so
   // on the row.
-  importEntries.value = parseDotenv(text).map((entry) => ({
+  importEntries.value = (entries ?? []).map((entry) => ({
     ...entry,
     mode: existingNames.value.has(entry.name) ? ('skip' as const) : ('replace' as const),
   }))
@@ -187,7 +195,7 @@ const importCount = computed(
 )
 
 function importEntriesIntoEnv() {
-  if (importEntries.value) envStore.importDotenv(envId.value, importEntries.value)
+  if (importEntries.value) void envStore.importDotenv(envId.value, importEntries.value)
   importEntries.value = null
 }
 
@@ -212,7 +220,7 @@ defineExpose({ cancelTop })
 
 <template>
   <div class="sheet-side">
-    <div class="side-label">Окружения</div>
+    <div class="side-label">{{ t('environments.title') }}</div>
     <div
       v-for="e in envStore.environments"
       :key="e.id"
@@ -220,7 +228,7 @@ defineExpose({ cancelTop })
       :class="{ active: e.id === envStore.editedEnvId }"
       role="button"
       tabindex="0"
-      title="Двойной клик или Enter — переименовать"
+      :title="t('environments.renameHint')"
       @click="envStore.editEnv(e.id)"
       @keydown.enter="onEnvRowEnter(e.id)"
       @dblclick="startRename(e.id, { selectAll: true })"
@@ -251,23 +259,23 @@ defineExpose({ cancelTop })
       @click="envStore.editEnv(null)"
     >
       <span class="side-dot"></span>
-      <span class="side-name">Глобальные</span>
+      <span class="side-name">{{ t('environments.globals') }}</span>
       <span class="side-count mono">{{ envStore.globals.length }}</span>
     </button>
 
     <div class="side-spacer"></div>
 
     <div class="side-foot">
-      <IconButton variant="bare" hint="Новое окружение" @click="addEnv">
-        <Icon name="plus" :size="14" />
+      <IconButton variant="bare" :hint="t('environments.new')" @click="addEnv">
+        <Icon name="plus" :size="16" />
       </IconButton>
       <IconButton
         variant="bare"
-        hint="Удалить окружение"
+        :hint="t('environments.delete')"
         :disabled="isGlobals"
         @click="isGlobals || askRemove(envStore.editedEnvId as string)"
       >
-        <Icon name="minus" :size="14" />
+        <Icon name="trash" :size="13" />
       </IconButton>
       <span class="side-foot-spacer"></span>
       <input
@@ -280,7 +288,7 @@ defineExpose({ cancelTop })
       <Button
         variant="quiet"
         :disabled="isGlobals"
-        :title="isGlobals ? 'Импорт идёт в выбранное окружение, не в глобальные' : undefined"
+        :title="isGlobals ? t('environments.importIntoSelected') : undefined"
         @click="pickFile"
       >
         Импорт .env
@@ -292,7 +300,7 @@ defineExpose({ cancelTop })
       :open="importEntries !== null"
       :entries="displayedImportEntries"
       :existing-names="existingNames"
-      :target-name="env?.name ?? 'Глобальные'"
+      :target-name="env?.name ?? t('environments.globals')"
       :count="importCount"
       @cancel="importEntries = null"
       @apply="importEntriesIntoEnv"
@@ -311,8 +319,9 @@ defineExpose({ cancelTop })
 @reference "../../style.css";
 
 .sheet-side {
-  @apply flex-none w-[232px] flex flex-col p-2 pb-0 border-r border-border;
-  background: var(--bg-inset);
+  @apply flex-none w-[232px] flex flex-col p-2 pb-0 border-r;
+  background: var(--glass-sheet-side);
+  border-color: var(--glass-overlay-border);
 }
 
 .side-label {

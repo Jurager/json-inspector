@@ -1,69 +1,77 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import type { RequestRecord } from '../../lib/requestRecord'
+import type { RecordView } from '../../lib/requestRecord'
+import { formatMicros, useMessages } from '../../i18n'
 
-const props = defineProps<{ record: RequestRecord }>()
+const props = defineProps<{ record: RecordView }>()
+const { t } = useMessages()
 
 interface Phase {
   label: string
-  ms: number
+  us: number
 }
 
-// An app-made request is traced by Go's own httptrace, which knows the whole connection
-// handshake. A captured one only ever has the two phases the page itself can time — when the
-// response headers arrived and when the body finished — so it is not offered DNS/TCP/TLS
-// rather than showing them as three honest-looking zeros.
-const phases = computed<Phase[]>(() => {
-  if (props.record.source !== 'manual') {
-    return [
-      { label: 'Ожидание', ms: props.record.waitMs ?? 0 },
-      { label: 'Загрузка', ms: props.record.downloadMs ?? 0 },
-    ]
-  }
-  return [
-    { label: 'DNS', ms: props.record.dnsMs ?? 0 },
-    { label: 'TCP', ms: props.record.connectMs ?? 0 },
-    { label: 'TLS', ms: props.record.tlsMs ?? 0 },
-    { label: 'Ожидание', ms: props.record.waitMs ?? 0 },
-    { label: 'Загрузка', ms: props.record.downloadMs ?? 0 },
-  ]
-})
+// Only the phases that happened are drawn, and which those are is Go's answer. An absent phase is one
+// that did not take place at all — a zero would say it was measured and took no time. A request sent
+// with connection reuse has no DNS, TCP or TLS because nothing was dialled; a captured one carries
+// only the two phases a page can time.
+const phases = computed<Phase[]>(() =>
+  (
+    [
+      { label: 'DNS', us: props.record.dnsUs },
+      { label: 'TCP', us: props.record.connectUs },
+      { label: 'TLS', us: props.record.tlsUs },
+      { label: t('response.timings.wait'), us: props.record.waitUs },
+      { label: t('response.timings.download'), us: props.record.downloadUs },
+    ] as { label: string; us: number | null | undefined }[]
+  )
+    .filter((phase): phase is Phase => phase.us != null)
+    .map((phase) => ({ label: phase.label, us: phase.us }))
+)
 
-// `hasTiming` rather than "is a phase non-zero": a real phase can legitimately be 0 (a reused
-// connection, a body that arrived with the headers).
-const hasDetail = computed(() => props.record.source === 'manual' || props.record.hasTiming === true)
+// Every bar is measured against the whole request, because that is what the "Всего" bar above them
+// is: the phases are its parts, and a part drawn against the largest of the others claims to be all
+// of it. The phases add up to the total, so the bars do too.
+const totalUs = computed(() => Math.max(1, props.record.durationUs))
 
-const maxMs = computed(() => Math.max(1, ...phases.value.map((p) => p.ms)))
+function width(us: number): string {
+  return `${Math.min(100, (us / totalUs.value) * 100)}%`
+}
+
+// A request that reused a connection has no dial phases to show. The connect phase is what tells the
+// two apart — a fresh connection always has one, a reused one never does, and a request that never
+// reached a server has neither it nor a wait, so it is already answered for by the note above.
+const reusedConnection = computed(
+  () =>
+    props.record.connectUs == null &&
+    props.record.source === 'manual' &&
+    (props.record.waitUs != null || props.record.downloadUs != null)
+)
+
 </script>
 
 <template>
   <div class="timings">
-    <template v-if="hasDetail">
-      <div class="timing-row timing-total">
-        <span class="timing-label">Всего</span>
-        <div class="timing-track">
-          <div class="timing-fill" style="width: 100%"></div>
-        </div>
-        <span class="timing-value mono">{{ record.durationMs }} мс</span>
+    <div class="timing-row timing-total">
+      <span class="timing-label">{{ t('response.timings.total') }}</span>
+      <div class="timing-track">
+        <div class="timing-fill" style="width: 100%"></div>
       </div>
-      <div v-for="p in phases" :key="p.label" class="timing-row">
-        <span class="timing-label">{{ p.label }}</span>
-        <div class="timing-track">
-          <div class="timing-fill" :style="{ width: (p.ms / maxMs) * 100 + '%' }"></div>
-        </div>
-        <span class="timing-value mono">{{ p.ms }} мс</span>
+      <span class="timing-value mono">{{ formatMicros(record.durationUs) }}</span>
+    </div>
+    <div v-for="p in phases" :key="p.label" class="timing-row">
+      <span class="timing-label">{{ p.label }}</span>
+      <div class="timing-track">
+        <div class="timing-fill" :style="{ width: width(p.us) }"></div>
       </div>
-    </template>
-    <template v-else>
-      <div class="timing-row">
-        <span class="timing-label">Всего</span>
-        <div class="timing-track">
-          <div class="timing-fill" style="width: 100%"></div>
-        </div>
-        <span class="timing-value mono">{{ record.durationMs }} мс</span>
-      </div>
-      <div class="timing-note">Запрос не удалось засечь по фазам — тело не читалось или запрос не дошёл.</div>
-    </template>
+      <span class="timing-value mono">{{ formatMicros(p.us) }}</span>
+    </div>
+    <div v-if="phases.length === 0" class="timing-note">
+      {{ t('response.timings.unmeasured') }}
+    </div>
+    <div v-else-if="reusedConnection" class="timing-note">
+      {{ t('response.timings.reused') }}
+    </div>
   </div>
 </template>
 

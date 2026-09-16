@@ -2,6 +2,7 @@
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import Icon from '../ui/Icon.vue'
 import RequestChipPopover from './RequestChipPopover.vue'
+import SaveToCollectionSheet from '../collections/SaveToCollectionSheet.vue'
 import { Button } from '../ui/button'
 import { Popover, PopoverAnchor } from '../ui/popover'
 import VarToken from '../ui/VarToken.vue'
@@ -11,40 +12,31 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
 } from '../ui/dropdown-menu'
-import { App as Backend } from '../../../bindings/json-inspector'
 import { useRequestsStore } from '../../stores/requests'
+import { useCollectionsStore } from '../../stores/collections'
 import { useEnvironmentsStore } from '../../stores/environments'
+import type { ChipName, RequestSource } from '../../lib/requestSource'
 import { usePlatform } from '../../composables/usePlatform'
 import { registerUrlField } from '../../composables/urlFocus'
 import { tokenSegments } from '../../lib/vars'
-import { normalizeHeaders } from '../../lib/headers'
-import { cookieHeaderValue } from '../../lib/cookies'
-import { parseRequestCommand, type ParseErrorReason } from '../../lib/parseRequest'
-import type { ExportFormat } from '../../lib/export'
+import { looksLikeCommand } from '../../lib/commandShape'
+import { CommandKind } from '../../../bindings/json-inspector/internal/usecase/draft'
 import { useToast } from '../../composables/useToast'
+import { describeFailure, useMessages } from '../../i18n'
 
-const store = useRequestsStore()
+// Which request this builder is composing: the command line's, or the card of a saved one. The two
+// stores answer the same shape, so nothing below this line has to know which it is.
+const props = withDefaults(defineProps<{ source?: 'request' | 'collection' }>(), { source: 'request' })
+
+const { t } = useMessages()
+
+const requests = useRequestsStore()
+const collections = useCollectionsStore()
+const store: RequestSource = props.source === 'collection' ? collections : requests
+
 const { shortcut } = usePlatform()
 const envStore = useEnvironmentsStore()
 const toast = useToast()
-
-const FORMAT_LABELS: Record<ExportFormat, string> = {
-  curl: 'cURL',
-  fetch: 'fetch',
-  wget: 'wget',
-  httpie: 'HTTPie',
-  powershell: 'PowerShell',
-}
-
-const PARSE_ERROR_MESSAGES: Record<ParseErrorReason, string> = {
-  'no-url': 'в команде не нашлось ссылки',
-  'bad-quotes': 'не закрыта кавычка',
-  leftover: 'часть аргументов не разобралась — проверьте флаги команды',
-  'bad-fetch-init': 'не разобрался объект настроек fetch',
-  'unsupported-variable': 'значение задано переменной PowerShell — взять его негде',
-  'unsupported-field': 'поля HTTPie вроде `:=` и `@file` не поддерживаются',
-  'unsupported-multipart': 'загрузка файла (multipart) не поддерживается',
-}
 
 const sendShortcut = computed(() => shortcut('↵'))
 
@@ -60,31 +52,31 @@ const METHOD_COLORS: Record<string, string> = {
   OPTIONS: 'var(--text-tertiary)',
 }
 
-const methodColor = computed(() => METHOD_COLORS[store.draft.method] ?? 'var(--accent)')
+const methodColor = computed(() => METHOD_COLORS[store.method] ?? 'var(--accent)')
 
 const methodBg = computed(() => {
-  const c = METHOD_COLORS[store.draft.method] ?? 'var(--accent)'
+  const c = METHOD_COLORS[store.method] ?? 'var(--accent)'
   return `color-mix(in srgb, ${c} 14%, transparent)`
 })
 
 function selectMethod(m: string) {
-  store.draft.method = m
+  void store.setMethod(m)
 }
 
-const enabledParamsCount = computed(
-  () => store.draft.params.filter((p) => p.enabled && p.name.trim()).length
-)
-const enabledHeadersCount = computed(
-  () => store.draft.headers.filter((h) => h.enabled && h.name.trim()).length
-)
-const hasBody = computed(() => store.draft.body.trim().length > 0)
-const isBodyDisabled = computed(() => store.draft.method === 'GET' || store.draft.method === 'HEAD')
+const enabledParamsCount = computed(() => store.enabledParamsCount)
+const enabledHeadersCount = computed(() => store.enabledHeadersCount)
+// A body is text, a form with a row in it, or a file — the store knows which, and both stores know
+// it the same way.
+const hasBody = computed(() => store.hasBody)
+// The chip is dashed until the request has code of its own, the way the body chip is: a dashed chip is
+// a thing that is not there yet, and it is what the design draws in both places.
+const hasScripts = computed(() => Boolean(store.scripts?.pre?.trim() || store.scripts?.post?.trim()))
 
-function toggleChip(chip: 'params' | 'headers' | 'auth' | 'body') {
+function toggleChip(chip: ChipName) {
   store.setOpenChip(store.openChip === chip ? null : chip)
 }
 
-const displayedChip = ref<'params' | 'headers' | 'auth' | 'body' | null>(null)
+const displayedChip = ref<ChipName | null>(null)
 watch(
   () => store.openChip,
   (chip) => {
@@ -93,38 +85,12 @@ watch(
   { immediate: true }
 )
 
-function resolvedHeaders(): Record<string, string> {
-  const map: Record<string, string> = {}
-  for (const h of store.draft.headers) {
-    const name = envStore.substitute(h.name.trim())
-    if (name && h.enabled) map[name] = envStore.substitute(h.value)
-  }
-  const cookieHeader = cookieHeaderValue(
-    store.draft.cookies.map((c) => ({ ...c, name: envStore.substitute(c.name), value: envStore.substitute(c.value) }))
-  )
-  if (cookieHeader) map['Cookie'] = cookieHeader
-  return map
-}
-
-function maskedHeaders(): Record<string, string> {
-  const map: Record<string, string> = {}
-  for (const h of store.draft.headers) {
-    const name = envStore.maskSecrets(h.name.trim())
-    if (name && h.enabled) map[name] = envStore.maskSecrets(h.value)
-  }
-  const cookieHeader = cookieHeaderValue(
-    store.draft.cookies.map((c) => ({ ...c, name: envStore.maskSecrets(c.name), value: envStore.maskSecrets(c.value) }))
-  )
-  if (cookieHeader) map['Cookie'] = cookieHeader
-  return map
-}
-
 const missingVarNames = computed(() => store.missingVars)
 const sendBlocked = computed(() => missingVarNames.value.length > 0)
 
 const sendBlockedReason = computed(() =>
   missingVarNames.value.length
-    ? `Неизвестные переменные: ${missingVarNames.value.join(', ')}`
+    ? t('request.missingBlocked', { names: missingVarNames.value.join(', ') })
     : undefined
 )
 
@@ -135,45 +101,20 @@ function createMissing() {
   envStore.openSheet({ envId, varName: missingVarNames.value[0] ?? '' })
 }
 
+// The request goes out through Go, which is the side that can fill its `{{tokens}}` in — a secret's
+// value has not been in this window since it was typed. All the window does is hand over whatever it
+// is still holding in its buffers first, so what goes out is what is on screen.
 async function send() {
-  if (!store.draft.url.trim() || store.loading || sendBlocked.value) return
-  store.loading = true
-  const requestHeaders = resolvedHeaders()
-  const url = envStore.substitute(store.draft.url.trim())
-  const body = envStore.substitute(store.draft.body)
-  const recordUrl = envStore.maskSecrets(store.draft.url.trim())
-  const recordBody = envStore.maskSecrets(store.draft.body)
-  const recordHeaders = maskedHeaders()
   try {
-    const res = await Backend.SendRequest(store.draft.method, url, requestHeaders, body)
-    if (!res || res.cancelled) return
-    store.addRequest({
-      method: store.draft.method,
-      url: recordUrl,
-      requestHeaders: recordHeaders,
-      requestBody: recordBody,
-      status: res.status,
-      statusText: res.statusText,
-      responseHeaders: normalizeHeaders(res.headers),
-      responseBody: res.body,
-      durationMs: res.durationMs,
-      contentType: res.contentType,
-      error: res.error,
-      dnsMs: res.dnsMs,
-      connectMs: res.connectMs,
-      tlsMs: res.tlsMs,
-      waitMs: res.waitMs,
-      downloadMs: res.downloadMs,
-      requestCookies: store.draft.cookies.map((c) => ({ ...c })),
-      source: 'manual',
-    })
-  } finally {
-    store.loading = false
+    await store.send()
+  } catch (error) {
+    store.failSend()
+    toast.show(t('request.sendFailed', { error: describeFailure(error) }), 'error')
   }
 }
 
-async function cancel() {
-  await Backend.CancelRequest()
+function cancel() {
+  void store.cancel()
 }
 
 const urlInputRef = ref<HTMLInputElement | null>(null)
@@ -182,7 +123,29 @@ onMounted(() => onBeforeUnmount(registerUrlField(() => urlInputRef.value?.focus(
 
 const urlDisplayRef = ref<HTMLElement | null>(null)
 
-const urlSegments = computed(() => tokenSegments(store.draft.url))
+const urlSegments = computed(() => tokenSegments(store.url))
+
+// Saving into a collection is a gesture of the command line: a card is already in one, and what it
+// edits is saved by its own «Сохранить» in the status bar.
+const canSave = computed(() => props.source === 'request')
+
+const saveOpen = ref(false)
+const saveAnchor = ref<HTMLElement | null>(null)
+
+// The default name is the address the way a person would say it: the last segment, query and all
+// the rest left out — a name, not a URL.
+const saveDefaultName = computed(() => {
+  const raw = store.url.trim()
+  if (!raw) return t('request.newRequestName')
+  try {
+    const url = new URL(raw)
+    const last = url.pathname.split('/').filter(Boolean).pop()
+    return decodeURIComponent(last ?? url.host)
+  } catch {
+    const withoutQuery = raw.split('?')[0].split('#')[0]
+    return withoutQuery.split('/').filter(Boolean).pop() ?? withoutQuery
+  }
+})
 const showUrlDisplay = computed(() => urlSegments.value.length > 0)
 
 function syncUrlScroll() {
@@ -198,21 +161,44 @@ function onWindowKeydown(e: KeyboardEvent) {
   }
 }
 
-function onUrlPaste(e: ClipboardEvent) {
+// A paste is read on the other side, which is where the parsing lives — quoting dialects are logic,
+// not drawing. What stays here is the decision the browser forces: `preventDefault` has to be
+// called before any answer could arrive, so this has to know whether the paste is worth
+// interrupting. That is the whole of what looksLikeCommand does, and it is allowed to be wrong: an
+// address pasted into the address field — the common case — is never intercepted, and a text that
+// slips through as prose is pasted by the browser as text.
+async function onUrlPaste(e: ClipboardEvent) {
+  const input = e.target as HTMLInputElement
   const text = e.clipboardData?.getData('text/plain') ?? ''
-  const result = parseRequestCommand(text)
-  if (result.kind === 'none') return
+  if (!looksLikeCommand(text)) return
 
   e.preventDefault()
-  if (result.kind === 'error') {
-    toast.show(`Не удалось разобрать команду: ${PARSE_ERROR_MESSAGES[result.reason]}`, 'error')
+  const reading = await store.pasteCommand(text)
+
+  if (reading.kind === CommandKind.KindError) {
+    toast.show(t('request.pasteFailed', { reason: t(`request.parseError.${reading.reason}`) }), 'error')
+    return
+  }
+  if (reading.kind !== CommandKind.KindOK) {
+    // It looked like a command and turned out not to be: the paste the browser was not allowed to
+    // make itself, made here.
+    insertAtCaret(input, text)
     return
   }
 
-  store.loadDraft(result.request)
   store.setOpenChip(null)
   void nextTick(syncUrlScroll)
-  toast.show(`Распознан ${FORMAT_LABELS[result.format]}`)
+  toast.show(t('request.pasteRecognised'))
+}
+
+// insertAtCaret is the paste the browser was not allowed to make itself: the same text where the
+// caret was, with an input event so the store hears about it. `end` puts the caret after it, which
+// is where a paste leaves it.
+function insertAtCaret(input: HTMLInputElement, text: string) {
+  const from = input.selectionStart ?? input.value.length
+  const to = input.selectionEnd ?? from
+  input.setRangeText(text, from, to, 'end')
+  input.dispatchEvent(new Event('input', { bubbles: true }))
 }
 
 onMounted(() => window.addEventListener('keydown', onWindowKeydown))
@@ -227,7 +213,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onWindowKeydown))
           <DropdownMenu>
             <DropdownMenuTrigger as-child>
               <button class="method-btn" :style="{ color: methodColor, background: methodBg }">
-                <span>{{ store.draft.method }}</span>
+                <span>{{ store.method }}</span>
                 <Icon name="chevron-down" :size="10" />
               </button>
             </DropdownMenuTrigger>
@@ -247,13 +233,14 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onWindowKeydown))
         <div class="url-text">
           <input
             ref="urlInputRef"
-            :value="store.draft.url"
+            :value="store.url"
             class="url-input mono"
             :class="{ 'url-input-veiled': showUrlDisplay }"
             placeholder="https://api.example.com/articles?include=author"
             spellcheck="false"
             @input="store.setUrl(($event.target as HTMLInputElement).value); syncUrlScroll()"
             @keydown.enter="send"
+            @blur="store.flush()"
             @paste="onUrlPaste"
             @scroll="syncUrlScroll"
           />
@@ -268,42 +255,62 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onWindowKeydown))
         <Popover :open="store.openChip !== null" @update:open="(v) => !v && store.setOpenChip(null)">
           <PopoverAnchor class="chips">
             <button class="chip" :class="{ active: store.openChip === 'params' }" @click="toggleChip('params')">
-              Параметры <span v-if="enabledParamsCount" class="chip-count">{{ enabledParamsCount }}</span>
+              {{ t('request.chips.params') }} <span v-if="enabledParamsCount" class="chip-count">{{ enabledParamsCount }}</span>
             </button>
             <button class="chip" :class="{ active: store.openChip === 'headers' }" @click="toggleChip('headers')">
-              Заголовки <span v-if="enabledHeadersCount" class="chip-count">{{ enabledHeadersCount }}</span>
+              {{ t('request.chips.headers') }} <span v-if="enabledHeadersCount" class="chip-count">{{ enabledHeadersCount }}</span>
             </button>
-            <button class="chip" :class="{ active: store.openChip === 'auth' }" @click="toggleChip('auth')">Auth</button>
+            <button class="chip" :class="{ active: store.openChip === 'auth' }" @click="toggleChip('auth')">{{ t('request.chips.auth') }}</button>
             <button
               class="chip chip-body"
               :class="{ 'has-body': hasBody, active: store.openChip === 'body' }"
-              :title="isBodyDisabled ? `${store.draft.method} не отправляет тело` : undefined"
               @click="toggleChip('body')"
             >
-              Тело
+              {{ t('request.chips.body') }}
+            </button>
+            <button
+              class="chip chip-body chip-scripts"
+              :class="{ 'has-body': hasScripts, active: store.openChip === 'scripts' }"
+              @click="toggleChip('scripts')"
+            >
+              <Icon name="code-xml" :size="10" />
+              {{ t('request.chips.scripts') }}
             </button>
           </PopoverAnchor>
-          <RequestChipPopover v-if="displayedChip" :chip="displayedChip" />
+          <RequestChipPopover v-if="displayedChip" :chip="displayedChip" :source="store" />
         </Popover>
       </div>
 
-      <button class="bookmark-btn" disabled title="Сохранение в коллекцию — скоро">
-        <Icon name="bookmark" :size="14" />
-      </button>
+      <span v-if="canSave" ref="saveAnchor" class="save-anchor">
+        <button
+          class="bookmark-btn"
+          :disabled="!store.url.trim()"
+          :title="t('request.saveToCollection')"
+          @click="saveOpen = !saveOpen"
+        >
+          <Icon name="bookmark" :size="14" />
+        </button>
+        <SaveToCollectionSheet
+          :open="saveOpen"
+          :url="store.url"
+          :default-name="saveDefaultName"
+          @update:open="saveOpen = $event"
+        />
+      </span>
 
       <Button
         variant="primary"
         size="lg"
-        :disabled="!store.draft.url.trim() || sendBlocked"
+        :disabled="!store.url.trim() || sendBlocked"
         :title="sendBlockedReason"
         @click="store.loading ? cancel() : send()"
       >
         <template v-if="store.loading">
           <Icon name="xmark" :size="14" />
-          <span>Отмена</span>
+          <span>{{ t('common.cancel') }}</span>
         </template>
         <template v-else>
-          <span>Отправить</span>
+          <span>{{ t('request.send') }}</span>
           <kbd class="send-hint">{{ sendShortcut }}</kbd>
         </template>
       </Button>
@@ -313,24 +320,24 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onWindowKeydown))
     <div v-if="sendBlocked" class="missing-row">
       <span class="missing-text">
         <template v-if="envStore.activeId === null">
-          Окружение не выбрано — переменные
+          {{ t('request.missingNoEnvHead') }}
           <span class="missing-name mono" v-for="n in missingVarNames" :key="n">{{ n }}</span>
-          не подставляются. Отправка заблокирована.
+          {{ t('request.missingNoEnvTail') }}
         </template>
         <template v-else>
-          В окружении <b>{{ envStore.activeEnvironment?.name }}</b> нет
-          {{ missingVarNames.length === 1 ? 'переменной' : 'переменных' }}:
+          {{ t('request.missingInEnvHead', { name: envStore.activeEnvironment?.name }) }}
+          {{ t('request.missingInEnvCount', missingVarNames.length) }}:
           <span class="missing-name mono" v-for="n in missingVarNames" :key="n">{{ n }}</span>
-          Отправка заблокирована.
+          {{ t('request.missingInEnvTail') }}
         </template>
       </span>
       <Button
         variant="primary"
         :disabled="envStore.activeId === null"
-        :title="envStore.activeId === null ? 'Сначала выберите окружение в шапке' : undefined"
+        :title="envStore.activeId === null ? t('request.chooseEnvFirst') : undefined"
         @click="createMissing"
       >
-        {{ missingVarNames.length === 1 ? 'Создать' : 'Создать все' }}
+        {{ missingVarNames.length === 1 ? t('request.createVar') : t('request.createVarAll') }}
       </Button>
     </div>
   </div>
@@ -348,7 +355,12 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onWindowKeydown))
 }
 
 .url-field {
-  @apply flex-1 flex items-stretch rounded-lg border border-border bg-bg-inset h-8;
+  /* The field is what gives way first when the window narrows, and its floor is where the URL stays
+     readable. Without a basis a flex item refuses to shrink past its own content, and the row pushes
+     the chips and the send button off the right edge — which is what a narrow window used to do. */
+  @apply flex items-stretch rounded-lg border border-border bg-bg-inset h-8 overflow-hidden;
+  flex: 1 1 260px;
+  min-width: 140px;
   transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
 
@@ -390,7 +402,10 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onWindowKeydown))
 }
 
 .url-text {
-  @apply relative flex-1 min-w-0 flex items-stretch;
+  /* The address keeps a floor of its own: it is the one thing in this row that cannot be guessed from
+     anything else, so when the window is too narrow the chip strip gives way before it does. */
+  @apply relative flex-1 flex items-stretch;
+  min-width: 120px;
 }
 
 .url-input {
@@ -456,8 +471,17 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onWindowKeydown))
   background: var(--bg-panel);
 }
 
+/* The code icon is smaller than the text beside it and sits on its baseline. */
+.chip-scripts :deep(svg) {
+  flex: none;
+}
+
 .chip-body:disabled {
   @apply opacity-50 cursor-default;
+}
+
+.save-anchor {
+  @apply relative flex-none;
 }
 
 .bookmark-btn {

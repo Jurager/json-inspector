@@ -31,10 +31,13 @@
 }
 
 :root {
-  --bg: #f5f5f7;
-  --bg-sidebar: #ececef;
-  --bg-panel: #ffffff;
-  --bg-inset: #f2f2f7;
+  /* The content's own surfaces, moved a few percent towards the workspace's colour. Nothing else in
+     the window is tinted: the panels, the cards and the insets are what is looked at all day, so they
+     take the least — a page that is a little blue instead of plain white. */
+  --bg: color-mix(in srgb, var(--tint-ink) var(--tint-content), #f5f5f7);
+  --bg-sidebar: color-mix(in srgb, var(--tint-ink) var(--tint-content), #ececef);
+  --bg-panel: color-mix(in srgb, var(--tint-ink) var(--tint-content), #ffffff);
+  --bg-inset: color-mix(in srgb, var(--tint-ink) var(--tint-content), #f2f2f7);
   --bg-hover: rgba(0, 0, 0, 0.05);
   --bg-active: rgba(0, 0, 0, 0.08);
   --border: rgba(0, 0, 0, 0.1);
@@ -47,10 +50,16 @@
   --accent-text: #ffffff;
   --green: #34c759;
   --green-soft: rgba(52, 199, 89, 0.14);
+  /* The design system gives success and failure two colours each: the fill (#34c759) for dots and
+     icon strokes, and a darker one for the same meaning written as text — a status code on a white
+     row has to be readable, and the fill is not. */
+  --green-text: #1e8e3e;
   --red: #ff3b30;
   --red-soft: rgba(255, 59, 48, 0.12);
+  --red-text: #d1372c;
   --orange: #ff9500;
   --orange-soft: rgba(255, 149, 0, 0.14);
+  --orange-text: #b26a00;
   --yellow: #ffcc00;
   --purple: #af52de;
   --tok-str: #c41a16;
@@ -59,32 +68,132 @@
   --tok-null: #8e8e93;
   --shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
   --shadow-btn: 0 1px 2px rgba(0, 0, 0, 0.18);
-  --mono: ui-monospace, "SF Mono", Menlo, Monaco, "Cascadia Mono", Consolas, monospace;
+  /* The mono stack, in the design's order: what the system has first, then the two the platforms
+     actually ship — Cascadia Code on Windows, Consolas under it, Menlo last because it is Mac-only. */
+  --mono: ui-monospace, "Cascadia Code", "SF Mono", Consolas, Menlo, monospace;
+
+  /* The glass material of design-system.md («Материал „стекло“»): the chrome of the window and every
+     overlay are a translucent fill over a backdrop blur. The chrome sits on the app's own ground and
+     over the desktop behind a translucent window, so it is the lighter of the two; an overlay sits
+     over real content, where a light fill would let the text underneath collide with its own.
+     One weight, the handoff's: the surfaces that meet at the window's corners — the titlebar and the
+     rail — meet at the same tone only if there is a single value, and the desktop behind is the
+     material's to show, not the fill's to fight. Where the chrome meets the opaque content, the
+     surfaces are separated by the hairline and by tone, as the handoff draws them. */
+  --glass-chrome: rgba(255, 255, 255, 0.64);
+  /* The workspace's colour, in three pieces the rest of the stylesheet reads: the ink the content is
+     moved towards, and the two stops of the light the chrome carries. Empty means no colour has been
+     chosen, and empty is a value (`transparent`, 0%) rather than a missing one — the window then
+     looks exactly as it always has. The five names are the palette's, and the dark theme's answers
+     are further down with the rest of the dark tokens.
+     Three pieces rather than one because a tint is not a wash: under the glass it has to be a colour
+     at real strength, and in the content it has to be a few percent of one. */
+  --tint-ink: #ffffff;
+  --tint-content: 0%;
+  --tint-near: transparent;
+  --tint-far: transparent;
+  /* What the chrome measures, in one place: a strip that changed size would otherwise leave its
+     neighbours measuring against the wrong surface. */
+  --rail-width: 89px;
+  --titlebar-height: 52px;
+  --statusbar-height: 28px;
+  --glass-chrome-border: rgba(0, 0, 0, 0.05);
+  --glass-overlay: rgba(255, 255, 255, 0.8);
+  --glass-overlay-border: rgba(0, 0, 0, 0.07);
+  /* The environments sheet is one acrylic leaf, not a glass strip over a white card: its two inner
+     strips are white veils on the same shade, so they never read as a separate opaque surface. */
+  --glass-sheet: rgba(246, 246, 248, 0.72);
+  --glass-sheet-head: rgba(255, 255, 255, 0.3);
+  --glass-sheet-side: rgba(255, 255, 255, 0.32);
+  /* Write backdrop-filter unprefixed and nowhere else. The bundler collapses a prefixed/unprefixed
+     pair into the -webkit- one alone, and current Chromium has dropped that name — the blur then
+     silently never renders, which is what made every surface here read as a flat fill. */
+  /* saturate() is not decoration: without it a blur reads as grey haze rather than glass. Past 180% it
+     oversaturates the colour behind and draws the seam it was meant to soften. */
+  --blur-chrome: blur(20px) saturate(160%);
+  --blur-overlay: blur(26px) saturate(180%);
+  --blur-sheet: blur(30px) saturate(180%);
+  /* Outside only. An inset highlight reads as a hard white seam where the material meets the opaque
+     content below it — the surfaces are separated by their hairline and by tone, not by a lit edge. */
+  --glass-overlay-shadow: 0 12px 32px rgba(0, 0, 0, 0.16);
+  --glass-sheet-shadow: 0 24px 60px rgba(0, 0, 0, 0.18);
+
   --tip-bg: #1d1d1f;
   --tip-text: #f5f5f7;
 }
 
+/* A workspace's colour, in the light theme. The two stops are a pair of neighbouring hues rather than
+   one colour twice — the handoff's own window frames are drawn this way (blue into violet over the
+   titlebar, cyan into blue along the rail), and a gradient between neighbours reads as light falling
+   on glass where a single hue reads as paint. The strengths are the handoff's own: its frames lay
+   0.22 and 0.18 over white glass, and the glass then keeps the tint under it rather than beside it.
+   The content takes the same hue at a few percent — a page that is a little blue instead of plain
+   white, which is as far as a background can go before it stops being a background. */
+:root[data-tint='blue'] {
+  --tint-ink: #007aff;
+  --tint-content: 2%;
+  --tint-near: rgba(0, 122, 255, 0.22);
+  --tint-far: rgba(124, 77, 255, 0.18);
+}
+
+:root[data-tint='purple'] {
+  --tint-ink: #af52de;
+  --tint-content: 2%;
+  --tint-near: rgba(175, 82, 222, 0.22);
+  --tint-far: rgba(124, 77, 255, 0.18);
+}
+
+:root[data-tint='green'] {
+  --tint-ink: #34c759;
+  --tint-content: 2%;
+  --tint-near: rgba(52, 199, 89, 0.22);
+  --tint-far: rgba(0, 199, 190, 0.18);
+}
+
+:root[data-tint='orange'] {
+  --tint-ink: #ff9500;
+  --tint-content: 2%;
+  --tint-near: rgba(255, 149, 0, 0.22);
+  --tint-far: rgba(255, 204, 0, 0.18);
+}
+
+:root[data-tint='grey'] {
+  --tint-ink: #6e6e73;
+  --tint-content: 2%;
+  --tint-near: rgba(110, 110, 115, 0.22);
+  --tint-far: rgba(142, 142, 147, 0.18);
+}
+
 :root.dark {
-  --bg: #1e1e20;
-  --bg-sidebar: #232326;
-  --bg-panel: #2a2a2e;
-  --bg-inset: #28282c;
+  /* The dark content is one tone — #1c1c1e — as block 12 of the handoff draws it, with everything above
+     it raised by a white veil. Those veils are pre-composited here (0.04 and 0.07 over #1c1c1e) rather
+     than left translucent: --bg-panel is also the knob of a segmented control, a checkbox and a button,
+     and a translucent knob would take on whatever it slides over. Same pixels, nothing that must hide
+     what is under it. */
+  --bg: color-mix(in srgb, var(--tint-ink) var(--tint-content), #1c1c1e);
+  --bg-sidebar: color-mix(in srgb, var(--tint-ink) var(--tint-content), #1c1c1e);
+  --bg-panel: color-mix(in srgb, var(--tint-ink) var(--tint-content), #252527);
+  --bg-inset: color-mix(in srgb, var(--tint-ink) var(--tint-content), #2c2c2e);
   --bg-hover: rgba(255, 255, 255, 0.06);
   --bg-active: rgba(255, 255, 255, 0.1);
   --border: rgba(255, 255, 255, 0.1);
   --border-strong: rgba(255, 255, 255, 0.18);
-  --text: #f5f5f7;
-  --text-secondary: #a1a1a6;
+  --text: #f2f2f3;
+  --text-secondary: rgba(255, 255, 255, 0.55);
   --text-tertiary: #86868b;
   --accent: #0a84ff;
   --accent-soft: rgba(10, 132, 255, 0.3);
   --accent-text: #ffffff;
   --green: #30d158;
   --green-soft: rgba(48, 209, 88, 0.16);
+  /* On the dark ground the fill is already light enough to read, so both meanings share one colour. */
+  --green-text: #30d158;
   --red: #ff453a;
   --red-soft: rgba(255, 69, 58, 0.16);
+  --red-text: #ff453a;
   --orange: #ff9f0a;
-  --orange-soft: rgba(255, 159, 10, 0.18);
+  --orange-soft: rgba(255, 159, 10, 0.13);
+  --orange-text: #ff9f0a;
   --yellow: #ffd60a;
   --purple: #bf5af2;
   --tok-str: #fc6a5d;
@@ -93,8 +202,65 @@
   --tok-null: #98989d;
   --shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
   --shadow-btn: 0 1px 2px rgba(0, 0, 0, 0.6);
+  /* A light theme tints the material towards white, a dark one towards black — the two are separate
+     sets, never one rgba(255,255,255,x) doing both. A white veil over dark content lightens the chrome
+     to grey: the window stops looking dark at all, which is the defect design-system.md records. The
+     hairline comes back the other way: on a dark surface the light theme's edge value glows. */
+  --glass-chrome: rgba(28, 28, 30, 0.62);
+  --tint-ink: #ffffff;
+  --tint-content: 0%;
+  --tint-near: transparent;
+  --tint-far: transparent;
+  --glass-chrome-border: rgba(255, 255, 255, 0.08);
+  --glass-overlay: rgba(40, 40, 44, 0.82);
+  --glass-overlay-border: rgba(255, 255, 255, 0.1);
+  --glass-sheet: rgba(28, 28, 30, 0.72);
+  --glass-sheet-head: rgba(255, 255, 255, 0.06);
+  --glass-sheet-side: rgba(255, 255, 255, 0.07);
+  --glass-overlay-shadow: 0 16px 36px rgba(0, 0, 0, 0.5);
+  --glass-sheet-shadow: 0 24px 60px rgba(0, 0, 0, 0.6);
+
   --tip-bg: #3a3a3c;
   --tip-text: #f5f5f7;
+}
+
+/* The dark half of the same five. Nearly black glass swallows colour, so the tint under it is made
+   darker and stronger than the light theme's — the handoff's dark frame does the same, and the point
+   is that the two look alike, not that the numbers match. The content takes a little more for the
+   same reason: at four percent nothing at all would be visible on #1c1c1e. */
+:root.dark[data-tint='blue'] {
+  --tint-ink: #0a84ff;
+  --tint-content: 4%;
+  --tint-near: rgba(0, 122, 255, 0.3);
+  --tint-far: rgba(110, 92, 255, 0.26);
+}
+
+:root.dark[data-tint='purple'] {
+  --tint-ink: #bf5af2;
+  --tint-content: 4%;
+  --tint-near: rgba(191, 90, 242, 0.3);
+  --tint-far: rgba(124, 92, 255, 0.26);
+}
+
+:root.dark[data-tint='green'] {
+  --tint-ink: #30d158;
+  --tint-content: 4%;
+  --tint-near: rgba(48, 209, 88, 0.3);
+  --tint-far: rgba(0, 199, 190, 0.26);
+}
+
+:root.dark[data-tint='orange'] {
+  --tint-ink: #ff9f0a;
+  --tint-content: 4%;
+  --tint-near: rgba(255, 159, 10, 0.3);
+  --tint-far: rgba(255, 214, 10, 0.26);
+}
+
+:root.dark[data-tint='grey'] {
+  --tint-ink: #98989d;
+  --tint-content: 4%;
+  --tint-near: rgba(152, 152, 157, 0.3);
+  --tint-far: rgba(180, 180, 185, 0.26);
 }
 
 * {
@@ -108,19 +274,44 @@ body,
 }
 
 body {
-  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto,
-    "Helvetica Neue", Arial, sans-serif;
+  /* The UI stack, in the design's order: the macOS system font wins wherever it exists, and Segoe UI
+     Variable Text catches Windows — without it the whole window fell through to the generic sans. */
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI Variable Text", "Segoe UI",
+    "SF Pro Text", Roboto, "Helvetica Neue", Helvetica, Arial, sans-serif;
   @apply text-[13px] text-text bg-bg antialiased overflow-hidden select-none;
+}
+
+/* The window has a material behind it, so its ground must not be painted or the desktop would stop
+   at the edge of the chrome. The strips that are meant to show the material are the ones that paint
+   — the chrome, and the overlays over the content — while the content keeps its own opaque ground
+   (`.main`). The class comes from the window's URL, before the first frame. */
+html.window-translucent body {
+  background: transparent;
 }
 
 .app {
   @apply flex flex-col h-full;
 }
 
+/* The chrome: titlebar, rail and status bar are the glass material of design-system.md. They sit on
+   the app's ground and over the desktop behind a translucent window, which is why their fill is the
+   light one — and why they carry a hairline instead of a shadow. */
 .titlebar {
-  @apply relative z-[100] h-13 flex-none flex items-center justify-center bg-bg-sidebar border-b border-border select-none;
+  @apply relative z-[100] h-[var(--titlebar-height)] flex-none flex items-center justify-center border-b select-none;
+  /* Two layers, and the order is the whole point: the glass is painted over the workspace's colour,
+     not the other way round. A tint on top of white glass reads as grey paint; the same colour under
+     it reads as light coming through. The handoff's window frames are built this way — the gradient
+     is the frame's own background and the glass sits on it — which is why the tint there is far more
+     saturated than its 0.22 would suggest. */
+  background-image:
+    linear-gradient(var(--glass-chrome), var(--glass-chrome)),
+    linear-gradient(180deg, var(--tint-near) 0%, var(--tint-far) 100%);
+  transition: background-image 0.35s ease;
+  backdrop-filter: var(--blur-chrome);
+  border-color: var(--glass-chrome-border);
   --wails-draggable: drag;
 }
+
 
 .titlebar-title {
   @apply text-[13px] font-semibold text-text-secondary tracking-wide;
@@ -164,7 +355,7 @@ body {
 }
 
 .titlebar-actions-flush {
-  @apply static translate-y-0 mr-1.5;
+  @apply static translate-y-0 mr-7;
 }
 
 .env-wrap {
@@ -236,15 +427,32 @@ body {
 }
 
 .sidebar {
-  @apply relative w-[89px] flex-none bg-bg-sidebar border-r border-border py-2 px-1.5 flex flex-col items-center gap-0.5;
+  @apply relative w-[var(--rail-width)] flex-none border-r flex flex-col items-center;
+  /* The rail carries the colour across its whole width in one even band — the handoff draws it that
+     way, and the band simply ends where the strip does, against the hairline the content starts
+     behind. The stops are proportions rather than the handoff's 76px: that is its rail's width, and
+     copying the number into a rail of another width left a band of untinted glass at the edge. */
+  background-image:
+    linear-gradient(var(--glass-chrome), var(--glass-chrome)),
+    linear-gradient(90deg, var(--tint-near) 0%, var(--tint-far) 100%);
+  transition: background-image 0.35s ease;
+  backdrop-filter: var(--blur-chrome);
+  border-color: var(--glass-chrome-border);
 }
 
-.rail-menu-wrap {
-  @apply relative w-full pb-1.5 mb-1.5 flex justify-center;
+/* The rail's own inset belongs to its body, not to the rail: the header and the footer are strips of
+   the rail itself, flush with its edges, and their hairlines are drawn on the same lines as the
+   panel's header and the panel's filter — one line across the window, not three at three heights. */
+.rail-body {
+  @apply flex-1 min-h-0 w-full flex flex-col items-center gap-0.5 p-1.5;
 }
 
-.rail-divider {
-  @apply w-[26px] h-px flex-none mb-1.5 bg-border;
+.rail-head {
+  @apply flex-none h-10 w-full flex items-center justify-center border-b border-border;
+}
+
+.rail-footer {
+  @apply flex-none h-10 w-full flex items-center justify-center border-t border-border;
 }
 
 .rail-marker {
@@ -296,11 +504,27 @@ body {
 
 .menu {
   @apply z-200 rounded-lg p-1 min-w-[200px];
-  background: var(--bg-panel);
-  border: 1px solid var(--border);
-  box-shadow: var(--shadow);
+  background: var(--glass-overlay);
+  backdrop-filter: var(--blur-overlay);
+  border: 1px solid var(--glass-overlay-border);
+  box-shadow: var(--glass-overlay-shadow);
   transform-origin: var(--reka-dropdown-menu-content-transform-origin);
   animation: panel-in 0.15s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* The workspace switcher's panel. It is sized here rather than in the component because the class
+   lands on an element reka builds in its portal, where no component scope reaches: the same reason
+   `.tooltip` and `.popover` are in this file. */
+.menu.ws-menu {
+  min-width: 280px;
+  padding: 8px;
+}
+
+/* The schemes behind «Ещё»: four short names, which the menu's own width would leave swimming in
+   room. Sized here rather than in the component for the reason above — the class lands on an
+   element reka builds in its portal. */
+.menu.auth-menu {
+  min-width: 150px;
 }
 
 .menu[data-state='closed'] {
@@ -310,9 +534,10 @@ body {
 .popover {
   @apply z-200;
   border-radius: 10px;
-  background: var(--bg-panel);
-  border: 1px solid var(--border);
-  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.16);
+  background: var(--glass-overlay);
+  backdrop-filter: var(--blur-overlay);
+  border: 1px solid var(--glass-overlay-border);
+  box-shadow: var(--glass-overlay-shadow);
   transform-origin: var(--reka-popover-content-transform-origin);
   animation: panel-in 0.15s cubic-bezier(0.16, 1, 0.3, 1);
 }
@@ -372,16 +597,63 @@ body {
   width: 460px;
 }
 
+/* The auth popover is the widest of the chips and the only one that scrolls: a scheme asks for a
+   dozen fields and a request does not get taller for it. The control and the header stay put and the
+   fields move under them, which is why the height is capped here and the scrolling is the body's. */
 .chip-popover.auth {
-  width: 380px;
+  width: 500px;
+  max-height: 520px;
+  gap: 10px;
+}
+
+.auth-body {
+  @apply flex flex-col gap-2.5 px-1 pb-0.5 overflow-y-auto;
+}
+
+/* The line every scheme shares: values can come from the environment, and the popover is where a
+   person finds that out. */
+.auth-foot {
+  @apply px-1 pt-1.5 border-t border-border text-[10.5px] text-text-tertiary;
+  line-height: 1.4;
+  flex: none;
+}
+
+/* The body popover is the one the handoff draws wider than the rest: it holds five formats and, for
+   a form, a grid with a key and a value in it. */
+.chip-popover.wide {
+  width: 500px;
 }
 
 .chip-popover.spaced {
   gap: 8px;
 }
 
+/* The foot of a chip popover: the accent button that adds a row, and the line of explanation beside
+   it. It lives here and not in a component because more than one component draws a popover's
+   contents — the body's lists come from BodyFields.vue — and a scoped rule would reach only the one
+   that happens to own the popover wrapper. */
+.popover-foot {
+  @apply flex items-center justify-between pt-2 pb-0.5 mt-1 border-t border-border px-1;
+}
+
+.foot-hint {
+  @apply text-[11px] text-text-tertiary;
+}
+
 .env-menu {
   @apply w-[280px] p-1.5 rounded-[11px];
+}
+
+/* The palette is a panel of a fixed width whose height follows what it found, and the fixed width is
+   the point: without it every chip the user clicks would resize the window under their hands as the
+   widest row changes. It is written here rather than in the component for the reason the tooltip's
+   plate is: `class` lands on the element reka-ui builds inside its portal, and no scope of the
+   palette reaches there — a scoped rule would match nothing and the width would fall to the content. */
+.dialog.search-palette {
+  width: 620px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
 }
 
 .params-menu {
@@ -410,6 +682,11 @@ body {
   outline: none;
 }
 
+/* The one item that cannot be undone, in the colour the app uses for that everywhere. */
+.menu-item.danger {
+  @apply text-red;
+}
+
 .menu-separator {
   @apply h-px my-1 bg-border;
 }
@@ -432,7 +709,7 @@ body {
 }
 
 .main {
-  @apply flex-1 min-w-0 overflow-hidden flex flex-col;
+  @apply flex-1 min-w-0 overflow-hidden flex flex-col bg-bg;
 }
 
 button {
@@ -452,16 +729,28 @@ button {
 }
 
 .badge-status-2xx {
-  @apply text-green bg-green-soft;
+  color: var(--green-text);
+  @apply bg-green-soft;
 }
 
 .badge-status-3xx {
-  @apply text-orange bg-orange-soft;
+  color: var(--orange-text);
+  @apply bg-orange-soft;
 }
 
 .badge-status-4xx,
 .badge-status-5xx {
-  @apply text-red bg-red-soft;
+  color: var(--red-text);
+  @apply bg-red-soft;
+}
+
+/* Where the query was found in a row of the palette. The highlighter hands this back as HTML and the
+   row draws it with `v-html`, so there is no component scope for it to compile into — the same
+   reason the tooltip's plate lives here rather than in its component. Inside a trail, which is drawn
+   in the muted colour, the match is also the darker one. */
+.search-match {
+  font-weight: 600;
+  color: var(--text);
 }
 
 .keycap {
@@ -482,6 +771,11 @@ button {
   @apply w-7 h-7 border-[3px];
 }
 
+/* The same ring, sized for a line of text: a button that is working says so without growing. */
+.spinner-sm {
+  @apply w-3 h-3 border-[1.5px];
+}
+
 @keyframes spin {
   to {
     transform: rotate(360deg);
@@ -493,13 +787,32 @@ button {
   font-family: var(--mono);
 }
 
-/* ---- Empty state ---- */
+/* ---- Empty state ----
+   A pane nobody has put anything in yet: a linear glyph, a title and a hint under it. The drawing is
+   what says the screen is waiting rather than broken, and the title stays at full strength — a grey
+   one reads as a failure that has already happened. */
 .empty {
-  @apply flex-1 flex flex-col items-center justify-center text-text-tertiary gap-2;
+  @apply flex-1 flex flex-col items-center justify-center text-text-tertiary;
+  gap: 12px;
+}
+
+/* The glyph names the screen and the words say what to do, so the drawing stays a step behind them:
+   a tone lighter than the faintest line under it, in either theme. */
+.empty-icon {
+  color: color-mix(in srgb, var(--text-tertiary) 60%, transparent);
+}
+
+.empty-text {
+  @apply flex flex-col items-center;
+  gap: 4px;
 }
 
 .empty-title {
-  @apply text-[15px] font-semibold text-text-secondary;
+  @apply text-[14px] font-semibold text-text;
+}
+
+.empty-hint {
+  @apply text-[12.5px] text-center;
 }
 
 /* ---- JSON:API tree ---- */
@@ -763,6 +1076,8 @@ button:focus-visible,
   outline-offset: 2px;
 }
 
+/* A transition's own layers stand over the page; where an engine does not take the hit test for
+   itself, they would swallow every click for as long as the change runs. */
 ::view-transition,
 ::view-transition-group(*),
 ::view-transition-image-pair(*),
@@ -771,87 +1086,12 @@ button:focus-visible,
   pointer-events: none;
 }
 
+/* The theme change is Chromium's own cross-fade of the two snapshots: the window as it was fades out
+   while the window as it becomes fades in, and the engine's default blend adds the two, so the desktop
+   behind a translucent window never shows through the middle of the change. Only the length is ours;
+   a stacked animation — a circle sweeping the new palette over the old one — cannot be built out of a
+   fade and is gone along with the pill's own layer and the copy of the glyphs above it. */
 ::view-transition-old(root),
 ::view-transition-new(root) {
-  animation: none;
-  mix-blend-mode: normal;
-}
-
-::view-transition-old(root) {
-  z-index: 1;
-  animation: none;
-}
-
-::view-transition-new(root) {
-  z-index: 2;
-  animation: theme-wipe 0.85s cubic-bezier(0.35, 0.25, 0.2, 1);
-}
-
-@keyframes theme-wipe {
-  from {
-    clip-path: circle(0% at 0 0);
-  }
-  to {
-    clip-path: circle(150% at 0 0);
-  }
-}
-
-::view-transition-group(theme-indicator) {
-  z-index: 3;
-}
-
-::view-transition-new(theme-indicator) {
-  mix-blend-mode: normal;
-  opacity: 0;
-  animation: pill-slide 0.3s var(--wipe-arrival, 0.4s) forwards;
-}
-
-@keyframes pill-slide {
-  from {
-    transform: translateX(var(--pill-shift, 0px));
-    opacity: 0;
-    animation-timing-function: linear;
-  }
-  18% {
-    opacity: 1;
-    animation-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
-  }
-  to {
-    transform: translateX(0);
-    opacity: 1;
-  }
-}
-
-::view-transition-group(theme-glyphs) {
-  z-index: 4;
-}
-
-::view-transition-old(theme-glyphs) {
-  mix-blend-mode: normal;
-  opacity: 1;
-  animation: theme-glyphs-out 0.25s linear var(--wipe-arrival, 0.4s) forwards;
-}
-
-::view-transition-new(theme-glyphs) {
-  mix-blend-mode: normal;
-  opacity: 0;
-  animation: theme-glyphs-in 0.25s linear var(--wipe-arrival, 0.4s) forwards;
-}
-
-@keyframes theme-glyphs-in {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 1;
-  }
-}
-
-@keyframes theme-glyphs-out {
-  from {
-    opacity: 1;
-  }
-  to {
-    opacity: 0;
-  }
+  animation-duration: 0.2s;
 }

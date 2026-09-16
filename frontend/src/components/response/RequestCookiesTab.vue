@@ -4,13 +4,26 @@ import { IconButton } from '../ui/button'
 import VarToken from '../ui/VarToken.vue'
 import { useRequestsStore } from '../../stores/requests'
 import { parseTokens, tokenSegments } from '../../lib/vars'
+import { RowKind, type CookieRow } from '../../../bindings/json-inspector/internal/domain'
+import { useMessages } from '../../i18n'
 
 const store = useRequestsStore()
+const { t } = useMessages()
 
 // Only the value gets the token overlay (same trick as Params/Headers) — a cookie's name is
 // realistically always a literal, and the domain/expires columns are informational, not sent.
 function hasTokens(value: string): boolean {
   return parseTokens(value).length > 0
+}
+
+// The jar is Go's: a row is addressed by id, and an edit goes over as a patch. That is what makes a
+// click land on the row it was aimed at even if another one left first.
+function patch(row: CookieRow, change: { name?: string; value?: string; domain?: string; expires?: string }) {
+  void store.patchRow(RowKind.RowCookies, row.id ?? '', change)
+}
+
+function toggleFlag(row: CookieRow, flag: 'secure' | 'httpOnly') {
+  void store.patchRow(RowKind.RowCookies, row.id ?? '', { [flag]: !row[flag] })
 }
 
 function syncCellScroll(e: Event) {
@@ -23,24 +36,24 @@ function syncCellScroll(e: Event) {
 <template>
   <div class="req-cookies">
     <div class="req-cookies-head">
-      <div>Имя</div><div>Значение</div><div>Домен</div><div>Истекает</div><div>Флаги</div><div></div>
+      <div>{{ t('response.cookies.name') }}</div><div>{{ t('response.cookies.value') }}</div><div>{{ t('response.cookies.domain') }}</div><div>{{ t('response.cookies.expires') }}</div><div>{{ t('response.cookies.flags') }}</div><div></div>
     </div>
-    <div v-for="(c, i) in store.draft.cookies" :key="i" class="req-cookies-row">
+    <div v-for="c in store.cookies" :key="c.id" class="req-cookies-row">
       <input
         :value="c.name"
         class="cell-input mono"
-        placeholder="имя"
+        :placeholder="t('request.placeholderName')"
         spellcheck="false"
-        @input="store.updateCookie(i, { name: ($event.target as HTMLInputElement).value })"
+        @input="patch(c, { name: ($event.target as HTMLInputElement).value })"
       />
       <div class="cell">
         <input
           :value="c.value"
           class="cell-input mono"
           :class="{ 'cell-input-veiled': hasTokens(c.value) }"
-          placeholder="значение"
+          :placeholder="t('request.placeholderValue')"
           spellcheck="false"
-          @input="store.updateCookie(i, { value: ($event.target as HTMLInputElement).value }); syncCellScroll($event)"
+          @input="patch(c, { value: ($event.target as HTMLInputElement).value }); syncCellScroll($event)"
           @scroll="syncCellScroll"
         />
         <span v-if="hasTokens(c.value)" class="cell-input row-display mono" aria-hidden="true">
@@ -53,40 +66,40 @@ function syncCellScroll(e: Event) {
       <input
         :value="c.domain"
         class="cell-input"
-        placeholder="домен"
+        :placeholder="t('response.cookies.domain')"
         spellcheck="false"
-        @input="store.updateCookie(i, { domain: ($event.target as HTMLInputElement).value })"
+        @input="patch(c, { domain: ($event.target as HTMLInputElement).value })"
       />
       <input
         :value="c.expires"
         class="cell-input expires"
         placeholder="Session"
         spellcheck="false"
-        @input="store.updateCookie(i, { expires: ($event.target as HTMLInputElement).value })"
+        @input="patch(c, { expires: ($event.target as HTMLInputElement).value })"
       />
       <div class="req-cookies-flags">
         <button
           class="flag-btn"
           :class="{ active: c.secure }"
-          @click="store.toggleCookieFlag(i, 'secure')"
+          @click="toggleFlag(c, 'secure')"
         >
           Secure
         </button>
         <button
           class="flag-btn"
           :class="{ active: c.httpOnly }"
-          @click="store.toggleCookieFlag(i, 'httpOnly')"
+          @click="toggleFlag(c, 'httpOnly')"
         >
           HttpOnly
         </button>
       </div>
-      <IconButton variant="danger" size="sm" hint="Удалить" @click="store.removeCookie(i)">
-        <Icon name="xmark" :size="12" />
+      <IconButton variant="danger" size="sm" :hint="t('common.delete')" @click="store.removeRow(RowKind.RowCookies, c.id ?? '')">
+        <Icon name="trash" :size="13" />
       </IconButton>
     </div>
-    <button class="req-cookies-add" @click="store.addCookie()">
-      <Icon name="plus" :size="13" />
-      <span>Добавить cookie</span>
+    <button class="req-cookies-add" @click="store.addRow(RowKind.RowCookies)">
+      <Icon name="plus" :size="16" />
+      <span>{{ t('response.cookies.add') }}</span>
     </button>
   </div>
 </template>

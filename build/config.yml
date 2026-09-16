@@ -4,10 +4,10 @@ info:
   companyName: "Yuri Gerasimov"
   productName: "JSON Inspector"
   productIdentifier: "com.jurager.json-inspector"
-  description: "Просмотр JSON:API: подстановка переменных окружения, карта схемы, перехват запросов из браузера."
+  description: "Inspect JSON with environment variables, schema mapping, and browser request interception."
   copyright: "© 2026, Yuri Gerasimov"
   comments: "JSON Inspector"
-  version: "dev"
+  version: "0.1.2"
 
 protocols:
   - scheme: json-inspector

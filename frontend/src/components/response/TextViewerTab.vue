@@ -6,10 +6,12 @@ import { Input } from '../ui/input'
 import RawViewer from './RawViewer.vue'
 import { copyToClipboard } from '../../lib/clipboard'
 import { usePlatform } from '../../composables/usePlatform'
+import { useMessages } from '../../i18n'
 
 // Shared by the "Raw" tab and the body of a non-JSON:API response, so a plain
 // response reads the same wherever it is shown.
 const { shortcut } = usePlatform()
+const { t } = useMessages()
 
 const props = defineProps<{
   text: string
@@ -70,33 +72,33 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
         v-model="query"
         mono
         class="flex-1 min-w-0"
-        placeholder="Поиск…"
+        :placeholder="t('response.text.searchPlaceholder')"
         spellcheck="false"
         @keydown.enter="onSearchEnter"
         @keydown.esc="closeSearch"
       />
       <span class="search-count">
-        {{ stats.count ? `${stats.index + 1} / ${stats.count}` : 'нет совпадений' }}
+        {{ stats.count ? `${stats.index + 1} / ${stats.count}` : t('response.text.noMatches') }}
       </span>
-      <IconButton variant="outline" hint="Предыдущее (Shift+Enter)" @click="viewer?.prev()">
+      <IconButton variant="outline" :hint="t('response.text.previous')" @click="viewer?.prev()">
         <Icon name="chevron-up" :size="14" />
       </IconButton>
-      <IconButton variant="outline" hint="Следующее (Enter)" @click="viewer?.next()">
+      <IconButton variant="outline" :hint="t('response.text.next')" @click="viewer?.next()">
         <Icon name="chevron-down" :size="14" />
       </IconButton>
-      <IconButton variant="outline" hint="Закрыть (Esc)" @click="closeSearch">
+      <IconButton variant="outline" :hint="t('common.close')" @click="closeSearch">
         <Icon name="xmark" :size="14" />
       </IconButton>
     </template>
     <template v-else>
       <Button v-if="showOpenInRequest" size="sm" class="open-in-request" @click="emit('open-in-request')">
-        Открыть в «Запросе»
+        {{ t('response.openInRequest') }}
       </Button>
       <Button size="sm" @click="copy">
         <Icon v-if="copied" name="check" :size="12" />
-        <span>{{ copied ? 'Скопировано' : 'Копировать' }}</span>
+        <span>{{ copied ? t('common.copied') : t('common.copy') }}</span>
       </Button>
-      <Button size="sm" @click="openSearch"><span>Поиск</span><kbd class="keycap">{{ searchShortcut }}</kbd></Button>
+      <Button size="sm" @click="openSearch"><span>{{ t('common.search') }}</span><kbd class="keycap">{{ searchShortcut }}</kbd></Button>
     </template>
   </div>
 

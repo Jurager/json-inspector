@@ -4,7 +4,10 @@ import { usePlatform } from '../../composables/usePlatform'
 import { useSheetNotice } from '../../composables/useSheetNotice'
 import EnvironmentList from './EnvironmentList.vue'
 import { Button } from '../ui/button'
+import { useMessages } from '../../i18n'
 import VariablesTable from './VariablesTable.vue'
+
+const { t } = useMessages()
 
 const emit = defineEmits<{ (e: 'close'): void }>()
 const { shortcut } = usePlatform()
@@ -35,9 +38,9 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
   <div class="sheet-overlay">
     <div class="sheet">
       <div class="sheet-head">
-        <span class="sheet-title">Переменные окружения</span>
+        <span class="sheet-title">{{ t('environments.sheetTitle') }}</span>
         <span class="sheet-hint mono">{{ editHint }}</span>
-        <Button @click="emit('close')">Готово</Button>
+        <Button @click="emit('close')">{{ t('environments.done') }}</Button>
       </div>
 
       <div class="sheet-body">
@@ -56,16 +59,20 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
   background: rgba(0, 0, 0, 0.25);
 }
 
+/* The whole sheet is one acrylic leaf — blurring only the toolbar left a glass strip lying on an
+   ordinary card. The strips inside it are veils of the same shade, not a fill of their own. */
 .sheet {
   @apply flex flex-col rounded-xl overflow-hidden w-[1040px] max-w-[95vw];
   max-height: calc(100vh - 72px);
-  background: var(--bg-panel);
-  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.18), 0 0 0 1px var(--border);
+  background: var(--glass-sheet);
+  backdrop-filter: var(--blur-sheet);
+  box-shadow: var(--glass-sheet-shadow), 0 0 0 1px var(--glass-overlay-border);
 }
 
 .sheet-head {
-  @apply flex-none flex items-center gap-3 h-[46px] px-3.5 border-b border-border;
-  background: var(--bg-sidebar);
+  @apply flex-none flex items-center gap-3 h-[46px] px-3.5 border-b;
+  background: var(--glass-sheet-head);
+  border-color: var(--glass-overlay-border);
 }
 
 .sheet-title {

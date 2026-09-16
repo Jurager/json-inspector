@@ -1,0 +1,53 @@
+package collection
+
+// What a name and a description may be. Both are refused with the code the window words the
+// sentence from, so an empty name and an overlong one are not the same news.
+
+import (
+	"strconv"
+	"strings"
+
+	"json-inspector/internal/domain"
+)
+
+// maxNameLength is the same ceiling the environments screen uses, so a name that is too long means
+// the same thing wherever it is typed.
+const maxNameLength = 120
+
+// maxDescriptionLength is what still reads as a description and not as a document pasted into a
+// header. It is generous: a few sentences about what a collection is for.
+const maxDescriptionLength = 500
+
+func validName(name string) (string, error) {
+	name = strings.TrimSpace(name)
+	if name == "" {
+		return "", domain.Refuse(domain.CodeNameEmpty, domain.ErrNotAllowed, nil)
+	}
+	if len([]rune(name)) > maxNameLength {
+		return "", domain.Refuse(domain.CodeNameTooLong, domain.ErrNotAllowed,
+			domain.Args{"max": strconv.Itoa(maxNameLength)})
+	}
+	return name, nil
+}
+
+// validDescription trims what was typed and keeps it within the ceiling. An empty description is a
+// real answer — the header shows a placeholder for it — so it is not refused the way an empty name
+// is.
+func validDescription(description string) (string, error) {
+	description = strings.TrimSpace(description)
+	if len([]rune(description)) > maxDescriptionLength {
+		return "", domain.Refuse(domain.CodeDescriptionTooLong, domain.ErrNotAllowed,
+			domain.Args{"max": strconv.Itoa(maxDescriptionLength)})
+	}
+	return description, nil
+}
+
+// clip keeps a name inside the ceiling. Duplicating at the limit is a thing a user does, and
+// refusing it would be the app's problem, not theirs.
+func clip(name string) string {
+	runes := []rune(name)
+	if len(runes) <= maxNameLength {
+		return name
+	}
+	return string(runes[:maxNameLength])
+}

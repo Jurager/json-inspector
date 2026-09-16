@@ -2,50 +2,58 @@
 import { computed, ref, watch } from 'vue'
 import Icon from '../ui/Icon.vue'
 import { Button, IconButton } from '../ui/button'
-import { Input } from '../ui/input'
+import PanelFilter from '../ui/PanelFilter.vue'
+import { useListKeys } from '../../composables/useListKeys'
 import { useRequestsStore } from '../../stores/requests'
-import type { RequestRecord } from '../../lib/requestRecord'
+import { RecordSource, type Record } from '../../../bindings/json-inspector/internal/domain'
 import { statusBadgeClass } from '../../lib/format'
+import { formatDate, useMessages } from '../../i18n'
 
-const props = defineProps<{ sourceKind: 'manual' | 'browser' }>()
+const props = defineProps<{ sourceKind: RecordSource }>()
 
 const store = useRequestsStore()
 
+const { t } = useMessages()
+
+const browser = computed(() => props.sourceKind === RecordSource.SourceBrowser)
+
 const emptyHint = computed(() =>
-  props.sourceKind === 'browser'
-    ? 'Установите и активируйте расширение. Перехваченные запросы появятся здесь.'
-    : 'Здесь появятся запросы, отправленные вручную.'
+  browser.value
+    ? t('history.emptyCaptured')
+    : t('history.emptySent')
 )
 
-const records = computed(() => store.requests.filter((r) => r.source === props.sourceKind))
-const activeId = computed(() => (props.sourceKind === 'browser' ? store.browserId : store.manualId))
+const records = computed(() => store.records.filter((r) => r.source === props.sourceKind))
+const activeId = computed(() =>
+  props.sourceKind === RecordSource.SourceBrowser ? store.browserId : store.manualId
+)
 
 function select(id: string) {
-  if (props.sourceKind === 'browser') store.selectBrowser(id)
+  if (props.sourceKind === RecordSource.SourceBrowser) store.selectBrowser(id)
   else store.selectManual(id)
 }
 
 function clearAll() {
-  store.clearRequests(records.value.map((r) => r.id))
+  void store.clearRecords(records.value.map((r) => r.id))
 }
 
 function timeLabel(startedAt: number): string {
   const d = new Date(startedAt)
-  return d.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit', second: '2-digit' })
+  return formatDate(d, { hour: '2-digit', minute: '2-digit', second: '2-digit' })
 }
 
-function pathOf(url: string): string {
-  try {
-    const u = new URL(url)
-    return u.pathname + u.search
-  } catch {
-    return url
-  }
+// What a row shows of an address: the host and everything after it. The scheme is dropped — it is the
+// longest part of a URL and the one that says the least — and the text is cut rather than parsed: a
+// URL here can be `{{host}}/articles`, or carry a variable that resolved to nothing, and the standard
+// parser rewrites the braces of a `{{token}}` into `%7B%7B`, which is not what the user typed. The
+// whole address is in the row's title.
+function addressOf(url: string): string {
+  return url.replace(/^[a-zA-Z][\w+.-]*:\/\//, '')
 }
 
 const query = ref('')
 
-function matches(r: RequestRecord, q: string): boolean {
+function matches(r: Record, q: string): boolean {
   return (
     r.method.toLowerCase().includes(q) ||
     String(r.status).includes(q) ||
@@ -69,13 +77,13 @@ function dateLabel(startedAt: number): string {
   const yesterday = new Date(today)
   yesterday.setDate(yesterday.getDate() - 1)
   const dayMs = start.getTime()
-  if (dayMs === today.getTime()) return 'Сегодня'
-  if (dayMs === yesterday.getTime()) return 'Вчера'
-  return d.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' })
+  if (dayMs === today.getTime()) return t('history.today')
+  if (dayMs === yesterday.getTime()) return t('history.yesterday')
+  return formatDate(d, { day: 'numeric', month: 'long' })
 }
 
 const manualGroups = computed(() => {
-  const out: { label: string; items: RequestRecord[] }[] = []
+  const out: { label: string; items: Record[] }[] = []
   for (const r of filteredRecords.value) {
     const label = dateLabel(r.startedAt)
     const last = out[out.length - 1]
@@ -90,7 +98,7 @@ interface TabGroup {
   title: string
   url: string
   favIconUrl: string
-  items: RequestRecord[]
+  items: Record[]
 }
 
 const tabGroups = computed<TabGroup[]>(() => {
@@ -119,7 +127,7 @@ const filteredGroups = computed(() => {
 })
 
 const isEmptyFiltered = computed(() =>
-  props.sourceKind === 'browser' ? filteredGroups.value.length === 0 : filteredRecords.value.length === 0
+  browser.value ? filteredGroups.value.length === 0 : filteredRecords.value.length === 0
 )
 
 function isRecording(g: TabGroup): boolean {
@@ -128,6 +136,24 @@ function isRecording(g: TabGroup): boolean {
 
 const collapsed = ref<Set<string>>(new Set())
 const brokenFavicons = ref<Set<string>>(new Set())
+
+// The rows the arrows walk: what is drawn, in the order it is drawn. A collapsed tab holds its
+// requests back, and a filtered-out one is not on screen to be walked to.
+const rowIds = computed(() => {
+  if (browser.value) {
+    return filteredGroups.value
+      .filter((g) => !collapsed.value.has(g.key))
+      .flatMap((g) => g.items.map((r) => r.id))
+  }
+  return manualGroups.value.flatMap((g) => g.items.map((r) => r.id))
+})
+
+useListKeys({
+  ids: () => rowIds.value,
+  current: () => activeId.value,
+  move: (id) => void select(id),
+  selected: '.history-panel .item.active',
+})
 
 function toggleGroup(key: string) {
   const next = new Set(collapsed.value)
@@ -143,7 +169,7 @@ function markBroken(key: string) {
 }
 
 function clearGroup(g: TabGroup) {
-  store.clearRequests(g.items.map((r) => r.id))
+  void store.clearRecords(g.items.map((r) => r.id))
 }
 
 function hostnameOf(url: string): string {
@@ -155,7 +181,7 @@ function hostnameOf(url: string): string {
 }
 
 function groupLabel(g: TabGroup): string {
-  return g.title || hostnameOf(g.url) || 'Вкладка'
+  return g.title || hostnameOf(g.url) || t('history.tab')
 }
 
 function groupHue(key: string): number {
@@ -167,7 +193,7 @@ function groupHue(key: string): number {
 // A deep link's tab may have nothing yet, but the link is clicked right after the page loads
 // and the first request lands a moment later — so the request is kept.
 function focusDeepLinkedTab() {
-  if (props.sourceKind !== 'browser') return
+  if (props.sourceKind !== RecordSource.SourceBrowser) return
   const tabId = store.focusTabId
   if (tabId == null) return
   const g = tabGroups.value.find((x) => x.key === String(tabId))
@@ -180,7 +206,7 @@ function focusDeepLinkedTab() {
   store.focusTabId = null
 }
 
-watch(() => [store.focusTabId, store.requests.length, props.sourceKind] as const, focusDeepLinkedTab, {
+watch(() => [store.focusTabId, store.records.length, props.sourceKind] as const, focusDeepLinkedTab, {
   immediate: true,
 })
 </script>
@@ -188,18 +214,20 @@ watch(() => [store.focusTabId, store.requests.length, props.sourceKind] as const
 <template>
   <div class="history-panel">
     <div class="panel-head">
-      <span class="panel-title">{{ sourceKind === 'browser' ? 'Перехвачено' : 'История' }}</span>
-      <Button variant="quiet" :disabled="records.length === 0" @click="clearAll">Очистить</Button>
+      <span class="panel-title">{{ browser ? t('history.captured') : t('history.history') }}</span>
+      <Button variant="quiet" :disabled="records.length === 0" @click="clearAll">{{ t('history.clear') }}</Button>
     </div>
 
-    <div v-if="records.length === 0 && sourceKind === 'manual'" class="empty">
-      <span class="empty-title">Пока пусто</span>
-      <span class="empty-hint">{{ emptyHint }}</span>
+    <div v-if="records.length === 0 && !browser" class="empty">
+      <Icon name="clock" :size="30" :stroke-width="1.6" class="empty-icon" />
+      <div class="empty-text">
+        <span class="empty-hint">{{ emptyHint }}</span>
+      </div>
     </div>
 
-    <div v-else-if="records.length > 0 && isEmptyFiltered" class="no-results">Ничего не найдено</div>
+    <div v-else-if="records.length > 0 && isEmptyFiltered" class="no-results">{{ t('common.nothingFound') }}</div>
 
-    <ul v-else-if="sourceKind === 'manual'" class="list">
+    <ul v-else-if="!browser" class="list">
       <template v-for="g in manualGroups" :key="g.label">
         <li class="date-sep">{{ g.label }}</li>
         <li
@@ -215,7 +243,7 @@ watch(() => [store.focusTabId, store.requests.length, props.sourceKind] as const
         >
           <span class="badge badge-method item-method">{{ r.method }}</span>
           <span class="item-status" :class="statusBadgeClass(r.status)">{{ r.status }}</span>
-          <span class="item-path mono" :title="r.url">{{ pathOf(r.url) }}</span>
+          <span class="item-path mono" :title="r.url">{{ addressOf(r.url) }}</span>
           <span class="item-time">{{ timeLabel(r.startedAt) }}</span>
         </li>
       </template>
@@ -249,7 +277,7 @@ watch(() => [store.focusTabId, store.requests.length, props.sourceKind] as const
             <span class="recording-dot"></span>
           </span>
           <span class="group-count">{{ g.items.length }}</span>
-          <IconButton variant="danger" size="sm" hint="Очистить эту вкладку" @click.stop="clearGroup(g)"><Icon name="xmark" :size="12" /></IconButton>
+          <IconButton variant="danger" size="sm" :hint="t('history.clearTab')" @click.stop="clearGroup(g)"><Icon name="trash" :size="13" /></IconButton>
         </div>
 
         <ul v-show="!collapsed.has(g.key)" class="group-items">
@@ -266,20 +294,18 @@ watch(() => [store.focusTabId, store.requests.length, props.sourceKind] as const
           >
             <span class="badge badge-method item-method">{{ r.method }}</span>
             <span class="item-status" :class="statusBadgeClass(r.status)">{{ r.status }}</span>
-            <span class="item-path mono" :title="r.url">{{ pathOf(r.url) }}</span>
+            <span class="item-path mono" :title="r.url">{{ addressOf(r.url) }}</span>
             <span class="item-time">{{ timeLabel(r.startedAt) }}</span>
           </li>
         </ul>
       </section>
     </div>
 
-    <div v-if="records.length > 0" class="panel-filter-dock">
-      <div class="panel-filter-fade"></div>
-      <div class="panel-filter">
-        <Input v-model="query" size="sm" class="w-full" placeholder="Фильтр по ссылке, методу, статусу…" spellcheck="false" />
-      </div>
-      <div class="panel-filter-backdrop"></div>
-    </div>
+    <PanelFilter
+      v-if="records.length > 0"
+      v-model="query"
+      :placeholder="t('history.filter')"
+    />
   </div>
 </template>
 
@@ -287,69 +313,41 @@ watch(() => [store.focusTabId, store.requests.length, props.sourceKind] as const
 @reference "../../style.css";
 
 .history-panel {
-  @apply relative flex flex-col h-full min-h-0 bg-bg-panel border-r border-border;
+  /* The seam against the content belongs to the panel's frame, which knows which edge it is on. */
+  @apply relative flex flex-col h-full min-h-0 bg-bg-panel;
 }
 
+/* 40px, like the collection tree's: the rail's own header and footer are strips of that height, and
+   the three hairlines across the window — panel, rail, filter — are drawn on one line. */
 .panel-head {
-  @apply flex items-center justify-between h-12 px-2 pl-3.5 border-b border-border;
+  @apply flex items-center justify-between h-10 px-2 pl-3.5 border-b border-border;
 }
 
 .panel-title {
-  @apply text-sm font-semibold text-text-secondary;
+  @apply text-[12px] font-semibold text-text-secondary;
 }
 
 .date-sep {
   @apply text-[10px] uppercase tracking-[0.08em] text-text-tertiary pt-1.5 px-2 pb-1;
 }
 
-.panel-filter-dock {
-  @apply absolute left-0 right-0 bottom-0 flex flex-col pointer-events-none;
-}
-
-.panel-filter-fade {
-  @apply h-8;
-  background: linear-gradient(
-    to bottom,
-    color-mix(in srgb, var(--bg-panel) 0%, transparent) 0%,
-    color-mix(in srgb, var(--bg-panel) 3%, transparent) 10%,
-    color-mix(in srgb, var(--bg-panel) 10%, transparent) 20%,
-    color-mix(in srgb, var(--bg-panel) 22%, transparent) 30%,
-    color-mix(in srgb, var(--bg-panel) 35%, transparent) 40%,
-    color-mix(in srgb, var(--bg-panel) 50%, transparent) 50%,
-    color-mix(in srgb, var(--bg-panel) 65%, transparent) 60%,
-    color-mix(in srgb, var(--bg-panel) 78%, transparent) 70%,
-    color-mix(in srgb, var(--bg-panel) 90%, transparent) 80%,
-    color-mix(in srgb, var(--bg-panel) 97%, transparent) 90%,
-    var(--bg-panel) 100%
-  );
-}
-
-.panel-filter {
-  @apply pointer-events-auto flex items-center py-1.5 px-3 bg-bg-panel;
-}
-
-.panel-filter-backdrop {
-  @apply h-2 bg-bg-panel;
-}
-
 .no-results {
-  @apply pt-4 px-4 pb-23 text-center text-text-tertiary text-xs;
+  @apply pt-4 px-4 pb-[58px] text-center text-text-tertiary text-xs;
 }
 
+/* The block itself is the window's empty state (style.css); a panel only adds the padding and the
+   centred text its own width asks for. */
 .empty {
-  @apply flex-1 flex flex-col items-center justify-center gap-2 p-4 text-center;
-}
-
-.empty-title {
-  @apply text-[15px] font-semibold text-text-secondary;
+  @apply p-4 text-center;
 }
 
 .empty-hint {
-  @apply text-xs text-text-tertiary max-w-[220px];
+  @apply max-w-[220px];
 }
 
 .list {
-  @apply flex-1 min-h-0 overflow-auto pt-1.5 px-1.5 pb-23;
+  /* The tail leaves room for the filter dock — its 40px strip and the 18px fade above it. */
+  @apply flex-1 min-h-0 overflow-auto pt-1.5 px-1.5 pb-[58px];
 }
 
 .group {
