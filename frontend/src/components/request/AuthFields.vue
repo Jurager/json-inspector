@@ -1,8 +1,10 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import Icon from '../ui/Icon.vue'
-import type { Auth, Field, Scheme } from '../../../bindings/json-inspector/internal/domain'
+import VarHighlight from '../ui/VarHighlight.vue'
 import { useMessages } from '../../i18n'
+import { parseTokens } from '../../lib/vars'
+import type { Auth, Field, Scheme } from '../../../bindings/json-inspector/internal/domain'
 
 // The fields of a scheme, drawn from what Go said they are. There is no template per scheme and no
 // branch on the scheme's name: a scheme added on that side is drawn here the day it is added.
@@ -23,6 +25,20 @@ const emit = defineEmits<{
 }>()
 
 const { t } = useMessages()
+
+// A credential a level writes down is a `{{token}}` far more often than it is the secret itself: the
+// value lives in the environment, and the level only says which of them it sends. So a field draws
+// its tokens the way the command line draws them — the pill is painted over the input, which is still
+// the thing being typed into.
+function tokensIn(value: string): boolean {
+  return value.trim() !== '' && parseTokens(value).length > 0
+}
+
+// Whether the pills go over this value: a textarea only while it holds one line, because the layer
+// has no way of knowing where the box would have wrapped it.
+function covered(value: string): boolean {
+  return !value.includes('\n') && tokensIn(value)
+}
 
 // A secret is hidden until somebody asks to look at it. The choice is per field and per view: it is
 // not an answer about the request and nothing writes it down.
@@ -84,16 +100,22 @@ function onInput(field: Field, event: Event) {
         </button>
       </div>
 
-      <textarea
-        v-else-if="field.kind === 'textarea'"
-        :value="valueOf(field)"
-        :placeholder="field.placeholder ? t(field.placeholder) : undefined"
-        :style="{ height: field.height ? `${field.height}px` : undefined }"
-        spellcheck="false"
-        @input="onInput(field, $event)"
-        @blur="emit('commit')"
-        @keydown.enter.meta.prevent="emit('commit')"
-      />
+      <!-- The pills are laid over the box that is being typed into, so the two have to agree on where
+           the text starts: a long value is a textarea, and its pills are drawn only while it holds a
+           single line, which is the case a reference is. -->
+      <div v-else-if="field.kind === 'textarea'" class="covered" :class="{ mono: field.mono }">
+        <textarea
+          :value="valueOf(field)"
+          :placeholder="field.placeholder ? t(field.placeholder) : undefined"
+          :class="{ veiled: covered(valueOf(field)) }"
+          :style="{ height: field.height ? `${field.height}px` : undefined }"
+          spellcheck="false"
+          @input="onInput(field, $event)"
+          @blur="emit('commit')"
+          @keydown.enter.meta.prevent="emit('commit')"
+        />
+        <VarHighlight v-if="covered(valueOf(field))" :value="valueOf(field)" multiline />
+      </div>
 
       <select
         v-else-if="field.kind === 'select'"
@@ -105,18 +127,20 @@ function onInput(field: Field, event: Event) {
         </option>
       </select>
 
-      <input
-        v-else
-        :type="field.kind === 'number' ? 'number' : 'text'"
-        :value="valueOf(field)"
-        :placeholder="field.placeholder ? t(field.placeholder) : undefined"
-        :class="{ mono: field.mono }"
-        spellcheck="false"
-        autocomplete="off"
-        @input="onInput(field, $event)"
-        @blur="emit('commit')"
-        @keydown.enter.prevent="emit('commit')"
-      />
+      <div v-else class="covered" :class="{ mono: field.mono }">
+        <input
+          :type="field.kind === 'number' ? 'number' : 'text'"
+          :value="valueOf(field)"
+          :placeholder="field.placeholder ? t(field.placeholder) : undefined"
+          :class="{ veiled: covered(valueOf(field)) }"
+          spellcheck="false"
+          autocomplete="off"
+          @input="onInput(field, $event)"
+          @blur="emit('commit')"
+          @keydown.enter.prevent="emit('commit')"
+        />
+        <VarHighlight v-if="covered(valueOf(field))" :value="valueOf(field)" />
+      </div>
 
       <span v-if="field.hint" class="hint">{{ t(field.hint) }}</span>
     </label>
@@ -140,16 +164,20 @@ function onInput(field: Field, event: Event) {
   @apply col-span-2;
 }
 
+/* Where the text of a field starts, for the layer that paints over it: the two have to agree, and it
+   is the scale that decides. */
 .fields.compact {
-  gap: 8px;
-}
-
-.fields.compact .field {
-  gap: 4px;
+  --field-pad: 0 12px;
+  gap: 12px;
 }
 
 .fields.roomy {
+  --field-pad: 0 10px;
   gap: 10px;
+}
+
+.fields.compact .field {
+  gap: 6px;
 }
 
 .fields.roomy .field {
@@ -158,13 +186,18 @@ function onInput(field: Field, event: Event) {
 
 .label {
   color: var(--text-secondary);
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 500;
 }
 
+/* The sheet's own label: the handoff draws every label in it as the same small caps line the blocks
+   above use, and the popover keeps the plainer one it was drawn with. */
 .roomy .label {
-  color: var(--text);
-  font-size: 12px;
+  @apply text-text-tertiary;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
 }
 
 .fields input,
@@ -175,22 +208,37 @@ function onInput(field: Field, event: Event) {
   outline: none;
 }
 
+/* A field and the layer of pills drawn over it are one box seen twice, so their padding and their
+   type come from one rule each: two rules that agree today are two rules that drift apart. The
+   height is the field's alone — the layer takes its box from `inset`, and a field may be as tall as
+   its scheme said. */
 .fields input,
 .fields select {
-  height: 28px;
-  padding: 0 8px;
-  border-radius: 6px;
-  border-color: var(--border);
-  font-size: 11.5px;
+  height: 36px;
+}
+
+.fields input,
+.fields select,
+.fields .highlight {
+  padding: 0 12px;
+  font-size: 13.5px;
+}
+
+.fields textarea,
+.fields .highlight.area {
+  padding: 10px 12px;
+  font-size: 13.5px;
+  line-height: 1.6;
+}
+
+.fields input,
+.fields textarea,
+.fields select {
+  border-color: var(--border-strong);
+  border-radius: 8px;
 }
 
 .fields textarea {
-  min-height: 64px;
-  padding: 6px 8px;
-  border-radius: 6px;
-  border-color: var(--border);
-  font-size: 11px;
-  line-height: 1.5;
   resize: none;
 }
 
@@ -198,20 +246,45 @@ function onInput(field: Field, event: Event) {
   cursor: pointer;
 }
 
+/* The sheet's fields are the height of the one field row it draws: 36px, the same frame the popover
+   gives them, in the sheet's own smaller type. */
 .roomy input,
 .roomy select {
-  height: 34px;
-  padding: 0 10px;
-  border-radius: 8px;
-  border-color: var(--border-strong);
+  height: 36px;
+}
+
+/* The sheet's fields hold a credential, which is a value: the drawing gives every one of them the
+   mono face and the same 12.5px the chip on them is drawn in. That they agree is not only a matter
+   of taste — the pills stand where the characters are, and a pill in another face or another size
+   would stand beside them.
+   `.highlight.area` is spelled out because the compact rule above names it too, and a rule with one
+   class more wins whatever the order: the layer over a box of code would otherwise keep the
+   popover's size. */
+.roomy input,
+.roomy select,
+.roomy textarea,
+.roomy .highlight,
+.roomy .highlight.area {
+  font-family: var(--mono);
   font-size: 12.5px;
 }
 
-.roomy textarea {
+.roomy input,
+.roomy select,
+.roomy .highlight {
+  padding: 0 10px;
+}
+
+.roomy textarea,
+.roomy .highlight.area {
   padding: 8px 10px;
-  border-radius: 8px;
+}
+
+.roomy input,
+.roomy textarea,
+.roomy select {
   border-color: var(--border-strong);
-  font-size: 12px;
+  border-radius: 8px;
 }
 
 .fields input:focus,
@@ -231,6 +304,21 @@ function onInput(field: Field, event: Event) {
 
 .veiled {
   @apply relative flex min-w-0;
+}
+
+/* The box a field's pills are painted over: the field keeps the caret and the typing, and gives up
+   the ink the layer draws instead. The face is the box's and not the field's, so that the field and
+   the layer over it are drawn in the same one — a field declared mono would otherwise put its text
+   in one face and its pills in another, and the last brace of a `{{token}}` would move the whole
+   line sideways as the pills took over. */
+.covered {
+  @apply relative flex min-w-0;
+}
+
+.covered input.veiled,
+.covered textarea.veiled {
+  color: transparent;
+  caret-color: var(--text);
 }
 
 .veiled input {

@@ -49,7 +49,7 @@ func replaced(t *testing.T, uc *UseCase, kind domain.BodyKind, text string) {
 
 func prepared(t *testing.T, uc *UseCase) Prepared {
 	t.Helper()
-	out, err := uc.Prepared(context.Background(), domain.DraftCommandLine, nil)
+	out, err := uc.Prepared(context.Background(), domain.DraftCommandLine, nil, nil)
 	if err != nil {
 		t.Fatalf("Prepared: %v", err)
 	}
@@ -244,7 +244,8 @@ func TestAMissingFileFailsTheSend(t *testing.T) {
 	if _, err := uc.SetBodyFile(ctx, domain.DraftCommandLine, "/tmp/gone.bin"); err != nil {
 		t.Fatalf("SetBodyFile: %v", err)
 	}
-	if _, err := uc.Prepared(ctx, domain.DraftCommandLine, nil); !errors.Is(err, domain.ErrNotFound) {
+	if _, err := uc.Prepared(ctx, domain.DraftCommandLine, nil, nil); !errors.Is(err,
+		domain.ErrNotFound) {
 		t.Errorf("err = %v, want ErrNotFound", err)
 	}
 }
@@ -292,7 +293,7 @@ func TestASeedCarriesItsKind(t *testing.T) {
 
 	out, err := uc.Prepare(ctx, Seed{
 		Method: "POST", URL: "https://api.example.com/a", Body: "{}", BodyKind: domain.BodyJSON,
-	})
+	}, nil)
 	if err != nil {
 		t.Fatalf("Prepare: %v", err)
 	}
@@ -300,7 +301,8 @@ func TestASeedCarriesItsKind(t *testing.T) {
 		t.Errorf("Content-Type = %q, want the seed's kind to decide it", value)
 	}
 
-	plain, err := uc.Prepare(ctx, Seed{Method: "POST", URL: "https://api.example.com/a", Body: "{}"})
+	plain, err := uc.Prepare(ctx,
+		Seed{Method: "POST", URL: "https://api.example.com/a", Body: "{}"}, nil)
 	if err != nil {
 		t.Fatalf("Prepare: %v", err)
 	}

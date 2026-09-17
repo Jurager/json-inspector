@@ -7,7 +7,8 @@ import { useListKeys } from '../../composables/useListKeys'
 import { useRequestsStore } from '../../stores/requests'
 import { RecordSource, type Record } from '../../../bindings/json-inspector/internal/domain'
 import { statusBadgeClass } from '../../lib/format'
-import { formatDate, useMessages } from '../../i18n'
+import { addressOf } from '../../lib/address'
+import { formatDate, formatMicros, useMessages } from '../../i18n'
 
 const props = defineProps<{ sourceKind: RecordSource }>()
 
@@ -40,15 +41,6 @@ function clearAll() {
 function timeLabel(startedAt: number): string {
   const d = new Date(startedAt)
   return formatDate(d, { hour: '2-digit', minute: '2-digit', second: '2-digit' })
-}
-
-// What a row shows of an address: the host and everything after it. The scheme is dropped — it is the
-// longest part of a URL and the one that says the least — and the text is cut rather than parsed: a
-// URL here can be `{{host}}/articles`, or carry a variable that resolved to nothing, and the standard
-// parser rewrites the braces of a `{{token}}` into `%7B%7B`, which is not what the user typed. The
-// whole address is in the row's title.
-function addressOf(url: string): string {
-  return url.replace(/^[a-zA-Z][\w+.-]*:\/\//, '')
 }
 
 const query = ref('')
@@ -215,7 +207,7 @@ watch(() => [store.focusTabId, store.records.length, props.sourceKind] as const,
   <div class="history-panel">
     <div class="panel-head">
       <span class="panel-title">{{ browser ? t('history.captured') : t('history.history') }}</span>
-      <Button variant="quiet" :disabled="records.length === 0" @click="clearAll">{{ t('history.clear') }}</Button>
+      <Button variant="ghost" class="panel-clear" :disabled="records.length === 0" @click="clearAll">{{ t('history.clear') }}</Button>
     </div>
 
     <div v-if="records.length === 0 && !browser" class="empty">
@@ -241,15 +233,17 @@ watch(() => [store.focusTabId, store.records.length, props.sourceKind] as const,
           @keydown.enter="select(r.id)"
           @keydown.space.prevent="select(r.id)"
         >
-          <span class="badge badge-method item-method">{{ r.method }}</span>
-          <span class="item-status" :class="statusBadgeClass(r.status)">{{ r.status }}</span>
+          <span class="item-head">
+            <span class="item-method">{{ r.method }}</span>
+            <span class="item-status" :class="statusBadgeClass(r.status)">{{ r.status }}</span>
+            <span class="item-time">{{ timeLabel(r.startedAt) }}</span>
+          </span>
           <span class="item-path mono" :title="r.url">{{ addressOf(r.url) }}</span>
-          <span class="item-time">{{ timeLabel(r.startedAt) }}</span>
         </li>
       </template>
     </ul>
 
-    <div v-else class="list">
+    <div v-else class="list list-browser">
       <section v-for="g in filteredGroups" :key="g.key" class="group">
         <div
           class="group-head"
@@ -260,7 +254,7 @@ watch(() => [store.focusTabId, store.records.length, props.sourceKind] as const,
           @keydown.space.prevent="toggleGroup(g.key)"
         >
           <span class="caret" :class="{ open: !collapsed.has(g.key) }">
-            <Icon name="chevron-right" :size="10" />
+            <Icon name="chevron-right" :size="13" />
           </span>
           <img
             v-if="g.favIconUrl && !brokenFavicons.has(g.key)"
@@ -274,7 +268,7 @@ watch(() => [store.focusTabId, store.records.length, props.sourceKind] as const,
           </span>
           <span class="group-title">{{ groupLabel(g) }}</span>
           <span v-if="isRecording(g)" class="recording-label">
-            <span class="recording-dot"></span>
+            <span class="recording-dot"></span>{{ t('history.rec') }}
           </span>
           <span class="group-count">{{ g.items.length }}</span>
           <IconButton variant="danger" size="sm" :hint="t('history.clearTab')" @click.stop="clearGroup(g)"><Icon name="trash" :size="13" /></IconButton>
@@ -292,10 +286,10 @@ watch(() => [store.focusTabId, store.records.length, props.sourceKind] as const,
             @keydown.enter="select(r.id)"
             @keydown.space.prevent="select(r.id)"
           >
-            <span class="badge badge-method item-method">{{ r.method }}</span>
+            <span class="item-method mono">{{ r.method }}</span>
             <span class="item-status" :class="statusBadgeClass(r.status)">{{ r.status }}</span>
             <span class="item-path mono" :title="r.url">{{ addressOf(r.url) }}</span>
-            <span class="item-time">{{ timeLabel(r.startedAt) }}</span>
+            <span v-if="r.durationUs > 0" class="item-duration">{{ formatMicros(r.durationUs) }}</span>
           </li>
         </ul>
       </section>
@@ -317,22 +311,31 @@ watch(() => [store.focusTabId, store.records.length, props.sourceKind] as const,
   @apply relative flex flex-col h-full min-h-0 bg-bg-panel;
 }
 
-/* 40px, like the collection tree's: the rail's own header and footer are strips of that height, and
-   the three hairlines across the window — panel, rail, filter — are drawn on one line. */
+/* The header carries no hairline any more: the panel is one surface with its list, and the lines the
+   window used to run across it are gone (the design's «меньше линий» pass). */
 .panel-head {
-  @apply flex items-center justify-between h-10 px-2 pl-3.5 border-b border-border;
+  @apply flex items-center justify-between h-[52px] px-4;
 }
 
 .panel-title {
-  @apply text-[12px] font-semibold text-text-secondary;
+  @apply text-[14px] font-semibold text-text;
 }
 
+/* Written against the button's own classes, not beside them: the shared ghost button carries its own
+   padding and size, and a single class of the panel's loses to it. The border goes with the fill, and
+   the line box is set rather than left to the window's 1.5 — this is a small button, not a paragraph. */
+.panel-head .btn.panel-clear {
+  @apply text-[13px] font-normal leading-[17px] border-0 py-[5px] px-2;
+}
+
+/* The separator is the panel's own line, so it breaks out of the list's inset rather than sitting
+   inside it: the label starts where the header's title does. */
 .date-sep {
-  @apply text-[10px] uppercase tracking-[0.08em] text-text-tertiary pt-1.5 px-2 pb-1;
+  @apply -mx-2.5 text-[11px] font-semibold uppercase leading-[15px] tracking-[0.07em] text-text-tertiary pt-1 px-4 pb-2;
 }
 
 .no-results {
-  @apply pt-4 px-4 pb-[58px] text-center text-text-tertiary text-xs;
+  @apply pt-3 px-4 pb-3 text-center text-text-tertiary text-[13px];
 }
 
 /* The block itself is the window's empty state (style.css); a panel only adds the padding and the
@@ -345,17 +348,22 @@ watch(() => [store.focusTabId, store.records.length, props.sourceKind] as const,
   @apply max-w-[220px];
 }
 
+/* Both lists are a column of rows with a gap, and the two rails differ only in that gap: the sent rows
+   are their own paragraph each and stand 4px apart, while the captured ones read as one stack of 2px. */
 .list {
-  /* The tail leaves room for the filter dock — its 40px strip and the 18px fade above it. */
-  @apply flex-1 min-h-0 overflow-auto pt-1.5 px-1.5 pb-[58px];
+  @apply flex-1 min-h-0 overflow-auto flex flex-col gap-1 px-2.5;
+}
+
+.list-browser {
+  @apply gap-0.5;
 }
 
 .group {
-  @apply mb-1;
+  @apply flex flex-col gap-0.5;
 }
 
 .group-head {
-  @apply flex items-center gap-[7px] w-full py-1.5 px-1.5 border-none rounded-md bg-transparent text-text text-xs text-left cursor-pointer select-none;
+  @apply flex items-center gap-[9px] w-full h-[38px] px-2.5 border-none rounded-[9px] bg-transparent text-text text-[13px] text-left cursor-pointer select-none;
   --wails-draggable: no-drag;
 }
 
@@ -364,7 +372,7 @@ watch(() => [store.focusTabId, store.records.length, props.sourceKind] as const,
 }
 
 .caret {
-  @apply inline-flex items-center justify-center flex-none w-3 h-3 text-text-secondary;
+  @apply inline-flex items-center justify-center flex-none w-[13px] h-[13px] text-text-secondary;
   transition: transform 0.12s ease;
 }
 
@@ -373,30 +381,30 @@ watch(() => [store.focusTabId, store.records.length, props.sourceKind] as const,
 }
 
 .favicon {
-  @apply flex-none w-[18px] h-[18px] rounded-sm object-contain;
+  @apply flex-none w-5 h-5 rounded-md object-contain;
   border: 1px solid var(--border);
   background: var(--card);
 }
 
 .avatar {
-  @apply flex-none w-[18px] h-[18px] rounded-sm text-white text-[10px] font-semibold inline-flex items-center justify-center leading-none uppercase;
+  @apply flex-none w-5 h-5 rounded-md text-white text-[10.5px] font-semibold inline-flex items-center justify-center leading-none uppercase;
 }
 
 .group-title {
-  @apply flex-1 min-w-0 overflow-hidden text-ellipsis whitespace-nowrap font-medium;
+  @apply flex-1 min-w-0 overflow-hidden text-ellipsis whitespace-nowrap;
 }
 
 .recording-label {
-  @apply flex-none inline-flex items-center gap-1 text-xs text-red;
+  @apply flex-none inline-flex items-center gap-[5px] text-[11px] text-red;
 }
 
 .recording-dot {
-  @apply w-1.5 h-1.5 rounded-full flex-none;
+  @apply w-[7px] h-[7px] rounded-full flex-none;
   background: var(--green);
 }
 
 .group-count {
-  @apply flex-none h-[18px] leading-[18px] text-[11px] text-text-tertiary;
+  @apply flex-none text-[11.5px] leading-[15px] text-text-tertiary;
   font-variant-numeric: tabular-nums;
 }
 
@@ -409,11 +417,42 @@ watch(() => [store.focusTabId, store.records.length, props.sourceKind] as const,
 }
 
 .group-items {
-  @apply list-none m-0 pt-0.5 pr-0 pb-0.5 pl-3.5;
+  @apply list-none m-0 p-0 flex flex-col gap-0.5;
 }
 
+/* Two lines: what the attempt was — method, status, when — and under it the address it went to. The
+   row that is open is filled with the accent rather than tinted by it, so the one being looked at is
+   the one the eye lands on. */
 .item {
-  @apply flex items-center gap-2 py-[7px] px-2.5 rounded-md cursor-pointer mb-px;
+  @apply flex flex-col gap-1.5 py-[11px] px-3 rounded-[9px] cursor-pointer;
+}
+
+.item-head {
+  @apply flex items-center gap-2;
+}
+
+/* A captured row is one line instead — method, status, address, how long — and it is the height of the
+   tab above it: a tab of thirty requests has to stay a column the eye can run down. The address takes
+   the slack, so a row without a duration (the extension could not time it) lays out the same. */
+.group-items .item {
+  @apply flex-row items-center gap-[9px] h-[38px] py-0 pl-[30px] pr-2.5;
+}
+
+.group-items .item-method {
+  @apply tracking-normal;
+}
+
+.group-items .item-path {
+  @apply flex-1 text-[12.5px] leading-[15px];
+}
+
+.group-items .item-duration {
+  @apply flex-none text-[11.5px] leading-[15px] text-text-tertiary;
+  font-variant-numeric: tabular-nums;
+}
+
+.group-items .item.active .item-duration {
+  color: rgba(255, 255, 255, 0.75);
 }
 
 .item:hover {
@@ -421,27 +460,45 @@ watch(() => [store.focusTabId, store.records.length, props.sourceKind] as const,
 }
 
 .item.active {
-  @apply bg-accent-soft;
+  background: var(--accent);
 }
 
-/* .badge.badge-method already looks right; this just keeps DELETE from shifting the row. */
+.item.active .item-path {
+  color: var(--accent-text);
+}
+
+.item.active .item-time {
+  color: rgba(255, 255, 255, 0.75);
+}
+
+.item.active .item-method,
+.item.active .item-status {
+  background: rgba(255, 255, 255, 0.22);
+  color: #fff;
+}
+
+/* The method and the status are told apart by their fill alone, and neither shifts the row. The line
+   box is set rather than left to the window's own 1.5, which is a paragraph's leading and not a badge's:
+   without it the badge is 22 tall inside a 20-tall header. */
 .item-method {
-  @apply flex-none inline-flex items-center px-1.5 py-px rounded-sm text-[10px] font-semibold;
+  @apply flex-none inline-flex items-center px-1.5 py-[3px] rounded-[5px] text-[10.5px] leading-[14px] font-medium tracking-[0.04em];
   font-variant-numeric: tabular-nums;
+  background: var(--bg-hover);
+  color: var(--text-secondary);
 }
 
 .item-status {
-  @apply flex-none inline-flex items-center px-1.5 py-px rounded-sm text-[10px] font-semibold;
+  @apply flex-none inline-flex items-center px-1.5 py-[3px] rounded-[5px] text-[10.5px] leading-[14px] font-medium;
   font-variant-numeric: tabular-nums;
 }
 
 .item-path {
-  @apply flex-1 min-w-0 text-xs text-text overflow-hidden text-ellipsis whitespace-nowrap;
+  @apply min-w-0 text-[13px] leading-[15px] text-text overflow-hidden text-ellipsis whitespace-nowrap;
   font-family: var(--mono);
 }
 
 .item-time {
-  @apply flex-none text-[11px] text-text-tertiary;
+  @apply ml-auto flex-none text-[11.5px] leading-[15px] text-text-tertiary;
   font-variant-numeric: tabular-nums;
 }
 </style>

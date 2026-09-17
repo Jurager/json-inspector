@@ -43,6 +43,7 @@ export type {
     Field,
     FormRow,
     HeaderPair,
+    LevelRow,
     Option,
     ProjectedRow,
     Record,

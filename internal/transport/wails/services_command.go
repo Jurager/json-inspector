@@ -28,7 +28,12 @@ type recordSource interface {
 // asks for, because it is the same question — what a text's `{{tokens}}` come to, a secret left as
 // its mask. Declared here, in the composition, because neither feature knows about the other.
 type variableSource interface {
-	SubstituteTexts(ctx context.Context, texts []string, mask bool) ([]string, error)
+	SubstituteTexts(
+		ctx context.Context,
+		above []domain.Variable,
+		texts []string,
+		mask bool,
+	) ([]string, error)
 }
 
 func NewCommandService(records recordSource, vars variableSource) *CommandService {
@@ -72,7 +77,9 @@ func (s *CommandService) substitute(ctx context.Context, seed *draft.Seed) error
 		texts = append(texts, header.Name, header.Value)
 	}
 
-	resolved, err := s.vars.SubstituteTexts(ctx, texts, true)
+	// A recorded request was already sent, and what it holds is what it holds: there is no tree above
+	// it to answer for a name, so the environment answers alone.
+	resolved, err := s.vars.SubstituteTexts(ctx, nil, texts, true)
 	if err != nil {
 		return err
 	}

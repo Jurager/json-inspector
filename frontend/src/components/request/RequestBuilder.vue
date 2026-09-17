@@ -300,7 +300,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onWindowKeydown))
 
       <Button
         variant="primary"
-        size="lg"
+        size="xl"
         :disabled="!store.url.trim() || sendBlocked"
         :title="sendBlockedReason"
         @click="store.loading ? cancel() : send()"
@@ -351,14 +351,15 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onWindowKeydown))
 }
 
 .request-bar {
-  @apply relative flex items-center gap-2 h-12 py-3 px-4;
+  /* No height of its own: the field inside it is what the strip is as tall as, plus its padding. */
+  @apply relative flex items-center gap-3 py-3.5 px-5;
 }
 
 .url-field {
   /* The field is what gives way first when the window narrows, and its floor is where the URL stays
      readable. Without a basis a flex item refuses to shrink past its own content, and the row pushes
      the chips and the send button off the right edge — which is what a narrow window used to do. */
-  @apply flex items-stretch rounded-lg border border-border bg-bg-inset h-8 overflow-hidden;
+  @apply flex items-stretch rounded-[9px] border border-border bg-bg-inset h-[38px] overflow-hidden;
   flex: 1 1 260px;
   min-width: 140px;
   transition: border-color 0.15s ease, box-shadow 0.15s ease;
@@ -392,12 +393,12 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onWindowKeydown))
 }
 
 .method-wrap {
-  @apply relative flex items-center flex-none p-1;
+  @apply relative flex items-center flex-none p-[5px];
 }
 
 .method-btn {
-  @apply flex items-center gap-1 rounded-md border-0 font-semibold text-[11px] cursor-pointer outline-none h-[22px];
-  padding: 0 7px;
+  @apply flex items-center gap-1.5 rounded-[7px] border-0 font-bold text-[13px] cursor-pointer outline-none h-7;
+  padding: 0 9px;
   font-family: var(--mono);
 }
 
@@ -409,7 +410,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onWindowKeydown))
 }
 
 .url-input {
-  @apply flex-1 min-w-0 bg-transparent border-0 outline-none px-2 text-[13px];
+  @apply flex-1 min-w-0 bg-transparent border-0 outline-none px-2.5 text-[14px];
   font-family: var(--mono);
   color: var(--text);
 }
@@ -420,7 +421,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onWindowKeydown))
 }
 
 .url-display {
-  @apply absolute inset-0 flex items-center overflow-hidden px-2 text-[13px] pointer-events-none;
+  @apply absolute inset-0 flex items-center overflow-hidden px-2.5 text-[14px] pointer-events-none;
   font-family: var(--mono);
   white-space: pre;
   color: var(--text);
@@ -433,42 +434,50 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onWindowKeydown))
 }
 
 .chips {
-  @apply flex-none flex items-center gap-1 pr-1.5;
+  @apply flex-none flex items-center gap-[5px] pl-2.5 border-l border-border;
 }
 
 .chip {
-  @apply flex items-center gap-1 h-[22px] px-2 rounded-md text-[11px] text-text-secondary border border-border bg-bg-panel cursor-pointer;
-  transition: border-color 0.12s ease, color 0.12s ease;
+  @apply flex items-center gap-[7px] h-7 pl-2.5 pr-2 rounded-[7px] text-[12.5px] font-medium text-text-secondary border border-transparent cursor-pointer;
+  background: var(--bg-hover);
+  transition: border-color 0.12s ease, color 0.12s ease, background-color 0.12s ease;
   --wails-draggable: no-drag;
 }
 
+/* A filled chip is told apart by its fill and nothing else — no outline — which is what the latest
+   handoff draws: the whole strip is one surface with the chips a shade off it. */
 .chip:hover {
-  border-color: var(--border-strong);
+  background: var(--bg-active);
   color: var(--text);
 }
 
 .chip.active {
   border-color: var(--accent);
-  color: var(--text);
+  background: var(--accent);
+  color: var(--accent-text);
 }
 
 .chip-count {
-  @apply font-semibold text-accent;
+  @apply inline-flex items-center justify-center min-w-[17px] h-[17px] px-[5px] rounded-full font-bold text-[10.5px] text-accent;
   font-family: var(--mono);
+  background: var(--accent-soft);
+}
+
+.chip.active .chip-count {
+  background: rgba(255, 255, 255, 0.28);
+  color: var(--accent-text);
 }
 
 .chip-body {
-  border-style: dashed;
-  border-color: color-mix(in srgb, var(--text-tertiary) 40%, transparent);
+  border: 1px dashed var(--border-strong);
   color: var(--text-tertiary);
   background: transparent;
 }
 
 .chip-body.has-body {
-  border-style: solid;
-  border-color: var(--border);
-  color: var(--text);
-  background: var(--bg-panel);
+  border-color: transparent;
+  color: var(--text-secondary);
+  background: var(--bg-hover);
 }
 
 /* The code icon is smaller than the text beside it and sits on its baseline. */
@@ -485,7 +494,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onWindowKeydown))
 }
 
 .bookmark-btn {
-  @apply flex-none w-8 h-8 rounded-lg flex items-center justify-center text-accent bg-bg-panel cursor-pointer;
+  @apply flex-none w-[38px] h-[38px] rounded-[9px] flex items-center justify-center text-accent bg-bg-panel cursor-pointer;
   border: 1px solid var(--border-strong);
   --wails-draggable: no-drag;
 }
@@ -499,7 +508,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onWindowKeydown))
 }
 
 .send-hint {
-  @apply text-[10px] font-medium leading-normal py-0 px-1.5 ml-1 rounded-sm text-white;
+  @apply text-[12px] font-medium leading-normal py-[2px] px-[5px] rounded-[5px] text-white;
   font-family: inherit;
   background: rgba(255, 255, 255, 0.22);
 }

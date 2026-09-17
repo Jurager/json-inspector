@@ -50,25 +50,30 @@ func authOf(seed Seed) domain.Auth {
 }
 
 // Prepared is the draft the window is editing, ready to go out. inherits is what its «Inherit»
-// resolves to, and the caller is the one that knows: the draft holds what was typed, and where in a
-// tree the request sits is not part of that. It is nil for a draft with nothing above it, which is
-// the command line's.
+// resolves to and above is what the collections around it answer for its tokens, and the caller is
+// the one that knows both: the draft holds what was typed, and where in a tree the request sits is
+// not part of that. Both are nil for a draft with nothing above it, which is the command line's.
 func (u *UseCase) Prepared(
 	ctx context.Context,
 	id domain.DraftID,
 	inherits *domain.Auth,
+	above []domain.Variable,
 ) (Prepared, error) {
 	draft, err := u.Current(ctx, id)
 	if err != nil {
 		return Prepared{}, err
 	}
-	return u.prepare(ctx, draft, inherits)
+	return u.prepare(ctx, draft, inherits, above)
 }
 
 // Prepare fills in a request that is not the one being composed — a followed link, a collection run
 // — without disturbing any draft. Resolving and masking live here and not with the caller, so there
 // is one answer to what a request looks like when it leaves.
-func (u *UseCase) Prepare(ctx context.Context, seed Seed) (Prepared, error) {
+func (u *UseCase) Prepare(
+	ctx context.Context,
+	seed Seed,
+	above []domain.Variable,
+) (Prepared, error) {
 	draft := domain.Draft{
 		Method:   seed.Method,
 		URL:      seed.URL,
@@ -85,7 +90,7 @@ func (u *UseCase) Prepare(ctx context.Context, seed Seed) (Prepared, error) {
 	if len(draft.Cookies) == 0 {
 		draft.Cookies = cookiesFromHeaders(seed.Headers)
 	}
-	return u.prepare(ctx, draft, nil)
+	return u.prepare(ctx, draft, nil, above)
 }
 
 // withRowIDs gives every row an id. A draft that came from somewhere else — a saved request — has

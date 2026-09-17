@@ -11,6 +11,23 @@ import "strings"
 type Scripts struct {
 	Pre  string `json:"pre,omitempty"`
 	Post string `json:"post,omitempty"`
+	// A half can be switched off without being thrown away: the code stays where it is written while
+	// it stops running, which is the difference between a script somebody is working on and one they
+	// have deleted. It is the code that says a level has something to say — an off half is still an
+	// answer about this level, so it keeps the level in the chain.
+	PreOff  bool `json:"preOff,omitempty"`
+	PostOff bool `json:"postOff,omitempty"`
+}
+
+// Off is whether a half is switched off for this level.
+func (s *Scripts) Off(scope ScriptScope) bool {
+	if s == nil {
+		return false
+	}
+	if scope == ScriptPre {
+		return s.PreOff
+	}
+	return s.PostOff
 }
 
 // Empty is the difference between a level that has nothing to say and one that says nothing.

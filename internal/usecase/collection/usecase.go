@@ -11,11 +11,13 @@ import (
 )
 
 type UseCase struct {
-	store    Store
-	scope    Scope
-	sender   Sender
-	notifier Notifier
-	ids      platform.IDGen
+	store       Store
+	scope       Scope
+	sender      Sender
+	assertions  Assertions
+	environment Environment
+	notifier    Notifier
+	ids         platform.IDGen
 
 	// Only one run at a time: two of them would write their rows into the same overview.
 	running atomic.Bool
@@ -26,10 +28,20 @@ func NewUseCase(
 	store Store,
 	scope Scope,
 	sender Sender,
+	assertions Assertions,
+	environment Environment,
 	notifier Notifier,
 	ids platform.IDGen,
 ) *UseCase {
-	return &UseCase{store: store, scope: scope, sender: sender, notifier: notifier, ids: ids}
+	return &UseCase{
+		store:       store,
+		scope:       scope,
+		sender:      sender,
+		assertions:  assertions,
+		environment: environment,
+		notifier:    notifier,
+		ids:         ids,
+	}
 }
 
 // Tree is every collection with its nodes, which is what the list draws and what a run walks.
@@ -45,6 +57,13 @@ func (u *UseCase) Tree(ctx context.Context) ([]domain.Collection, error) {
 // out.
 func (u *UseCase) Node(ctx context.Context, id string) (domain.CollectionNode, error) {
 	return u.store.Node(ctx, id)
+}
+
+// LevelRows reads the requests a collection holds, as its page draws them: a name, a method and an
+// address each. Only the level itself — the collections inside it are levels of their own, and
+// their rows are read when one of them is opened.
+func (u *UseCase) LevelRows(ctx context.Context, collectionID string) ([]domain.LevelRow, error) {
+	return u.store.LevelRows(ctx, collectionID)
 }
 
 // findNode looks a request up in the tree, collections inside collections included: the tree is

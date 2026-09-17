@@ -119,7 +119,7 @@ export const useRequestsStore = defineStore('requests', {
     scripts: null as Scripts | null,
     chain: [] as Level[],
     focusTabId: null as number | null,
-    inspector: { open: false, path: null as string | null, width: 300 },
+    inspector: { open: false, path: null as string | null, width: 330 },
   }),
   getters: {
     // Whether a record belongs in the list being drawn. The extension keeps capturing while the user
@@ -251,8 +251,12 @@ export const useRequestsStore = defineStore('requests', {
       this.chain = (await ScriptingService.Chain(DRAFT)) ?? []
     },
 
-    async saveScripts(pre: string, post: string) {
-      const written = pre.trim() || post.trim() ? { pre, post } : null
+    async saveScripts(pre: string, post: string, off: { pre: boolean; post: boolean }) {
+      const flags = {
+        preOff: off.pre && !!pre.trim(),
+        postOff: off.post && !!post.trim(),
+      }
+      const written = pre.trim() || post.trim() ? { pre, post, ...flags } : null
       const saved = await ScriptingService.SaveScripts(DRAFT, written)
       const chain = (await ScriptingService.Chain(DRAFT)) ?? []
       this.scriptsFor = DRAFT

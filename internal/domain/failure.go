@@ -45,6 +45,9 @@ const (
 	CodeUnknownChannel     Code = "unknownUpdateChannel"
 	CodePersonalWorkspace  Code = "personalWorkspace"
 	CodeWorkspaceMissing   Code = "workspaceMissing"
+	// A collection leaves the machine — it is exported, duplicated and handed on — so a secret has
+	// no place in one, and this is the refusal that says so.
+	CodeVariableSecret Code = "variableSecret"
 )
 
 // Args are the values a code's sentence interpolates. Strings because that is what a message

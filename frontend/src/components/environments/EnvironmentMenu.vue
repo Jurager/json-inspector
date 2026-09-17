@@ -64,12 +64,11 @@ function edit() {
 @reference "../../style.css";
 
 .env-menu-head {
-  @apply pt-1.5 px-2.5 pb-1 text-[10px] uppercase tracking-[0.08em] text-text-tertiary;
-  font-family: var(--mono);
+  @apply px-2.5 pt-1.5 pb-2 text-[11px] font-semibold uppercase tracking-[0.07em] text-text-tertiary;
 }
 
 .env-row {
-  @apply flex items-center gap-2 w-full py-[7px] px-2.5 border-none rounded-md bg-transparent text-text text-[13px] text-left cursor-pointer;
+  @apply flex items-center gap-2.5 w-full h-[38px] px-2.5 border-none rounded-[9px] bg-transparent text-text text-left cursor-pointer;
   font: inherit;
   --wails-draggable: no-drag;
 }
@@ -85,11 +84,11 @@ function edit() {
 }
 
 .env-row-mark {
-  @apply flex-none w-3 inline-flex items-center justify-center text-accent;
+  @apply flex-none w-4 inline-flex items-center justify-center text-accent;
 }
 
 .env-row-name {
-  @apply flex-1 min-w-0 overflow-hidden text-ellipsis whitespace-nowrap text-xs;
+  @apply flex-1 min-w-0 overflow-hidden text-ellipsis whitespace-nowrap text-[13.5px];
 }
 
 .env-row-name.none {
@@ -97,19 +96,19 @@ function edit() {
 }
 
 .env-count {
-  @apply flex-none text-xs text-text-tertiary;
+  @apply flex-none text-[11.5px] text-text-tertiary;
   font-family: var(--mono);
 }
 
 .env-badge {
-  @apply flex-none text-red bg-red-soft text-xs font-semibold py-px px-[5px] rounded-sm;
+  @apply flex-none text-red bg-red-soft text-[11px] font-semibold py-[3px] px-[7px] rounded-md;
 }
 
 .env-divider {
-  @apply h-px mx-2 my-[5px] bg-border;
+  @apply h-px mx-2 my-1.5 bg-border;
 }
 
 .env-hint {
-  @apply flex-none text-xs text-text-tertiary;
+  @apply flex-none text-[12px] text-text-tertiary;
 }
 </style>

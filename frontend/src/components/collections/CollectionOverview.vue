@@ -2,24 +2,42 @@
 import { computed, nextTick, ref, watch } from 'vue'
 import Icon from '../ui/Icon.vue'
 import { Button } from '../ui/button'
-import { Tabs, TabsList, TabsTrigger, TabsContent } from '../ui/tabs'
 import CollectionAuth from './CollectionAuth.vue'
 import CollectionScripts from './CollectionScripts.vue'
+import CollectionVariables from './CollectionVariables.vue'
 import { useCollectionsStore } from '../../stores/collections'
+import { useAuthSchemes } from '../../composables/useAuthSchemes'
 import { useToast } from '../../composables/useToast'
 import { childrenOf, findNode } from '../../lib/collectionTree'
+import { addressOf } from '../../lib/address'
+import { methodInkClass, statusBadgeClass } from '../../lib/format'
 import { describeFailure, formatAgo, formatMicros, useMessages } from '../../i18n'
-import type { CollectionNode } from '../../../bindings/json-inspector/internal/domain'
+import type {
+  Collection,
+  CollectionRun,
+  CollectionRunResult,
+  LevelRow,
+} from '../../../bindings/json-inspector/internal/domain'
+import { CollectionsService } from '../../../bindings/json-inspector/internal/transport/wails'
 
+// One collection's page: what it is, what it has come to, and the requests inside it. It is a page
+// rather than a set of tabs because the three things a collection owns — its authorization, its
+// variables and its scripts — are worth a line each, and a line says more about them at a glance than
+// a tab nobody opens does.
 const { t } = useMessages()
 
 const store = useCollectionsStore()
+const { schemeOf } = useAuthSchemes()
 const toast = useToast()
 
-const tab = ref<'requests' | 'auth' | 'scripts'>('requests')
+const trail = computed(() => store.trail)
+// The page is about a collection: it is drawn when a row is selected and that row is not a request.
+const level = computed<Collection | null>(() => trail.value?.collection ?? null)
+const levelId = computed(() => level.value?.id ?? '')
+const title = computed(() => level.value?.name ?? '')
 
-async function exportSelected() {
-  const written = await store.exportFile(store.selectedId ?? '')
+async function exportLevel() {
+  const written = await store.exportFile(levelId.value)
   if (written) toast.show(t('collections.savedToFile'))
 }
 
@@ -32,19 +50,16 @@ async function importCollection() {
   }
 }
 
-const title = computed(() => store.selected?.name ?? store.trail?.collection?.name ?? '')
-const description = computed(() => store.selected?.description ?? store.trail?.collection?.description ?? '')
-const requestTotal = computed(() => store.selectedRequestCount)
+// ---- the description -----------------------------------------------------
+
+const description = computed(() => level.value?.description ?? '')
 const editingDescription = ref(false)
 const descriptionDraft = ref('')
 const descriptionInput = ref<HTMLInputElement | null>(null)
-const levelId = computed(() => store.selected?.id ?? store.trail?.collection?.id ?? '')
-const descriptionLevel = ref('')
 const descriptionOpen = ref('')
 
 function editDescription() {
   descriptionDraft.value = description.value
-  descriptionLevel.value = levelId.value
   descriptionOpen.value = description.value
   editingDescription.value = true
   nextTick(() => {
@@ -57,8 +72,8 @@ async function commitDescription() {
   if (!editingDescription.value) return
   editingDescription.value = false
   const written = descriptionDraft.value.trim()
-  if (!descriptionLevel.value || written === descriptionOpen.value) return
-  await store.describe(descriptionLevel.value, written)
+  if (!levelId.value || written === descriptionOpen.value) return
+  await store.describe(levelId.value, written)
 }
 
 function onDescriptionKeydown(e: KeyboardEvent) {
@@ -72,191 +87,585 @@ function onDescriptionKeydown(e: KeyboardEvent) {
   }
 }
 
-watch(levelId, () => {
-  editingDescription.value = false
-})
+// ---- the requests of this level ------------------------------------------
 
-interface RunRow {
-  nodeId: string
-  recordId: string
-  position: number
+// What the table draws comes from two places and neither is the tree: the level's own requests, read
+// one query deep, and the last run's answers to them. The tree deliberately carries no request payload
+// — an address is payload — and the run is the only thing that knows what each request answered.
+//
+// The two refs are declared before the watcher below, and not beside the code that fills them: the
+// watcher starts by running once, in this same setup, and a `const` reached from there would still
+// be in its own dead zone — which is a page that draws itself empty the first time it is opened.
+const requests = ref<LevelRow[]>([])
+const loading = ref(false)
+
+async function loadRows() {
+  if (!levelId.value) {
+    requests.value = []
+    return
+  }
+  loading.value = true
+  try {
+    requests.value = (await CollectionsService.LevelRows(levelId.value)) ?? []
+  } finally {
+    loading.value = false
+  }
+}
+
+// The rows and the code are read when the level opens and again when the selection moves. Neither is
+// in the tree, and a page that drew itself empty until a click would be a page that lied once.
+watch(
+  levelId,
+  () => {
+    editingDescription.value = false
+    void loadRows()
+    // A collection's code is not in the tree — it is a table of its own, keyed by level — so what the
+    // page says about it is what this reads.
+    void store.loadScripts()
+  },
+  { immediate: true }
+)
+
+interface Answer {
   status: number | null
   ok: boolean
   skipped: boolean
-  durationUs: number
   error: string
-  name: string
-  method: string
+  ms: number
+  assertionsPassed: number
+  assertionsTotal: number
+  at: number
 }
 
-const rows = computed<RunRow[]>(() => {
+// The run this page is about: the level's own, and nothing else. A run of another level's is not
+// this page's answer, and neither is a run the window has since moved away from.
+const mine = computed(() => {
   const run = store.lastRun
-  if (!run) return []
-  // The run names its rows by id, and what a row is called now is the tree's answer: the requests of
-  // every collection, the collections inside them included.
-  const byId = new Map<string, CollectionNode>()
-  for (const result of run.results ?? []) {
-    const node = findNode(store.tree, result.nodeId)
-    if (node) byId.set(node.id, node)
-  }
+  if (!run || run.collectionId !== levelId.value) return null
+  return run
+})
 
-  return [...(run.results ?? [])]
-    .sort((a, b) => a.position - b.position)
-    .map((result) => ({
-      nodeId: result.nodeId,
-      recordId: result.recordId ?? '',
-      position: result.position,
+// What the last run said about each request, by the node it came from.
+const answers = computed<Map<string, Answer>>(() => {
+  const run = mine.value
+  const out = new Map<string, Answer>()
+  if (!run) return out
+  for (const result of run.results ?? []) {
+    out.set(result.nodeId, {
       status: result.status ?? null,
       ok: result.ok,
       skipped: result.skipped ?? false,
-      durationUs: result.durationUs,
       error: result.error ?? '',
-      name: byId.get(result.nodeId)?.name ?? t('collections.deletedRequest'),
-      method: byId.get(result.nodeId)?.method ?? '',
-    }))
+      ms: result.durationUs ?? 0,
+      assertionsPassed: result.assertionsPassed ?? 0,
+      assertionsTotal: result.assertionsTotal ?? 0,
+      at: run.finishedAt || run.startedAt,
+    })
+  }
+  return out
 })
 
-const runName = computed(() => title.value)
-const passed = computed(() => rows.value.filter((row) => row.ok).length)
-const failed = computed(() => rows.value.filter((row) => !row.ok && !row.skipped).length)
-const lastRunAt = computed(() => store.lastRun?.finishedAt || store.lastRun?.startedAt || 0)
+function answerOf(row: LevelRow): Answer | undefined {
+  return answers.value.get(row.id)
+}
+
+// What the assertions of one row come to: a request nothing was written about says so rather than
+// claiming nothing failed.
+function assertsOf(answer: Answer | undefined): string {
+  if (!answer || answer.assertionsTotal === 0) return '—'
+  return t('collections.ofTotal', { passed: answer.assertionsPassed, total: answer.assertionsTotal })
+}
+
+// A row failed when its answer did not come back, or when a script said the answer was wrong. The
+// run's own `ok` is about the transport — a 409 is an answer like any other — and a report that is
+// worth reading is about what the assertions found as well.
+function failed(answer: Answer | undefined): boolean {
+  if (!answer || answer.skipped) return false
+  return !answer.ok || (answer.assertionsTotal > 0 && answer.assertionsPassed < answer.assertionsTotal)
+}
+
+// A row's status says which of the four things happened to it: the answer, a failure, nothing at
+// all, or a request a script kept back. The run counts the last as neither, so it is a state of its
+// own here too.
+function statusOf(answer: Answer | undefined): { text: string; cls: string } {
+  if (!answer) return { text: t('collections.notRun'), cls: 'none' }
+  if (answer.skipped) return { text: t('collections.skippedShort'), cls: 'none' }
+  if (failed(answer)) return { text: t('collections.failed'), cls: 'bad' }
+  return { text: String(answer.status), cls: statusBadgeClass(answer.status ?? 0) }
+}
+
+// A duration of zero is a row nothing was measured for — a request that never went out — rather than
+// an instant one, which is what the window's clock would otherwise let it read as.
+function timeOf(answer: Answer | undefined): string {
+  if (!answer || answer.ms <= 0) return '—'
+  return formatMicros(answer.ms)
+}
+
+// The table's rows: the requests of the level and what the run said about each of them, which are
+// two lists that meet by node id.
+const tableRows = computed(() =>
+  requests.value.map((row) => ({ row, answer: answers.value.get(row.id) }))
+)
+
+// What the run said about each request, by the node it came from — the row the click hands over.
+const results = computed(
+  () => new Map((mine.value?.results ?? []).map((result) => [result.nodeId, result]))
+)
+
+// A row of the run opens the request it names, with the answer that run got: the row is about that
+// request, and what it says is only readable beside the answer it describes. A request the run never
+// reached — one that is new since it — opens as the plain card it is.
+async function openRow(row: LevelRow) {
+  const result = results.value.get(row.id)
+  if (result) {
+    await store.openRunResult(result)
+    return
+  }
+  await store.select(row.id)
+}
+
+// ---- what the level is ----------------------------------------------------
+
+const nested = computed(() => (level.value ? childrenOf(level.value).length : 0))
+
+const meta = computed(() => {
+  const parts: string[] = []
+  if (trail.value?.collection) {
+    // A folder is a collection with a parent, and which collection that is says where it lives.
+    const above = trail.value.ancestors[trail.value.ancestors.length - 1]
+    if (above) parts.push(t('collections.folderIn', { name: above.name }))
+  } else {
+    parts.push(t('collections.aCollection'))
+  }
+  parts.push(t('counts.requests', store.selectedRequestCount))
+  if (nested.value > 0) parts.push(t('counts.folders', nested.value))
+  return parts.join(' · ')
+})
+
+const scheme = computed(() => {
+  const auth = trail.value?.collection?.auth
+  return auth ? schemeOf(auth.type) : null
+})
+
+// The four numbers a run comes to. Every one of them is about the last run rather than about the
+// level: what a collection is worth is what it did when it went out.
+const stats = computed(() => {
+  const run = mine.value
+  const rows = run?.results ?? []
+  const total = rows.length
+  const passed = rows.filter((result) => result.ok).length
+  const assertsPassed = rows.reduce((sum, result) => sum + (result.assertionsPassed ?? 0), 0)
+  const assertsTotal = rows.reduce((sum, result) => sum + (result.assertionsTotal ?? 0), 0)
+  const broken = rows.filter((result) => failed(answers.value.get(result.nodeId)))
+  const slowest = rows.reduce<CollectionRunResult | null>(
+    (best, result) => (best && best.durationUs >= result.durationUs ? best : result),
+    null
+  )
+
+  return [
+    {
+      label: t('collections.statLastRun'),
+      value: run ? formatAgo(run.finishedAt || run.startedAt) : '—',
+      // The environment the run was made under, not the one on screen now: a run is a thing that
+      // happened, and switching environments afterwards does not move it to the other one. A run
+      // that kept no environment — one made before runs did — says nothing about it rather than
+      // claiming the one that happens to be selected.
+      note: run ? lastRunNote(run) : t('collections.notRunYet'),
+    },
+    {
+      label: t('collections.statPassed'),
+      value: run ? t('collections.ofTotal', { passed: total - broken.length, total }) : '—',
+      note: t('collections.statPassedNote'),
+    },
+    {
+      label: t('collections.statAssertions'),
+      value: assertsTotal > 0 ? t('collections.ofTotal', { passed: assertsPassed, total: assertsTotal }) : '—',
+      note:
+        broken.length > 0
+          ? t('collections.statAssertionsFailed', {
+              n: broken.length,
+              names: broken.map((result) => nameOf(result.nodeId)).join(', '),
+            })
+          : t('collections.statAssertionsClean'),
+    },
+    {
+      label: t('collections.statSlowest'),
+      value: slowest ? formatMicros(slowest.durationUs) : '—',
+      note: slowest ? nameOf(slowest.nodeId) : t('collections.notRunYet'),
+    },
+  ]
+})
+
+// The name of a row, for the cards that count rows: the run carries node ids and the page carries
+// the names, and the two meet here.
+function nameOf(nodeId: string): string {
+  return requests.value.find((row) => row.id === nodeId)?.name ?? '—'
+}
+
+// What the run says about itself under the heading: when it went out, and under what.
+function lastRunNote(run: CollectionRun): string {
+  const total = formatMicros(run.durationUs)
+  if (!run.environment) return t('collections.statLastRunNoteBare', { total })
+  return t('collections.statLastRunNote', { environment: run.environment, total })
+}
+
+// "run 2 min ago · 4 requests" under the heading: what tells a reader whether the rows below are
+// about the run they have in mind.
+const runNote = computed(() => {
+  const run = mine.value
+  if (!run) return t('collections.runNever')
+  return t('collections.runNote', {
+    ago: formatAgo(run.finishedAt || run.startedAt),
+    n: (run.results ?? []).length,
+  })
+})
+
+// A failing row's line under its name: the reason, and how long it took when it was measured.
+function reportNote(result: CollectionRunResult): string {
+  const parts: string[] = []
+  if (result.error) parts.push(result.error)
+  else if ((result.assertionsTotal ?? 0) > 0) {
+    parts.push(
+      t('collections.ofTotal', {
+        passed: result.assertionsPassed ?? 0,
+        total: result.assertionsTotal ?? 0,
+      })
+    )
+  }
+  const time = timeOf(answers.value.get(result.nodeId))
+  if (time !== '—') parts.push(time)
+  return parts.join(' · ')
+}
+
+interface ReportRow {
+  label: string
+  note: string
+  tag: string
+  tone: 'bad' | 'ok' | 'flat'
+  // The request the line is about, where there is one: a line that names a request is a way into it,
+  // and the summary line — how many passed — names nobody.
+  result?: CollectionRunResult
+}
+
+// The run, said in a few lines: what failed, what that leaves, and what took longest. It is the same
+// run the table above draws, and it is worth a panel of its own because a failure is a thing to read
+// rather than a row to scan past.
+const report = computed<ReportRow[]>(() => {
+  const run = mine.value
+  if (!run) return []
+  const rows = run.results ?? []
+  const broken = rows.filter((result) => failed(answers.value.get(result.nodeId)))
+  const passed = rows.filter((result) => !failed(answers.value.get(result.nodeId)))
+  const assertsPassed = rows.reduce((sum, result) => sum + (result.assertionsPassed ?? 0), 0)
+  const assertsTotal = rows.reduce((sum, result) => sum + (result.assertionsTotal ?? 0), 0)
+  const slowest = rows.reduce<CollectionRunResult | null>(
+    (best, result) => (best && best.durationUs >= result.durationUs ? best : result),
+    null
+  )
+
+  const out: ReportRow[] = broken.map((result) => ({
+    label: t('collections.reportFailedRow', {
+      name: nameOf(result.nodeId),
+      status: result.status ? String(result.status) : t('collections.failed'),
+    }),
+    // What went wrong, said with what the row has: a request that never came back has an error to
+    // read and nothing asserted, and a request that came back wrong has the assertions instead.
+    note: reportNote(result),
+    tag: t('collections.failed'),
+    tone: 'bad',
+    result,
+  }))
+  out.push({
+    label: t('collections.reportPassedRow', { n: passed.length }),
+    note: t('collections.reportPassedNote', {
+      asserts: t('collections.assertsCount', { passed: assertsPassed, total: assertsTotal }),
+      total: formatMicros(run.durationUs),
+    }),
+    tag: t('collections.passed'),
+    tone: 'ok',
+  })
+  if (slowest) {
+    const row = requests.value.find((it) => it.id === slowest.nodeId)
+    out.push({
+      label: t('collections.reportSlowestRow', { name: nameOf(slowest.nodeId) }),
+      note: t('collections.reportSlowestNote', {
+        ms: timeOf(answers.value.get(slowest.nodeId)),
+        method: row?.method ?? '—',
+        path: addressOf(row?.url ?? ''),
+      }),
+      tag: formatMicros(slowest.durationUs),
+      tone: 'flat',
+      result: slowest,
+    })
+  }
+  return out
+})
+
+// ---- the three things the level owns --------------------------------------
+
+type Sheet = 'auth' | 'scripts' | 'variables' | 'report'
+
+const sheet = ref<Sheet | null>(null)
+
+const sheetTitle = computed(() => (sheet.value ? t(`collections.${sheet.value}Sheet`) : ''))
+
+
+const variablesNote = computed(() => {
+  const own = trail.value?.collection?.variables ?? []
+  if (own.length === 0) return t('collections.variablesNone')
+  return t('counts.variables', own.length)
+})
+
+const scriptsNote = computed(() => {
+  const own = store.scripts
+  if (!own || (!own.pre && !own.post)) return t('collections.scriptsNone')
+  return t('collections.scriptsSome')
+})
+
+const authNote = computed(() => {
+  if (scheme.value?.note) return t(scheme.value.note)
+  return scheme.value ? t('collections.authInheritedByChildren') : t('collections.authNoneBody')
+})
+
+// The footer's pair is the sheet's own: it closes either way, and what the editor was holding is
+// written or dropped. An editor that wrote while the user typed would leave Cancel nothing to do.
+type Editor = { commit: () => Promise<void>; discard: () => void } | null
+
+const authEditor = ref<Editor>(null)
+const variablesEditor = ref<Editor>(null)
+const scriptsEditor = ref<Editor>(null)
+
+const editor = computed<Editor>(() => {
+  switch (sheet.value) {
+    case 'auth':
+      return authEditor.value
+    case 'variables':
+      return variablesEditor.value
+    case 'scripts':
+      return scriptsEditor.value
+    default:
+      return null
+  }
+})
+
+async function saveSheet() {
+  await editor.value?.commit()
+  sheet.value = null
+}
+
+function closeSheet() {
+  editor.value?.discard()
+  sheet.value = null
+}
+
+// The report's own line: which run a reader is looking at. A sheet opens from a card and the card's
+// own sentence is what it says about itself; this one is opened from the run, so its line is the
+// run's.
+const reportSub = computed(() => {
+  const run = mine.value
+  if (!run) return ''
+  const facts = {
+    name: title.value,
+    n: (run.results ?? []).length,
+    ago: formatAgo(run.finishedAt || run.startedAt),
+  }
+  // The run's own environment, for the same reason the stat above is drawn with it.
+  if (!run.environment) return t('collections.reportSubBare', facts)
+  return t('collections.reportSub', { ...facts, environment: run.environment })
+})
+
+// What a sheet is about, in a line under its name — the drawing gives every one of them a sentence,
+// and the card it was opened from is where the sentence comes from.
+const sheetSub = computed(() => {
+  switch (sheet.value) {
+    case 'auth':
+      return authNote.value
+    case 'variables':
+      return variablesNote.value
+    case 'scripts':
+      return scriptsNote.value
+    case 'report':
+      return reportSub.value
+    default:
+      return ''
+  }
+})
 
 async function run() {
-  await store.run(store.runNodeId, runName.value)
+  await store.run(store.runNodeId, title.value)
 }
 
 </script>
 
 <template>
   <div class="overview">
-    <div class="head">
-      <div class="head-line">
-        <span class="title">{{ title }}</span>
-        <span class="count">{{ t('counts.requests', requestTotal) }}</span>
-      </div>
-
-      <input
-        v-if="editingDescription"
-        ref="descriptionInput"
-        v-model="descriptionDraft"
-        class="description-input"
-        :placeholder="t('collections.addDescription')"
-        spellcheck="false"
-        @keydown="onDescriptionKeydown"
-        @blur="commitDescription"
-      />
-      <span
-        v-else
-        class="description"
-        :class="{ placeholder: !description }"
-        role="button"
-        tabindex="0"
-        :title="description || t('collections.addDescription')"
-        @click="editDescription"
-        @keydown.enter="editDescription"
-      >
-        {{ description || t('collections.addDescription') }}
-      </span>
-
-      <div class="actions">
-        <Button
-          v-if="!store.running"
-          variant="primary"
-          size="lg"
-          :disabled="requestTotal === 0"
-          @click="run"
-        >
-          <Icon name="play" :size="11" /> {{ t('collections.runCollection') }}
-        </Button>
-        <Button v-else size="lg" @click="store.stop">
-          <span class="spinner spinner-sm"></span> {{ t('collections.stop') }}
-        </Button>
-
-        <Button size="lg" :disabled="store.running !== null" @click="importCollection">
-          <Icon name="download" :size="12" /> {{ t('collections.import') }}
-        </Button>
-        <Button
-          size="lg"
-          :disabled="store.running !== null || requestTotal === 0"
-          @click="exportSelected"
-        >
-          <Icon name="upload" :size="12" /> {{ t('collections.export') }}
-        </Button>
-
-        <span v-if="store.lastRun && !store.running" class="last-run">
-          {{ t('collections.lastRun', { ago: formatAgo(lastRunAt) }) }}
+    <header class="head">
+      <span class="folder"><Icon name="folder" :size="23" :stroke-width="1.7" /></span>
+      <div class="titles">
+        <h1 class="title">{{ title }}</h1>
+        <span class="meta">{{ meta }}</span>
+        <input
+          v-if="editingDescription"
+          ref="descriptionInput"
+          v-model="descriptionDraft"
+          class="description-input"
+          spellcheck="false"
+          @blur="commitDescription"
+          @keydown="onDescriptionKeydown"
+        />
+        <span v-else class="description" :class="{ placeholder: !description }" @click="editDescription">
+          {{ description || t('collections.addDescription') }}
         </span>
+      </div>
+      <Button
+        class="run-folder"
+        variant="primary"
+        size="page"
+        :disabled="store.selectedRequestCount === 0"
+        @click="run"
+      >
+        <Icon :name="store.running ? 'stop' : 'play'" :size="15" />
+        {{ store.running ? t('collections.stop') : t('collections.runFolder') }}
+      </Button>
+      <Button size="page" :disabled="store.running" @click="importCollection">
+        <Icon name="download" :size="15" />
+        {{ t('collections.import') }}
+      </Button>
+      <Button size="page" :disabled="store.running" @click="exportLevel">
+        <Icon name="upload" :size="15" />
+        {{ t('collections.export') }}
+      </Button>
+    </header>
+
+    <div class="stats">
+      <div v-for="stat in stats" :key="stat.label" class="stat">
+        <span class="stat-label">{{ stat.label }}</span>
+        <span class="stat-value">{{ stat.value }}</span>
+        <span class="stat-note">{{ stat.note }}</span>
       </div>
     </div>
 
-    <Tabs v-model="tab" class="tabs-host">
-      <TabsList class="tabs coll-tabs">
-        <TabsTrigger class="tab coll-tab" value="requests">{{ t('collections.requestsTab') }}</TabsTrigger>
-        <TabsTrigger class="tab coll-tab" value="auth">{{ t('collections.authTab') }}</TabsTrigger>
-        <TabsTrigger class="tab coll-tab" value="scripts">{{ t('collections.scriptsTab') }}</TabsTrigger>
-      </TabsList>
-
-      <div class="pane">
-        <TabsContent value="requests" class="tab-pane">
-          <div v-if="store.lastRun" class="summary">
-            <div class="cell">
-              <span class="cell-value">{{ rows.length }}</span>
-              <span class="cell-label">{{ t('counts.requests', rows.length) }}</span>
-            </div>
-            <div class="cell">
-              <span class="cell-value ok">{{ passed }}</span>
-              <span class="cell-label">{{ t('collections.succeeded') }}</span>
-            </div>
-            <div class="cell">
-              <span class="cell-value bad">{{ failed }}</span>
-              <span class="cell-label">{{ t('counts.errors', failed) }}</span>
-            </div>
-            <div class="cell">
-              <span class="cell-value">
-                {{ store.running ? '—' : formatMicros(store.lastRun.durationUs) }}
-              </span>
-              <span class="cell-label">{{ t('collections.totalTime') }}</span>
-            </div>
-          </div>
-
-          <div class="results-area">
-            <div v-if="store.lastRun" class="results">
-              <div
-                v-for="row in rows"
-                :key="row.nodeId"
-                class="result"
-                :class="{ failed: !row.ok }"
-                @click="store.openRunResult(row)"
-              >
-                <span class="result-icon" :class="row.ok ? 'ok' : 'bad'">
-                  <Icon :name="row.ok ? 'check' : 'xmark'" :size="13" :stroke-width="2.2" />
-                </span>
-                <span class="result-method mono">{{ row.method }}</span>
-                <span class="result-name" :title="row.error || row.name">{{ row.name }}</span>
-                <span v-if="row.status !== null" class="result-status" :class="row.ok ? 'ok' : 'bad'">
-                  {{ row.status }}
-                </span>
-                <span v-else class="result-error">{{ row.skipped ? t('collections.skipped') : row.error }}</span>
-                <span class="result-time">{{ formatMicros(row.durationUs) }}</span>
-              </div>
-            </div>
-
-            <div v-else-if="!store.running" class="idle">
-              <span class="idle-title">{{ t('collections.notRunYet') }}</span>
-              <span>{{ t('collections.runHint') }}</span>
-            </div>
-          </div>
-        </TabsContent>
-
-        <TabsContent value="auth" class="tab-pane scripts-pane">
-          <CollectionAuth />
-        </TabsContent>
-
-        <TabsContent value="scripts" class="tab-pane scripts-pane">
-          <CollectionScripts />
-        </TabsContent>
+    <section class="requests">
+      <div class="section-head">
+        <span class="section-label">{{ t('collections.runResults') }}</span>
+        <span class="section-note">{{ runNote }}</span>
+        <span class="head-spacer"></span>
+        <button v-if="mine" type="button" class="report-link" @click="sheet = 'report'">
+          {{ t('collections.openReport') }}
+        </button>
       </div>
-    </Tabs>
+      <div class="table">
+        <div class="table-head">
+          <span>{{ t('collections.columnMethod') }}</span>
+          <span>{{ t('collections.columnName') }}</span>
+          <span>{{ t('collections.columnAssertions') }}</span>
+          <span>{{ t('collections.columnTime') }}</span>
+          <span>{{ t('collections.columnStatus') }}</span>
+        </div>
+        <div class="table-body">
+          <button
+            v-for="entry in tableRows"
+            :key="entry.row.id"
+            type="button"
+            class="table-row"
+            @click="openRow(entry.row)"
+          >
+            <span class="cell-method mono" :class="methodInkClass(entry.row.method ?? '')">
+              {{ entry.row.method }}
+            </span>
+            <span class="cell-name">{{ entry.row.name }}</span>
+            <span class="cell-asserts mono" :class="{ bad: failed(entry.answer) }">
+              {{ assertsOf(entry.answer) }}
+            </span>
+            <span class="cell-time mono">{{ timeOf(entry.answer) }}</span>
+            <span class="cell-status">
+              <span class="status-pill" :class="statusOf(entry.answer).cls">
+                {{ statusOf(entry.answer).text }}
+              </span>
+            </span>
+          </button>
+          <div v-if="!loading && tableRows.length === 0" class="table-empty">
+            {{ t('collections.noRequestsHere') }}
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <div class="cards">
+      <div class="card">
+        <span class="card-title">{{ t('collections.authSheet') }}</span>
+        <span class="card-body">{{ authNote }}</span>
+        <button type="button" class="card-action" @click="sheet = 'auth'">
+          {{ t('collections.editAuth') }}
+        </button>
+      </div>
+      <div class="card">
+        <span class="card-title">{{ t('collections.variablesSheet') }}</span>
+        <span class="card-body">{{ variablesNote }}</span>
+        <button type="button" class="card-action" @click="sheet = 'variables'">
+          {{ t('collections.editVariables') }}
+        </button>
+      </div>
+      <div class="card">
+        <span class="card-title">{{ t('collections.scriptsSheet') }}</span>
+        <span class="card-body">{{ scriptsNote }}</span>
+        <button type="button" class="card-action" @click="sheet = 'scripts'">
+          {{ t('collections.editScripts') }}
+        </button>
+      </div>
+    </div>
+
+    <!-- The editors are leaves over the page rather than tabs inside it: a collection's authorization
+         is set once and left, and a tab that is nearly always closed is a line of the page spent on
+         nothing. -->
+    <div v-if="sheet" class="sheet-overlay" @click.self="closeSheet">
+      <div class="sheet">
+        <div class="sheet-head">
+          <div class="sheet-titles">
+            <span class="sheet-title">{{ sheetTitle }}</span>
+            <span class="sheet-sub">{{ sheetSub }}</span>
+          </div>
+          <button class="sheet-close" :title="t('common.close')" @click="closeSheet">
+            <Icon name="xmark" :size="15" :stroke-width="2.2" />
+          </button>
+        </div>
+
+        <div class="sheet-body">
+          <CollectionAuth v-if="sheet === 'auth'" ref="authEditor" />
+          <CollectionVariables v-else-if="sheet === 'variables'" ref="variablesEditor" />
+          <CollectionScripts v-else-if="sheet === 'scripts'" ref="scriptsEditor" />
+          <div v-else class="report">
+            <button
+              v-for="(line, i) in report"
+              :key="i"
+              type="button"
+              class="report-row"
+              :class="{ linked: line.result }"
+              :disabled="!line.result"
+              @click="line.result && store.openRunResult(line.result)"
+            >
+              <span class="report-text">
+                <span class="report-label">{{ line.label }}</span>
+                <span class="report-note">{{ line.note }}</span>
+              </span>
+              <span class="report-tag" :class="line.tone">{{ line.tag }}</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- The report is read, not edited: it has nothing to cancel, and a Cancel beside its Close
+             would be two names for the one thing that button does. -->
+        <div class="sheet-foot">
+          <button v-if="sheet !== 'report'" class="sheet-cancel" @click="closeSheet">
+            {{ t('common.cancel') }}
+          </button>
+          <button v-if="sheet === 'report'" class="sheet-action" @click="closeSheet">
+            {{ t('common.close') }}
+          </button>
+          <button v-else class="sheet-action" @click="saveSheet">{{ t('common.save') }}</button>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -264,177 +673,349 @@ async function run() {
 @reference "../../style.css";
 
 .overview {
-  @apply flex-1 min-h-0 flex flex-col;
+  /* The handoff is plain HTML, so its every line is drawn at `normal`. The window's base is Tailwind's
+     1.5, which leaves each label, value and title on this page a couple of pixels looser than the
+     drawing — the page's own blocks are the ones it shows on. */
+  line-height: normal;
+  @apply flex-1 min-h-0 overflow-y-auto flex flex-col gap-6.5 bg-bg-panel;
+  padding: 28px 32px;
+}
+
+/* «Запустить папку» is the handoff's own one-off button: a shade larger than the two beside it, which
+   are Button.vue's plain page size. It is written here rather than added to that file because the
+   drawing gives no other button these numbers. */
+.head .btn.run-folder {
+  gap: 9px;
+  padding: 0 16px;
+  font-size: 14px;
+  font-weight: 600;
 }
 
 .head {
-  @apply flex-none flex flex-col gap-1.5 px-6 pt-5 pb-4 border-b border-border bg-bg-panel;
+  @apply flex items-start gap-4;
 }
 
-.head-line {
-  @apply flex items-center gap-2.5;
+.folder {
+  @apply flex-none inline-flex items-center justify-center w-11 h-11 rounded-xl
+         bg-accent-soft text-accent;
+}
+
+.titles {
+  @apply flex flex-col flex-1 min-w-0 gap-1.5;
 }
 
 .title {
-  @apply text-[20px] font-semibold tracking-[-0.01em];
+  @apply m-0 text-[22px] font-semibold;
+  letter-spacing: -0.01em;
+  @apply overflow-hidden text-ellipsis whitespace-nowrap;
 }
 
-.count {
-  @apply text-[11.5px] text-text-tertiary tabular-nums;
+.meta {
+  @apply text-[13.5px] text-text-secondary;
 }
 
 .description {
-  @apply min-w-0 overflow-hidden text-ellipsis whitespace-nowrap text-[13px] text-text-secondary cursor-text;
+  @apply text-[13px] text-text-secondary cursor-text;
+  @apply overflow-hidden text-ellipsis whitespace-nowrap;
 }
 
+/* Not `.empty`: that name is the window's own empty state — a centred column with room around a glyph
+   — and a description nobody has written yet is a line of text like any other, left under the title. */
 .description.placeholder {
   @apply text-text-tertiary;
 }
 
 .description-input {
-  @apply min-w-0 p-0 border-none outline-none bg-transparent text-[13px] text-text-secondary;
+  @apply w-full bg-transparent border-0 outline-none p-0 text-[13px] text-text;
 }
 
-.description-input::placeholder {
+/* Four counters on one line: a collection's whole state is worth a glance, and a glance is one line. */
+.stats {
+  @apply grid grid-cols-4 gap-3;
+}
+
+.stat {
+  @apply flex flex-col gap-1.5 border border-border rounded-xl;
+  padding: 14px 16px;
+}
+
+.stat-label {
+  @apply text-[11px] font-semibold uppercase tracking-[0.07em] text-text-tertiary;
+}
+
+.stat-value {
+  @apply text-[20px] font-semibold;
+  letter-spacing: -0.01em;
+}
+
+.stat-note {
+  @apply text-[12.5px] text-text-tertiary;
+}
+
+.requests {
+  @apply flex flex-col gap-2.5;
+}
+
+/* The heading of the run's own block: what it is, when it last happened, and the way into the full
+   report. */
+.section-head {
+  @apply flex items-baseline gap-2.5;
+}
+
+.section-label {
+  @apply text-[11px] font-semibold uppercase tracking-[0.07em] text-text-tertiary;
+}
+
+.section-note {
+  @apply text-[12.5px] text-text-tertiary;
+}
+
+.report-link {
+  @apply h-7 px-2 -my-1 rounded-[7px] border-0 bg-transparent cursor-pointer
+         text-[12.5px] font-medium text-accent;
+  font-family: inherit;
+}
+
+.report-link:hover {
+  @apply bg-accent-soft;
+}
+
+/* The level's rows, capped at the height the handoff draws: a collection of fifty requests is a list
+   to scroll inside a page rather than a page of its own. */
+.table {
+  @apply flex flex-col border border-border rounded-xl overflow-hidden max-h-[320px];
+}
+
+.table-body {
+  @apply flex-1 min-h-0 overflow-y-auto;
+}
+
+.table-head,
+.table-row {
+  @apply grid items-center;
+  grid-template-columns: 90px minmax(0, 1fr) 200px 120px 110px;
+}
+
+.table-head {
+  @apply bg-bg-inset border-b border-border text-[11px] font-semibold uppercase
+         tracking-[0.06em] text-text-tertiary;
+}
+
+.table-head > span {
+  padding: 10px 16px;
+}
+
+.table-row {
+  @apply w-full text-left border-0 border-b border-border bg-transparent cursor-pointer
+         min-h-[46px] text-text;
+}
+
+.table-row:hover {
+  background: var(--bg-hover);
+}
+
+.table-row:last-child {
+  border-bottom: 0;
+}
+
+.table-row > span {
+  @apply min-w-0 overflow-hidden text-ellipsis whitespace-nowrap;
+  padding: 0 16px;
+}
+
+.cell-method {
+  @apply text-[11.5px];
+}
+
+.cell-name {
+  @apply text-[13.5px];
+}
+
+.cell-asserts {
+  @apply text-[12.5px] text-text-secondary;
+}
+
+.cell-asserts.bad {
+  color: var(--red-text);
+}
+
+.cell-time {
+  @apply text-[12.5px] text-text-secondary;
+}
+
+.status-pill {
+  @apply inline-flex items-center text-[11.5px] font-semibold py-[3px] px-2 rounded-md;
+}
+
+.status-pill.none {
   @apply text-text-tertiary;
+  background: var(--bg-hover);
 }
 
-.actions {
-  @apply flex items-center gap-2.5 mt-1.5;
-}
-
-.last-run {
-  @apply ml-auto text-[11.5px] text-text-tertiary;
-}
-
-.coll-tabs {
-  @apply flex-none h-[38px] gap-0.5 px-6;
-}
-
-.coll-tab {
-  @apply h-[38px] px-1 mr-5 text-[12.5px] border-b-2;
-}
-
-.coll-tab[data-state='active'] {
-  @apply text-accent font-medium;
-  border-bottom-color: var(--accent);
-}
-
-.tabs-host {
-  @apply flex-1 min-h-0 flex flex-col gap-0;
-}
-
-.pane {
-  @apply flex-1 min-h-0 flex flex-col;
-}
-
-.tab-pane {
-  @apply flex-1 min-h-0 flex flex-col;
-}
-
-.scripts-pane {
-  @apply overflow-y-auto bg-bg-panel;
-}
-
-.summary {
-  @apply flex-none flex items-center gap-5 px-6 py-3 border-b border-border bg-bg-panel;
-}
-
-.cell {
-  @apply flex flex-col gap-px;
-}
-
-.cell-value {
-  @apply text-[17px] font-semibold;
-}
-
-.cell-value.ok {
-  color: var(--green-text);
-}
-
-.cell-value.bad {
-  color: var(--red-text);
-}
-
-.cell-label {
-  @apply text-[10.5px] text-text-tertiary;
-}
-
-.results-area {
-  @apply flex-1 min-h-0 overflow-y-auto px-6 py-3;
-  background: var(--bg);
-}
-
-.results {
-  @apply rounded-[9px] border border-border bg-bg-panel overflow-hidden;
-}
-
-.result {
-  @apply flex items-center gap-2.5 px-3.5 py-2 text-[12.5px] cursor-pointer;
-  border-bottom: 1px solid var(--border);
-}
-
-.result:last-child {
-  border-bottom: none;
-}
-
-.result:hover {
-  @apply bg-bg-hover;
-}
-
-.result.failed {
-  background: color-mix(in srgb, var(--red) 4%, transparent);
-}
-
-.result-icon {
-  @apply flex-none inline-flex items-center justify-center w-[13px];
-}
-
-.result-icon.ok {
-  color: var(--green-text);
-}
-
-.result-icon.bad {
-  color: var(--red-text);
-}
-
-.result-method {
-  @apply flex-none text-[10.5px] font-semibold text-text-secondary;
-  min-width: 44px;
-}
-
-.result-name {
-  @apply flex-1 min-w-0 overflow-hidden text-ellipsis whitespace-nowrap text-text;
-}
-
-.result-status {
-  @apply flex-none px-1.5 py-px rounded-[4px] text-[10px] font-semibold tabular-nums;
-}
-
-.result-status.ok {
-  color: var(--green-text);
-  background: var(--green-soft);
-}
-
-.result-status.bad {
+.status-pill.bad {
   color: var(--red-text);
   background: var(--red-soft);
 }
 
-.result-error {
-  @apply flex-none max-w-[320px] overflow-hidden text-ellipsis whitespace-nowrap text-[11.5px];
+.table-empty {
+  @apply text-[13px] text-text-tertiary;
+  padding: 14px 16px;
+}
+
+.cards {
+  @apply grid grid-cols-3 gap-3;
+}
+
+.card {
+  @apply flex flex-col items-start gap-2 border border-border rounded-xl;
+  padding: 16px;
+}
+
+.card-title {
+  @apply text-[13.5px] font-semibold;
+}
+
+.card-body {
+  @apply text-[13px] leading-normal text-text-secondary;
+}
+
+/* The three cards stand in a row and their sentences are of different lengths, so the action is
+   pushed to the foot of its card: three buttons at three heights read as three different things. */
+.card-action {
+  @apply self-start mt-auto h-[30px] px-2 -ml-2 border-0 rounded-[7px] bg-transparent cursor-pointer
+         text-[13px] font-medium text-accent;
+  font-family: inherit;
+}
+
+.card-action:hover {
+  @apply bg-accent-soft;
+}
+
+/* The sheet is a leaf of its own, sized to one editor: the environments' sheet is a whole workspace
+   with a list beside the table, and a collection's authorization is a form. */
+.sheet-overlay {
+  @apply fixed inset-0 z-1500 flex items-center justify-center;
+  background: rgba(0, 0, 0, 0.22);
+}
+
+/* The drawing's sheet: one card rather than a panel with a bar, sized to the editors it holds and
+   padded once — the editors inside bring no padding of their own. */
+.sheet {
+  @apply flex flex-col w-[440px] max-w-[92vw] rounded-[14px];
+  max-height: calc(100vh - 96px);
+  padding: 18px;
+  gap: 16px;
+  background: var(--glass-sheet);
+  backdrop-filter: var(--blur-sheet);
+  box-shadow: var(--glass-sheet-shadow), 0 0 0 1px var(--glass-overlay-border);
+}
+
+.sheet-head {
+  @apply flex-none flex items-start gap-3;
+}
+
+/* The handoff's own close for this card: 28 square, and the ink is the tertiary one until the
+   pointer arrives. */
+.sheet-close {
+  @apply flex-none inline-flex items-center justify-center w-7 h-7 rounded-[7px] border-0
+         bg-transparent text-text-tertiary cursor-pointer;
+  --wails-draggable: no-drag;
+}
+
+.sheet-close:hover {
+  @apply bg-bg-active text-text;
+}
+
+/* Save and Cancel: the sheet holds what is being edited until one of them is pressed. */
+.sheet-foot {
+  @apply flex-none flex justify-end gap-2.5 pt-1 border-t border-border;
+}
+
+.sheet-cancel {
+  @apply h-[34px] px-3.5 rounded-lg border border-border-strong bg-bg-inset text-text
+         text-[13.5px] font-medium cursor-pointer;
+  font-family: inherit;
+}
+
+.sheet-cancel:hover {
+  @apply bg-bg-hover;
+}
+
+.sheet-action {
+  @apply h-[34px] px-4 rounded-lg border-0 bg-accent text-accent-text text-[13.5px] font-semibold
+         cursor-pointer;
+  font-family: inherit;
+}
+
+.sheet-action:hover {
+  @apply brightness-110;
+}
+
+/* The sheet's head is a name and a sentence: what this is, and what it is about. The sentence is the
+   card's own, so a sheet says the same thing the line it was opened from does. */
+.sheet-titles {
+  @apply flex flex-col flex-1 gap-[5px] min-w-0;
+}
+
+.sheet-title {
+  @apply text-[16px] font-semibold;
+}
+
+.sheet-sub {
+  @apply text-[13px] leading-normal text-text-secondary;
+  line-height: 1.5;
+}
+
+.sheet-body {
+  @apply flex-1 min-h-0 overflow-y-auto;
+}
+
+/* The run's report: the failures one by one, then what the run came to, then the slowest row — the
+   three things worth reading about a run that has already been drawn row by row above. */
+.report {
+  @apply flex flex-col gap-0.5;
+}
+
+/* A line of the report is a button where it names a request — a failure and the slowest one are both
+   ways into what they are about — and a plain line where it does not. */
+.report-row {
+  @apply flex items-center w-full gap-3 min-h-11 px-2.5 rounded-[9px] border-0 bg-transparent
+         text-left text-text;
+  font-family: inherit;
+}
+
+.report-row.linked {
+  @apply cursor-pointer;
+}
+
+.report-row.linked:hover {
+  @apply bg-bg-hover;
+}
+
+.report-text {
+  @apply flex-1 min-w-0 flex flex-col gap-0.5;
+}
+
+.report-label {
+  @apply text-[13.5px] overflow-hidden text-ellipsis whitespace-nowrap;
+}
+
+.report-note {
+  @apply text-[12px] text-text-tertiary;
+}
+
+.report-tag {
+  @apply flex-none text-[12.5px] font-semibold py-1 px-[9px] rounded-md text-text-tertiary;
+  background: var(--bg-hover);
+}
+
+.report-tag.bad {
   color: var(--red-text);
+  background: var(--red-soft);
 }
 
-.result-time {
-  @apply flex-none w-[52px] text-right text-[10.5px] text-text-tertiary tabular-nums;
-}
-
-.idle {
-  @apply flex flex-col gap-1 text-[12.5px] text-text-tertiary;
-}
-
-.idle-title {
-  @apply font-semibold text-text-secondary text-[12.5px];
+.report-tag.ok {
+  @apply bg-green-soft;
+  color: var(--green-text);
 }
 </style>

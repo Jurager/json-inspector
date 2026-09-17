@@ -195,15 +195,9 @@ async function toggleCapture() {
         <span>{{ runLabel }}</span>
       </template>
       <template v-else-if="collections.selectedId">
+        <!-- A folder's name is the only thing here: a request's path is written above the request
+             itself, in the bar that says what the pane below is a picture of. -->
         <span v-if="!collections.cardOpen" class="crumb-last">{{ collections.levelName }}</span>
-        <span v-else class="crumbs">
-          <template v-for="(crumb, i) in collections.breadcrumbs" :key="crumb.id">
-            <span v-if="i > 0" class="crumb-sep">›</span>
-            <span :class="i === collections.breadcrumbs.length - 1 ? 'crumb-last' : ''">
-              {{ crumb.name }}
-            </span>
-          </template>
-        </span>
         <template v-if="missingCount > 0">
           <span class="divider"></span>
           <span class="missing">{{ missingLabel }}</span>
@@ -252,7 +246,7 @@ async function toggleCapture() {
 
 /* The third chrome surface: the same glass as the titlebar and the rail. */
 .status-bar {
-  @apply relative flex-none flex items-center gap-2.5 h-[var(--statusbar-height)] px-3.5 text-xs;
+  @apply relative flex-none flex items-center gap-2.5 h-[var(--statusbar-height)] px-4 text-[12px];
   border-top: 1px solid var(--glass-chrome-border);
   /* The bottom strip mirrors the top one: the colour comes up from the window's edge and is gone by
      the time the bar ends. */
@@ -321,14 +315,6 @@ async function toggleCapture() {
    property of the element itself and not an inheritance the button's own variant can overrule. */
 .status-bar .current {
   @apply text-text;
-}
-
-.crumbs {
-  @apply flex items-center gap-1.5 min-w-0 overflow-hidden;
-}
-
-.crumb-sep {
-  @apply text-text-tertiary;
 }
 
 .crumb-last {

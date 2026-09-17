@@ -60,7 +60,11 @@ type fakeVars struct {
 	secret map[string]bool
 }
 
-func (f fakeVars) Missing(_ context.Context, texts []string) ([]string, error) {
+func (f fakeVars) Missing(
+	_ context.Context,
+	_ []domain.Variable,
+	texts []string,
+) ([]string, error) {
 	out, seen := []string{}, map[string]bool{}
 	for _, text := range texts {
 		for _, name := range f.mentioned(text) {
@@ -74,7 +78,12 @@ func (f fakeVars) Missing(_ context.Context, texts []string) ([]string, error) {
 	return out, nil
 }
 
-func (f fakeVars) SubstituteTexts(_ context.Context, texts []string, mask bool) ([]string, error) {
+func (f fakeVars) SubstituteTexts(
+	_ context.Context,
+	_ []domain.Variable,
+	texts []string,
+	mask bool,
+) ([]string, error) {
 	out := make([]string, len(texts))
 	for i, text := range texts {
 		for name, value := range f.values {
@@ -482,7 +491,7 @@ func TestPreparedFillsAndMasks(t *testing.T) {
 		t.Fatalf("Replace: %v", err)
 	}
 
-	prepared, err := uc.Prepared(ctx, domain.DraftCommandLine, nil)
+	prepared, err := uc.Prepared(ctx, domain.DraftCommandLine, nil, nil)
 	if err != nil {
 		t.Fatalf("Prepared: %v", err)
 	}
@@ -568,7 +577,7 @@ func TestPrepareLeavesTheDraftAlone(t *testing.T) {
 	ctx := context.Background()
 
 	before, _ := uc.Snapshot(ctx, domain.DraftCommandLine)
-	prepared, err := uc.Prepare(ctx, Seed{Method: "GET", URL: "https://{{host}}/follow"})
+	prepared, err := uc.Prepare(ctx, Seed{Method: "GET", URL: "https://{{host}}/follow"}, nil)
 	if err != nil {
 		t.Fatalf("Prepare: %v", err)
 	}

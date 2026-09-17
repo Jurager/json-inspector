@@ -23,6 +23,23 @@ type Collection struct {
 	// Auth is what everything inside inherits unless it says otherwise. It is a pointer for the same
 	// reason a node's is: nil is "nothing here", and the walk stops at the first non-nil it meets.
 	Auth *Auth `json:"auth,omitempty"`
+
+	// Variables are the `{{tokens}}` this collection answers for its own requests, and for everything
+	// inside it. They are the environment's own kind of variable and stand over it: a level that
+	// names `baseUrl` means that value for everything below, which is what makes a collection
+	// portable between environments.
+	Variables []Variable `json:"variables,omitempty"`
+}
+
+// LevelRow is one request as the collection page's table draws it: what it is called, the method it
+// goes out with and the address it goes to. It is a read of its own because a tree row carries no
+// request payload — what a list loads is names and methods — and the page is the one screen that
+// shows a row's address.
+type LevelRow struct {
+	ID     string `json:"id"`
+	Name   string `json:"name"`
+	Method string `json:"method,omitempty"`
+	URL    string `json:"url,omitempty"`
 }
 
 // LevelEntry is one row of a collection's level: a request, or a collection inside it. Exactly one
@@ -94,6 +111,12 @@ type CollectionRun struct {
 	// nested collections included.
 	NodeID string `json:"nodeId,omitempty"`
 
+	// Environment is the name of the environment the run went out under, kept as it was called at
+	// the time. It is a name rather than an id because a run is a thing that happened: the
+	// environment on screen next week is not the one these requests were sent with, and neither is
+	// the name it may have been renamed to since.
+	Environment string `json:"environment,omitempty"`
+
 	StartedAt  int64 `json:"startedAt"`
 	FinishedAt int64 `json:"finishedAt,omitempty"`
 	Passed     int   `json:"passed"`
@@ -114,6 +137,12 @@ type CollectionRunResult struct {
 	OK         bool   `json:"ok"`
 	DurationUs int64  `json:"durationUs"`
 	Error      string `json:"error,omitempty"`
+	// Assertions is what the scripts around this request asserted and how many of those held. The
+	// status says the request went through; this says what came back was what it asked for. They are
+	// two counts rather than the reports themselves: the page draws one table of them, and a report
+	// per row would be a call per request to draw a row.
+	AssertionsPassed int `json:"assertionsPassed"`
+	AssertionsTotal  int `json:"assertionsTotal"`
 	// Skipped is a request a pre-request script kept from going out. It is neither a pass nor a
 	// failure, which is why it is a flag of its own: the run counts it as neither.
 	Skipped bool `json:"skipped,omitempty"`

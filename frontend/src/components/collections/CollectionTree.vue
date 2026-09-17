@@ -15,13 +15,18 @@ import { useListKeys } from '../../composables/useListKeys'
 import { useTreeDrag, type DropTarget } from '../../composables/useTreeDrag'
 import { useCollectionsStore } from '../../stores/collections'
 import { childrenOf, filterTree, findCollection, requestCount, trailOf } from '../../lib/collectionTree'
+import { methodInkClass } from '../../lib/format'
 import { useToast } from '../../composables/useToast'
+import { usePlatform } from '../../composables/usePlatform'
 import { useMessages } from '../../i18n'
 import type { Collection } from '../../../bindings/json-inspector/internal/domain'
 
 const store = useCollectionsStore()
 const { t } = useMessages()
 const toast = useToast()
+// The keys the menu promises and the panel answers to are built here, once, so a hint cannot drift
+// from the binding it names.
+const { shortcut, keyLabel, chord } = usePlatform()
 
 // One request, one file: the menu exports what it was opened on, and a collection is exported from its
 // own overview.
@@ -30,11 +35,11 @@ async function exportNode(row: Row) {
   if (written) toast.show(t('collections.savedToFileNamed', { name: row.name }))
 }
 
-// The indent the design gives the three levels, measured from the panel's edge: the row's own box
-// starts 6px in, so a collection's text sits at 14px and each level below adds 16. A collection may
-// hold a collection, and one of those may hold another, so past the third step the ladder keeps
-// climbing rather than piling the deepest rows on one column.
-const INDENT = [8, 24, 40]
+// The indent the design gives the three levels, as the row's own left padding: a collection at the top
+// of the tree starts at 10px, and each level below adds 16. A collection may hold a collection, and one
+// of those may hold another, so past the third step the ladder keeps climbing rather than piling the
+// deepest rows on one column.
+const INDENT = [10, 26, 42]
 const STEP = 16
 
 // A row of the tree, flattened: the drawing walks a list, and the nesting is what the indent says.
@@ -392,10 +397,13 @@ function focusNextFrame(el: HTMLInputElement | null) {
 //
 // What is typed here is the name and nothing else: the row carries no method, and the request is made
 // as GET — the method is chosen in the card the row opens, where the address is filled in too.
-function startCreating(row: Row) {
-  // The request joins the collection the menu was opened on: a collection's own row is that collection,
-  // while a request's row names the level it sits in.
-  const collectionId = row.kind === 'collection' ? row.id : row.collectionId
+// The level a row's new request would join: a collection's own row is that collection, while a
+// request's row names the level it sits in. The menu, the key and the new-folder gesture all ask it.
+function levelOf(row: Row): string {
+  return row.kind === 'collection' ? row.id : row.collectionId
+}
+
+function startCreating(collectionId: string) {
   creating.value = { collectionId }
   creatingName.value = t('collections.newRequest')
   creatingInvalid.value = false
@@ -436,9 +444,19 @@ function onCreatingKeydown(e: KeyboardEvent) {
   }
 }
 
-async function addCollection() {
+// A folder is a collection inside one, so the panel's «+» is this same call without a level: the one
+// that exists where the user is looking is the menu's.
+async function addCollection(parentId = '') {
   await leave()
-  await store.createCollection(nextCollectionName())
+  await store.createCollection(nextCollectionName(), parentId)
+}
+
+// Running a level is the overview's own gesture, done from the tree: the folder opens first, because
+// that page is where the rows of the run appear — a run watched only through the status bar's counter
+// is a run nobody can follow.
+async function runNode(row: Row) {
+  if (row.id !== store.selectedId) await store.select(row.id)
+  await store.run(store.runNodeId, row.name)
 }
 
 // A collection made anywhere — the panel's «+» or the onboarding — is named here, in the row that
@@ -450,6 +468,38 @@ watch(
     store.pendingRename = null
     const row = visible.value.find((r) => r.id === id)
     if (row) startRename(row)
+  },
+  { flush: 'post' }
+)
+
+// A row the window reached from somewhere other than this tree — a row of a run, a hit in the
+// palette — is a row whose parents may be closed and which may be scrolled out of sight. Opening
+// them and bringing it into view is what makes the selection a place rather than a value: from the
+// run's table the whole point of the click is to arrive at the request. Running on mount as well,
+// because the tree is drawn after the section is switched to.
+watch(
+  () => store.selectedId,
+  async (id) => {
+    if (!id) return
+    if (!visible.value.some((row) => row.id === id)) {
+      const trail = trailOf(store.tree, id)
+      if (!trail) return
+      for (const ancestor of trail.ancestors) store.expanded[ancestor.id] = true
+      await nextTick()
+    }
+    elementOf(id)?.scrollIntoView({ block: 'nearest' })
+  },
+  { immediate: true, flush: 'post' }
+)
+
+// The key that makes a request names the level it goes in and leaves the naming here, where the row
+// is: the box opens on the place the row will appear rather than making one with a name nobody chose.
+watch(
+  () => store.pendingCreate,
+  (collectionId) => {
+    if (!collectionId) return
+    store.pendingCreate = null
+    startCreating(collectionId)
   },
   { flush: 'post' }
 )
@@ -518,8 +568,8 @@ function cancelTop(): boolean {
   <div class="tree-panel">
     <div class="panel-head">
       <span class="panel-title">{{ t('collections.title') }}</span>
-      <IconButton variant="bare" size="sm" :hint="t('collections.newCollection')" @click="addCollection">
-        <Icon name="plus" :size="16" />
+      <IconButton variant="bare" class="panel-add" :hint="t('collections.newCollection')" @click="addCollection()">
+        <Icon name="plus" :size="17" />
       </IconButton>
     </div>
 
@@ -552,15 +602,26 @@ function cancelTop(): boolean {
                 @pointerdown.stop
                 @click.stop="store.toggleExpand(row.id)"
               >
-                <Icon name="chevron-right" :size="10" />
+                <Icon name="chevron-right" :size="13" />
               </span>
-              <span v-else class="caret-space"></span>
+              <!-- Only a collection holds a level, so only a collection keeps room for the chevron: a
+                   request starts at its own indent, which is what the design draws and what keeps the
+                   two kinds of row apart at a glance. -->
+              <span v-else-if="row.kind === 'collection'" class="caret-space"></span>
 
-              <span v-if="row.kind === 'collection'" class="row-icon">
-                <Icon name="folder" :size="14" />
+              <span
+                v-if="row.kind === 'collection'"
+                class="row-icon"
+                :class="{ 'row-icon-top': row.depth === 0 }"
+              >
+                <Icon name="folder" :size="16" />
               </span>
 
-              <span v-if="row.kind === 'request'" class="row-method mono">{{ row.method }}</span>
+              <span
+                v-if="row.kind === 'request'"
+                class="row-method mono"
+                :class="methodInkClass(row.method)"
+              >{{ row.method }}</span>
 
               <input
                 v-if="renamingId === row.id"
@@ -581,20 +642,46 @@ function cancelTop(): boolean {
             </div>
           </ContextMenuTrigger>
 
-          <ContextMenuContent>
+          <ContextMenuContent class="tree-menu">
+            <!-- What the menu is about, named above it: a menu opened on the wrong row says so before
+                 anything is clicked. -->
+            <div class="menu-title">{{ row.name }}</div>
             <template v-if="row.kind === 'collection'">
-              <ContextMenuItem @select="startCreating(row)">
-                {{ t('collections.newRequest') }}
+              <ContextMenuItem @select="startCreating(levelOf(row))">
+                <span class="menu-label-text">{{ t('collections.newRequest') }}</span>
+                <span class="menu-key">{{ shortcut('N') }}</span>
+              </ContextMenuItem>
+              <ContextMenuItem @select="addCollection(row.id)">
+                <span class="menu-label-text">{{ t('collections.newFolder') }}</span>
+              </ContextMenuItem>
+              <ContextMenuItem @select="runNode(row)">
+                <span class="menu-label-text">{{ t('collections.runFolder') }}</span>
+                <span v-if="chord('R')" class="menu-key">{{ shortcut('R') }}</span>
               </ContextMenuItem>
               <ContextMenuSeparator />
             </template>
-            <ContextMenuItem @select="startRename(row)">{{ t('collections.rename') }}</ContextMenuItem>
-            <ContextMenuItem @select="store.duplicate(row.id)">{{ t('collections.duplicate') }}</ContextMenuItem>
+            <template v-else>
+              <ContextMenuItem @select="pick(row)">
+                <span class="menu-label-text">{{ t('collections.openRequest') }}</span>
+                <span class="menu-key">{{ keyLabel('enter') }}</span>
+              </ContextMenuItem>
+            </template>
+            <ContextMenuItem @select="startRename(row)">
+              <span class="menu-label-text">{{ t('collections.rename') }}</span>
+            </ContextMenuItem>
+            <ContextMenuItem @select="store.duplicate(row.id)">
+              <span class="menu-label-text">{{ t('collections.duplicate') }}</span>
+              <span class="menu-key">{{ shortcut('D') }}</span>
+            </ContextMenuItem>
             <ContextMenuItem @select="exportNode(row)">
-              {{ row.kind === 'request' ? t('collections.exportRequest') : t('collections.export') }}
+              <span class="menu-label-text">
+                {{ row.kind === 'request' ? t('collections.exportRequest') : t('collections.export') }}
+              </span>
             </ContextMenuItem>
             <ContextMenuSeparator />
-            <ContextMenuItem class="danger" @select="askRemove(row)">{{ t('common.delete') }}</ContextMenuItem>
+            <ContextMenuItem class="danger" @select="askRemove(row)">
+              <span class="menu-label-text">{{ t('common.delete') }}</span>
+            </ContextMenuItem>
           </ContextMenuContent>
         </ContextMenu>
 
@@ -603,7 +690,8 @@ function cancelTop(): boolean {
           class="row row-creating"
           :style="{ paddingLeft: indentDepth(creatingAt.depth) }"
         >
-          <span class="caret-space"></span>
+          <!-- The verb's own room: the name being typed stands where the name will stand. -->
+          <span class="row-method-space"></span>
           <input
             :ref="setCreatingInput"
             v-model="creatingName"
@@ -649,24 +737,35 @@ function cancelTop(): boolean {
   @apply relative flex flex-col h-full min-h-0 bg-bg-panel;
 }
 
+/* The header carries no hairline any more: the panel is one surface with its tree, and the lines the
+   window used to run across it are gone (the design's «меньше линий» pass). */
 .panel-head {
-  @apply flex items-center justify-between h-10 px-1 pl-3.5 border-b border-border;
+  @apply flex items-center justify-between h-[52px] pl-4 pr-3;
 }
 
 .panel-title {
-  @apply text-[12px] font-semibold text-text-secondary;
+  @apply text-[14px] font-semibold text-text;
 }
 
-/* No padding at the top: the first row already carries 4px of its own, which is what keeps its
-   hover fill off the header's line — a second 4px here would leave the first row 25px under that
-   line where every row below a divider has 18. */
+/* Against the shared icon button's own size, which is the size the rest of the window uses. Deep
+   because a hinted icon button is drawn inside a tooltip: the element is the tooltip's, and the
+   panel's own scope never reaches it. */
+.panel-head :deep(.panel-add) {
+  @apply w-[30px] h-[30px] rounded-[7px] text-accent;
+}
+
+.panel-head :deep(.panel-add:hover:not(:disabled)) {
+  @apply bg-accent-soft text-accent;
+}
+
+/* The rows are a column with a 2px gap and no padding of their own: the tree's inset is the container's,
+   so a row's hover fill reaches the same 10px from the panel's edge at every level. */
 .tree-scroll {
-  /* The tail leaves room for the filter dock — its 40px strip and the 18px fade above it. */
-  @apply flex-1 min-h-0 overflow-y-auto pb-[58px];
+  @apply flex-1 min-h-0 overflow-y-auto flex flex-col gap-0.5 px-2.5;
 }
 
 .row {
-  @apply relative flex items-center gap-[7px] py-1.5 mx-1.5 pr-1.5 rounded-[7px] text-text text-[12px] cursor-pointer;
+  @apply relative flex items-center gap-[9px] min-h-9 pr-2.5 rounded-[9px] text-text text-[13px] cursor-pointer;
 }
 
 .row:hover {
@@ -678,20 +777,19 @@ function cancelTop(): boolean {
 }
 
 .row-collection {
-  @apply py-[7px] mt-1 font-semibold;
+  @apply font-semibold;
 }
 
 /* A collection after the first is a new tree, and the line above it says so. The line is drawn rather
    than bordered: a border on a rounded row bends around the corners, and that curve shows as a smudge
    above the fill of a row that is hovered or selected.
 
-   It is drawn half the row's own 4px of margin above the row's edge rather than on it. On the edge the
-   line had the 7px of the row's padding under it but that padding plus the whole margin — 11px —
-   above, so it read as belonging to the collection below. Split evenly it is 9px either way. */
+   It sits in the middle of the 2px the rows stand apart, so the line has the same room above and below
+   it: on the row's own edge it read as belonging to the collection underneath. */
 .row-divider::before {
   content: '';
   @apply absolute left-0 right-0 h-px;
-  top: -2px;
+  top: -1px;
   background: var(--border);
 }
 
@@ -699,12 +797,19 @@ function cancelTop(): boolean {
   @apply flex-none text-text-secondary;
 }
 
+/* The folder is the accent for a collection at the top of the tree and the grey of the furniture for
+   one inside another: the top level is what the panel is a list of, and the levels under it are its
+   contents. */
+.row-icon-top {
+  @apply text-accent;
+}
+
 .row.active .row-icon {
   @apply text-accent;
 }
 
 .caret {
-  @apply flex-none inline-flex items-center justify-center w-3.5 text-text-tertiary transition-transform duration-150;
+  @apply flex-none inline-flex items-center justify-center w-[13px] text-text-tertiary transition-transform duration-150;
 }
 
 .caret.open {
@@ -712,12 +817,38 @@ function cancelTop(): boolean {
 }
 
 .caret-space {
-  @apply flex-none w-3.5;
+  @apply flex-none w-[13px];
 }
 
+.row-method-space {
+  @apply flex-none;
+  min-width: 48px;
+}
+
+/* The method is the row's own ink rather than a badge here: the tree is read by name, and a badge at
+   every request would make the column of names ragged. The shared 48px is what lines the names of a
+   level up whatever verb stands in front of them. */
 .row-method {
-  @apply flex-none text-[10px] font-semibold text-text-secondary;
-  min-width: 40px;
+  @apply flex-none text-[10.5px] text-text-secondary;
+  min-width: 23px;
+}
+
+/* The verb's own colour, from `methodInkClass`. Written after the grey above so that the same
+   specificity resolves to the ink rather than to the default. */
+.ink-read {
+  color: var(--green-text);
+}
+
+.ink-delete {
+  color: var(--red-text);
+}
+
+.ink-write {
+  @apply text-accent;
+}
+
+.row.active .row-method {
+  @apply text-accent;
 }
 
 .row-name {
@@ -725,11 +856,11 @@ function cancelTop(): boolean {
 }
 
 .row-count {
-  @apply flex-none text-[10.5px] text-text-tertiary tabular-nums;
+  @apply flex-none text-[11.5px] text-text-tertiary tabular-nums;
 }
 
 .row-rename {
-  @apply flex-1 min-w-0 h-[22px] box-border text-[12px] outline-none;
+  @apply flex-1 min-w-0 h-[22px] box-border text-[13px] outline-none;
   padding: 0 6px;
   border-radius: 5px;
   border: 1px solid var(--accent);
@@ -782,7 +913,7 @@ function cancelTop(): boolean {
 }
 
 .drag-ghost {
-  @apply fixed z-50 flex items-center gap-[7px] py-1.5 px-2 rounded-[7px] text-text text-[12px] pointer-events-none;
+  @apply fixed z-50 flex items-center gap-[9px] py-1.5 px-2.5 rounded-[9px] text-text text-[13px] pointer-events-none;
   background: var(--glass-overlay);
   backdrop-filter: var(--blur-overlay);
   box-shadow: 0 8px 24px rgb(0 0 0 / 0.18);

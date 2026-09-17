@@ -34,12 +34,20 @@ func (s *CollectionsService) Node(ctx context.Context, id string) (domain.Collec
 	return s.collections.Node(ctx, id)
 }
 
+// LevelRows is what the collection page's table draws: the requests of the level that is open, with
+// the address each of them goes to. The tree carries no request payload, so the page asks for its
+// own rows rather than making every tree read heavier for one screen.
+func (s *CollectionsService) LevelRows(ctx context.Context, id string) ([]domain.LevelRow, error) {
+	return s.collections.LevelRows(ctx, id)
+}
+
 func (s *CollectionsService) CreateCollection(
 	ctx context.Context,
 	name string,
 	description string,
+	parentID string,
 ) ([]domain.Collection, error) {
-	return s.collections.CreateCollection(ctx, name, description)
+	return s.collections.CreateCollection(ctx, name, description, parentID)
 }
 
 // CreatedNode is what a creation answers with: the row that appeared and the tree it appeared in.
@@ -112,6 +120,16 @@ func (s *CollectionsService) SaveAuth(
 	auth domain.Auth,
 ) ([]domain.Collection, error) {
 	return s.collections.SaveAuth(ctx, id, auth)
+}
+
+// SaveVariables writes the `{{tokens}}` a collection answers for the requests inside it. The set
+// arrives whole, as the editor holds it; the tree comes back because the panel draws these levels.
+func (s *CollectionsService) SaveVariables(
+	ctx context.Context,
+	id string,
+	variables []domain.Variable,
+) ([]domain.Collection, error) {
+	return s.collections.SaveVariables(ctx, id, variables)
 }
 
 func (s *CollectionsService) Rename(

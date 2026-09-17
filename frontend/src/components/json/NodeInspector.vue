@@ -3,6 +3,7 @@ import { computed } from 'vue'
 import Icon from '../ui/Icon.vue'
 import { IconButton } from '../ui/button'
 import { useRequestsStore } from '../../stores/requests'
+import { useCollectionsStore } from '../../stores/collections'
 import { useMessages } from '../../i18n'
 import {
   buildResourceIndex,
@@ -12,13 +13,21 @@ import {
   type JsonApiDocument,
   type Resource,
 } from '../../lib/jsonapi'
+import type { InspectorHost } from '../../lib/requestSource'
 import { copyToClipboard } from '../../lib/clipboard'
 import { useResizableWidth } from '../../composables/useResizableWidth'
 
-const props = defineProps<{ doc: JsonApiDocument | null }>()
+// Which node is open in the panel and how wide it is belongs to whoever drew it: a card is a
+// collection's, and the pane beside the command line is the window's. It is told which one it is
+// beside, the way the pane that holds it is — reading one store whatever the other says would leave
+// a card's panel answering the command line's clicks.
+const props = withDefaults(
+  defineProps<{ doc: JsonApiDocument | null; source?: 'request' | 'browser' | 'collection' }>(),
+  { source: 'request' }
+)
 const emit = defineEmits<{ (e: 'close'): void; (e: 'fetch', url: string): void }>()
 
-const store = useRequestsStore()
+const store: InspectorHost = props.source === 'collection' ? useCollectionsStore() : useRequestsStore()
 
 const { t } = useMessages()
 
@@ -98,7 +107,9 @@ function openRelated() {
 
     <div class="inspector-head">
       <span class="inspector-title">{{ t('json.inspector') }}</span>
-      <IconButton :hint="t('common.close')" @click="emit('close')"><Icon name="xmark" :size="14" /></IconButton>
+      <IconButton :hint="t('common.close')" @click="emit('close')">
+        <Icon name="xmark" :size="14" :stroke-width="2.2" />
+      </IconButton>
     </div>
 
     <div class="inspector-body">
@@ -120,7 +131,7 @@ function openRelated() {
         </div>
       </div>
 
-      <div class="block">
+      <div class="block actions">
         <div class="block-title">{{ t('json.actions') }}</div>
         <button class="inspector-action" :disabled="!inspectedNode?.relatedUrl" @click="openRelated">{{ t('json.openRelated') }}</button>
         <button class="inspector-action" @click="copyPath">{{ t('json.copyPath') }}</button>
@@ -148,40 +159,56 @@ function openRelated() {
 }
 
 .inspector-head {
-  @apply flex-none flex items-center justify-between h-[38px] px-2 pl-3.5 border-b border-border;
+  @apply flex-none flex items-center justify-between h-[46px] px-2.5 pl-4 border-b border-border;
 }
 
 .inspector-title {
-  @apply text-xs font-semibold text-text-secondary;
+  @apply text-[13.5px] font-semibold;
+}
+
+/* The handoff's own close for this panel: 28 square rather than the 24 of the small button. Reached
+   through :deep because the button is drawn inside the tooltip that hints it, where a rule of this
+   component's own scope never lands. */
+.inspector-head :deep(button.icon-btn) {
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
 }
 
 .inspector-body {
-  @apply flex-1 min-h-0 overflow-auto p-3.5 flex flex-col gap-3.5;
+  @apply flex-1 min-h-0 overflow-auto p-4 flex flex-col gap-[18px];
 }
 
 .block {
-  @apply flex flex-col gap-1;
+  @apply flex flex-col gap-1.5;
+}
+
+/* The buttons of a block stand a little further apart than the block's own title does. */
+.block.actions {
+  @apply gap-2;
 }
 
 .block-title {
-  @apply text-[10px] uppercase tracking-wider text-text-tertiary;
-  font-family: var(--mono);
+  @apply text-[11px] font-semibold uppercase tracking-[0.07em] text-text-tertiary;
 }
 
 .block-path {
-  @apply text-xs text-text leading-relaxed break-all;
+  @apply text-[13.5px] text-text break-all;
+  line-height: 1.5;
+  font-family: var(--mono);
 }
 
 .block-text {
-  @apply text-xs text-text leading-relaxed;
+  @apply text-[13.5px] text-text-secondary;
+  line-height: 1.5;
 }
 
 .schema-row {
-  @apply flex items-center gap-1.5 text-xs text-text;
+  @apply flex items-center gap-[9px] text-[13.5px] text-text;
 }
 
 .dot {
-  @apply w-[7px] h-[7px] rounded-full flex-none;
+  @apply w-2 h-2 rounded-full flex-none;
 }
 
 .dot-green {
@@ -193,15 +220,11 @@ function openRelated() {
 }
 
 .inspector-action {
-  @apply block w-full text-left rounded-[7px] py-1.5 px-2.5 text-xs cursor-pointer;
+  @apply block w-full text-left h-9 px-3 rounded-lg text-[13.5px] cursor-pointer;
   border: 1px solid var(--border-strong);
-  background: var(--bg-panel);
+  background: var(--bg-inset);
   color: var(--text);
   --wails-draggable: no-drag;
-}
-
-.inspector-action + .inspector-action {
-  @apply mt-1.5;
 }
 
 .inspector-action:hover {

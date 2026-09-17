@@ -59,6 +59,32 @@ func TestCollectionsReadsTheTreeNested(t *testing.T) {
 	}
 }
 
+// The page's read carries the address a tree row leaves out, and only the level it was asked about:
+// a request inside a collection that is inside this one is a row of that collection's own page.
+func TestLevelRowsCarryTheAddressOfOneLevel(t *testing.T) {
+	store := newMigratedStore(t)
+	seedTree(t, store)
+
+	rows, err := store.LevelRows(context.Background(), "col-1")
+	if err != nil {
+		t.Fatalf("LevelRows: %v", err)
+	}
+	if len(rows) != 1 || rows[0].ID != "r-2" {
+		t.Fatalf("rows = %+v, want this level's own request alone", rows)
+	}
+	if rows[0].URL != "https://api.example.com/users/1" || rows[0].Method != "PATCH" {
+		t.Errorf("row = %+v, want the address and the method", rows[0])
+	}
+
+	nested, err := store.LevelRows(context.Background(), "f-1")
+	if err != nil {
+		t.Fatalf("LevelRows(nested): %v", err)
+	}
+	if len(nested) != 1 || nested[0].ID != "r-1" || nested[0].Name != "Список" {
+		t.Errorf("rows = %+v, want the nested collection's own request", nested)
+	}
+}
+
 func TestCollectionsKeepsTheirOwnOrder(t *testing.T) {
 	store := newMigratedStore(t)
 	ctx := context.Background()
@@ -475,8 +501,8 @@ func TestRunRoundTrip(t *testing.T) {
 	}
 
 	run := domain.CollectionRun{
-		ID: "run-1", CollectionID: "col-1", NodeID: "f-1", StartedAt: 1_700_000_000_000,
-		Results: []domain.CollectionRunResult{},
+		ID: "run-1", CollectionID: "col-1", NodeID: "f-1", Environment: "Local · dev",
+		StartedAt: 1_700_000_000_000, Results: []domain.CollectionRunResult{},
 	}
 	if err := store.SaveRun(ctx, run); err != nil {
 		t.Fatalf("SaveRun: %v", err)
@@ -484,7 +510,8 @@ func TestRunRoundTrip(t *testing.T) {
 
 	created := 200
 	for _, result := range []domain.CollectionRunResult{
-		{NodeID: "r-1", Position: 0, Status: &created, OK: true, DurationUs: 12_345, RecordID: "rec-1"},
+		{NodeID: "r-1", Position: 0, Status: &created, OK: true, DurationUs: 12_345, RecordID: "rec-1",
+			AssertionsPassed: 1, AssertionsTotal: 2},
 		{NodeID: "r-2", Position: 1, OK: false, Error: "сервер не ответил"},
 	} {
 		if err := store.AppendRunResult(ctx, run.ID, result); err != nil {
@@ -505,6 +532,11 @@ func TestRunRoundTrip(t *testing.T) {
 	if last.Passed != 1 || last.Failed != 1 || last.DurationUs != 90_000 || last.FinishedAt == 0 {
 		t.Errorf("run = %+v, want the counters and the time it was closed with", last)
 	}
+	// The environment the run went out under travels with it: the page that draws the run is opened
+	// under whatever environment the window is on by then, and the run does not change with it.
+	if last.Environment != "Local · dev" {
+		t.Errorf("run environment = %q, want the one it was started under", last.Environment)
+	}
 	if len(last.Results) != 2 {
 		t.Fatalf("run kept %d results, want 2", len(last.Results))
 	}
@@ -512,9 +544,17 @@ func TestRunRoundTrip(t *testing.T) {
 		first.DurationUs != 12_345 {
 		t.Errorf("first result = %+v, want the 200 with its microseconds", first)
 	}
+	// What the scripts asserted is read while the row is made and kept with it: the report hangs off a
+	// record, and the row must still be able to say what was asserted once that record is gone.
+	if first := last.Results[0]; first.AssertionsPassed != 1 || first.AssertionsTotal != 2 {
+		t.Errorf("first result = %+v, want the one of two assertions it carried", first)
+	}
 	if second := last.Results[1]; second.Status != nil || second.OK ||
 		second.Error != "сервер не ответил" {
 		t.Errorf("second result = %+v, want no status and the reason", second)
+	}
+	if second := last.Results[1]; second.AssertionsTotal != 0 {
+		t.Errorf("second result = %+v, want nothing asserted about a request that never went out", second)
 	}
 	// The row names the record it produced: it is what a click on it opens, and without it the row can
 	// only say the status and the time.

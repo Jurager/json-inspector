@@ -40,6 +40,12 @@ export interface RunProgress {
      */
     "collectionId": string;
     "nodeId": string;
+
+    /**
+     * The environment the run is going out under, carried here for the same reason the page keeps it:
+     * a window that draws rows as they arrive must not label them with whatever is selected by then.
+     */
+    "environment"?: string;
     "done": number;
     "total": number;
     "result": domain$0.CollectionRunResult;

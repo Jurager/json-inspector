@@ -209,8 +209,12 @@ func (u *UseCase) Runs(ctx context.Context, recordID string) ([]domain.ScriptRun
 
 // scriptSource is what a level has to run for one scope. A script of nothing but whitespace is a
 // level with nothing to say, and a level with nothing to say is not a level that throws the ones
-// above it away: it simply is not in the pass.
+// above it away: it simply is not in the pass. A half that is switched off reads the same way here
+// and only here — the level keeps its code, and this is the one place that decides what runs.
 func scriptSource(level Level, scope domain.ScriptScope) string {
+	if level.Scripts.Off(scope) {
+		return ""
+	}
 	if scope == domain.ScriptPost {
 		return strings.TrimSpace(level.Scripts.Post)
 	}

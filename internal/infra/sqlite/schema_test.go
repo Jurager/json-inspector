@@ -2,6 +2,7 @@ package sqlite
 
 import (
 	"context"
+	"io/fs"
 	"testing"
 
 	"json-inspector/migrations"
@@ -53,8 +54,16 @@ func TestEmbeddedSchemaApplies(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Migrate(migrations.FS): %v", err)
 	}
-	if len(result.Applied) != 7 {
-		t.Errorf("applied %d migrations, want 7", len(result.Applied))
+	// Counted against the embedded set rather than against a number written here: a test that has to
+	// be edited for every new file is a test that fails for the wrong reason, and what this asserts is
+	// that a fresh database applied everything the binary carries.
+	embedded, err := fs.Glob(migrations.FS, "*.sql")
+	if err != nil {
+		t.Fatalf("listing the embedded migrations: %v", err)
+	}
+	if len(result.Applied) != len(embedded) {
+		t.Errorf("applied %d migrations, want %d — every embedded one",
+			len(result.Applied), len(embedded))
 	}
 	if result.Skipped != 0 {
 		t.Errorf("skipped %d migrations on a fresh database, want 0", result.Skipped)

@@ -22,6 +22,7 @@ import {
   type Record,
   type Row,
   type Scripts,
+  type Variable,
 } from '../../bindings/json-inspector/internal/domain'
 import {
   CommandKind,
@@ -96,9 +97,12 @@ export const useCollectionsStore = defineStore('collections', {
     // A collection made by a button that has no row to type in yet: the tree names it as soon as the
     // row exists, because a new collection is a name the user is about to give rather than one.
     pendingRename: null as string | null,
+    // The same idea from the other side: the key that makes a request knows which level it goes in,
+    // and the tree opens its row for naming — the gesture the context menu's own item makes.
+    pendingCreate: null as string | null,
 
     openChip: null as ChipName | null,
-    inspector: { open: false, path: null as string | null, width: 300 },
+    inspector: { open: false, path: null as string | null, width: 330 },
 
     // The alert standing between a click and a card with unsaved edits. Whatever asked is waiting on
     // the answer, and the window draws it from here because the asker is not always the same view.
@@ -119,6 +123,13 @@ export const useCollectionsStore = defineStore('collections', {
     collectionId(): string | null {
       return holderOf(this.trail)?.id ?? null
     },
+    // The level a new row would join: a folder's own row names the folder, and a request's row names
+    // the collection it sits in, because a request holds nothing. The context menu's first item and
+    // the key that makes a request both ask this, so both make it in the same place.
+    selectedLevel(): string {
+      return (this.selected ? this.collectionId : this.selectedId) ?? ''
+    },
+
     // Whether the open request takes its authorization from the levels above it. A card does: it is
     // one node of a tree, and the design gives it «Наследовать» where the command line has «Нет».
     canInherit(): boolean {
@@ -271,8 +282,10 @@ export const useCollectionsStore = defineStore('collections', {
       if (this.selectedId && !this.trail) this.clearSelection()
     },
 
-    async createCollection(name: string) {
-      const tree = (await CollectionsService.CreateCollection(name, '')) ?? []
+    // A folder is a collection with a parent, so making one is this call with the level it goes in.
+    // Empty is the top of the tree, which is where the panel's «+» puts one.
+    async createCollection(name: string, parentId = '') {
+      const tree = (await CollectionsService.CreateCollection(name, '', parentId)) ?? []
       this.applyTree(tree)
       // A new collection is what the user is looking at, so it becomes the selection. It is the last
       // one with that name: Go appends, and the id is Go's to mint.
@@ -336,6 +349,13 @@ export const useCollectionsStore = defineStore('collections', {
     // and the tree is where the header reads the line back from.
     async describe(id: string, description: string) {
       this.applyTree((await CollectionsService.Describe(id, description)) ?? [])
+    },
+
+    // The `{{tokens}}` the level answers for everything inside it. The set travels whole, as the editor
+    // holds it: Go numbers it, mints the ids of rows that arrived without one, and refuses a secret —
+    // a collection is what gets exported and handed on.
+    async saveVariables(id: string, variables: Variable[]) {
+      this.applyTree((await CollectionsService.SaveVariables(id, variables)) ?? [])
     },
 
     // What the «Авторизация» tab writes: the level's own auth, which everything inside inherits.
@@ -748,6 +768,9 @@ export const useCollectionsStore = defineStore('collections', {
           id: progress.runId,
           collectionId: progress.collectionId,
           nodeId: progress.nodeId,
+          // The environment the run is going out under travels with every row, so a page that draws
+          // the run while it is still going says the same thing it will say afterwards.
+          environment: progress.environment ?? '',
           startedAt: Date.now(),
           finishedAt: 0,
           durationUs: 0,
@@ -797,10 +820,15 @@ export const useCollectionsStore = defineStore('collections', {
 
     // A level adds code and never cancels it: what it has of its own runs after everything above it,
     // so an editor that has been cleared means "нечего добавить" — the level goes back to inheriting.
-    async saveScripts(pre: string, post: string) {
+    async saveScripts(pre: string, post: string, off: { pre: boolean; post: boolean }) {
       const id = this.selectedId
       if (!id) return
-      const written = pre.trim() || post.trim() ? { pre, post } : null
+      // A switch on an empty half is nothing to keep: there is no code for it to be about.
+      const flags = {
+        preOff: off.pre && !!pre.trim(),
+        postOff: off.post && !!post.trim(),
+      }
+      const written = pre.trim() || post.trim() ? { pre, post, ...flags } : null
       const saved = await ScriptingService.SaveScripts(id, written)
       // A level that just gained or lost its code is a level that just entered or left the chain.
       const chain = (await ScriptingService.Chain(id)) ?? []
@@ -815,6 +843,10 @@ export const useCollectionsStore = defineStore('collections', {
       for (let i = this.chain.length - 1; i >= 0; i -= 1) {
         const level = this.chain[i]
         if (level.nodeId === this.selectedId) continue
+        // A level that switched this half off does not run it, so it is not the code an empty box
+        // would fall back to either: offering it would name a script the request never runs.
+        const off = scope === 'pre' ? level.scripts?.preOff : level.scripts?.postOff
+        if (off) continue
         const text = scope === 'pre' ? level.scripts?.pre : level.scripts?.post
         if (text && text.trim()) return { text, name: level.name }
       }

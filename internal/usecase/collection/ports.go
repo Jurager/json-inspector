@@ -12,6 +12,9 @@ import (
 type Store interface {
 	Collections(ctx context.Context, workspaceID string) ([]domain.Collection, error)
 	Node(ctx context.Context, id string) (domain.CollectionNode, error)
+	// The requests of one collection's own level, narrowed to what the collection page's table draws:
+	// the tree carries no request payload, and this is the one read that needs an address.
+	LevelRows(ctx context.Context, collectionID string) ([]domain.LevelRow, error)
 
 	SaveCollection(ctx context.Context, workspaceID string, collection domain.Collection) error
 	SaveNode(ctx context.Context, node domain.CollectionNode) error
@@ -63,8 +66,10 @@ type RunRequest struct {
 	BodyFile string
 
 	// The answer of the nearest level above, resolved here: the walk up the tree is the run's own, and
-	// by the time a request is on its way out, where it sits is no longer known.
-	Auth *domain.Auth
+	// by the time a request is on its way out, where it sits is no longer known. The variables of the
+	// same levels travel beside it, for the same reason and in the same shape.
+	Auth      *domain.Auth
+	Variables []domain.Variable
 }
 
 // Sender sends one saved request and answers with what it produced. A run does not know how a
@@ -84,4 +89,19 @@ type Scope interface {
 // Notifier publishes what happened to whoever is listening.
 type Notifier interface {
 	Publish(topic string, payload any)
+}
+
+// Environment answers which environment a run is going out under. A run keeps that answer: what it
+// was sent with is part of what happened, and the environment on screen when the page is read later
+// is a different thing that would be a lie to draw in its place. The empty name is "the globals,
+// nothing selected", which is an answer too.
+type Environment interface {
+	ActiveEnvironment(ctx context.Context) (string, error)
+}
+
+// Assertions answers what a record's scripts asserted, and how many of those held. The reports are
+// the scripting feature's rows and a run does not keep them: it carries the two counts, because
+// that is what its table draws.
+type Assertions interface {
+	Assertions(ctx context.Context, recordID string) (passed, total int, err error)
 }

@@ -21,7 +21,7 @@ func setupAuthTree(t *testing.T) authTree {
 	uc, _ := newTestUseCase()
 	ctx := context.Background()
 
-	tree, err := uc.CreateCollection(ctx, "Коллекция", "")
+	tree, err := uc.CreateCollection(ctx, "Коллекция", "", "")
 	if err != nil {
 		t.Fatalf("CreateCollection: %v", err)
 	}
@@ -207,5 +207,35 @@ func TestARequestSavedFromTheCommandLineInherits(t *testing.T) {
 	}
 	if got == nil || got.Answer("token") != "коллекция" {
 		t.Errorf("the saved request inherits %+v, want the collection's token", got)
+	}
+}
+
+// «Inherit» on a folder is a choice, not an absence: the level says the one above decides, and it
+// keeps saying it. Stored as nothing, the sheet would open on «None» — the one answer nobody gave —
+// and the folder would look like a level that had decided to send no credentials at all.
+func TestInheritIsKeptOnAFolder(t *testing.T) {
+	ctx := context.Background()
+	a := setupAuthTree(t)
+
+	if _, err := a.uc.SaveAuth(ctx, a.collectionID, bearer("коллекция")); err != nil {
+		t.Fatalf("SaveAuth collection: %v", err)
+	}
+	if _, err := a.uc.SaveAuth(ctx, a.nestedID, domain.Auth{Type: domain.AuthInherit}); err != nil {
+		t.Fatalf("SaveAuth nested: %v", err)
+	}
+
+	tree, err := a.uc.Tree(ctx)
+	if err != nil {
+		t.Fatalf("Tree: %v", err)
+	}
+	nested := findIn(t, tree, a.nestedID)
+	if nested.Auth == nil || nested.Auth.Type != domain.AuthInherit {
+		t.Fatalf("nested auth = %+v, want the «Inherit» it was given", nested.Auth)
+	}
+
+	// And it still inherits: the walk goes past a level that said somebody above it decides.
+	if got, _ := a.uc.AuthFor(ctx, domain.DraftID(a.insideID)); got == nil ||
+		got.Answer("token") != "коллекция" {
+		t.Errorf("inside inherited %+v, want the collection's token", got)
 	}
 }

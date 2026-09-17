@@ -55,8 +55,12 @@ func completed(
 	if state.Draft.ID != domain.DraftCommandLine {
 		// A tree that cannot be reached is a tree that said nothing: the request is still usable, and
 		// the rows it would have inherited are the only thing missing.
-		if above, err := collections.AuthFor(ctx, state.Draft.ID); err == nil {
-			state.Inherited = above
+		if above, err := collections.Above(ctx, state.Draft.ID); err == nil {
+			state.Inherited = above.Auth
+			// The draft's own preview was asked of the environment alone, and a token a collection
+			// answers for is not missing. Dropping those names here is what keeps a card from refusing
+			// a send that would have gone out.
+			state.Preview.Missing = without(state.Preview.Missing, above.Variables)
 		}
 	}
 	// A draft that answers for itself has already been projected from its own answer; only the one
@@ -69,6 +73,24 @@ func completed(
 		state.Token = drafts.Held(state.Draft, state.Inherited)
 	}
 	return state
+}
+
+// without drops the names the levels over a request answer for: what resolves is not missing, and
+// the order the two are read in does not matter — a name is either answered or it is not.
+func without(missing []string, above []domain.Variable) []string {
+	answered := map[string]bool{}
+	for _, v := range above {
+		if v.Enabled && v.Name != "" {
+			answered[v.Name] = true
+		}
+	}
+	out := make([]string, 0, len(missing))
+	for _, name := range missing {
+		if !answered[name] {
+			out = append(out, name)
+		}
+	}
+	return out
 }
 
 // AuthSchemes is every way a request can authorize itself, in the order the window draws them: what

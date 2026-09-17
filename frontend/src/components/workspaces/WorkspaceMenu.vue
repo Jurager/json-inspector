@@ -68,12 +68,11 @@ function configure(id: string) {
 @reference "../../style.css";
 
 .ws-head {
-  @apply pt-1 px-1.5 pb-1.5 text-[10px] uppercase tracking-[0.08em] text-text-tertiary;
-  font-family: var(--mono);
+  @apply px-2.5 pt-1.5 pb-2 text-[11px] font-semibold uppercase tracking-[0.07em] text-text-tertiary;
 }
 
 .ws-row {
-  @apply flex items-center gap-2.5 w-full py-[7px] px-2 border-none rounded-md bg-transparent text-text text-left cursor-pointer;
+  @apply flex items-center gap-[11px] w-full py-[9px] px-2.5 border-none rounded-[9px] bg-transparent text-text text-left cursor-pointer;
   font: inherit;
   --wails-draggable: no-drag;
 }
@@ -93,7 +92,7 @@ function configure(id: string) {
 }
 
 .ws-name {
-  @apply overflow-hidden text-ellipsis whitespace-nowrap text-[12.5px];
+  @apply overflow-hidden text-ellipsis whitespace-nowrap text-[13.5px];
 }
 
 .ws-name.strong {
@@ -101,7 +100,7 @@ function configure(id: string) {
 }
 
 .ws-kind {
-  @apply text-[10.5px] text-text-tertiary;
+  @apply text-[11.5px] text-text-tertiary;
 }
 
 .ws-check {
@@ -119,8 +118,13 @@ function configure(id: string) {
 }
 
 .ws-link {
-  @apply inline-flex items-center gap-1 border-none bg-transparent text-accent text-[12px] cursor-pointer py-[3px] px-1 rounded-[5px];
+  @apply inline-flex items-center gap-1 border-none bg-transparent text-accent text-[13.5px] cursor-pointer h-[30px] px-2.5 rounded-[7px];
   font: inherit;
+}
+
+/* The second door out of the panel: a plain one, and the same height as the first. */
+.ws-link-plain {
+  @apply text-[13px] text-text-secondary;
 }
 
 .ws-link.quiet {

@@ -780,3 +780,30 @@ func equal(got []string, want []string) bool {
 	}
 	return true
 }
+
+// A half that is switched off keeps its code and does not run. The level above cannot hand down a
+// script it has switched off, either: what it says about itself is that this half is not running.
+func TestASwitchedOffHalfDoesNotRun(t *testing.T) {
+	uc, engine, tree, _, _ := newTest()
+	// The collection's own half goes off, and the nested one's stays on.
+	tree.scripts["col-1"] = &domain.Scripts{
+		Pre: "console.log('коллекция');", PreOff: true,
+		Post: "console.log('после коллекции');",
+	}
+
+	asked := pass("r-1")
+	if _, err := uc.Before(context.Background(), ws, &asked); err != nil {
+		t.Fatalf("Before: %v", err)
+	}
+
+	want := []string{"console.log('вложенная');", "console.log('запрос');"}
+	if got := engine.sources(); !equal(got, want) {
+		t.Errorf("scripts that ran = %q, want %q", got, want)
+	}
+
+	// Writing the code back is not needed to bring it back: the flag is the whole difference.
+	if scripts, err := uc.Scripts(context.Background(), "col-1"); err != nil || scripts == nil ||
+		scripts.Pre == "" {
+		t.Errorf("scripts = %+v, %v, want the code kept where it was written", scripts, err)
+	}
+}

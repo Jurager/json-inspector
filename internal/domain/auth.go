@@ -84,6 +84,12 @@ func (a *Auth) Answered() bool {
 // is what an absent one means. «None» with answers behind it is kept as itself, so that changing
 // one's mind back finds them — the walk reads Auth.Answered either way and goes past.
 func (a Auth) Stored() *Auth {
+	if a.Type == AuthInherit {
+		// «Inherit» is chosen rather than reached, and it is a thing this level said: a tree that
+		// dropped it would draw the level as «None» — the one answer it did not give — and the choice
+		// would be gone the next time the sheet opened.
+		return &Auth{Type: AuthInherit}
+	}
 	if !a.Answered() && len(a.Fields) == 0 {
 		return nil
 	}

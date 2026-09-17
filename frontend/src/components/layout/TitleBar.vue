@@ -2,21 +2,18 @@
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { Application, Window } from '@wailsio/runtime'
 import { SystemService } from '../../../bindings/json-inspector/internal/transport/wails'
-import { useEnvironmentsStore } from '../../stores/environments'
 import { useSearchStore } from '../../stores/search'
 import { useMessages } from '../../i18n'
 import { usePlatform } from '../../composables/usePlatform'
-import EnvironmentMenu from '../environments/EnvironmentMenu.vue'
+import EnvironmentButton from '../environments/EnvironmentButton.vue'
 import ThemeSwitch from './ThemeSwitch.vue'
 import WorkspaceSwitcher from '../workspaces/WorkspaceSwitcher.vue'
 import Icon from '../ui/Icon.vue'
 import { Button } from '../ui/button'
 import logoUrl from '../../assets/logo.svg'
-import { DropdownMenu, DropdownMenuTrigger } from '../ui/dropdown-menu'
 
 const { t } = useMessages()
 
-const envStore = useEnvironmentsStore()
 const search = useSearchStore()
 const { customTitlebar, shortcut } = usePlatform()
 
@@ -24,21 +21,6 @@ const appName = ref('')
 const isMaximised = ref(false)
 
 const searchHint = computed(() => shortcut('K'))
-
-const activeEnvName = computed(() => envStore.activeEnvironment?.name ?? t('titlebar.noEnvironment'))
-
-const ENV_DOT_COLORS: Record<string, string> = {
-  green: 'var(--green)',
-  orange: 'var(--orange)',
-  red: 'var(--red)',
-  purple: 'var(--purple)',
-}
-
-const envDotStyle = computed(() => {
-  const env = envStore.activeEnvironment
-  if (!env) return { background: 'var(--text-tertiary)' }
-  return { background: ENV_DOT_COLORS[env.color ?? 'green'] ?? 'var(--green)' }
-})
 
 async function loadAppName() {
   try {
@@ -90,29 +72,29 @@ onBeforeUnmount(() => {
       <WorkspaceSwitcher />
     </div>
 
-    <div v-if="customTitlebar" class="titlebar-spacer"></div>
+    <!-- Where the bar is ours, the environment stands in the middle of it and the controls sit
+         beside it on the right: which space this is, which variables it sends with, in one line.
+         On macOS the middle is the system's title, so the same button keeps its place among the
+         controls instead. -->
+    <template v-if="customTitlebar">
+      <div class="titlebar-spacer"></div>
+      <EnvironmentButton />
+      <div class="titlebar-spacer"></div>
+    </template>
 
     <div class="titlebar-actions" :class="{ 'titlebar-actions-flush': customTitlebar }">
-      <div class="env-wrap">
-        <DropdownMenu>
-          <DropdownMenuTrigger as-child>
-            <Button :title="t('titlebar.environment', { name: activeEnvName })">
-              <span class="env-dot" :style="envDotStyle"></span>
-              <span>{{ activeEnvName }}</span>
-              <Icon name="chevron-down" :size="11" />
-            </Button>
-          </DropdownMenuTrigger>
-          <EnvironmentMenu />
-        </DropdownMenu>
-      </div>
+      <EnvironmentButton v-if="!customTitlebar" />
       <ThemeSwitch />
+      <!-- A magnifier and the key, no word: the bar carries the shortcut the way the rest of the
+           window does, and the tooltip has the sentence for anyone who needs it. -->
       <Button
         class="titlebar-search"
         :title="t('titlebar.searchHint', { shortcut: searchHint })"
+        :aria-label="t('common.search')"
         @click="search.openPalette()"
       >
-        <span>{{ t('common.search') }}</span>
-        <kbd class="titlebar-key">{{ searchHint }}</kbd>
+        <Icon name="search" :size="15" :stroke-width="1.9" />
+        <span class="titlebar-key">{{ searchHint }}</span>
       </Button>
     </div>
 
@@ -156,14 +138,26 @@ onBeforeUnmount(() => {
   left: 90px;
 }
 
+/* The search is a chip and not a button: no frame and no shadow, the same fill the chips in the
+   command line carry, and the shortcut written beside it in the tertiary ink. */
 .btn.titlebar-search {
-  color: var(--text-secondary);
+  @apply text-text-secondary;
+  height: 28px;
+  padding: 0 9px;
+  gap: 7px;
+  border: 0;
+  background: var(--bg-hover);
+  box-shadow: none;
 }
 
+.btn.titlebar-search:hover:not(:disabled) {
+  background: var(--bg-active);
+  color: var(--text);
+}
+
+/* The shortcut is written in the bar's own face, not in the mono one: the handoff draws every key
+   inside a button this way, and the mono face is kept for values. */
 .titlebar-key {
-  @apply text-xs leading-none px-1 py-0.5 rounded-sm text-text-tertiary;
-  font-family: var(--mono);
-  background: var(--bg-inset);
-  border: 1px solid var(--border);
+  @apply text-[11.5px] leading-none text-text-tertiary;
 }
 </style>

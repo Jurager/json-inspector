@@ -9,6 +9,9 @@ const { t } = useMessages()
 interface Phase {
   label: string
   us: number
+  // The wait is the one phase the design colours: it is the one the server is answerable for, and the
+  // one a person comparing two attempts is looking at.
+  accent: boolean
 }
 
 // Only the phases that happened are drawn, and which those are is Go's answer. An absent phase is one
@@ -18,16 +21,24 @@ interface Phase {
 const phases = computed<Phase[]>(() =>
   (
     [
-      { label: 'DNS', us: props.record.dnsUs },
-      { label: 'TCP', us: props.record.connectUs },
-      { label: 'TLS', us: props.record.tlsUs },
-      { label: t('response.timings.wait'), us: props.record.waitUs },
-      { label: t('response.timings.download'), us: props.record.downloadUs },
-    ] as { label: string; us: number | null | undefined }[]
+      { label: t('response.timings.dns'), us: props.record.dnsUs, accent: false },
+      { label: t('response.timings.connect'), us: props.record.connectUs, accent: false },
+      { label: t('response.timings.tls'), us: props.record.tlsUs, accent: false },
+      { label: t('response.timings.wait'), us: props.record.waitUs, accent: true },
+      { label: t('response.timings.download'), us: props.record.downloadUs, accent: false },
+    ] as { label: string; us: number | null | undefined; accent: boolean }[]
   )
     .filter((phase): phase is Phase => phase.us != null)
-    .map((phase) => ({ label: phase.label, us: phase.us }))
+    .map((phase) => ({ label: phase.label, us: phase.us, accent: phase.accent }))
 )
+
+// The line under the total. The design's sentence names the wait inside it, because that is the part
+// of a request the server owns; where nothing was timed waiting, the sentence stops at the total.
+const totalNote = computed(() => {
+  const wait = props.record.waitUs
+  if (wait == null) return t('response.timings.total')
+  return t('response.timings.totalNote', { wait: formatMicros(wait) })
+})
 
 // Every bar is measured against the whole request, because that is what the "Всего" bar above them
 // is: the phases are its parts, and a part drawn against the largest of the others claims to be all
@@ -52,19 +63,20 @@ const reusedConnection = computed(
 
 <template>
   <div class="timings">
-    <div class="timing-row timing-total">
-      <span class="timing-label">{{ t('response.timings.total') }}</span>
-      <div class="timing-track">
-        <div class="timing-fill" style="width: 100%"></div>
-      </div>
-      <span class="timing-value mono">{{ formatMicros(record.durationUs) }}</span>
+    <!-- The total is a headline and not a bar: the phases below are its parts and each is drawn
+         against it, so a bar of its own length would be the one bar saying nothing. -->
+    <div class="head">
+      <span class="total">{{ formatMicros(record.durationUs) }}</span>
+      <span class="caption">{{ totalNote }}</span>
     </div>
-    <div v-for="p in phases" :key="p.label" class="timing-row">
-      <span class="timing-label">{{ p.label }}</span>
-      <div class="timing-track">
-        <div class="timing-fill" :style="{ width: width(p.us) }"></div>
+    <div class="bars">
+      <div v-for="p in phases" :key="p.label" class="timing-row">
+        <span class="timing-label">{{ p.label }}</span>
+        <div class="timing-track">
+          <div class="timing-fill" :class="{ wait: p.accent }" :style="{ width: width(p.us) }"></div>
+        </div>
+        <span class="timing-value mono">{{ formatMicros(p.us) }}</span>
       </div>
-      <span class="timing-value mono">{{ formatMicros(p.us) }}</span>
     </div>
     <div v-if="phases.length === 0" class="timing-note">
       {{ t('response.timings.unmeasured') }}
@@ -79,35 +91,58 @@ const reusedConnection = computed(
 @reference "../../style.css";
 
 .timings {
-  @apply p-4.5 min-h-full flex flex-col gap-3 bg-bg-panel;
+  @apply min-h-full flex flex-col gap-[18px] bg-bg-panel;
+  padding: 22px 24px;
+}
+
+.head {
+  @apply flex items-baseline gap-3;
+}
+
+.total {
+  @apply text-[26px] font-semibold;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+}
+
+.caption {
+  @apply text-[13px] text-text-tertiary;
+}
+
+.bars {
+  @apply flex flex-col gap-3.5;
 }
 
 .timing-row {
-  @apply grid grid-cols-[130px_1fr_64px] gap-3 items-center;
+  @apply grid grid-cols-[170px_minmax(0,1fr)_80px] gap-4 items-center;
 }
 
 .timing-label {
-  @apply text-xs text-text-secondary;
+  @apply text-[13.5px] text-text-secondary;
 }
 
+/* The track is the chip's own fill and the phases are drawn in the grey of a caption: the design
+   keeps one hue for everything a request spent on its own and the accent for the wait, so that the
+   bar the eye lands on is the one the server is answerable for. */
 .timing-track {
-  @apply h-2 rounded-full bg-bg-inset overflow-hidden;
+  @apply h-2.5 rounded-full bg-bg-hover overflow-hidden;
 }
 
 .timing-fill {
-  @apply h-full rounded-full bg-accent;
+  @apply h-full rounded-full;
+  background: var(--text-tertiary);
+}
+
+.timing-fill.wait {
+  @apply bg-accent;
 }
 
 .timing-value {
-  @apply text-xs text-text text-right;
+  @apply text-[13.5px] text-text text-right;
   font-variant-numeric: tabular-nums;
 }
 
 .timing-note {
-  @apply text-xs text-text-tertiary;
-}
-
-.timing-total .timing-label {
-  @apply font-medium text-text;
+  @apply text-[13px] text-text-tertiary;
 }
 </style>

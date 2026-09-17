@@ -35,11 +35,21 @@ type FileSource interface {
 // list of texts looks like with them filled in. Both answers stay with the feature that owns the
 // values — the draft itself only ever holds the text the user typed.
 //
+// The calls take what the levels over the request answer, because a request's variables are not one
+// set: the environment is where a workspace works, and the collections it sits in may answer for
+// names of their own. The draft holds what was typed and nothing else, so which collections stand
+// over it is the caller's to say.
+//
 // The calls take a list because a request is a list: one round of resolving covers its URL, its
 // body, every header and its cookies, and the answers stay consistent with each other.
 type VariableSource interface {
-	Missing(ctx context.Context, texts []string) ([]string, error)
-	SubstituteTexts(ctx context.Context, texts []string, mask bool) ([]string, error)
+	Missing(ctx context.Context, above []domain.Variable, texts []string) ([]string, error)
+	SubstituteTexts(
+		ctx context.Context,
+		above []domain.Variable,
+		texts []string,
+		mask bool,
+	) ([]string, error)
 }
 
 // AuthMaterializer turns what a level answered about its authorization into what actually goes on

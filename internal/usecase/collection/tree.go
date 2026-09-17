@@ -8,12 +8,15 @@ import (
 	"json-inspector/internal/domain"
 )
 
-// CreateCollection adds an empty collection at the end of the top level. The name is given rather
-// than invented: the window asks for it in the tree, in the row the user is looking at.
+// CreateCollection adds an empty collection at the end of a level. The name is given rather than
+// invented: the window asks for it in the tree, in the row the user is looking at. The level is the
+// top of the tree when parentID is empty, and the collection it names otherwise — a folder inside a
+// folder is a collection inside one, and the only thing that ever separated them was this argument.
 func (u *UseCase) CreateCollection(
 	ctx context.Context,
 	name string,
 	description string,
+	parentID string,
 ) ([]domain.Collection, error) {
 	name, err := validName(name)
 	if err != nil {
@@ -24,8 +27,19 @@ func (u *UseCase) CreateCollection(
 	if err != nil {
 		return nil, err
 	}
+	// A parent that is not there is a refusal rather than a silent insert at the top of the tree:
+	// the window asked for a row in a level it was looking at.
+	if parentID != "" {
+		tree, err := u.store.Collections(ctx, workspace)
+		if err != nil {
+			return nil, err
+		}
+		if _, ok := findCollection(tree, parentID); !ok {
+			return nil, fmt.Errorf("collection %s: %w", parentID, domain.ErrNotFound)
+		}
+	}
 
-	position, err := u.store.NextPosition(ctx, workspace, "")
+	position, err := u.store.NextPosition(ctx, workspace, parentID)
 	if err != nil {
 		return nil, err
 	}
@@ -34,6 +48,7 @@ func (u *UseCase) CreateCollection(
 		Name:        name,
 		Description: strings.TrimSpace(description),
 		Position:    position,
+		ParentID:    parentID,
 		Items:       []domain.CollectionNode{},
 		Children:    []domain.Collection{},
 	}); err != nil {

@@ -160,6 +160,12 @@ export enum Code {
     CodeUnknownChannel = "unknownUpdateChannel",
     CodePersonalWorkspace = "personalWorkspace",
     CodeWorkspaceMissing = "workspaceMissing",
+
+    /**
+     * A collection leaves the machine — it is exported, duplicated and handed on — so a secret has
+     * no place in one, and this is the refusal that says so.
+     */
+    CodeVariableSecret = "variableSecret",
 };
 
 /**
@@ -193,6 +199,14 @@ export interface Collection {
      * reason a node's is: nil is "nothing here", and the walk stops at the first non-nil it meets.
      */
     "auth"?: Auth | null;
+
+    /**
+     * Variables are the `{{tokens}}` this collection answers for its own requests, and for everything
+     * inside it. They are the environment's own kind of variable and stand over it: a level that
+     * names `baseUrl` means that value for everything below, which is what makes a collection
+     * portable between environments.
+     */
+    "variables"?: Variable[] | null;
 }
 
 /**
@@ -247,6 +261,14 @@ export interface CollectionRun {
      * nested collections included.
      */
     "nodeId"?: string;
+
+    /**
+     * Environment is the name of the environment the run went out under, kept as it was called at
+     * the time. It is a name rather than an id because a run is a thing that happened: the
+     * environment on screen next week is not the one these requests were sent with, and neither is
+     * the name it may have been renamed to since.
+     */
+    "environment"?: string;
     "startedAt": number;
     "finishedAt"?: number;
     "passed": number;
@@ -271,6 +293,15 @@ export interface CollectionRunResult {
     "ok": boolean;
     "durationUs": number;
     "error"?: string;
+
+    /**
+     * Assertions is what the scripts around this request asserted and how many of those held. The
+     * status says the request went through; this says what came back was what it asked for. They are
+     * two counts rather than the reports themselves: the page draws one table of them, and a report
+     * per row would be a call per request to draw a row.
+     */
+    "assertionsPassed": number;
+    "assertionsTotal": number;
 
     /**
      * Skipped is a request a pre-request script kept from going out. It is neither a pass nor a
@@ -504,6 +535,19 @@ export enum Language {
     LanguageRU = "ru",
     LanguageEN = "en",
 };
+
+/**
+ * LevelRow is one request as the collection page's table draws it: what it is called, the method it
+ * goes out with and the address it goes to. It is a read of its own because a tree row carries no
+ * request payload — what a list loads is names and methods — and the page is the one screen that
+ * shows a row's address.
+ */
+export interface LevelRow {
+    "id": string;
+    "name": string;
+    "method"?: string;
+    "url"?: string;
+}
 
 /**
  * ListSide is where the list panel lives: the same panel, told to sit at either edge of the work
@@ -776,6 +820,15 @@ export enum ScriptScope {
 export interface Scripts {
     "pre"?: string;
     "post"?: string;
+
+    /**
+     * A half can be switched off without being thrown away: the code stays where it is written while
+     * it stops running, which is the difference between a script somebody is working on and one they
+     * have deleted. It is the code that says a level has something to say — an off half is still an
+     * answer about this level, so it keeps the level in the chain.
+     */
+    "preOff"?: boolean;
+    "postOff"?: boolean;
 }
 
 /**
