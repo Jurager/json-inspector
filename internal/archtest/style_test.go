@@ -18,19 +18,16 @@ import (
 // mechanically, so a slip fails the build rather than a review. Each rule names where it is written
 // down — docs/RECOMENDATIONS.md, or CLAUDE.md for the project's own.
 
-// allowedGetPrefix names the declarations that may keep a `Get`, with the reason. An interface this
-// app implements but does not own is the one honest case — its method set is not ours to choose.
-var allowedGetPrefix = map[string]bool{}
-
 // TestNoGetPrefix rejects `Get`-prefixed names. The guide's rule is that the noun carries the name
 // — `JobName`, not `GetJobName` — and a name that says "get" says nothing that the return value or
 // the receiver has not already said.
+//
+// The one honest exception is an interface this app implements but does not own: its method set is
+// not ours to choose, and the day one arrives the rule gets a list of names with the reason beside
+// each. None is here today — what the client implements is its own.
 func TestNoGetPrefix(t *testing.T) {
 	forEachDeclaration(t, func(name, pkg string, pos token.Position) {
 		if !strings.HasPrefix(name, "Get") || len(name) == 3 || !isUpper(name[3]) {
-			return
-		}
-		if allowedGetPrefix[name] {
 			return
 		}
 		t.Errorf("%s: %s is named with a Get prefix — the noun says it better "+
