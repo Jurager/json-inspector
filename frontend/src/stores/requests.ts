@@ -477,7 +477,13 @@ export const useRequestsStore = defineStore('requests', {
     async load() {
       // Which workspace this list is about is asked from the store that owns the pointer, so the two
       // cannot disagree: a switch reloads the list and renames what it is a list of, in one call.
-      this.workspaceId = useWorkspacesStore().activeId
+      //
+      // A spaces store that has not read itself yet answers with nothing, and that answer is not
+      // taken: the window keeps the name it had. The list itself is the workspace Go has on screen —
+      // it is asked for nothing and answers about that one — so a name written here is a label, and
+      // a label that flickered to empty would leave every reader of it, the clear among them, with
+      // nothing to compare an event against.
+      this.workspaceId = useWorkspacesStore().activeId || this.workspaceId
       this.records = (await RecordsService.List(RecordSource.$zero, 0)) ?? []
     },
 

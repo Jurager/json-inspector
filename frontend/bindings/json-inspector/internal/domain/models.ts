@@ -617,6 +617,14 @@ export interface LevelRow {
     "name": string;
     "method"?: string;
     "url"?: string;
+
+    /**
+     * Folder is the path of the collection the request sits in, from the level the rows are about:
+     * empty for that level's own requests, and the folders' names — outermost first — for everything
+     * below it. The page draws the table of what a run here would send, and a run reaches the whole
+     * subtree, so a row has to say which folder it came from.
+     */
+    "folder"?: string;
 }
 
 /**

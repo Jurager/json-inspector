@@ -23,6 +23,16 @@ import * as collection$0 from "../../usecase/collection/models.js";
 // @ts-ignore: Unused imports
 import * as $models from "./models.js";
 
+/**
+ * Contents is what the collection page's table draws: the requests inside the collection that is
+ * open, folders and all, with the address each of them goes to and the folder it sits in. The tree
+ * carries no request payload, so the page asks for its own rows rather than making every tree read
+ * heavier for one screen.
+ */
+export function Contents(id: string): $CancellablePromise<domain$0.LevelRow[] | null> {
+    return $Call.ByID(3362458552, id);
+}
+
 export function CreateCollection(name: string, description: string, parentID: string): $CancellablePromise<domain$0.Collection[] | null> {
     return $Call.ByID(2119561358, name, description, parentID);
 }
@@ -73,15 +83,6 @@ export function ImportFile(title: string): $CancellablePromise<domain$0.Collecti
  */
 export function LastRun(collectionID: string, nodeID: string): $CancellablePromise<domain$0.CollectionRun | null> {
     return $Call.ByID(1189953743, collectionID, nodeID);
-}
-
-/**
- * LevelRows is what the collection page's table draws: the requests of the level that is open, with
- * the address each of them goes to. The tree carries no request payload, so the page asks for its
- * own rows rather than making every tree read heavier for one screen.
- */
-export function LevelRows(id: string): $CancellablePromise<domain$0.LevelRow[] | null> {
-    return $Call.ByID(1025302373, id);
 }
 
 export function MoveCollection(id: string, parentID: string, position: number): $CancellablePromise<domain$0.Collection[] | null> {

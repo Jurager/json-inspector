@@ -62,6 +62,6 @@ func NewUseCase(
 ) *UseCase {
 	return &UseCase{
 		store: store, scope: scope, home: home, executor: executor, notifier: notifier,
-		retention: retention, screen: screen, mask: mask, ids: ids,
+		retention: retention, screen: screen, mask: mask, ids: ids, build: build,
 	}
 }

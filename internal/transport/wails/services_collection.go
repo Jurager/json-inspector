@@ -34,11 +34,12 @@ func (s *CollectionsService) Node(ctx context.Context, id string) (domain.Collec
 	return s.collections.Node(ctx, id)
 }
 
-// LevelRows is what the collection page's table draws: the requests of the level that is open, with
-// the address each of them goes to. The tree carries no request payload, so the page asks for its
-// own rows rather than making every tree read heavier for one screen.
-func (s *CollectionsService) LevelRows(ctx context.Context, id string) ([]domain.LevelRow, error) {
-	return s.collections.LevelRows(ctx, id)
+// Contents is what the collection page's table draws: the requests inside the collection that is
+// open, folders and all, with the address each of them goes to and the folder it sits in. The tree
+// carries no request payload, so the page asks for its own rows rather than making every tree read
+// heavier for one screen.
+func (s *CollectionsService) Contents(ctx context.Context, id string) ([]domain.LevelRow, error) {
+	return s.collections.Contents(ctx, id)
 }
 
 func (s *CollectionsService) CreateCollection(

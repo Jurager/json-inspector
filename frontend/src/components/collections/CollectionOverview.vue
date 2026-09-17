@@ -90,9 +90,15 @@ function onDescriptionKeydown(e: KeyboardEvent) {
 
 // ---- the requests of this level ------------------------------------------
 
-// What the table draws comes from two places and neither is the tree: the level's own requests, read
-// one query deep, and the last run's answers to them. The tree deliberately carries no request payload
-// — an address is payload — and the run is the only thing that knows what each request answered.
+// What the table draws comes from two places and neither is the tree: the requests inside the
+// collection — the folders' ones included, each with the folder it sits in — and the last run's
+// answers to them. The tree deliberately carries no request payload — an address is payload — and
+// the run is the only thing that knows what each request answered.
+//
+// The whole collection and not the level alone, because the table is the report of a run: running a
+// collection sends everything inside it, so a table that listed the top level would answer for a
+// run nobody made. It is also what the folder column on the rail counts — the same number, drawn
+// from the same walk.
 //
 // The two refs are declared before the watcher below, and not beside the code that fills them: the
 // watcher starts by running once, in this same setup, and a `const` reached from there would still
@@ -107,7 +113,7 @@ async function loadRows() {
   }
   loading.value = true
   try {
-    requests.value = (await CollectionsService.LevelRows(levelId.value)) ?? []
+    requests.value = (await CollectionsService.Contents(levelId.value)) ?? []
   } finally {
     loading.value = false
   }
@@ -300,10 +306,16 @@ const stats = computed(() => {
   ]
 })
 
-// The name of a row, for the cards that count rows: the run carries node ids and the page carries
-// the names, and the two meet here.
+// The name of a row, for the cards that count rows: the run carries node ids and the page carries the
+// names, and the two meet here. A row that came from a folder is named with it — two folders can hold
+// a request each under the same name, and a card that said only the name would point at both.
+//
+// A run walked a request the table no longer holds — one deleted since — and there is nothing left to
+// name it by: the id is what is known, and a dash says so rather than inventing one.
 function nameOf(nodeId: string): string {
-  return requests.value.find((row) => row.id === nodeId)?.name ?? '—'
+  const row = requests.value.find((it) => it.id === nodeId)
+  if (!row) return '—'
+  return row.folder ? `${row.folder} · ${row.name}` : row.name
 }
 
 // What the run says about itself under the heading: when it went out, and under what.
@@ -580,7 +592,12 @@ async function run() {
             <span class="cell-method mono" :class="methodInkClass(entry.row.method ?? '')">
               {{ entry.row.method }}
             </span>
-            <span class="cell-name">{{ entry.row.name }}</span>
+            <!-- The folder a row came from, where it came from one: the table holds the whole
+                 collection, and two folders can both call a request "Список". -->
+            <span class="cell-name">
+              <span v-if="entry.row.folder" class="cell-folder">{{ entry.row.folder }}</span>
+              {{ entry.row.name }}
+            </span>
             <span class="cell-asserts mono" :class="{ bad: failed(entry.answer) }">
               {{ assertsOf(entry.answer) }}
             </span>
@@ -820,7 +837,17 @@ async function run() {
 }
 
 .cell-name {
-  @apply text-[13.5px];
+  @apply text-[13.5px] overflow-hidden text-ellipsis whitespace-nowrap;
+}
+
+/* The folder is where the row came from and not what it is called: it stands before the name in the
+   window's third shade, so a glance down the column still reads the requests. */
+.cell-folder {
+  @apply text-text-tertiary;
+}
+
+.cell-folder::after {
+  content: ' · ';
 }
 
 .cell-asserts {

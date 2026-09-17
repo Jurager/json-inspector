@@ -59,29 +59,45 @@ func TestCollectionsReadsTheTreeNested(t *testing.T) {
 	}
 }
 
-// The page's read carries the address a tree row leaves out, and only the level it was asked about:
-// a request inside a collection that is inside this one is a row of that collection's own page.
-func TestLevelRowsCarryTheAddressOfOneLevel(t *testing.T) {
+// The page's read carries the address a tree row leaves out, and it carries every request inside
+// the collection rather than the level's own: the table is what running the collection would send,
+// and a run reaches the folders. The order is the walk's — a folder and the requests beside it are
+// one numbered sequence — and each row says which folder it came from.
+func TestContentRowsWalkTheWholeCollectionInTreeOrder(t *testing.T) {
 	store := newMigratedStore(t)
 	seedTree(t, store)
 
-	rows, err := store.LevelRows(context.Background(), "col-1")
+	rows, err := store.ContentRows(context.Background(), "col-1")
 	if err != nil {
-		t.Fatalf("LevelRows: %v", err)
+		t.Fatalf("ContentRows: %v", err)
 	}
-	if len(rows) != 1 || rows[0].ID != "r-2" {
-		t.Fatalf("rows = %+v, want this level's own request alone", rows)
+	// The fixture numbers the folder first and this level's own request second, so the folder's
+	// request comes first: a read that listed the level and then the folders would have it the other
+	// way round, and a report would draw a run in an order it never ran in.
+	if len(rows) != 2 || rows[0].ID != "r-1" || rows[1].ID != "r-2" {
+		t.Fatalf("rows = %+v, want the folder's request then this level's own", rows)
 	}
-	if rows[0].URL != "https://api.example.com/users/1" || rows[0].Method != "PATCH" {
-		t.Errorf("row = %+v, want the address and the method", rows[0])
+	if rows[0].Folder != "Админ" {
+		t.Errorf("folder = %q, want the folder the request sits in", rows[0].Folder)
+	}
+	// The level's own request belongs to no folder, which is what the page draws bare.
+	if rows[1].Folder != "" {
+		t.Errorf("folder = %q, want empty for this level's own request", rows[1].Folder)
+	}
+	if rows[0].URL != "https://api.example.com/users" || rows[0].Method != "GET" {
+		t.Errorf("row = %+v, want the address and the method the tree leaves out", rows[0])
 	}
 
-	nested, err := store.LevelRows(context.Background(), "f-1")
+	// A folder is asked for as a level of its own: what is under it, and nothing beside it.
+	nested, err := store.ContentRows(context.Background(), "f-1")
 	if err != nil {
-		t.Fatalf("LevelRows(nested): %v", err)
+		t.Fatalf("ContentRows(nested): %v", err)
 	}
 	if len(nested) != 1 || nested[0].ID != "r-1" || nested[0].Name != "Список" {
 		t.Errorf("rows = %+v, want the nested collection's own request", nested)
+	}
+	if nested[0].Folder != "" {
+		t.Errorf("folder = %q, want empty — the folder is the level being read", nested[0].Folder)
 	}
 }
 

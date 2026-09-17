@@ -59,11 +59,12 @@ func (u *UseCase) Node(ctx context.Context, id string) (domain.CollectionNode, e
 	return u.store.Node(ctx, id)
 }
 
-// LevelRows reads the requests a collection holds, as its page draws them: a name, a method and an
-// address each. Only the level itself — the collections inside it are levels of their own, and
-// their rows are read when one of them is opened.
-func (u *UseCase) LevelRows(ctx context.Context, collectionID string) ([]domain.LevelRow, error) {
-	return u.store.LevelRows(ctx, collectionID)
+// Contents reads the requests a collection holds, as its page draws them: a name, a method, an
+// address and the folder each of them sits in. Everything inside the collection, and not the level
+// alone — the page's table is what running the collection would send, and a run reaches the whole
+// subtree, so a report that listed only the top level would be a report of another run.
+func (u *UseCase) Contents(ctx context.Context, collectionID string) ([]domain.LevelRow, error) {
+	return u.store.ContentRows(ctx, collectionID)
 }
 
 // findNode looks a request up in the tree, collections inside collections included: the tree is
