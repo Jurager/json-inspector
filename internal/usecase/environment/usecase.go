@@ -19,11 +19,12 @@ const maxNameLength = 40
 type UseCase struct {
 	store Store
 	scope Scope
+	home  Home
 	ids   platform.IDGen
 }
 
-func NewUseCase(store Store, scope Scope, ids platform.IDGen) *UseCase {
-	return &UseCase{store: store, scope: scope, ids: ids}
+func NewUseCase(store Store, scope Scope, home Home, ids platform.IDGen) *UseCase {
+	return &UseCase{store: store, scope: scope, home: home, ids: ids}
 }
 
 // Snapshot is the whole screen. Secret values are withheld: a variable that has one says so, and
@@ -55,15 +56,31 @@ type EnvironmentPatch struct {
 	Readonly *bool   `json:"readonly,omitempty"`
 }
 
+// EnvironmentDraft is what a new environment is asked for: its name, the colour its dot and avatar
+// are drawn with, and — when it is made from an existing one — the environment it starts as a copy
+// of. A draft rather than three more parameters: the create form asks for all three at once, and a
+// signature that grows an argument every time the form gains a field is one nobody can read.
+type EnvironmentDraft struct {
+	Name  string `json:"name"`
+	Color string `json:"color,omitempty"`
+	// StartFrom is an environment id, empty for a blank one.
+	StartFrom string `json:"startFrom,omitempty"`
+}
+
 // Create adds an environment at the end of the list. It becomes the active one: a new environment
 // is being set up, and editing the variables of one you are not in is how mistakes happen.
-func (u *UseCase) Create(ctx context.Context, name string) (domain.EnvState, error) {
+//
+// A draft that names a base is filled from it — the same keys, kinds and order — so that a stage
+// environment starts as a copy of dev rather than as a blank page. A secret is copied without its
+// value: what a copy is for is the set of keys an environment needs, and a value that two
+// environments silently share is a value nobody remembers changing in both.
+func (u *UseCase) Create(ctx context.Context, draft EnvironmentDraft) (domain.EnvState, error) {
 	workspace, err := u.scope.ActiveWorkspace(ctx)
 	if err != nil {
 		return domain.EnvState{}, err
 	}
 
-	name, err = validEnvironmentName(name)
+	name, err := validEnvironmentName(draft.Name)
 	if err != nil {
 		return domain.EnvState{}, err
 	}
@@ -73,24 +90,69 @@ func (u *UseCase) Create(ctx context.Context, name string) (domain.EnvState, err
 		return domain.EnvState{}, err
 	}
 
+	base := domain.Environment{}
+	if draft.StartFrom != "" {
+		found, ok := findEnvironment(current, draft.StartFrom)
+		if !ok {
+			return domain.EnvState{}, fmt.Errorf("environment %s: %w", draft.StartFrom,
+				domain.ErrNotFound)
+		}
+		base = found
+	}
+
 	position := 0
 	for _, env := range current.Environments {
 		if env.Position >= position {
 			position = env.Position + 1
 		}
 	}
-	env := domain.Environment{ID: u.ids(), Name: name, Position: position}
+	env := domain.Environment{ID: u.ids(), Name: name, Color: draft.Color, Position: position}
 	if err := u.store.SaveEnvironment(ctx, workspace, env); err != nil {
 		return domain.EnvState{}, err
 	}
 	if err := u.store.SetActiveEnvironment(ctx, workspace, env.ID); err != nil {
 		return domain.EnvState{}, err
 	}
+
+	// The copies are numbered from one up, in the order the base lists them — which is the base's own
+	// order, by position — exactly as a seeded environment numbers its first variable. Asking the
+	// store for "the next position" would answer from a state read before this environment existed
+	// and hand every copy the same row number.
+	//
+	// An environment written before its variables: a database error halfway through the copy leaves a
+	// half-filled environment on the next read rather than a state that cannot exist. Filling it
+	// again is what the user would do about it, and the copy's names cannot collide — the base's are
+	// unique within a scope and the new scope is empty.
+	scope := domain.EnvScope{Environment: env.ID}
+	for i, v := range base.Vars {
+		if err := u.store.SaveVariable(ctx, workspace, scope,
+			copiedVariable(v, u.ids(), i+1)); err != nil {
+			return domain.EnvState{}, err
+		}
+	}
 	return u.snapshot(ctx, workspace)
 }
 
-// Update applies a patch. The readonly flag is what the design calls "Prod": it locks the
-// variables until the user unlocks them for this session.
+// copiedVariable is one variable of a base, reborn in a new environment: the same key, the same
+// kind and the same place in the list. A secret arrives with an empty value; everything else
+// arrives as it was — a baseUrl that differs only in the host is worth copying, a token is not.
+func copiedVariable(v domain.Variable, id string, position int) domain.Variable {
+	copied := domain.Variable{
+		ID:       id,
+		Name:     v.Name,
+		Kind:     v.Kind,
+		Enabled:  v.Enabled,
+		Position: position,
+	}
+	if v.Kind != domain.VariableSecret {
+		copied.Value = v.Value
+	}
+	return copied
+}
+
+// Update applies a patch. The readonly flag is what the design calls "Prod": it is the Access
+// switch, and it closes the environment to every write the user could make — the check itself lives
+// in the writers (see writable), and this is the one call that may still change an environment.
 func (u *UseCase) Update(
 	ctx context.Context,
 	id string,

@@ -4,6 +4,7 @@ import { ListSide, RecordSource } from '../../../bindings/json-inspector/interna
 import { useRequestsStore } from '../../stores/requests'
 import { useCollectionsStore } from '../../stores/collections'
 import { useResizableWidth } from '../../composables/useResizableWidth'
+import { effectiveTab, tabGroups } from '../../lib/recordTabs'
 import { useSettings } from '../../composables/useSettings'
 import { useMessages } from '../../i18n'
 import Icon from '../ui/Icon.vue'
@@ -11,6 +12,7 @@ import HistoryPanel from '../history/HistoryPanel.vue'
 import RequestBuilder from '../request/RequestBuilder.vue'
 import ResponseViewer from '../response/ResponseViewer.vue'
 import BrowserEmptyState from '../browser/BrowserEmptyState.vue'
+import BrowserIndex from '../browser/BrowserIndex.vue'
 import CollectionTree from '../collections/CollectionTree.vue'
 import CollectionOverview from '../collections/CollectionOverview.vue'
 import CollectionCrumbs from '../collections/CollectionCrumbs.vue'
@@ -48,6 +50,12 @@ watch(sideWidth, (width) => setLayout({ sideWidth: width }))
 
 void loadSettings()
 void collections.load()
+
+// Whether there is a tab to draw a page about. It is the same answer the list highlights with, so the
+// pane and the highlight cannot disagree about which tab is on screen.
+const capturedTab = computed(() =>
+  effectiveTab(tabGroups(store.records.filter((r) => r.source === RecordSource.SourceBrowser)), store.browserTabKey)
+)
 
 const browserEmpty = computed(
   () =>
@@ -95,6 +103,10 @@ const sidePanelShown = computed(() => {
         </template>
         <template v-else-if="store.activeView === 'browser'">
           <ResponseViewer v-if="store.browserSelected" :record="store.browserSelected" source="browser" />
+          <!-- The three states of the section: a request somebody opened, the tab it belongs to, and
+               nothing captured at all. The middle one is what the list draws beside — a list of tabs
+               is about a tab being on screen. -->
+          <BrowserIndex v-else-if="capturedTab" />
           <BrowserEmptyState v-else />
         </template>
         <template v-else>

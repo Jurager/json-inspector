@@ -23,8 +23,7 @@ import Workspace from './components/layout/Workspace.vue'
 import StatusBar from './components/layout/StatusBar.vue'
 import EnvironmentsSheet from './components/environments/EnvironmentsSheet.vue'
 import SearchPalette from './components/search/SearchPalette.vue'
-import WorkspaceCreateDialog from './components/workspaces/WorkspaceCreateDialog.vue'
-import WorkspaceSettingsDialog from './components/workspaces/WorkspaceSettingsDialog.vue'
+import WorkspacesSheet from './components/workspaces/WorkspacesSheet.vue'
 import UnsavedChangesDialog from './components/collections/UnsavedChangesDialog.vue'
 import UnsavedLineDialog from './components/request/UnsavedLineDialog.vue'
 import Toast from './components/ui/Toast.vue'
@@ -136,18 +135,9 @@ function closeSheet() {
        comes and goes with a `v-if` loses the animation that closes it. -->
   <SearchPalette v-if="startup?.ready" :open="search.open" @close="search.close()" />
 
-  <!-- The two workspace cards float over the window, as the mockup draws them: same fields, same
-       segment and same destructive link as the sheets the app already has. -->
-  <WorkspaceCreateDialog
-    v-if="startup?.ready"
-    :open="workspaces.createOpen"
-    @close="workspaces.closeCards()"
-  />
-  <WorkspaceSettingsDialog
-    v-if="startup?.ready"
-    :open="workspaces.settingsOpen"
-    @close="workspaces.closeCards()"
-  />
+  <!-- The manager window, in the same frame as the environments one: the spaces on the left, the
+       form or the space itself on the right. -->
+  <WorkspacesSheet v-if="startup?.ready && workspaces.sheetOpen" @close="workspaces.closeSheet()" />
 
   <!-- One alert for the whole window: what asks to leave a card with unsaved edits is not always
        the same view. -->

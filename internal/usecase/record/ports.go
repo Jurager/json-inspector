@@ -89,6 +89,14 @@ type Scope interface {
 	ActiveWorkspace(ctx context.Context) (string, error)
 }
 
+// Home names the workspace the installation started with. The one-time import of the old frontend's
+// localStorage repairs this installation's own data, so it lands there and not in whichever space
+// happens to be on screen — and not on a fixed id either, now that the row the app is born with can
+// be deleted like any other.
+type Home interface {
+	FirstWorkspace(ctx context.Context) (string, error)
+}
+
 // RetentionSource answers how long history is kept — one question, so this feature does not depend
 // on the settings screen. The composition root adapts the settings use case to it.
 type RetentionSource interface {

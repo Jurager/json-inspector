@@ -269,8 +269,8 @@ func TestDeleteWorkspaceTakesItsData(t *testing.T) {
 }
 
 // The pointer to the space on screen is a preference of the installation, and every bad answer to
-// it — nothing stored, or a name whose space has since gone — falls back to the one the app is born
-// with. A window with no workspace to draw is not a state the app has.
+// it — nothing stored, or a name whose space has since gone — falls back to the oldest row that is
+// left. A window with no workspace to draw is not a state the app has.
 func TestActiveWorkspaceFallsBackToTheDefault(t *testing.T) {
 	store := newMigratedStore(t)
 	ctx := context.Background()
@@ -278,7 +278,7 @@ func TestActiveWorkspaceFallsBackToTheDefault(t *testing.T) {
 
 	active, err := store.ActiveWorkspace(ctx)
 	if err != nil || active != domain.WorkspacePersonalID {
-		t.Errorf("with nothing stored = %q, %v; want the default", active, err)
+		t.Errorf("with nothing stored = %q, %v; want the one the schema wrote", active, err)
 	}
 
 	// Write the pointer by hand rather than through SetActiveWorkspace: a space that was deleted while
@@ -288,7 +288,7 @@ func TestActiveWorkspaceFallsBackToTheDefault(t *testing.T) {
 	}
 	active, err = store.ActiveWorkspace(ctx)
 	if err != nil || active != domain.WorkspacePersonalID {
-		t.Errorf("pointing at a space that is gone = %q, %v; want the default", active, err)
+		t.Errorf("pointing at a space that is gone = %q, %v; want the oldest left", active, err)
 	}
 
 	if err := store.SetActiveWorkspace(ctx, team); err != nil {
@@ -333,5 +333,98 @@ func TestActiveEnvironmentIsPerWorkspace(t *testing.T) {
 	}
 	if theirs.ActiveID != "" {
 		t.Errorf("the second space works in %q, want none — nothing was set there", theirs.ActiveID)
+	}
+}
+
+// The oldest row is where a stale pointer lands and where the window goes when the space it was
+// showing is deleted. It is the row the schema writes on a fresh installation until that one is
+// deleted itself — the rule is about being the oldest, not about being the default.
+func TestFirstWorkspaceIsTheOldest(t *testing.T) {
+	store := newMigratedStore(t)
+	ctx := context.Background()
+	seedTeam(t, store)
+
+	first, err := store.FirstWorkspace(ctx)
+	if err != nil || first != domain.WorkspacePersonalID {
+		t.Errorf("FirstWorkspace = %q, %v; want the row the schema wrote", first, err)
+	}
+
+	if err := store.DeleteWorkspace(ctx, domain.WorkspacePersonalID); err != nil {
+		t.Fatalf("DeleteWorkspace: %v", err)
+	}
+	first, err = store.FirstWorkspace(ctx)
+	if err != nil || first != team {
+		t.Errorf("after the born-with row went = %q, %v; want %q", first, err, team)
+	}
+}
+
+// A pointer left naming a space that is gone answers with the oldest row that is still there, which
+// is what a delete of the space on screen leaves behind.
+func TestActiveWorkspaceFallsBackToTheOldestLeft(t *testing.T) {
+	store := newMigratedStore(t)
+	ctx := context.Background()
+	seedTeam(t, store)
+
+	if err := store.SetActiveWorkspace(ctx, domain.WorkspacePersonalID); err != nil {
+		t.Fatalf("SetActiveWorkspace: %v", err)
+	}
+	if err := store.DeleteWorkspace(ctx, domain.WorkspacePersonalID); err != nil {
+		t.Fatalf("DeleteWorkspace: %v", err)
+	}
+
+	active, err := store.ActiveWorkspace(ctx)
+	if err != nil || active != team {
+		t.Errorf("after the space on screen went = %q, %v; want %q", active, err, team)
+	}
+}
+
+// What each space holds is counted per space: the numbers below differ, so a query that forgot
+// workspace_id would answer the same for both and fail here. A folder is a collection that sits
+// inside another, and it counts like the one holding it.
+func TestWorkspaceCountsCountWhatEachSpaceHolds(t *testing.T) {
+	store := newMigratedStore(t)
+	ctx := context.Background()
+	seedTree(t, store) // the born-with space: two collections, one of them nested
+	seedTeam(t, store)
+
+	for _, env := range []domain.Environment{
+		{ID: "env-1", Name: "Local · dev", Position: 1},
+	} {
+		if err := store.SaveEnvironment(ctx, domain.WorkspacePersonalID, env); err != nil {
+			t.Fatalf("SaveEnvironment: %v", err)
+		}
+	}
+	for _, env := range []domain.Environment{
+		{ID: "env-2", Name: "Stage · qa", Position: 1},
+		{ID: "env-3", Name: "Prod", Position: 2, Readonly: true},
+	} {
+		if err := store.SaveEnvironment(ctx, team, env); err != nil {
+			t.Fatalf("SaveEnvironment: %v", err)
+		}
+	}
+
+	if err := store.SaveRun(ctx, domain.CollectionRun{
+		ID: "run-1", CollectionID: "col-1", StartedAt: 1, Results: []domain.CollectionRunResult{},
+	}); err != nil {
+		t.Fatalf("SaveRun: %v", err)
+	}
+	if err := store.SaveCollection(ctx, team, domain.Collection{
+		ID: "col-2", Name: "Чужая", Position: 0,
+	}); err != nil {
+		t.Fatalf("SaveCollection: %v", err)
+	}
+
+	counts, err := store.Counts(ctx)
+	if err != nil {
+		t.Fatalf("Counts: %v", err)
+	}
+	want := map[string]domain.WorkspaceCounts{
+		domain.WorkspacePersonalID: {Collections: 2, Environments: 1, Runs: 1},
+		team:                       {Collections: 1, Environments: 2, Runs: 0},
+	}
+	for id, expected := range want {
+		if counts[id] != expected {
+			t.Errorf("counts of %s = %+v, want %+v", id, counts[id], expected)
+		}
 	}
 }

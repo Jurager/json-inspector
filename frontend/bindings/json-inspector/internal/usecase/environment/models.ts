@@ -6,6 +6,22 @@
 import * as domain$0 from "../../domain/models.js";
 
 /**
+ * EnvironmentDraft is what a new environment is asked for: its name, the colour its dot and avatar
+ * are drawn with, and — when it is made from an existing one — the environment it starts as a copy
+ * of. A draft rather than three more parameters: the create form asks for all three at once, and a
+ * signature that grows an argument every time the form gains a field is one nobody can read.
+ */
+export interface EnvironmentDraft {
+    "name": string;
+    "color"?: string;
+
+    /**
+     * StartFrom is an environment id, empty for a blank one.
+     */
+    "startFrom"?: string;
+}
+
+/**
  * EnvironmentPatch is a partial update: a nil field is left as it is.
  */
 export interface EnvironmentPatch {

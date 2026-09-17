@@ -13,7 +13,9 @@ const { t } = useMessages()
 </script>
 
 <template>
-  <DropdownMenu v-if="store.active">
+  <!-- The counts under the names are a reading of what other features hold, and nothing tells this
+       panel when one of them changes: it reads them again every time it is opened. -->
+  <DropdownMenu v-if="store.active" @update:open="(open) => open && store.load()">
     <DropdownMenuTrigger as-child>
       <Button
         class="workspace-pill"

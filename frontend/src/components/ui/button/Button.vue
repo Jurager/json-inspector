@@ -106,13 +106,23 @@ withDefaults(
 
 /* The page head's button: 36px, between lg and xl, standing beside a page's title rather than in a bar
    of controls. */
-.btn--page {
+.btn.btn--page {
   gap: 7px;
   height: 36px;
   padding: 0 14px;
   border-radius: 9px;
   font-size: 13.5px;
   font-weight: 500;
+}
+
+/* And its fill is the handoff's own for a head: `--raise` under a `--line` hairline with no shadow —
+   the button stands on the page rather than lying on it. The accent variant is excepted because it is
+   the page's one action and wears the accent: written as `:not()` rather than settled by source
+   order, because a rule that depends on where it is written moves the day the file is reordered. */
+.btn.btn--page:not(.btn--primary) {
+  background: var(--bg-inset);
+  border-color: var(--border);
+  box-shadow: none;
 }
 
 .btn--primary:hover:not(:disabled) {
@@ -174,7 +184,9 @@ withDefaults(
 
 /* The response header's button, and the handoff draws it a shade apart from the one above: the same
    30px and the same radius, but 13px rather than 13.5 and two more pixels of room around the label.
-   Compare, Copy, Inspector and Search are all this one control, wherever the window puts them. */
+   Compare, Copy, Inspector and Search are all this one control, wherever the window puts them, so
+   the fill is the handoff's too: `--raise` under a `--line` hairline and no shadow, which is what
+   makes the row read as controls standing on the bar rather than as cards in it. */
 .btn.btn--bar {
   gap: 7px;
   height: 30px;
@@ -182,5 +194,8 @@ withDefaults(
   border-radius: 7px;
   font-size: 13px;
   font-weight: 500;
+  background: var(--bg-inset);
+  border-color: var(--border);
+  box-shadow: none;
 }
 </style>

@@ -29,6 +29,7 @@ export type {
     Auth,
     AuthToken,
     BodyRef,
+    CaptureFilters,
     Collection,
     CollectionNode,
     CollectionRun,
@@ -63,5 +64,6 @@ export type {
     TestResult,
     Variable,
     Workspace,
+    WorkspaceCounts,
     WorkspaceState
 } from "./models.js";

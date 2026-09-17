@@ -471,6 +471,9 @@ type answer struct {
 	durationUs  int64
 	transportEr string
 	skipped     bool
+	// refusal is the app saying no rather than the network failing — a request whose `{{tokens}}`
+	// answered to nothing. It is an error, not a record: nothing went out.
+	refusal error
 }
 
 func newFakeSender() *fakeSender {
@@ -491,6 +494,13 @@ func (f *fakeSender) fail(url string) *fakeSender {
 // so rather than pretending the server said something.
 func (f *fakeSender) skip(url string) *fakeSender {
 	f.answers[url] = answer{skipped: true}
+	return f
+}
+
+// refuse is a request the app would not send at all: the sender answers with the refusal, the way
+// the real one does when a `{{token}}` in the request has nothing to answer it.
+func (f *fakeSender) refuse(url string, refusal error) *fakeSender {
+	f.answers[url] = answer{refusal: refusal}
 	return f
 }
 
@@ -520,6 +530,9 @@ func (f *fakeSender) Send(_ context.Context, req RunRequest) (domain.Record, err
 	}
 	if answer.skipped {
 		return domain.Record{Skipped: true}, nil
+	}
+	if answer.refusal != nil {
+		return domain.Record{}, answer.refusal
 	}
 	return domain.Record{RecordSummary: domain.RecordSummary{
 		ID:         "rec-" + req.URL,

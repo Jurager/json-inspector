@@ -1,5 +1,7 @@
 package bridge
 
+import "json-inspector/internal/domain"
+
 const DefaultPort = 38761
 
 type CapturedRequest struct {
@@ -32,9 +34,33 @@ type CaptureState struct {
 	Paused    bool   `json:"paused"`
 	Tabs      int    `json:"tabs"`
 	Browser   string `json:"browser"`
+	// TabList is what Tabs counts, one entry each: which tabs are under capture and since when. It is
+	// a second field rather than a richer Tabs because a frame already on the wire is a promise: an
+	// app that is one version behind reads the count and knows no better, and a window that knows the
+	// times can say since when.
+	TabList []TabState `json:"tabList,omitempty"`
 }
 
+// TabState is one tab under capture. Since is unix milliseconds, the moment the tab was armed — not
+// the time of its first request, which is a different and much later thing.
+type TabState struct {
+	TabID int   `json:"tabId"`
+	Since int64 `json:"since"`
+}
+
+// FocusRequest is the extension asking the window to look at a tab.
 type FocusRequest struct {
 	Type string `json:"type"`
 	Tab  int    `json:"tab"`
+}
+
+// FiltersFrame is the app telling the extension what to keep. The rules are the app's own type and
+// not a second shape of them: there is nothing to translate between what the settings screen stores
+// and what the extension enforces, and a copy here would be a copy that drifts.
+//
+// Nothing is answered: this protocol has no replies, and the extension's next state frame is the
+// only echo that a frame arrived.
+type FiltersFrame struct {
+	Type    string                `json:"type"`
+	Filters domain.CaptureFilters `json:"filters"`
 }

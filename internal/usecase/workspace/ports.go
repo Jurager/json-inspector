@@ -19,6 +19,11 @@ type Store interface {
 	// the settings table and not on a row here.
 	ActiveWorkspace(ctx context.Context) (string, error)
 	SetActiveWorkspace(ctx context.Context, id string) error
+
+	// What each workspace holds — collections, environments, runs — counted in one call because the
+	// window draws all the rows at once. A reading over other features' tables, which is why it is
+	// here beside the list rather than a column on a workspace.
+	Counts(ctx context.Context) (map[string]domain.WorkspaceCounts, error)
 }
 
 // Notifier is how every window hears that the workspace on screen moved. The switcher is the only

@@ -468,6 +468,16 @@ export const useCollectionsStore = defineStore('collections', {
       this.dirty = true
     },
 
+    // The card's own answer, asked again for the same reason the command line asks: the variables it
+    // names live in a window of their own, and what this holds goes stale while that window is open.
+    // A new editor object rather than a field written into the old one, so nothing is mutated in place.
+    async refreshPreview() {
+      const id = this.draftId()
+      if (!id || !this.editor) return
+      const state = await DraftService.Snapshot(id)
+      this.editor = { ...this.editor, state: { ...this.editor.state, preview: state.preview } }
+    },
+
     applyText(result: TextResult) {
       if (result.field === TextField.FieldURL) {
         if (result.rev !== this.urlRev) return

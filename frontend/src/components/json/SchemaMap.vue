@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { computed, nextTick, onMounted, ref, watch } from 'vue'
 import Icon from '../ui/Icon.vue'
 import { Button, IconButton } from '../ui/button'
 import { Input } from '../ui/input'
@@ -16,12 +16,9 @@ import { useMessages } from '../../i18n'
 
 const { t } = useMessages()
 import { copyToClipboard } from '../../lib/clipboard'
-import { usePlatform } from '../../composables/usePlatform'
 
 const props = defineProps<{ doc: JsonApiDocument | null; highlightKey?: string | null }>()
 const emit = defineEmits<{ (e: 'fetch', url: string): void; (e: 'select', key: string): void }>()
-
-const { shortcut } = usePlatform()
 
 const all = computed<Resource[]>(() => {
   if (!props.doc) return []
@@ -62,8 +59,6 @@ const query = ref('')
 
 const searchVisible = ref(false)
 const searchInputRef = ref<InstanceType<typeof Input> | null>(null)
-const searchShortcut = computed(() => shortcut('F'))
-
 function openSearch() {
   searchVisible.value = true
   nextTick(() => searchInputRef.value?.focus())
@@ -74,17 +69,10 @@ function closeSearch() {
   query.value = ''
 }
 
-function onWindowKeydown(e: KeyboardEvent) {
-  if ((e.metaKey || e.ctrlKey) && e.code === 'KeyF') {
-    e.preventDefault()
-    openSearch()
-  } else if (e.key === 'Escape' && searchVisible.value) {
-    closeSearch()
-  }
-}
-
-onMounted(() => window.addEventListener('keydown', onWindowKeydown))
-onBeforeUnmount(() => window.removeEventListener('keydown', onWindowKeydown))
+// The search itself and not the key that opens it: the row above the tabs owns that, so that one
+// tab's Escape cannot close a search belonging to another. This one only opens its own input and
+// says whether it is open.
+defineExpose({ openSearch, closeSearch, isSearching: searchVisible })
 
 const filteredTypes = computed(() => {
   const q = query.value.trim().toLowerCase()
@@ -239,8 +227,6 @@ async function copyExport(format: ExportId) {
         <span v-if="types.length" class="summary">{{ t('json.types', types.length) }} · {{ t('counts.resources', all.length) }}</span>
 
         <span class="head-spacer"></span>
-
-        <Button size="sm" class="with-key" @click="openSearch"><span>{{ t('common.search') }}</span><kbd class="keycap">{{ searchShortcut }}</kbd></Button>
 
         <DropdownMenu>
           <DropdownMenuTrigger as-child>

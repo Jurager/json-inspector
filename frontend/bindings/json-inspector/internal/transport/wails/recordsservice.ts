@@ -43,6 +43,15 @@ export function Clear(ids: string[] | null): $CancellablePromise<void> {
 }
 
 /**
+ * ExportHar writes one tab's captured traffic as a HAR file and answers whether anything was
+ * written: a cancelled dialog is not a failure, and a window that showed a toast for it would be
+ * telling the user about a file that does not exist.
+ */
+export function ExportHar(title: string, tabKey: string): $CancellablePromise<boolean> {
+    return $Call.ByID(364410274, title, tabKey);
+}
+
+/**
  * ImportLegacy moves the history the old frontend kept in localStorage into the database, once. The
  * payload is the raw string: reading that shape is this side's job, not the window's.
  */

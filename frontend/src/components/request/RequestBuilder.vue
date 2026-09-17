@@ -88,16 +88,55 @@ watch(
 const missingVarNames = computed(() => store.missingVars)
 const sendBlocked = computed(() => missingVarNames.value.length > 0)
 
+// Names stop missing when the environments change, and that happens in another window: the draft is
+// not edited, so nothing here would hear about it. Adding a variable, renaming one, switching the
+// active environment — each is a new snapshot, and each is a reason to ask again.
+watch(
+  () => envStore.envState,
+  () => void store.refreshPreview()
+)
+
 const sendBlockedReason = computed(() =>
   missingVarNames.value.length
     ? t('request.missingBlocked', { names: missingVarNames.value.join(', ') })
     : undefined
 )
 
+// A read-only environment is one this window does not write into — that is what its Access switch
+// is for — so a button that quietly put a variable inside it would be breaking the window's own
+// rule. Instead it opens that environment, where the switch is, and says what is in the way.
+const activeReadonly = computed(() => Boolean(envStore.activeEnvironment?.readonly))
+
+const createLabel = computed(() =>
+  missingVarNames.value.length === 1 ? t('request.createVar') : t('request.createVarAll')
+)
+
+// The line is one sentence and it truncates rather than wrapping, so the whole of it travels in the
+// tooltip — where it is plain text, and can say what the pieces of the sentence say in words.
+const missingTitle = computed(() => {
+  const names = missingVarNames.value.join(', ')
+  const env = envStore.activeEnvironment?.name
+  return env
+    ? t('request.missingTitle', { n: missingVarNames.value.length, names, env })
+    : t('request.missingNoEnvTitle', { n: missingVarNames.value.length, names })
+})
+
+const createTitle = computed(() => {
+  if (envStore.activeId === null) return t('request.chooseEnvFirst')
+  if (activeReadonly.value) return t('request.envReadOnly')
+  return undefined
+})
+
 function createMissing() {
   const envId = envStore.activeId
   if (envId === null) return
-  for (const name of missingVarNames.value) envStore.addVar(envId, { name })
+  if (!activeReadonly.value) {
+    for (const name of missingVarNames.value) {
+      void envStore.addVar(envId, { name }).catch((error) => {
+        toast.show(t('request.createFailed', { error: describeFailure(error) }), 'error')
+      })
+    }
+  }
   envStore.openSheet({ envId, varName: missingVarNames.value[0] ?? '' })
 }
 
@@ -246,7 +285,12 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onWindowKeydown))
           />
           <div v-if="showUrlDisplay" ref="urlDisplayRef" class="url-display mono" aria-hidden="true">
             <template v-for="(seg, i) in urlSegments" :key="i">
-              <VarToken v-if="seg.tokenName" :name="seg.tokenName" :offset="seg.start" />
+              <VarToken
+                v-if="seg.tokenName"
+                :name="seg.tokenName"
+                :text="seg.text"
+                :offset="seg.start"
+              />
               <span v-else>{{ seg.text }}</span>
             </template>
           </div>
@@ -317,28 +361,27 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onWindowKeydown))
 
     </div>
 
-    <div v-if="sendBlocked" class="missing-row">
-      <span class="missing-text">
-        <template v-if="envStore.activeId === null">
-          {{ t('request.missingNoEnvHead') }}
-          <span class="missing-name mono" v-for="n in missingVarNames" :key="n">{{ n }}</span>
-          {{ t('request.missingNoEnvTail') }}
-        </template>
-        <template v-else>
-          {{ t('request.missingInEnvHead', { name: envStore.activeEnvironment?.name }) }}
-          {{ t('request.missingInEnvCount', missingVarNames.length) }}:
-          <span class="missing-name mono" v-for="n in missingVarNames" :key="n">{{ n }}</span>
-          {{ t('request.missingInEnvTail') }}
-        </template>
-      </span>
-      <Button
-        variant="primary"
-        :disabled="envStore.activeId === null"
-        :title="envStore.activeId === null ? t('request.chooseEnvFirst') : undefined"
+    <!-- The bar is the window's own row rather than a card in the column: it says what is holding
+         the send back, and it stands where the request ends and the answer begins. The sentence
+         carries the names in place, so it is written on one line — the whitespace between the pieces
+         is part of it. -->
+    <div v-if="sendBlocked" class="var-error">
+
+      <span v-if="envStore.activeId === null" class="var-error-text" :title="missingTitle">{{ t('request.missingVariable', missingVarNames.length) }} <span v-for="(n, i) in missingVarNames" :key="n" class="var-name mono">{{ n }}<span v-if="i < missingVarNames.length - 1">, </span></span> {{ t('request.missingNoEnv') }}</span>
+      <span v-else class="var-error-text" :title="missingTitle">{{ t('request.missingVariable', missingVarNames.length) }} <span v-for="(n, i) in missingVarNames" :key="n" class="var-name mono">{{ n }}<span v-if="i < missingVarNames.length - 1">, </span></span> {{ t('request.missingNotIn', missingVarNames.length) }} <b>{{ envStore.activeEnvironment?.name }}</b> {{ t('request.missingSendingBlocked') }}</span>
+
+      <!-- One way out, as the drawing gives it. In an environment the user has closed the button is
+           shut and its tooltip says what opens it — the sentence already names the environment, so
+           the two read together. -->
+      <button
+        type="button"
+        class="var-error-action"
+        :disabled="envStore.activeId === null || activeReadonly"
+        :title="createTitle"
         @click="createMissing"
       >
-        {{ missingVarNames.length === 1 ? t('request.createVar') : t('request.createVarAll') }}
-      </Button>
+        {{ createLabel }}
+      </button>
     </div>
   </div>
 </template>
@@ -379,17 +422,47 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onWindowKeydown))
   box-shadow: 0 0 0 3px var(--red-soft);
 }
 
-.missing-row {
-  @apply flex-none flex items-center gap-3 mx-4 mb-3 py-2 px-2.5 rounded-lg text-[12.5px];
-  background: color-mix(in srgb, var(--red) 7%, transparent);
+/* The drawing's own row: full width, the soft red of a warning, and a hairline under it that
+   separates the request from the answer rather than ringing the notice as a card. */
+.var-error {
+  @apply flex-none flex items-center gap-2.5 py-2.5 px-5 border-b;
+  background: var(--red-soft);
+  border-color: var(--border);
 }
 
-.missing-text {
-  @apply flex-1 min-w-0;
+/* One sentence, and it gives way rather than wrapping: a long address in a tooltip is better than a
+   second line that pushes the answer down. */
+.var-error-text {
+  @apply flex-1 min-w-0 text-[13.5px] text-text;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.missing-name {
-  @apply text-red mx-1;
+.var-error-text b {
+  @apply font-semibold;
+}
+
+/* The names are values in a sentence about them, so they are drawn as values: the mono face (the
+   `mono` class the markup wears) and the colour of the thing that is wrong, not a chip of their own. */
+.var-name {
+  @apply text-[12.5px] font-semibold;
+  color: var(--red-text);
+}
+
+.var-error-action {
+  @apply flex-none h-[30px] px-3.5 border-0 rounded-[7px] cursor-pointer whitespace-nowrap
+         text-accent-text text-[13px] font-semibold;
+  font-family: inherit;
+  background: var(--accent);
+}
+
+.var-error-action:hover:not(:disabled) {
+  @apply brightness-110;
+}
+
+.var-error-action:disabled {
+  @apply opacity-50 cursor-default;
 }
 
 .method-wrap {

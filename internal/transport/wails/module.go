@@ -121,6 +121,10 @@ var Module = fx.Module("wails",
 		func(store *sqlite.Store) environment.Scope { return store },
 		func(store *sqlite.Store) draft.Scope { return store },
 		func(store *sqlite.Store) scripting.Scope { return store },
+		// Two features ask a different question — where this installation began, rather than where the
+		// window is — and it is the same store that answers it.
+		func(store *sqlite.Store) environment.Home { return store },
+		func(store *sqlite.Store) record.Home { return store },
 		// The scripts around a request are asked by the feature that sends it, and they are told what
 		// to run by the feature that keeps them. Neither knows the other; this is the pair.
 		func(scripts *scripting.UseCase) record.Screener { return scripts },

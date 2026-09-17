@@ -13,6 +13,7 @@
   body { margin: 0; background: #d8d8dc; font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif; -webkit-font-smoothing: antialiased; }
   a { color: #0a6cff; text-decoration: none; }
   a:hover { color: #0050c8; }
+  @keyframes om-spin { to { transform: rotate(360deg); } }
   [data-theme="light"] { --win: #ffffff; --chrome: rgba(246,246,248,0.82); --side: rgba(244,244,247,0.78); --content: #ffffff; --raise: #f6f6f8; --pop: rgba(250,250,252,0.86); --field: #ffffff; --fieldline: rgba(0,0,0,0.13); --ink: #1d1d1f; --ink2: #5d5d63; --ink3: #8e8e93; --line: rgba(0,0,0,0.09); --line2: rgba(0,0,0,0.055); --sel: rgba(0,0,0,0.055); --accent: #0a6cff; --accent-press: #0053cc; --accent-soft: rgba(10,108,255,0.12); --ok: #1a7f37; --ok-soft: rgba(26,127,55,0.12); --warn: #b26a00; --warn-soft: rgba(178,106,0,0.14); --bad: #c8402a; --bad-soft: rgba(200,64,42,0.13); --str: #a33a1f; --num: #2a2fb8; --key: #0a6cff; --type: #7a3fb8; --type-soft: rgba(122,63,184,0.12); --chip: rgba(0,0,0,0.045); --shadow: 0 1px 2px rgba(0,0,0,0.06), 0 14px 40px rgba(0,0,0,0.16); --popshadow: 0 1px 0 rgba(255,255,255,0.7) inset, 0 12px 34px rgba(0,0,0,0.18); }
   [data-theme="dark"] { --win: #1c1c1e; --chrome: rgba(46,46,50,0.84); --side: rgba(38,38,42,0.8); --content: #1c1c1e; --raise: #26262a; --pop: rgba(44,44,48,0.9); --field: #1f1f22; --fieldline: rgba(255,255,255,0.14); --ink: #f5f5f7; --ink2: #b0b0b8; --ink3: #85858c; --line: rgba(255,255,255,0.1); --line2: rgba(255,255,255,0.06); --sel: rgba(255,255,255,0.07); --accent: #0a84ff; --accent-press: #3d9bff; --accent-soft: rgba(10,132,255,0.2); --ok: #4ade80; --ok-soft: rgba(74,222,128,0.16); --warn: #f5a524; --warn-soft: rgba(245,165,36,0.18); --bad: #ff6f5e; --bad-soft: rgba(255,111,94,0.18); --str: #ff8a6b; --num: #b39dff; --key: #6fb6ff; --type: #d3a2ff; --type-soft: rgba(211,162,255,0.16); --chip: rgba(255,255,255,0.07); --shadow: 0 1px 2px rgba(0,0,0,0.4), 0 18px 48px rgba(0,0,0,0.5); --popshadow: 0 1px 0 rgba(255,255,255,0.08) inset, 0 14px 38px rgba(0,0,0,0.55); }
 </style>
@@ -84,6 +85,7 @@
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><circle cx="11" cy="11" r="7"></circle><path d="m20 20-4.4-4.4"></path></svg>
           <span style="font-size: 11.5px; color: var(--ink3);">⌘K</span>
         </button>
+
       </div>
       <sc-if value="{{ isWin }}" hint-placeholder-val="{{ false }}">
         <div style="display: flex; height: 100%;">
@@ -144,10 +146,27 @@
 
     <div style="flex: 1; display: flex; min-height: 0;">
 
-      <div style="width: 84px; flex: none; background: var(--side); backdrop-filter: blur(24px) saturate(180%); -webkit-backdrop-filter: blur(24px) saturate(180%); border-right: 1px solid var(--line); display: flex; flex-direction: column; align-items: center; padding: 12px 0; gap: 4px;">
-        <button type="button" style="appearance: none; cursor: pointer; color: var(--ink2); background: transparent; border: 0; border-radius: 8px; width: 60px; height: 38px; display: flex; align-items: center; justify-content: center;" style-hover="background: var(--sel); color: var(--ink);">
-          <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4 7.5h16M4 12h16M4 16.5h16"></path></svg>
-        </button>
+      <div style="width: 84px; flex: none; background: var(--side); backdrop-filter: blur(24px) saturate(180%); -webkit-backdrop-filter: blur(24px) saturate(180%); border-right: 1px solid var(--line); display: flex; flex-direction: column; align-items: center; padding: 12px 0; gap: 4px; position: relative; z-index: 90;">
+        <div style="position: relative; display: flex; flex-direction: column; align-items: center;">
+          <button type="button" onClick="{{ toggleMenu }}" title="Menu" style="appearance: none; cursor: pointer; color: {{ menuBtnInk }}; background: {{ menuBtnBg }}; border: 0; border-radius: 8px; width: 60px; height: 38px; display: flex; align-items: center; justify-content: center;" style-hover="background: var(--sel); color: var(--ink);">
+            <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4 7.5h16M4 12h16M4 16.5h16"></path></svg>
+          </button>
+          <sc-if value="{{ popMenu }}" hint-placeholder-val="{{ false }}">
+            <div style="position: absolute; left: 68px; top: -4px; width: 268px; background: var(--pop); backdrop-filter: blur(30px) saturate(180%); -webkit-backdrop-filter: blur(30px) saturate(180%); border: 1px solid var(--line); border-radius: 12px; box-shadow: var(--popshadow); padding: 6px; display: flex; flex-direction: column; gap: 1px; z-index: 95;">
+              <sc-for list="{{ menuItems }}" as="m" hint-placeholder-count="12">
+                <sc-if value="{{ m.isSep }}" hint-placeholder-val="{{ false }}">
+                  <div style="height: 1px; background: var(--line); margin: 5px 6px;"></div>
+                </sc-if>
+                <sc-if value="{{ m.isItem }}" hint-placeholder-val="{{ true }}">
+                  <button type="button" onClick="{{ m.on }}" style="appearance: none; cursor: pointer; font-family: inherit; text-align: left; border: 0; border-radius: 7px; background: transparent; color: {{ m.ink }}; height: 30px; padding: 0 9px; display: flex; align-items: center; gap: 10px;" style-hover="background: var(--sel);">
+                    <span style="flex: 1; min-width: 0; font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{{ m.label }}</span>
+                    <span style="flex: none; font-size: 12px; color: var(--ink3);">{{ m.key }}</span>
+                  </button>
+                </sc-if>
+              </sc-for>
+            </div>
+          </sc-if>
+        </div>
         <div style="height: 8px;"></div>
         <sc-for list="{{ rail }}" as="item" hint-placeholder-count="3">
           <button type="button" onClick="{{ item.on }}" style="appearance: none; cursor: pointer; font-family: inherit; border: 0; border-radius: 10px; width: 64px; padding: 10px 0 8px; margin-bottom: 4px; background: {{ item.bg }}; color: {{ item.ink }}; display: flex; flex-direction: column; align-items: center; gap: 6px; font-size: 11.5px; font-weight: 500; position: relative;" style-hover="background: var(--sel);">
@@ -157,17 +176,44 @@
           </button>
         </sc-for>
         <div style="flex: 1;"></div>
-        <button type="button" title="Аккаунт" style="appearance: none; cursor: pointer; color: var(--ink2); background: transparent; border: 0; border-radius: 8px; width: 60px; height: 38px; display: flex; align-items: center; justify-content: center; position: relative;" style-hover="background: var(--sel); color: var(--ink);">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8.4" r="3.6"></circle><path d="M5.2 20c0-3.6 3-6.2 6.8-6.2s6.8 2.6 6.8 6.2"></path></svg>
-          <span style="position: absolute; right: 14px; bottom: 5px; width: 8px; height: 8px; border-radius: 999px; background: var(--ok); box-shadow: 0 0 0 2px var(--side);"></span>
-        </button>
-        <button type="button" title="Настройки" style="appearance: none; cursor: pointer; color: var(--ink3); background: transparent; border: 0; border-radius: 8px; width: 60px; height: 38px; display: flex; align-items: center; justify-content: center;" style-hover="background: var(--sel); color: var(--ink);">
+        <div style="position: relative; display: flex; flex-direction: column; align-items: center;">
+          <button type="button" onClick="{{ accountClick }}" title="Account" style="appearance: none; cursor: pointer; color: {{ accBtnInk }}; background: {{ accBtnBg }}; border: 0; border-radius: 8px; width: 60px; height: 38px; display: flex; align-items: center; justify-content: center; position: relative;" style-hover="background: var(--sel); color: var(--ink);">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8.4" r="3.6"></circle><path d="M5.2 20c0-3.6 3-6.2 6.8-6.2s6.8 2.6 6.8 6.2"></path></svg>
+            <sc-if value="{{ isSignedIn }}" hint-placeholder-val="{{ true }}">
+              <span style="position: absolute; right: 14px; bottom: 5px; width: 8px; height: 8px; border-radius: 999px; background: var(--ok); box-shadow: 0 0 0 2px var(--side);"></span>
+            </sc-if>
+          </button>
+          <sc-if value="{{ popAccount }}" hint-placeholder-val="{{ false }}">
+            <div style="position: absolute; left: 68px; bottom: -6px; width: 252px; background: var(--pop); backdrop-filter: blur(30px) saturate(180%); -webkit-backdrop-filter: blur(30px) saturate(180%); border: 1px solid var(--line); border-radius: 12px; box-shadow: var(--popshadow); padding: 8px; display: flex; flex-direction: column; gap: 2px; z-index: 70;">
+              <div style="display: flex; align-items: center; gap: 10px; padding: 4px 6px 10px; border-bottom: 1px solid var(--line);">
+                <span style="width: 34px; height: 34px; flex: none; border-radius: 999px; background: var(--chip); color: var(--ink2); display: inline-flex; align-items: center; justify-content: center;">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8.4" r="3.6"></circle><path d="M5.2 20c0-3.6 3-6.2 6.8-6.2s6.8 2.6 6.8 6.2"></path></svg>
+                </span>
+                <span style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px;">
+                  <span style="font-size: 12.5px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{{ accountEmail }}</span>
+                  <span style="font-size: 11px; color: var(--ink3);">{{ accountMeta }}</span>
+                </span>
+              </div>
+              <button type="button" onClick="{{ openAccountTab }}" style="appearance: none; cursor: pointer; font-family: inherit; text-align: left; font-size: 13px; color: var(--ink); background: transparent; border: 0; border-radius: 7px; height: 32px; padding: 0 8px; display: flex; align-items: center; gap: 9px;" style-hover="background: var(--sel);">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" style="color: var(--ink2);"><circle cx="12" cy="8.4" r="3.5"></circle><path d="M5.2 20c0-3.5 3-6 6.8-6s6.8 2.5 6.8 6"></path></svg>Account
+              </button>
+              <button type="button" onClick="{{ openSettings }}" style="appearance: none; cursor: pointer; font-family: inherit; text-align: left; font-size: 13px; color: var(--ink); background: transparent; border: 0; border-radius: 7px; height: 32px; padding: 0 8px; display: flex; align-items: center; gap: 9px;" style-hover="background: var(--sel);">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" style="color: var(--ink2);"><path d="M20 7.5h-8M12 16.5H4"></path><circle cx="16.5" cy="16.5" r="2.6"></circle><circle cx="7.5" cy="7.5" r="2.6"></circle></svg>Settings
+              </button>
+              <div style="height: 1px; background: var(--line); margin: 5px 2px;"></div>
+              <button type="button" onClick="{{ openSignOut }}" style="appearance: none; cursor: pointer; font-family: inherit; text-align: left; font-size: 13px; color: var(--bad); background: transparent; border: 0; border-radius: 7px; height: 32px; padding: 0 8px; display: flex; align-items: center; gap: 9px;" style-hover="background: var(--bad-soft);">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9.5 20.5H6a2 2 0 0 1-2-2v-13a2 2 0 0 1 2-2h3.5"></path><path d="m16 16.5 4.5-4.5L16 7.5"></path><path d="M20.5 12H9.5"></path></svg>Sign out
+              </button>
+            </div>
+          </sc-if>
+        </div>
+        <button type="button" onClick="{{ openSettings }}" title="Настройки" style="appearance: none; cursor: pointer; color: {{ setBtnInk }}; background: {{ setBtnBg }}; border: 0; border-radius: 8px; width: 60px; height: 38px; display: flex; align-items: center; justify-content: center;" style-hover="background: var(--sel); color: var(--ink);">
           <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4 8.5h16M4 15.5h16"></path><circle cx="9.5" cy="8.5" r="2.4" fill="var(--side)" stroke="currentColor"></circle><circle cx="15" cy="15.5" r="2.4" fill="var(--side)" stroke="currentColor"></circle></svg>
         </button>
       </div>
 
       <sc-if value="{{ isRequestMode }}" hint-placeholder-val="{{ true }}">
-      <div style="width: 306px; flex: none; background: var(--side); backdrop-filter: blur(24px) saturate(180%); -webkit-backdrop-filter: blur(24px) saturate(180%); border-right: 1px solid var(--line); display: flex; flex-direction: column;">
+      <div style="width: 306px; flex: none; background: var(--side); backdrop-filter: blur(24px) saturate(180%); -webkit-backdrop-filter: blur(24px) saturate(180%); border-right: 1px solid var(--line); display: {{ sideDisplay }}; flex-direction: column;">
         <div style="height: 52px; flex: none; display: flex; align-items: center; justify-content: space-between; padding: 0 16px;">
           <span style="font-size: 14px; font-weight: 600;">History</span>
           <button type="button" title="Clear history" style="appearance: none; cursor: pointer; color: var(--ink2); background: transparent; border: 0; border-radius: 7px; width: 30px; height: 30px; display: flex; align-items: center; justify-content: center;" style-hover="background: var(--bad-soft); color: var(--bad);">
@@ -196,7 +242,7 @@
       </sc-if>
 
       <sc-if value="{{ isBrowserMode }}" hint-placeholder-val="{{ false }}">
-      <div style="width: 306px; flex: none; background: var(--side); backdrop-filter: blur(24px) saturate(180%); -webkit-backdrop-filter: blur(24px) saturate(180%); border-right: 1px solid var(--line); display: flex; flex-direction: column;">
+      <div style="width: 306px; flex: none; background: var(--side); backdrop-filter: blur(24px) saturate(180%); -webkit-backdrop-filter: blur(24px) saturate(180%); border-right: 1px solid var(--line); display: {{ sideDisplay }}; flex-direction: column;">
         <div style="height: 52px; flex: none; display: flex; align-items: center; justify-content: space-between; padding: 0 16px;">
           <span style="font-size: 14px; font-weight: 600;">Captured</span>
           <div style="flex: 1;"></div>
@@ -237,7 +283,7 @@
       </sc-if>
 
       <sc-if value="{{ isCollectionsMode }}" hint-placeholder-val="{{ false }}">
-      <div style="width: 306px; flex: none; background: var(--side); backdrop-filter: blur(24px) saturate(180%); -webkit-backdrop-filter: blur(24px) saturate(180%); border-right: 1px solid var(--line); display: flex; flex-direction: column;">
+      <div style="width: 306px; flex: none; background: var(--side); backdrop-filter: blur(24px) saturate(180%); -webkit-backdrop-filter: blur(24px) saturate(180%); border-right: 1px solid var(--line); display: {{ sideDisplay }}; flex-direction: column;">
         <div style="height: 52px; flex: none; display: flex; align-items: center; justify-content: space-between; padding: 0 12px 0 16px;">
           <span style="font-size: 14px; font-weight: 600;">Collections</span>
           <div style="flex: 1;"></div>
@@ -350,7 +396,7 @@
             <button type="button" style="appearance: none; cursor: pointer; font-family: ui-monospace, 'SF Mono', 'Cascadia Code', Menlo, monospace; font-size: 13px; font-weight: 700; height: 28px; padding: 0 9px; background: var(--ok-soft); color: var(--ok); border: 0; border-radius: 7px; display: flex; align-items: center; gap: 7px; flex: none;" style-hover="filter: brightness(1.06);">GET
               <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" style="opacity: 0.7;"><path d="m6 9 6 6 6-6"></path></svg>
             </button>
-            <span style="flex: 1; min-width: 0; font-family: ui-monospace, 'SF Mono', 'Cascadia Code', Menlo, monospace; font-size: 14px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis;">https://api.example.com/articles<span style="color: var(--ink3);">?include=</span><span style="color: var(--accent);">author,comments</span></span>
+            <span style="flex: 1; min-width: 0; font-family: ui-monospace, 'SF Mono', 'Cascadia Code', Menlo, monospace; font-size: 14px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis;">https://api.example.com<sc-if value="{{ varError }}" hint-placeholder-val="{{ false }}"><span style="color: var(--bad); text-decoration: underline; text-decoration-style: wavy; text-decoration-color: var(--bad); text-underline-offset: 3px;">/<span>{</span><span>{var}}</span></span></sc-if>/articles<span style="color: var(--ink3);">?include=</span><span style="color: var(--accent);">author,comments</span></span>
             <div style="display: flex; align-items: center; gap: 5px; flex: none; padding-left: 10px; border-left: 1px solid var(--line);">
               <sc-for list="{{ chips }}" as="c" hint-placeholder-count="5">
                 <button type="button" onClick="{{ c.on }}" style="appearance: none; cursor: pointer; font-family: inherit; font-size: 12.5px; font-weight: 500; height: 28px; padding: 0 8px 0 10px; border: {{ c.border }}; border-radius: 7px; background: {{ c.bg }}; color: {{ c.ink }}; box-shadow: {{ c.ring }}; display: flex; align-items: center; gap: 7px;" style-hover="background: {{ c.hoverBg }}; color: {{ c.hoverInk }};">
@@ -364,7 +410,7 @@
           <button type="button" title="Save to collection" style="appearance: none; cursor: pointer; color: var(--ink2); background: var(--raise); border: 1px solid var(--line); border-radius: 9px; width: 38px; height: 38px; display: flex; align-items: center; justify-content: center;" style-hover="background: var(--sel); color: var(--accent);">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M6.5 4.5h11a1 1 0 0 1 1 1V20l-6.5-4.6L5.5 20V5.5a1 1 0 0 1 1-1Z"></path></svg>
           </button>
-          <button type="button" style="appearance: none; cursor: pointer; font-family: inherit; font-size: 14px; font-weight: 600; height: 38px; padding: 0 18px; background: var(--accent); color: #fff; border: 0; border-radius: 9px; display: flex; align-items: center; gap: 10px;" style-hover="background: var(--accent-press);">Send<span style="font-size: 12px; font-weight: 500; padding: 2px 5px; border-radius: 5px; background: rgba(255,255,255,0.22);">⌘↵</span></button>
+          <button type="button" style="appearance: none; cursor: pointer; font-family: inherit; font-size: 14px; font-weight: 600; height: 38px; padding: 0 18px; background: var(--accent); color: #fff; border: 0; border-radius: 9px; display: flex; align-items: center; gap: 10px; opacity: {{ sendOpacity }};" style-hover="background: var(--accent-press);">Send<span style="font-size: 12px; font-weight: 500; padding: 2px 5px; border-radius: 5px; background: rgba(255,255,255,0.22);">⌘↵</span></button>
 
           <sc-if value="{{ popParams }}" hint-placeholder-val="{{ false }}">
             <div style="position: absolute; top: 58px; right: 190px; width: 500px; background: var(--pop); backdrop-filter: blur(30px) saturate(180%); -webkit-backdrop-filter: blur(30px) saturate(180%); border: 1px solid var(--line); border-radius: 12px; box-shadow: var(--popshadow); padding: 14px; display: flex; flex-direction: column; gap: 4px; z-index: 50;">
@@ -560,6 +606,14 @@
             </div>
           </sc-if>
         </div>
+        </sc-if>
+
+        <sc-if value="{{ varError }}" hint-placeholder-val="{{ false }}">
+          <div style="flex: none; display: flex; align-items: center; gap: 10px; padding: 10px 20px; background: var(--bad-soft); border-bottom: 1px solid var(--line);">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" style="color: var(--bad); flex: none;"><path d="M12 4.5 2.8 20h18.4Z"></path><path d="M12 10v4.4M12 17.2h.01"></path></svg>
+            <span style="flex: 1; min-width: 0; font-size: 13.5px; color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="The variable var is not defined in Local · dev. Sending is blocked until it resolves."><span style="font-family: ui-monospace, 'SF Mono', 'Cascadia Code', Menlo, monospace; font-size: 12.5px; font-weight: 600; color: var(--bad);">var</span> is not in <span style="font-weight: 600;">Local · dev</span> — sending is blocked</span>
+            <button type="button" onClick="{{ openNewVariable }}" style="appearance: none; cursor: pointer; font-family: inherit; font-size: 13px; font-weight: 600; white-space: nowrap; height: 30px; padding: 0 14px; background: var(--accent); color: #fff; border: 0; border-radius: 7px; flex: none;" style-hover="background: var(--accent-press);">Create variable</button>
+          </div>
         </sc-if>
 
         <sc-if value="{{ showResponse }}" hint-placeholder-val="{{ true }}">
@@ -1032,56 +1086,258 @@
           </div>
         </sc-if>
 
+        <sc-if value="{{ signinOpen }}" hint-placeholder-val="{{ false }}">
+          <div style="position: absolute; inset: 0; background: rgba(0,0,0,0.22); display: flex; align-items: center; justify-content: center; padding: 28px; z-index: 85;">
+            <div style="width: 400px; background: var(--pop); backdrop-filter: blur(30px) saturate(180%); -webkit-backdrop-filter: blur(30px) saturate(180%); border: 1px solid var(--line); border-radius: 14px; box-shadow: var(--popshadow); overflow: hidden; display: flex; flex-direction: column;">
+              <div style="height: 42px; flex: none; display: flex; align-items: center; justify-content: center; border-bottom: 1px solid var(--line); position: relative;">
+                <span style="font-size: 12.5px; font-weight: 600; color: var(--ink2);">Sign in</span>
+                <button type="button" onClick="{{ closeSignin }}" title="Close" style="appearance: none; cursor: pointer; position: absolute; right: 8px; color: var(--ink3); background: transparent; border: 0; border-radius: 6px; width: 26px; height: 26px; display: flex; align-items: center; justify-content: center;" style-hover="background: var(--sel); color: var(--ink);">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"></path></svg>
+                </button>
+              </div>
+
+              <sc-if value="{{ signinStart }}" hint-placeholder-val="{{ true }}">
+                <div style="padding: 32px 30px 26px; display: flex; flex-direction: column; align-items: center; gap: 20px;">
+                  <span style="width: 48px; height: 48px; border-radius: 12px; background: var(--accent); color: #fff; display: inline-flex; align-items: center; justify-content: center;">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3h8l4 4v10a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2Z"></path><path d="M9 9h6M9 13h6M9 17h3"></path></svg>
+                  </span>
+                  <div style="display: flex; flex-direction: column; align-items: center; gap: 7px; text-align: center;">
+                    <span style="font-size: 17px; font-weight: 600; letter-spacing: -0.01em;">Sign in to JSON Inspector</span>
+                    <span style="font-size: 13px; line-height: 1.5; color: var(--ink2); max-width: 290px;">Collections, environments and history stay in sync across your devices.</span>
+                  </div>
+                  <button type="button" onClick="{{ startSignin }}" style="appearance: none; cursor: pointer; width: 100%; font-family: inherit; font-size: 13.5px; font-weight: 600; height: 36px; background: var(--accent); color: #fff; border: 0; border-radius: 8px; display: flex; align-items: center; justify-content: center; gap: 9px;" style-hover="background: var(--accent-press);">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4.5" width="18" height="15" rx="2.2"></rect><path d="m3.6 8h16.8"></path></svg>Continue in the browser
+                  </button>
+                  <div style="display: flex; align-items: center; gap: 10px;">
+                    <button type="button" onClick="{{ closeSignin }}" style="appearance: none; cursor: pointer; font-family: inherit; font-size: 12.5px; color: var(--ink3); background: transparent; border: 0; padding: 2px;" style-hover="color: var(--ink);">Continue without an account</button>
+                    <span style="color: var(--line);">·</span>
+                    <button type="button" onClick="{{ toggleCustomServer }}" style="appearance: none; cursor: pointer; font-family: inherit; font-size: 12.5px; color: var(--ink3); background: transparent; border: 0; padding: 2px; display: inline-flex; align-items: center; gap: 5px;" style-hover="color: var(--ink);">Custom server
+                      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" style="transform: rotate({{ customServerRot }});"><path d="m6 9 6 6 6-6"></path></svg>
+                    </button>
+                  </div>
+                  <sc-if value="{{ customServerOpen }}" hint-placeholder-val="{{ false }}">
+                    <div style="width: 100%; box-sizing: border-box; border: 1px solid var(--line); border-radius: 10px; background: var(--raise); padding: 11px 12px; display: flex; flex-direction: column; gap: 7px;">
+                      <span style="font-size: 11px; font-weight: 600; letter-spacing: 0.07em; text-transform: uppercase; color: var(--ink3);">Server address</span>
+                      <div style="display: flex; gap: 7px;">
+                        <span style="flex: 1; min-width: 0; height: 30px; padding: 0 10px; display: flex; align-items: center; border: 1px solid var(--fieldline); border-radius: 7px; background: var(--field); font-family: ui-monospace, 'SF Mono', 'Cascadia Code', Menlo, monospace; font-size: 11.5px; color: var(--ink2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">https://app.jsoninspector.dev</span>
+                        <button type="button" style="appearance: none; cursor: pointer; flex: none; font-family: inherit; font-size: 12.5px; height: 30px; padding: 0 11px; background: var(--field); color: var(--ink); border: 1px solid var(--fieldline); border-radius: 7px;" style-hover="background: var(--sel);">Apply</button>
+                      </div>
+                      <span style="font-size: 11px; line-height: 1.45; color: var(--ink3);">A custom server is for self-hosted deployments. By default the app signs in to the JSON Inspector cloud.</span>
+                    </div>
+                  </sc-if>
+                </div>
+              </sc-if>
+
+              <sc-if value="{{ signinWaiting }}" hint-placeholder-val="{{ false }}">
+                <div style="padding: 38px 30px 32px; display: flex; flex-direction: column; align-items: center; gap: 20px;">
+                  <span style="width: 44px; height: 44px; border-radius: 999px; border: 2.5px solid var(--accent-soft); border-top-color: var(--accent); animation: om-spin 900ms linear infinite;"></span>
+                  <div style="display: flex; flex-direction: column; align-items: center; gap: 7px; text-align: center;">
+                    <span style="font-size: 15px; font-weight: 600;">Opening the browser…</span>
+                    <span style="font-size: 13px; line-height: 1.5; color: var(--ink2); max-width: 290px;">Finish signing in there — the app continues on its own.</span>
+                  </div>
+                  <div style="display: flex; align-items: center; gap: 14px;">
+                    <button type="button" style="appearance: none; cursor: pointer; font-family: inherit; font-size: 13px; font-weight: 500; color: var(--accent); background: transparent; border: 0; padding: 2px;" style-hover="text-decoration: underline;">Open the browser again</button>
+                    <button type="button" onClick="{{ cancelSignin }}" style="appearance: none; cursor: pointer; font-family: inherit; font-size: 13px; color: var(--ink3); background: transparent; border: 0; padding: 2px;" style-hover="color: var(--ink);">Cancel</button>
+                  </div>
+                </div>
+              </sc-if>
+            </div>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{ settingsOpen }}" hint-placeholder-val="{{ false }}">
+          <div style="position: absolute; inset: 0; background: rgba(0,0,0,0.22); display: flex; align-items: center; justify-content: center; padding: 28px; z-index: 80;">
+            <div style="width: 100%; max-width: 900px; height: 100%; max-height: 580px; background: var(--pop); backdrop-filter: blur(30px) saturate(180%); -webkit-backdrop-filter: blur(30px) saturate(180%); border: 1px solid var(--line); border-radius: 14px; box-shadow: var(--popshadow); overflow: hidden; display: flex; flex-direction: column;">
+              <div style="height: 50px; flex: none; display: flex; align-items: center; gap: 12px; padding: 0 16px; border-bottom: 1px solid var(--line);">
+                <span style="flex: 1; font-size: 14px; font-weight: 600;">Settings</span>
+                <button type="button" onClick="{{ closeSettings }}" style="appearance: none; cursor: pointer; font-family: inherit; font-size: 13px; font-weight: 500; height: 30px; padding: 0 14px; background: var(--field); color: var(--ink); border: 1px solid var(--fieldline); border-radius: 8px;" style-hover="background: var(--sel);">Done</button>
+              </div>
+              <div style="flex: 1; min-height: 0; display: flex;">
+                <div style="width: 236px; flex: none; border-right: 1px solid var(--line); display: flex; flex-direction: column; padding: 8px 8px 0;">
+                  <sc-for list="{{ setTabs }}" as="t" hint-placeholder-count="6">
+                    <button type="button" onClick="{{ t.on }}" style="appearance: none; cursor: pointer; font-family: inherit; text-align: left; border: 0; border-radius: 8px; background: {{ t.bg }}; padding: 8px 9px; display: flex; align-items: center; gap: 10px; color: var(--ink);" style-hover="background: var(--sel);">
+                      <span style="width: 22px; height: 22px; flex: none; border-radius: 6px; background: {{ t.tint }}; color: #fff; display: inline-flex; align-items: center; justify-content: center;">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="{{ t.icon }}"></path></svg>
+                      </span>
+                      <span style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px;">
+                        <span style="font-size: 13px; font-weight: {{ t.weight }}; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{{ t.name }}</span>
+                        <span style="font-size: 11px; color: var(--ink3); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{{ t.meta }}</span>
+                      </span>
+                    </button>
+                  </sc-for>
+                  <div style="flex: 1;"></div>
+                  <div style="flex: none; padding: 8px 9px; border-top: 1px solid var(--line2); display: flex; flex-direction: column; gap: 2px;">
+                    <span style="font-size: 11.5px; color: var(--ink2);">{{ setVersion }}</span>
+                    <span style="font-size: 11px; color: var(--ink3);">{{ setVersionMeta }}</span>
+                  </div>
+                </div>
+
+                <div style="flex: 1; min-width: 0; overflow-y: auto; padding: 18px 20px; display: flex; flex-direction: column; gap: 18px;">
+                  <sc-for list="{{ setSections }}" as="s" hint-placeholder-count="3">
+                    <div style="display: flex; flex-direction: column; gap: 8px;">
+                      <span style="font-size: 11px; font-weight: 600; letter-spacing: 0.07em; text-transform: uppercase; color: var(--ink3);">{{ s.label }}</span>
+                      <div style="border: 1px solid var(--line); border-radius: 10px; overflow: hidden;">
+                        <sc-for list="{{ s.rows }}" as="r" hint-placeholder-count="3">
+                          <div style="display: flex; align-items: center; gap: 14px; min-height: 48px; padding: 9px 12px; border-bottom: 1px solid {{ r.line }};">
+                            <span style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px;">
+                              <span style="font-size: 13px;">{{ r.title }}</span>
+                              <span style="font-size: 11.5px; line-height: 1.45; color: var(--ink3);">{{ r.note }}</span>
+                            </span>
+                            <sc-if value="{{ r.isToggle }}" hint-placeholder-val="{{ false }}">
+                              <button type="button" onClick="{{ r.on }}" style="appearance: none; cursor: pointer; flex: none; width: 38px; height: 22px; padding: 0; border: 0; border-radius: 999px; background: {{ r.trackBg }}; position: relative;">
+                                <span style="position: absolute; top: 2px; left: {{ r.knobX }}; width: 18px; height: 18px; border-radius: 999px; background: #fff; box-shadow: 0 1px 2px rgba(0,0,0,0.25); transition: left 120ms ease;"></span>
+                              </button>
+                            </sc-if>
+                            <sc-if value="{{ r.isSegment }}" hint-placeholder-val="{{ false }}">
+                              <div style="flex: none; display: flex; padding: 2px; border-radius: 8px; background: var(--chip);">
+                                <sc-for list="{{ r.segs }}" as="o" hint-placeholder-count="3">
+                                  <button type="button" onClick="{{ o.on }}" style="appearance: none; cursor: pointer; font-family: inherit; font-size: 12.5px; font-weight: 500; white-space: nowrap; height: 26px; padding: 0 11px; border: 0; border-radius: 6px; background: {{ o.bg }}; color: {{ o.ink }}; box-shadow: {{ o.sh }};">{{ o.label }}</button>
+                                </sc-for>
+                              </div>
+                            </sc-if>
+                            <sc-if value="{{ r.isSelect }}" hint-placeholder-val="{{ false }}">
+                              <span style="flex: none; position: relative; display: inline-flex; align-items: center;">
+                                <select value="{{ r.value }}" onChange="{{ r.on }}" style="appearance: none; -webkit-appearance: none; cursor: pointer; font-family: inherit; font-size: 12.5px; color: var(--ink); height: 28px; padding: 0 30px 0 10px; min-width: 140px; background: var(--field); border: 1px solid var(--fieldline); border-radius: 7px;">
+                                  <sc-for list="{{ r.options }}" as="o" hint-placeholder-count="2">
+                                    <option value="{{ o.label }}">{{ o.label }}</option>
+                                  </sc-for>
+                                </select>
+                                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" style="position: absolute; right: 9px; color: var(--ink3); pointer-events: none;"><path d="m6 9 6 6 6-6"></path></svg>
+                              </span>
+                            </sc-if>
+                            <sc-if value="{{ r.isValue }}" hint-placeholder-val="{{ false }}">
+                              <span style="flex: none; display: flex; align-items: center; gap: 7px; height: 28px; padding: 0 10px; border-radius: 7px; background: var(--field); border: 1px solid var(--fieldline); font-size: 12.5px; color: var(--ink2); max-width: 240px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{{ r.value }}</span>
+                            </sc-if>
+                            <sc-if value="{{ r.isButton }}" hint-placeholder-val="{{ false }}">
+                              <button type="button" onClick="{{ r.on }}" style="appearance: none; cursor: pointer; flex: none; font-family: inherit; font-size: 12.5px; font-weight: 500; white-space: nowrap; height: 30px; padding: 0 12px; background: {{ r.btnBg }}; color: {{ r.btnInk }}; border: 1px solid {{ r.btnLine }}; border-radius: 7px;" style-hover="filter: brightness(1.05);">{{ r.action }}</button>
+                            </sc-if>
+                          </div>
+                        </sc-for>
+                      </div>
+                      <sc-if value="{{ s.hasNote }}" hint-placeholder-val="{{ false }}">
+                        <span style="font-size: 11.5px; line-height: 1.5; color: var(--ink3);">{{ s.note }}</span>
+                      </sc-if>
+                    </div>
+                  </sc-for>
+                </div>
+              </div>
+            </div>
+          </div>
+        </sc-if>
+
         <sc-if value="{{ envEditorOpen }}" hint-placeholder-val="{{ false }}">
           <div style="position: absolute; inset: 0; background: rgba(0,0,0,0.22); display: flex; align-items: center; justify-content: center; padding: 28px; z-index: 80;">
-            <div style="width: 100%; max-width: 1040px; height: 100%; max-height: 620px; background: var(--pop); backdrop-filter: blur(30px) saturate(180%); -webkit-backdrop-filter: blur(30px) saturate(180%); border: 1px solid var(--line); border-radius: 14px; box-shadow: var(--popshadow); overflow: hidden; display: flex; flex-direction: column;">
+            <div style="width: 100%; max-width: 900px; height: 100%; max-height: 580px; background: var(--pop); backdrop-filter: blur(30px) saturate(180%); -webkit-backdrop-filter: blur(30px) saturate(180%); border: 1px solid var(--line); border-radius: 14px; box-shadow: var(--popshadow); overflow: hidden; display: flex; flex-direction: column;">
               <div style="height: 50px; flex: none; display: flex; align-items: center; gap: 12px; padding: 0 16px; border-bottom: 1px solid var(--line);">
-                <span style="flex: 1; font-size: 14px; font-weight: 600;">Environment variables</span>
-                <span style="font-size: 12.5px; color: var(--ink3);">Workspace {{ wsName }}</span>
+                <span style="flex: 1; font-size: 14px; font-weight: 600;">Environments</span>
                 <button type="button" onClick="{{ closeEnvEditor }}" style="appearance: none; cursor: pointer; font-family: inherit; font-size: 13px; font-weight: 500; height: 30px; padding: 0 14px; background: var(--field); color: var(--ink); border: 1px solid var(--fieldline); border-radius: 8px;" style-hover="background: var(--sel);">Done</button>
               </div>
               <div style="flex: 1; min-height: 0; display: flex;">
                 <div style="width: 236px; flex: none; border-right: 1px solid var(--line); display: flex; flex-direction: column; padding: 8px 8px 0;">
-                  <div style="padding: 6px 8px; font-size: 11px; font-weight: 600; letter-spacing: 0.07em; text-transform: uppercase; color: var(--ink3);">Environments</div>
                   <sc-for list="{{ envList }}" as="e" hint-placeholder-count="4">
-                    <button type="button" onClick="{{ e.on }}" style="appearance: none; cursor: pointer; font-family: inherit; text-align: left; border: 0; border-radius: 7px; background: {{ e.bg }}; height: 34px; padding: 0 9px; display: flex; align-items: center; gap: 9px; color: var(--ink);" style-hover="background: var(--sel);">
-                      <span style="width: 7px; height: 7px; flex: none; border-radius: 999px; background: {{ e.dot }};"></span>
-                      <span style="flex: 1; min-width: 0; font-size: 13px; font-weight: {{ e.weight }}; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{{ e.name }}</span>
+                    <button type="button" onClick="{{ e.on }}" style="appearance: none; cursor: pointer; font-family: inherit; text-align: left; border: 0; border-radius: 8px; background: {{ e.bg }}; padding: 8px 9px; display: flex; align-items: center; gap: 10px; color: var(--ink);" style-hover="background: var(--sel);">
+                      <span style="width: 22px; height: 22px; flex: none; border-radius: 6px; background: {{ e.tint }}; color: #fff; font-size: 10.5px; font-weight: 700; display: inline-flex; align-items: center; justify-content: center;">{{ e.initial }}</span>
+                      <span style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px;">
+                        <span style="font-size: 13px; font-weight: {{ e.weight }}; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{{ e.name }}</span>
+                        <span style="font-size: 11px; color: var(--ink3);">{{ e.meta }}</span>
+                      </span>
                       <sc-if value="{{ e.locked }}" hint-placeholder-val="{{ false }}">
                         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" style="color: var(--ink3); flex: none;"><rect x="5" y="11" width="14" height="9" rx="2"></rect><path d="M8 11V8a4 4 0 0 1 8 0v3"></path></svg>
                       </sc-if>
-                      <span style="flex: none; font-family: ui-monospace, 'SF Mono', 'Cascadia Code', Menlo, monospace; font-size: 11px; color: var(--ink3);">{{ e.count }}</span>
                     </button>
                   </sc-for>
                   <div style="flex: 1;"></div>
-                  <div style="flex: none; display: flex; align-items: center; gap: 2px; padding: 6px 2px; border-top: 1px solid var(--line2);">
-                    <button type="button" title="New environment" style="appearance: none; cursor: pointer; width: 28px; height: 28px; border: 0; border-radius: 6px; background: transparent; color: var(--ink2); display: flex; align-items: center; justify-content: center;" style-hover="background: var(--sel); color: var(--ink);">
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"></path></svg>
+                  <div style="flex: none; padding: 6px 2px; border-top: 1px solid var(--line2);">
+                    <button type="button" onClick="{{ startEnvCreate }}" style="appearance: none; cursor: pointer; font-family: inherit; font-size: 12.5px; font-weight: 500; color: var(--accent); background: {{ envCreateBg }}; border: 0; border-radius: 6px; height: 28px; padding: 0 8px; display: flex; align-items: center; gap: 7px;" style-hover="background: var(--accent-soft);">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 5v14M5 12h14"></path></svg>New environment
                     </button>
-                    <button type="button" title="Remove environment" style="appearance: none; cursor: pointer; width: 28px; height: 28px; border: 0; border-radius: 6px; background: transparent; color: var(--ink2); display: flex; align-items: center; justify-content: center;" style-hover="background: var(--sel); color: var(--ink);">
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M5 12h14"></path></svg>
-                    </button>
-                    <div style="flex: 1;"></div>
-                    <button type="button" onClick="{{ openImportEnv }}" style="appearance: none; cursor: pointer; font-family: inherit; font-size: 12px; height: 28px; padding: 0 8px; border: 0; border-radius: 6px; background: transparent; color: var(--ink2);" style-hover="background: var(--sel); color: var(--ink);">Import .env</button>
                   </div>
                 </div>
-                <div style="flex: 1; min-width: 0; display: flex; flex-direction: column;">
-                  <div style="height: 42px; flex: none; display: flex; align-items: center; gap: 10px; padding: 0 14px; border-bottom: 1px solid var(--line2);">
-                    <div style="display: flex; align-items: center; gap: 7px; height: 28px; padding: 0 10px; border-radius: 7px; background: var(--chip); color: var(--ink3); max-width: 280px; flex: 1;">
-                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="11" cy="11" r="7"></circle><path d="m20 20-4.4-4.4"></path></svg>
-                      <span style="font-size: 12.5px;">Filter by name</span>
+                <sc-if value="{{ envCreating }}" hint-placeholder-val="{{ false }}">
+                  <div style="flex: 1; min-width: 0; overflow-y: auto; padding: 18px 20px; display: flex; flex-direction: column; gap: 18px;">
+                    <span style="font-size: 15px; font-weight: 600;">New environment</span>
+                    <div style="display: flex; gap: 14px; align-items: flex-end;">
+                      <div style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px;">
+                        <span style="font-size: 11px; font-weight: 600; letter-spacing: 0.07em; text-transform: uppercase; color: var(--ink3);">Name</span>
+                        <span style="height: 34px; padding: 0 11px; display: flex; align-items: center; border: 1px solid var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); border-radius: 8px; background: var(--field); font-size: 13.5px; color: var(--ink3);">e.g. Stage · eu</span>
+                      </div>
+                      <div style="flex: none; display: flex; flex-direction: column; gap: 6px;">
+                        <span style="font-size: 11px; font-weight: 600; letter-spacing: 0.07em; text-transform: uppercase; color: var(--ink3);">Color</span>
+                        <div style="display: flex; gap: 7px; height: 34px; align-items: center;">
+                          <sc-for list="{{ envColors }}" as="c" hint-placeholder-count="4">
+                            <button type="button" onClick="{{ c.on }}" style="appearance: none; cursor: pointer; width: 20px; height: 20px; padding: 0; border: 0; border-radius: 999px; background: {{ c.hex }}; box-shadow: {{ c.ring }};"></button>
+                          </sc-for>
+                        </div>
+                      </div>
                     </div>
-                    <div style="flex: 1;"></div>
-                    <sc-if value="{{ envLocked }}" hint-placeholder-val="{{ false }}">
-                      <span style="font-size: 11.5px; font-weight: 600; padding: 4px 9px; border-radius: 6px; background: var(--bad-soft); color: var(--bad);">read-only · unlock to edit</span>
-                    </sc-if>
+                    <div style="display: flex; flex-direction: column; gap: 6px;">
+                      <span style="font-size: 11px; font-weight: 600; letter-spacing: 0.07em; text-transform: uppercase; color: var(--ink3);">Start from</span>
+                      <div style="display: flex; padding: 2px; border-radius: 8px; background: var(--chip); max-width: 300px;">
+                        <sc-for list="{{ envNewBases }}" as="t" hint-placeholder-count="3">
+                          <button type="button" onClick="{{ t.on }}" style="appearance: none; cursor: pointer; flex: 1; font-family: inherit; font-size: 12.5px; font-weight: 500; white-space: nowrap; height: 28px; border: 0; border-radius: 6px; background: {{ t.bg }}; color: {{ t.ink }}; box-shadow: {{ t.sh }};">{{ t.label }}</button>
+                        </sc-for>
+                      </div>
+                    </div>
+                    <div style="display: flex; flex-direction: column; gap: 8px;">
+                      <span style="font-size: 11px; font-weight: 600; letter-spacing: 0.07em; text-transform: uppercase; color: var(--ink3);">Variables</span>
+                      <div style="border: 1px solid var(--line); border-radius: 10px; overflow: hidden;">
+                        <div style="display: flex; align-items: center; gap: 10px; height: 42px; padding: 0 12px; border-bottom: 1px solid var(--line2);">
+                          <span style="flex: 1; min-width: 0; font-size: 13px; color: var(--ink2);">{{ envNewNote }}</span>
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 10px; height: 44px; padding: 0 12px;">
+                          <span style="flex: 1; min-width: 0; font-size: 13px; color: var(--ink3);">Bring keys from a .env file</span>
+                          <button type="button" onClick="{{ openImportEnv }}" style="appearance: none; cursor: pointer; font-family: inherit; font-size: 12.5px; font-weight: 500; height: 30px; padding: 0 12px; background: var(--field); color: var(--ink); border: 1px solid var(--fieldline); border-radius: 7px;" style-hover="background: var(--sel);">Import .env</button>
+                        </div>
+                      </div>
+                    </div>
+                    <div style="display: flex; gap: 10px; padding-top: 4px; border-top: 1px solid var(--line);">
+                      <div style="flex: 1;"></div>
+                      <button type="button" onClick="{{ cancelEnvCreate }}" style="appearance: none; cursor: pointer; font-family: inherit; font-size: 13.5px; font-weight: 500; height: 34px; padding: 0 14px; background: var(--field); color: var(--ink); border: 1px solid var(--fieldline); border-radius: 8px;" style-hover="background: var(--sel);">Cancel</button>
+                      <button type="button" onClick="{{ cancelEnvCreate }}" style="appearance: none; cursor: pointer; font-family: inherit; font-size: 13.5px; font-weight: 600; height: 34px; padding: 0 16px; background: var(--accent); color: #fff; border: 0; border-radius: 8px;" style-hover="background: var(--accent-press);">Create environment</button>
+                    </div>
                   </div>
-                  <div style="flex: none; display: grid; grid-template-columns: 210px minmax(0, 1fr) 110px 58px; height: 32px; align-items: center; padding: 0 14px; border-bottom: 1px solid var(--line2); font-size: 11px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink3);">
-                    <span>Variable</span><span>Value</span><span>Type</span><span></span>
+                </sc-if>
+
+                <sc-if value="{{ envDetailOpen }}" hint-placeholder-val="{{ true }}">
+                <div style="flex: 1; min-width: 0; overflow-y: auto; padding: 18px 20px; display: flex; flex-direction: column; gap: 18px;">
+                  <div style="display: flex; gap: 14px; align-items: flex-end;">
+                    <div style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px;">
+                      <span style="font-size: 11px; font-weight: 600; letter-spacing: 0.07em; text-transform: uppercase; color: var(--ink3);">Name</span>
+                      <span style="height: 34px; padding: 0 11px; display: flex; align-items: center; border: 1px solid var(--fieldline); border-radius: 8px; background: var(--field); font-size: 13.5px;">{{ envDetailName }}</span>
+                    </div>
+                    <div style="flex: none; display: flex; flex-direction: column; gap: 6px;">
+                      <span style="font-size: 11px; font-weight: 600; letter-spacing: 0.07em; text-transform: uppercase; color: var(--ink3);">Color</span>
+                      <div style="display: flex; gap: 7px; height: 34px; align-items: center;">
+                        <sc-for list="{{ envColors }}" as="c" hint-placeholder-count="4">
+                          <button type="button" onClick="{{ c.on }}" style="appearance: none; cursor: pointer; width: 20px; height: 20px; padding: 0; border: 0; border-radius: 999px; background: {{ c.hex }}; box-shadow: {{ c.ring }};"></button>
+                        </sc-for>
+                      </div>
+                    </div>
                   </div>
-                  <div style="flex: 1; min-height: 0; overflow-y: auto;">
+
+                  <div style="display: flex; flex-direction: column; gap: 6px;">
+                    <span style="font-size: 11px; font-weight: 600; letter-spacing: 0.07em; text-transform: uppercase; color: var(--ink3);">Access</span>
+                    <div style="display: flex; padding: 2px; border-radius: 8px; background: var(--chip); max-width: 260px;">
+                      <sc-for list="{{ envAccess }}" as="t" hint-placeholder-count="2">
+                        <button type="button" onClick="{{ t.on }}" style="appearance: none; cursor: pointer; flex: 1; font-family: inherit; font-size: 12.5px; font-weight: 500; height: 28px; border: 0; border-radius: 6px; background: {{ t.bg }}; color: {{ t.ink }}; box-shadow: {{ t.sh }};">{{ t.label }}</button>
+                      </sc-for>
+                    </div>
+                  </div>
+
+                  <div style="display: flex; flex-direction: column; gap: 8px;">
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                      <span style="font-size: 11px; font-weight: 600; letter-spacing: 0.07em; text-transform: uppercase; color: var(--ink3);">Variables</span>
+                      <span style="font-family: ui-monospace, 'SF Mono', 'Cascadia Code', Menlo, monospace; font-size: 11px; color: var(--ink3);">{{ envVarCount }}</span>
+                      <div style="flex: 1;"></div>
+                      <button type="button" onClick="{{ openImportEnv }}" style="appearance: none; cursor: pointer; font-family: inherit; font-size: 12.5px; font-weight: 500; height: 26px; padding: 0 9px; background: transparent; color: var(--ink2); border: 0; border-radius: 6px;" style-hover="background: var(--sel); color: var(--ink);">Import .env</button>
+                    </div>
+                    <div style="border: 1px solid var(--line); border-radius: 10px; overflow: hidden;">
+                      <div style="display: grid; grid-template-columns: 190px minmax(0, 1fr) 100px 46px; height: 32px; align-items: center; padding: 0 12px; background: var(--raise); border-bottom: 1px solid var(--line2); font-size: 11px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink3);">
+                        <span>Variable</span><span>Value</span><span>Type</span><span></span>
+                      </div>
+                      <div>
                     <sc-for list="{{ envOwnVars }}" as="v" hint-placeholder-count="5">
-                      <div style="display: grid; grid-template-columns: 210px minmax(0, 1fr) 110px 58px; align-items: center; height: 40px; padding: 0 14px; border-bottom: 1px solid var(--line2);" style-hover="background: var(--sel);">
+                      <div style="display: grid; grid-template-columns: 190px minmax(0, 1fr) 100px 46px; align-items: center; height: 40px; padding: 0 12px; border-bottom: 1px solid var(--line2);" style-hover="background: var(--sel);">
                         <span style="font-family: ui-monospace, 'SF Mono', 'Cascadia Code', Menlo, monospace; font-size: 12.5px; padding-right: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{{ v.k }}</span>
                         <span style="display: flex; align-items: center; gap: 6px; min-width: 0; padding-right: 12px;">
                           <span style="font-family: ui-monospace, 'SF Mono', 'Cascadia Code', Menlo, monospace; font-size: 12.5px; color: {{ v.valueInk }}; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{{ v.v }}</span>
@@ -1099,17 +1355,24 @@
                         </span>
                       </div>
                     </sc-for>
-                    <button type="button" onClick="{{ openNewVariable }}" style="appearance: none; cursor: pointer; width: 100%; font-family: inherit; text-align: left; display: flex; align-items: center; gap: 7px; height: 40px; padding: 0 14px; border: 0; border-bottom: 1px solid var(--line2); background: transparent; color: var(--ink3); font-size: 12.5px;" style-hover="background: var(--sel); color: var(--accent);">
+                    <button type="button" onClick="{{ openNewVariable }}" style="appearance: none; cursor: pointer; width: 100%; font-family: inherit; text-align: left; display: flex; align-items: center; gap: 7px; height: 40px; padding: 0 12px; border: 0; border-bottom: 1px solid var(--line2); background: transparent; color: var(--ink3); font-size: 12.5px;" style-hover="background: var(--sel); color: var(--accent);">
                       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"></path></svg>New variable
                     </button>
-                    <div style="display: flex; align-items: center; gap: 9px; height: 32px; padding: 0 14px; background: var(--raise); border-bottom: 1px solid var(--line2);">
+                    </div>
+                    </div>
+                    <span style="font-size: 11.5px; color: var(--ink3);">Secrets are kept in the system keychain and never leave in a collection export.</span>
+                  </div>
+
+                  <div style="display: flex; flex-direction: column; gap: 8px;">
+                    <div style="display: flex; align-items: center; gap: 10px;">
                       <span style="font-size: 11px; font-weight: 600; letter-spacing: 0.07em; text-transform: uppercase; color: var(--ink3);">Inherited from globals</span>
                       <span style="font-family: ui-monospace, 'SF Mono', 'Cascadia Code', Menlo, monospace; font-size: 11px; color: var(--ink3);">{{ envGlobalCount }}</span>
                       <div style="flex: 1;"></div>
                       <span style="font-size: 11.5px; color: var(--ink3);">apply in every environment</span>
                     </div>
+                    <div style="border: 1px solid var(--line); border-radius: 10px; overflow: hidden;">
                     <sc-for list="{{ envGlobalVars }}" as="v" hint-placeholder-count="3">
-                      <div style="display: grid; grid-template-columns: 210px minmax(0, 1fr) 110px 58px; align-items: center; height: 40px; padding: 0 14px; border-bottom: 1px solid var(--line2);" style-hover="background: var(--sel);">
+                      <div style="display: grid; grid-template-columns: 190px minmax(0, 1fr) 100px 46px; align-items: center; height: 40px; padding: 0 12px; border-bottom: 1px solid var(--line2);" style-hover="background: var(--sel);">
                         <span style="display: flex; align-items: center; gap: 7px; min-width: 0; padding-right: 12px;">
                           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="color: var(--type); flex: none;"><path d="M4 6v6a4 4 0 0 0 4 4h11"></path><path d="m15 12 4 4-4 4"></path></svg>
                           <span style="font-family: ui-monospace, 'SF Mono', 'Cascadia Code', Menlo, monospace; font-size: 12.5px; color: var(--ink3); text-decoration: {{ v.strike }}; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{{ v.k }}</span>
@@ -1121,9 +1384,15 @@
                         </span>
                       </div>
                     </sc-for>
+                    </div>
                   </div>
-                  <div style="height: 36px; flex: none; display: flex; align-items: center; padding: 0 14px; border-top: 1px solid var(--line2); font-size: 11.5px; color: var(--ink3);">Secrets are kept in the system keychain and never leave in a collection export.</div>
+
+                  <div style="display: flex; align-items: center; gap: 12px; padding-top: 4px; border-top: 1px solid var(--line);">
+                    <span style="flex: 1; min-width: 0; font-size: 12.5px; color: var(--ink3);">{{ envDangerNote }}</span>
+                    <button type="button" onClick="{{ openEnvDanger }}" style="appearance: none; cursor: pointer; font-family: inherit; font-size: 12.5px; font-weight: 500; height: 30px; padding: 0 12px; background: transparent; color: var(--bad); border: 1px solid var(--bad-soft); border-radius: 7px;" style-hover="background: var(--bad-soft);">{{ envDangerAction }}</button>
+                  </div>
                 </div>
+                </sc-if>
               </div>
             </div>
           </div>
@@ -1277,24 +1546,37 @@
         </sc-if>
 
         <sc-if value="{{ isCollEmptyPage }}" hint-placeholder-val="{{ false }}">
-          <div style="flex: 1; min-height: 0; display: flex; align-items: center; justify-content: center; padding: 40px;">
-            <div style="max-width: 460px; display: flex; flex-direction: column; align-items: flex-start; gap: 16px;">
-              <span style="width: 52px; height: 52px; border-radius: 14px; background: var(--chip); color: var(--ink3); display: inline-flex; align-items: center; justify-content: center;">
-                <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h16a1 1 0 0 0 1-1V8a1 1 0 0 0-1-1h-7l-2-3H4a1 1 0 0 0-1 1v14a1 1 0 0 0 1 1Z"></path></svg>
+          <div style="flex: 1; min-height: 0; overflow-y: auto; padding: 40px 44px; display: flex; flex-direction: column; gap: 28px;">
+            <div style="display: flex; flex-direction: column; gap: 10px; max-width: 620px;">
+              <span style="display: inline-flex; align-items: center; gap: 9px; align-self: flex-start; font-size: 12px; font-weight: 600; padding: 5px 10px; border-radius: 7px; background: var(--chip); color: var(--ink2);">
+                <span style="width: 8px; height: 8px; border-radius: 999px; background: currentColor;"></span>No collections in Personal
               </span>
-              <div style="display: flex; flex-direction: column; gap: 8px;">
-                <span style="font-size: 22px; font-weight: 600; letter-spacing: -0.01em;">No collections in Personal</span>
-                <span style="font-size: 14px; line-height: 1.55; color: var(--ink2);">Collections keep related requests together with their own variables, authorization and scripts. Start from scratch or bring an existing file.</span>
-              </div>
-              <div style="display: flex; gap: 10px;">
-                <button type="button" onClick="{{ openNewCollection }}" style="appearance: none; cursor: pointer; font-family: inherit; font-size: 14px; font-weight: 600; height: 38px; padding: 0 18px; background: var(--accent); color: #fff; border: 0; border-radius: 9px; display: flex; align-items: center; gap: 9px;" style-hover="background: var(--accent-press);">
-                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 5v14M5 12h14"></path></svg>New collection
-                </button>
-                <button type="button" onClick="{{ openImport }}" style="appearance: none; cursor: pointer; font-family: inherit; font-size: 13.5px; font-weight: 500; height: 38px; padding: 0 16px; background: var(--raise); color: var(--ink); border: 1px solid var(--line); border-radius: 9px; display: flex; align-items: center; gap: 9px;" style-hover="background: var(--sel);">
-                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 16V5M8 9l4-4 4 4M5 18.5h14"></path></svg>Import…
-                </button>
-              </div>
-              <span style="font-size: 12.5px; color: var(--ink3);">Import accepts OpenAPI, HAR, cURL and JSON Inspector files.</span>
+              <span style="font-size: 26px; font-weight: 600; letter-spacing: -0.02em;">Keep related requests in a collection</span>
+              <span style="font-size: 14.5px; line-height: 1.55; color: var(--ink2);">A collection carries its own variables, authorization and scripts, so every request inside it starts from the same setup. Build one from scratch or bring an existing file.</span>
+            </div>
+
+            <div style="display: flex; gap: 12px;">
+              <button type="button" onClick="{{ openNewCollection }}" style="appearance: none; cursor: pointer; font-family: inherit; font-size: 14px; font-weight: 600; height: 38px; padding: 0 18px; background: var(--accent); color: #fff; border: 0; border-radius: 9px; display: flex; align-items: center; gap: 9px;" style-hover="background: var(--accent-press);">New collection</button>
+              <button type="button" onClick="{{ openImport }}" style="appearance: none; cursor: pointer; font-family: inherit; font-size: 13.5px; font-weight: 500; height: 38px; padding: 0 16px; background: var(--raise); color: var(--ink); border: 1px solid var(--line); border-radius: 9px;" style-hover="background: var(--sel);">Import a file…</button>
+              <button type="button" style="appearance: none; cursor: pointer; font-family: inherit; font-size: 13.5px; font-weight: 500; height: 38px; padding: 0 16px; background: transparent; color: var(--ink2); border: 0; border-radius: 9px;" style-hover="background: var(--sel); color: var(--ink);">Read the guide</button>
+            </div>
+
+            <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; max-width: 1000px;">
+              <sc-for list="{{ collSteps }}" as="s" hint-placeholder-count="3">
+                <div style="border: 1px solid var(--line); border-radius: 12px; padding: 18px; display: flex; flex-direction: column; gap: 10px;">
+                  <span style="width: 26px; height: 26px; border-radius: 999px; background: var(--accent-soft); color: var(--accent); font-size: 12.5px; font-weight: 700; display: inline-flex; align-items: center; justify-content: center;">{{ s.n }}</span>
+                  <span style="font-size: 14px; font-weight: 600;">{{ s.title }}</span>
+                  <span style="font-size: 13px; line-height: 1.5; color: var(--ink2);">{{ s.body }}</span>
+                </div>
+              </sc-for>
+            </div>
+
+            <div style="display: flex; align-items: center; gap: 14px; padding: 16px 18px; border: 1px solid var(--line); border-radius: 12px; background: var(--raise); max-width: 1000px;">
+              <span style="width: 34px; height: 34px; flex: none; border-radius: 9px; background: var(--chip); color: var(--ink2); display: inline-flex; align-items: center; justify-content: center;">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 8v5M12 16.5h.01"></path><circle cx="12" cy="12" r="9"></circle></svg>
+              </span>
+              <span style="flex: 1; min-width: 0; font-size: 13.5px; line-height: 1.5; color: var(--ink2);">Import accepts OpenAPI, HAR, cURL and JSON Inspector files. Collections belong to the workspace Personal — secrets stay in the system keychain.</span>
+              <button type="button" onClick="{{ openImport }}" style="appearance: none; cursor: pointer; font-family: inherit; font-size: 13.5px; font-weight: 500; height: 34px; padding: 0 14px; background: var(--field); color: var(--ink); border: 1px solid var(--fieldline); border-radius: 8px; flex: none;" style-hover="background: var(--sel);">Supported formats</button>
             </div>
           </div>
         </sc-if>
@@ -1366,6 +1648,10 @@
 
     <div style="height: 34px; flex: none; background: var(--chrome); backdrop-filter: blur(24px) saturate(180%); -webkit-backdrop-filter: blur(24px) saturate(180%); border-top: 1px solid var(--line); display: flex; align-items: center; padding: 0 16px; font-size: 12px; color: var(--ink2);">
       <span>Local · dev</span>
+      <sc-if value="{{ varError }}" hint-placeholder-val="{{ false }}">
+        <span style="width: 1px; height: 12px; background: var(--line); margin: 0 10px;"></span>
+        <span style="color: var(--bad); font-weight: 500;">1 variable not found</span>
+      </sc-if>
       <div style="flex: 1;"></div>
       <span>JSON:API 1.0 · 4 resources · 1 relationship not loaded</span>
       <div style="display: flex; gap: 2px; margin-left: 16px;">
@@ -1381,7 +1667,7 @@
 </section>
 
 </x-dc>
-<script type="text/x-dc" data-dc-script data-props="{&quot;theme&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;light&quot;,&quot;dark&quot;],&quot;default&quot;:&quot;light&quot;,&quot;tsType&quot;:&quot;'light' | 'dark'&quot;},&quot;platform&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;macos&quot;,&quot;windows&quot;],&quot;default&quot;:&quot;macos&quot;,&quot;tsType&quot;:&quot;'macos' | 'windows'&quot;},&quot;emptyCollections&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Empty states&quot;},&quot;browserNotConnected&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Empty states&quot;}}">
+<script type="text/x-dc" data-dc-script data-props="{&quot;theme&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;light&quot;,&quot;dark&quot;],&quot;default&quot;:&quot;light&quot;,&quot;tsType&quot;:&quot;'light' | 'dark'&quot;},&quot;platform&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;macos&quot;,&quot;windows&quot;],&quot;default&quot;:&quot;macos&quot;,&quot;tsType&quot;:&quot;'macos' | 'windows'&quot;},&quot;emptyCollections&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Empty states&quot;},&quot;browserNotConnected&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Empty states&quot;},&quot;signedOut&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Empty states&quot;},&quot;missingVariable&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Empty states&quot;}}">
 class Component extends DCLogic {
   state = {
     mode: null, platform: null, src: 'Request', tab: 'Body', mainOpen: true,
@@ -1629,6 +1915,201 @@ class Component extends DCLogic {
       };
     });
 
+    const signedIn = !this.props.signedOut;
+    const setTab = this.state.setTab || 'General';
+    const setTabDefs = [
+      { name: 'Account', meta: signedIn ? 'ucell.dev@itl.digital' : 'Not signed in', tint: '#0a6cff', icon: 'M12 4.9a3.6 3.6 0 1 0 0 7.2 3.6 3.6 0 0 0 0-7.2ZM5.2 20c0-3.6 3-6.2 6.8-6.2s6.8 2.6 6.8 6.2' },
+      { name: 'General', meta: 'Startup, tabs, editor', tint: '#5d5d63', icon: 'M4 8.5h16M4 15.5h16M9.5 6.3v4.4M15 13.3v4.4' },
+      { name: 'Appearance', meta: 'Theme, density, fonts', tint: '#5a4fcf', icon: 'M12 3.5a8.5 8.5 0 1 0 0 17 8.5 8.5 0 0 0 0-17Zm0 0v17' },
+      { name: 'Requests', meta: 'Timeouts, redirects, cookies', tint: '#2e8b57', icon: 'M4 8.8h13.5l-3.2-3.2M20 15.2H6.5l3.2 3.2' },
+      { name: 'Proxy', meta: 'Proxy and certificates', tint: '#b26a00', icon: 'M12 3.4 5.2 6v5.7c0 4 2.9 7 6.8 8.6 3.9-1.6 6.8-4.6 6.8-8.6V6Z' },
+      { name: 'Security', meta: 'Secrets and the keychain', tint: 'var(--bad)', icon: 'M5.5 11h13v8.5h-13ZM8.5 11V8.2a3.5 3.5 0 0 1 7 0V11' },
+      { name: 'Export', meta: 'Files and default format', tint: '#0a7a8c', icon: 'M12 15.5V4.5M8.4 8.1 12 4.5l3.6 3.6M5 19h14' },
+      { name: 'Updates', meta: 'Channel and version', tint: '#7a3fb8', icon: 'M19.6 12a7.6 7.6 0 1 1-2.3-5.4M19.6 4.6v4.2h-4.2' }
+    ];
+    const prefs = this.state.prefs || {};
+    const pv = (k, d) => (prefs[k] === undefined ? d : prefs[k]);
+    const setPref = (k, v) => this.setState({ prefs: { ...prefs, [k]: v } });
+    const tog = (k, d) => {
+      const on = pv(k, d);
+      return {
+        isToggle: true,
+        trackBg: on ? 'var(--accent)' : 'var(--chip)',
+        knobX: on ? '18px' : '2px',
+        on: () => setPref(k, !on)
+      };
+    };
+    const seg = (k, d, labels, extOn) => ({
+      isSegment: true,
+      segs: labels.map(l => {
+        const on = (extOn ? extOn(l) : pv(k, d)) === (extOn ? true : l);
+        return {
+          label: l, on: extOn ? extOn(l, true) : (() => setPref(k, l)),
+          bg: on ? '#ffffff' : 'transparent',
+          ink: on ? 'var(--ink)' : 'var(--ink2)',
+          sh: on ? '0 1px 2px rgba(0,0,0,0.12)' : 'none'
+        };
+      })
+    });
+    const sel = (k, d, labels) => ({
+      isSelect: true, value: pv(k, d),
+      options: labels.map(l => ({ label: l })),
+      on: e => setPref(k, e.target.value)
+    });
+    const val = v => ({ isValue: true, value: v });
+    const btn = (action, on, primary) => ({
+      isButton: true, action, on: on || (() => {}),
+      btnBg: primary ? 'var(--accent)' : 'var(--field)',
+      btnInk: primary ? '#ffffff' : 'var(--ink)',
+      btnLine: primary ? 'var(--accent)' : 'var(--fieldline)'
+    });
+    const themeSeg = {
+      isSegment: true,
+      segs: [['Light', 'light'], ['Dark', 'dark'], ['System', 'auto']].map(([label, m]) => {
+        const on = mode === m;
+        return {
+          label, on: this.set('mode', m),
+          bg: on ? '#ffffff' : 'transparent',
+          ink: on ? 'var(--ink)' : 'var(--ink2)',
+          sh: on ? '0 1px 2px rgba(0,0,0,0.12)' : 'none'
+        };
+      })
+    };
+    const chromeSeg = {
+      isSegment: true,
+      segs: [['macOS', 'macos'], ['Windows', 'windows']].map(([label, p]) => {
+        const on = platform === p;
+        return {
+          label, on: this.set('platform', p),
+          bg: on ? '#ffffff' : 'transparent',
+          ink: on ? 'var(--ink)' : 'var(--ink2)',
+          sh: on ? '0 1px 2px rgba(0,0,0,0.12)' : 'none'
+        };
+      })
+    };
+    const setSectionDefs = {
+      Account: signedIn ? [
+        { label: 'Signed in', rows: [
+          { title: 'ucell.dev@itl.digital', note: 'Team plan · 4 members · synced 2 minutes ago', control: btn('Manage account', this.set('sheet', 'manageAccount')) },
+          { title: 'Sync', note: 'Collections, environments and history', control: tog('sync', true) },
+          { title: 'Sign out of this device', note: 'Local collections stay on the machine', control: btn('Sign out', () => this.setState({ sheet: 'signOut' })) }
+        ] },
+        { label: 'Sessions and devices', note: 'Where the account is currently signed in.', rows: [
+          { title: 'macOS · JSON Inspector 2.4.1', note: 'Almaty, Kazakhstan · active now', control: val('This device') },
+          { title: 'iOS · JSON Inspector 2.4.0', note: 'Almaty, Kazakhstan · yesterday at 19:42', control: btn('End', this.set('sheet', 'endSession')) },
+          { title: 'Windows · JSON Inspector 2.3.6', note: 'Astana, Kazakhstan · 12 September', control: btn('End', this.set('sheet', 'endSession')) },
+          { title: 'End all other sessions', note: 'Keeps only this device signed in', control: btn('End all', this.set('sheet', 'endSession')) }
+        ] },
+        { label: 'Plan', rows: [
+          { title: 'Team', note: '4 of 10 seats used · renews 3 October 2026', control: btn('Billing', this.set('sheet', 'manageAccount')) },
+          { title: 'Invite teammates', note: 'Members share workspaces and environments', control: btn('Invite…', this.set('sheet', 'invite')) }
+        ] }
+      ] : [
+        { label: 'Account', note: 'Signing in happens in the system browser — the app never asks for a password.', rows: [
+          { title: 'Not signed in', note: 'Collections and environments stay on this machine only', control: btn('Sign in…', () => this.setState({ modal: 'signin', signinStep: 'start' }), true) },
+          { title: 'Custom server', note: 'For a self-hosted deployment', control: val('app.jsoninspector.dev') }
+        ] }
+      ],
+      General: [
+        { label: 'On launch', rows: [
+          { title: 'Reopen the last workspace', note: 'Personal · Local · dev', control: tog('reopenWs', true) },
+          { title: 'Restore open request tabs', note: '4 tabs from the last session', control: tog('restoreTabs', true) },
+          { title: 'Check the browser extension', note: 'Connects automatically when Chrome is running', control: tog('checkExt', false) }
+        ] },
+        { label: 'Editor', rows: [
+          { title: 'Wrap long lines', note: 'Applies to request bodies and the raw response', control: tog('wrap', true) },
+          { title: 'Show line numbers', control: tog('lineNumbers', true) },
+          { title: 'Indentation', control: seg('indent', '2 spaces', ['2 spaces', '4 spaces', 'Tab']) }
+        ] },
+        { label: 'Language', note: 'Requires a restart to apply everywhere.', rows: [
+          { title: 'Interface language', control: sel('lang', 'English', ['English', 'Русский', 'Deutsch', 'Español', 'Français', '日本語']) }
+        ] }
+      ],
+      Appearance: [
+        { label: 'Theme', rows: [
+          { title: 'Appearance', note: 'System follows the macOS setting', control: themeSeg },
+          { title: 'Accent follows the system colour', control: tog('accentSystem', true) }
+        ] },
+        { label: 'Density', rows: [
+          { title: 'Row height', control: seg('rowH', 'Regular', ['Compact', 'Regular']) },
+          { title: 'Sidebar width', note: 'Remembered per window', control: val('280 px') },
+          { title: 'Show icons in the request list', control: tog('listIcons', true) }
+        ] },
+        { label: 'Type', rows: [
+          { title: 'Interface font size', control: seg('uiSize', 'Medium', ['Small', 'Medium', 'Large']) },
+          { title: 'Monospace font', note: 'Used in JSON, headers and scripts', control: val('SF Mono · 12.5 px') }
+        ] }
+      ],
+      Requests: [
+        { label: 'Sending', rows: [
+          { title: 'Timeout', note: 'No response within this time fails the request', control: val('30 s') },
+          { title: 'Follow redirects', note: 'Up to 10 hops', control: tog('redirects', true) },
+          { title: 'Send cookies from the cookie jar', control: tog('cookies', true) },
+          { title: 'Default HTTP version', control: seg('http', 'Auto', ['Auto', 'HTTP/1.1', 'HTTP/2']) }
+        ] },
+        { label: 'Headers', rows: [
+          { title: 'User-Agent', control: val('JSON Inspector/2.4') },
+          { title: 'Add Accept-Encoding automatically', note: 'gzip, deflate, br', control: tog('acceptEnc', true) },
+          { title: 'Keep hidden headers visible in the editor', control: tog('showHidden', false) }
+        ] },
+        { label: 'History', note: 'History stays on this machine and is never synced with a workspace.', rows: [
+          { title: 'Keep request history', control: seg('history', '30 days', ['7 days', '30 days', 'Forever']) },
+          { title: 'Clear history now', note: '1 248 requests · 42 MB', control: btn('Clear…', this.set('sheet', 'clearHistory')) }
+        ] }
+      ],
+      Proxy: [
+        { label: 'Proxy', rows: [
+          { title: 'Mode', control: seg('proxy', 'System', ['Off', 'System', 'Manual']) },
+          { title: 'Address', note: 'Used when the mode is Manual', control: val('127.0.0.1:8080') },
+          { title: 'Bypass list', note: 'localhost, 127.0.0.1, *.local', control: btn('Edit…', this.set('sheet', 'filters')) }
+        ] },
+        { label: 'Certificates', rows: [
+          { title: 'Validate SSL certificates', note: 'Turning this off affects every workspace', control: tog('ssl', true) },
+          { title: 'Client certificates', note: '2 configured · api.example.com, admin.retail.example.com', control: btn('Manage…', this.set('sheet', 'certs')) },
+          { title: 'Trust self-signed certificates for localhost', control: tog('selfSigned', true) }
+        ] }
+      ],
+      Security: [
+        { label: 'Secrets', rows: [
+          { title: 'Store secrets in the system keychain', note: 'Values never sit in the collection file', control: tog('keychain', true) },
+          { title: 'Mask secrets in the console and logs', control: tog('maskSecrets', true) },
+          { title: 'Reveal a secret', control: seg('reveal', 'Ask once', ['Ask once', 'Every time']) }
+        ] },
+        { label: 'Lock', rows: [
+          { title: 'Require a password on launch', note: 'No password is set on this machine', control: btn('Set password…', this.set('sheet', 'password'), true) },
+          { title: 'Lock after inactivity', control: seg('lockAfter', '15 min', ['5 min', '15 min', 'Never']) },
+          { title: 'Touch ID to unlock', note: 'Available once a password is set', control: tog('touchId', false) }
+        ] },
+        { label: 'Captured traffic', rows: [
+          { title: 'Clear captured requests when the window closes', control: tog('clearCapture', true) },
+          { title: 'Strip Authorization headers from captures', control: tog('stripAuth', true) }
+        ] }
+      ],
+      Export: [
+        { label: 'Files', rows: [
+          { title: 'Default format', control: seg('exportFmt', 'JSON', ['JSON', 'OpenAPI', 'HAR']) },
+          { title: 'Pretty-print exported files', control: tog('pretty', true) },
+          { title: 'Export location', control: val('~/Documents/JSON Inspector') }
+        ] },
+        { label: 'Contents', note: 'Secrets are replaced with {{ env.name }} references unless you turn this on.', rows: [
+          { title: 'Include secret values', note: 'Off keeps the keys and drops the values', control: tog('exportSecrets', false) },
+          { title: 'Include request history', control: tog('exportHistory', false) },
+          { title: 'Include scripts', control: tog('exportScripts', true) }
+        ] }
+      ],
+      Updates: [
+        { label: 'Version', rows: [
+          { title: 'JSON Inspector 2.4.1', note: 'Build 8821 · installed 4 days ago', control: btn('Check now', this.set('sheet', 'updates')) },
+          { title: 'Release notes', note: 'What changed in 2.4', control: btn('Open', this.set('sheet', 'updates')) }
+        ] },
+        { label: 'Channel', rows: [
+          { title: 'Update channel', note: 'Beta builds arrive weekly', control: seg('channel', 'Stable', ['Stable', 'Beta']) },
+          { title: 'Check automatically', control: tog('autoCheck', true) },
+          { title: 'Download in the background', control: tog('autoDownload', true) }
+        ] }
+      ]
+    };
+
     const statusTint = s => s.startsWith('2')
       ? { statusBg: 'var(--ok-soft)', statusInk: 'var(--ok)' }
       : (s.startsWith('4') || s.startsWith('5'))
@@ -1808,6 +2289,107 @@ class Component extends DCLogic {
           { label: 'Collections and requests', note: '2 collections will be deleted', tag: 'Deleted', ...tagOff },
           { label: 'Environments and variables', note: '3 environments will be deleted', tag: 'Deleted', ...tagOff },
           { label: 'Secrets in the keychain', note: 'Removed together with their variables', tag: 'Deleted', ...tagOff }
+        ]
+      },
+      about: {
+        title: 'About JSON Inspector', action: 'Close',
+        sub: 'Version 2.4.1 · build 8821 · macOS 15.2 · Apple silicon.',
+        rows: [
+          { label: 'Licence', note: 'Team plan · ucell.dev@itl.digital', tag: 'Active', ...tagOn },
+          { label: 'Data folder', note: '~/Library/Application Support/json-inspector', tag: 'Reveal', ...tagOff },
+          { label: 'Open source licences', note: 'Third-party components used in this build', tag: 'Web', ...tagOff }
+        ]
+      },
+      export: {
+        title: 'Export collection', action: 'Export…',
+        sub: 'Example API · 12 requests · 2 folders.',
+        rows: [
+          { label: 'Format', note: 'JSON Inspector collection', tag: 'JSON', ...tagOn },
+          { label: 'Include environments', note: 'Local · dev and Stage · qa', tag: 'On', ...tagOn },
+          { label: 'Include secret values', note: 'Replaced with variable references', tag: 'Off', ...tagOff }
+        ]
+      },
+      signOut: {
+        title: 'Sign out', action: 'Sign out',
+        sub: 'ucell.dev@itl.digital · Team plan.',
+        rows: [
+          { label: 'Team workspaces', note: 'Available again after the next sign-in', tag: 'Removed', ...tagOff },
+          { label: 'Personal collections', note: 'Stay on this machine', tag: 'Kept', ...tagOn },
+          { label: 'Secrets in the keychain', note: 'Kept unless you remove them yourself', tag: 'Kept', ...tagOn }
+        ]
+      },
+      manageAccount: {
+        title: 'Manage account', action: 'Open in browser',
+        sub: 'Profile, plan and billing live on the web account page.',
+        rows: [
+          { label: 'Plan', note: 'Team · 4 of 10 seats · renews 3 October 2026', tag: 'Active', ...tagOn },
+          { label: 'Payment method', note: 'Visa ·· 4417 · expires 08/28', tag: 'Valid', ...tagOn },
+          { label: 'Invoices', note: '14 invoices available for download', tag: 'Web', ...tagOff },
+          { label: 'Delete account', note: 'Removes every synced workspace', tag: 'Web', ...tagOff }
+        ]
+      },
+      endSession: {
+        title: 'End session', action: 'End session',
+        sub: 'The device signs out the next time it contacts the server.',
+        rows: [
+          { label: 'iOS · JSON Inspector 2.4.0', note: 'Almaty, Kazakhstan · yesterday at 19:42', tag: 'Ending', ...tagOff },
+          { label: 'Synced data on that device', note: 'Cleared on sign-out', tag: 'Removed', ...tagOff },
+          { label: 'This device', note: 'Stays signed in', tag: 'Kept', ...tagOn }
+        ]
+      },
+      password: {
+        title: 'Set a launch password', action: 'Set password',
+        sub: 'The password protects the keychain entries this app created on this machine.',
+        rows: [
+          { label: 'Password', note: 'At least 8 characters', tag: 'Required', ...tagOn },
+          { label: 'Repeat password', note: 'Both entries must match', tag: 'Required', ...tagOn },
+          { label: 'Unlock with Touch ID', note: 'Available after the password is set', tag: 'On', ...tagOn },
+          { label: 'Recovery', note: 'A lost password cannot be restored — secrets stay encrypted', tag: 'Warning', ...tagOff }
+        ]
+      },
+      certs: {
+        title: 'Client certificates', action: 'Add certificate…',
+        sub: 'Matched by host before the request is sent.',
+        rows: [
+          { label: 'api.example.com', note: 'PKCS#12 · expires 14 Mar 2027', tag: 'Active', ...tagOn },
+          { label: 'admin.retail.example.com', note: 'PEM + key · expires 2 Nov 2026', tag: 'Active', ...tagOn },
+          { label: 'staging.example.com', note: 'Expired 9 Aug 2026', tag: 'Expired', ...tagOff }
+        ]
+      },
+      clearHistory: {
+        title: 'Clear request history', action: 'Clear',
+        sub: '1 248 requests recorded on this machine · 42 MB.',
+        rows: [
+          { label: 'Request and response bodies', note: 'Removed from the local store', tag: 'Deleted', ...tagOff },
+          { label: 'Saved requests in collections', note: 'History is separate from what you saved', tag: 'Kept', ...tagOn },
+          { label: 'Run reports', note: '12 saved runs stay available', tag: 'Kept', ...tagOn }
+        ]
+      },
+      updates: {
+        title: 'JSON Inspector 2.4.1', action: 'Check now',
+        sub: 'Build 8821 · stable channel · installed 4 days ago.',
+        rows: [
+          { label: 'You are up to date', note: 'Last checked 2 hours ago', tag: 'Current', ...tagOn },
+          { label: 'Relationship map in the response', note: 'New in 2.4', tag: 'Added', ...tagOff },
+          { label: 'Folder-level scripts', note: 'New in 2.4', tag: 'Added', ...tagOff },
+          { label: 'Faster JSON tree on large payloads', note: '2.4.1', tag: 'Fixed', ...tagOff }
+        ]
+      },
+      deleteEnv: {
+        title: 'Delete environment', action: 'Delete',
+        sub: 'Requests that reference its variables will resolve them from globals instead.',
+        rows: [
+          { label: 'Variables in this environment', note: 'Removed from the workspace', tag: 'Deleted', ...tagOff },
+          { label: 'Secrets in the keychain', note: 'Removed together with their variables', tag: 'Deleted', ...tagOff },
+          { label: 'Globals', note: 'Stay available in every other environment', tag: 'Kept', ...tagOn }
+        ]
+      },
+      clearGlobals: {
+        title: 'Clear globals', action: 'Clear',
+        sub: 'Globals cannot be deleted, but every value in them can be removed.',
+        rows: [
+          { label: '3 global variables', note: 'locale · userAgent · timeout', tag: 'Deleted', ...tagOff },
+          { label: 'Per-environment overrides', note: 'Values defined in an environment stay', tag: 'Kept', ...tagOn }
         ]
       },
       newVariable: {
@@ -2042,6 +2624,11 @@ class Component extends DCLogic {
         { title: 'Filters', body: 'Only api.example.com is kept; static files and analytics are dropped before they reach the list.', action: 'Edit filters', on: this.set('sheet', 'filters') },
         { title: 'Retention', body: 'Captured traffic is kept for the session and cleared when the window closes.', action: 'Change retention', on: this.set('sheet', 'retention') }
       ],
+      collSteps: [
+        { n: '1', title: 'Create a collection', body: 'Name it after the API or the service it covers.' },
+        { n: '2', title: 'Add requests and folders', body: 'Folders can hold their own variables, authorization and scripts.' },
+        { n: '3', title: 'Run the whole folder', body: 'Assertions and timings land in a run report you can export.' }
+      ],
       browserSteps: [
         { n: '1', title: 'Install the extension', body: 'Chrome, Edge or Firefox. One click from the store, no account needed.' },
         { n: '2', title: 'Open the tab you are debugging', body: 'Any page of your app — the extension sees only the tabs you allow.' },
@@ -2061,16 +2648,133 @@ class Component extends DCLogic {
       closeEnvEditor: this.set('modal', null),
       openWsManager: () => this.setState({ modal: 'ws', pop: null, sheet: null }),
       closeWsManager: this.set('modal', null),
-      envList: envDefs.filter(e => e.name !== 'No environment').concat([{ name: 'Globals', vars: '3', globals: true }]).map(e => {
-        const on = (this.state.envEdit || this.state.env) === e.name;
+      varError: !!this.props.missingVariable,
+      sendOpacity: this.props.missingVariable ? '0.45' : '1',
+      popMenu: this.state.pop === 'Menu',
+      menuBtnBg: this.state.pop === 'Menu' ? 'var(--accent-soft)' : 'transparent',
+      menuBtnInk: this.state.pop === 'Menu' ? 'var(--accent)' : 'var(--ink2)',
+      toggleMenu: () => this.setState({ pop: this.state.pop === 'Menu' ? null : 'Menu' }),
+      menuItems: [
+        { label: 'New request', key: '⌘N' },
+        { label: 'New collection', key: '⇧⌘N', act: () => this.setState({ sheet: 'newCollection' }) },
+        { label: 'Import…', key: '⌘O', act: () => this.setState({ sheet: 'import' }) },
+        { label: 'Export collection…', key: '⇧⌘E', act: () => this.setState({ sheet: 'export' }) },
+        { sep: true },
+        { label: 'Run collection', key: '⌘R', act: () => this.setState({ sheet: 'runFolder' }) },
+        { label: 'Command palette', key: '⌘K' },
+        { label: this.state.sideHidden ? 'Show sidebar' : 'Hide sidebar', key: '⌥⌘S', act: () => this.setState({ sideHidden: !this.state.sideHidden }) },
+        { sep: true },
+        { label: 'Environments…', act: () => this.setState({ modal: 'env' }) },
+        { label: 'Workspaces…', act: () => this.setState({ modal: 'ws' }) },
+        { label: 'Settings…', key: '⌘,', act: () => this.setState({ modal: 'settings' }) },
+        { sep: true },
+        { label: 'Check for updates…', act: () => this.setState({ sheet: 'updates' }) },
+        { label: 'About JSON Inspector', act: () => this.setState({ sheet: 'about' }) }
+      ].map(m => ({
+        isSep: !!m.sep, isItem: !m.sep, label: m.label || '', key: m.key || '',
+        ink: 'var(--ink)',
+        on: () => { this.setState({ pop: null }); if (m.act) m.act(); }
+      })),
+      sideDisplay: this.state.sideHidden ? 'none' : 'flex',
+      isSignedIn: signedIn,
+      accountEmail: 'ucell.dev@itl.digital',
+      accountMeta: 'Team · synced 2 minutes ago',
+      popAccount: this.state.pop === 'Account',
+      accBtnBg: this.state.pop === 'Account' ? 'var(--accent-soft)' : 'transparent',
+      accBtnInk: this.state.pop === 'Account' ? 'var(--accent)' : 'var(--ink2)',
+      accountClick: signedIn
+        ? () => this.setState({ pop: this.state.pop === 'Account' ? null : 'Account' })
+        : () => this.setState({ modal: 'signin', signinStep: 'start', pop: null }),
+      openAccountTab: () => this.setState({ modal: 'settings', setTab: 'Account', pop: null }),
+      openSignOut: () => this.setState({ sheet: 'signOut', pop: null }),
+      signinOpen: this.state.modal === 'signin',
+      signinStart: (this.state.signinStep || 'start') === 'start',
+      signinWaiting: this.state.signinStep === 'waiting',
+      startSignin: this.set('signinStep', 'waiting'),
+      cancelSignin: this.set('signinStep', 'start'),
+      closeSignin: () => this.setState({ modal: null, signinStep: 'start' }),
+      customServerOpen: this.state.customServer === true,
+      customServerRot: this.state.customServer === true ? '180deg' : '0deg',
+      toggleCustomServer: () => this.setState({ customServer: this.state.customServer !== true }),
+      openSignin: () => this.setState({ modal: 'signin', signinStep: 'start', pop: null }),
+      settingsOpen: this.state.modal === 'settings',
+      setBtnBg: this.state.modal === 'settings' ? 'var(--accent-soft)' : 'transparent',
+      setBtnInk: this.state.modal === 'settings' ? 'var(--accent)' : 'var(--ink3)',
+      openSettings: () => this.setState({ modal: 'settings', pop: null, sheet: null }),
+      closeSettings: this.set('modal', null),
+      setVersion: 'JSON Inspector 2.4.1',
+      setVersionMeta: 'Build 8821 · up to date',
+      setTabs: setTabDefs.map(t => {
+        const on = setTab === t.name;
         return {
-          name: e.name, locked: !!e.readonly, count: e.name === 'Globals' ? '3' : String(envVarData[e.name] ? envVarData[e.name].length : 0),
-          on: this.set('envEdit', e.name),
+          name: t.name, meta: t.meta, icon: t.icon, tint: t.tint,
+          on: this.set('setTab', t.name),
           bg: on ? 'var(--accent-soft)' : 'transparent',
-          weight: on ? 600 : 400,
-          dot: e.name === this.state.env ? 'var(--ok)' : 'transparent'
+          weight: on ? 600 : 400
         };
       }),
+      setSections: (setSectionDefs[setTab] || []).map(s => ({
+        label: s.label, note: s.note || '', hasNote: !!s.note,
+        rows: s.rows.map((r, i) => ({
+          title: r.title, note: r.note || '',
+          line: i === s.rows.length - 1 ? 'transparent' : 'var(--line2)',
+          ...r.control
+        }))
+      })),
+      envList: envDefs.filter(e => e.name !== 'No environment').concat([{ name: 'Globals', vars: '3', globals: true }]).map(e => {
+        const on = (this.state.envEdit || this.state.env) === e.name;
+        const count = e.name === 'Globals' ? 3 : (envVarData[e.name] ? envVarData[e.name].length : 0);
+        const tints = { 'Local · dev': '#2e8b57', 'Stage · qa': '#b26a00', 'Prod': 'var(--bad)', 'Globals': '#5a4fcf' };
+        return {
+          name: e.name, locked: !!e.readonly,
+          initial: e.name.charAt(0).toUpperCase(),
+          tint: tints[e.name] || 'var(--accent)',
+          meta: count + (count === 1 ? ' variable' : ' variables')
+            + (e.name === this.state.env ? ' · active' : (e.readonly ? ' · read-only' : '')),
+          on: this.set('envEdit', e.name),
+          bg: on ? 'var(--accent-soft)' : 'transparent',
+          weight: on ? 600 : 400
+        };
+      }),
+      envCreating: this.state.envCreate === true,
+      envDetailOpen: this.state.envCreate !== true,
+      envCreateBg: this.state.envCreate === true ? 'var(--accent-soft)' : 'transparent',
+      startEnvCreate: this.set('envCreate', true),
+      cancelEnvCreate: this.set('envCreate', false),
+      envDetailName: envEditName,
+      envVarCount: String((envVarData[envEditName] || envVarData.Globals).length),
+      envColors: ['#2e8b57', '#b26a00', 'var(--bad)', '#5a4fcf'].map((hex, i) => ({
+        hex, on: this.set('envColor', i),
+        ring: (this.state.envColor || 0) === i ? '0 0 0 2px var(--pop), 0 0 0 3.5px ' + hex : 'none'
+      })),
+      envAccess: ['Editable', 'Read-only'].map(label => {
+        const on = (envEditName === 'Prod' ? 'Read-only' : 'Editable') === label;
+        return {
+          label, on: () => {},
+          bg: on ? '#ffffff' : 'transparent',
+          ink: on ? 'var(--ink)' : 'var(--ink2)',
+          sh: on ? '0 1px 2px rgba(0,0,0,0.12)' : 'none'
+        };
+      }),
+      envNewBases: ['Empty', 'Local · dev', 'Prod'].map(label => {
+        const on = (this.state.envNewBase || 'Empty') === label;
+        return {
+          label, on: this.set('envNewBase', label),
+          bg: on ? '#ffffff' : 'transparent',
+          ink: on ? 'var(--ink)' : 'var(--ink2)',
+          sh: on ? '0 1px 2px rgba(0,0,0,0.12)' : 'none'
+        };
+      }),
+      envNewNote: (this.state.envNewBase || 'Empty') === 'Empty'
+        ? 'No variables yet — add them after the environment is created.'
+        : (this.state.envNewBase === 'Prod'
+          ? '9 variables copied from Prod. Secrets are copied as empty values.'
+          : '7 variables copied from Local · dev.'),
+      envDangerNote: envEditName === 'Globals'
+        ? 'Globals apply in every environment of this workspace and cannot be deleted.'
+        : 'Deleting removes its variables and the secrets stored for them in the keychain.',
+      envDangerAction: envEditName === 'Globals' ? 'Clear globals' : 'Delete environment',
+      openEnvDanger: this.set('sheet', envEditName === 'Globals' ? 'clearGlobals' : 'deleteEnv'),
       envLocked: envEditName === 'Prod',
       envOwnVars: (envVarData[envEditName] || envVarData.Globals).map(v => ({
         k: v.k, v: v.secret ? '••••••••••••' : v.v, secret: !!v.secret,

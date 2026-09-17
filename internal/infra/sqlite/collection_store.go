@@ -405,22 +405,41 @@ func (s *Store) AppendRunResult(
 	runID string,
 	result domain.CollectionRunResult,
 ) error {
-	_, err := s.db.ExecContext(ctx,
+	failure, err := failureColumn(result.Failure)
+	if err != nil {
+		return err
+	}
+	_, err = s.db.ExecContext(ctx,
 		`INSERT INTO collection_run_results (run_id, node_id, position, status, ok, duration_us, error,
-		                                     record_id, assertions_passed, assertions_total)
-		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		                                     failure, record_id, assertions_passed, assertions_total)
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 		 ON CONFLICT(run_id, position) DO UPDATE SET
 		   status = excluded.status, ok = excluded.ok,
 		   duration_us = excluded.duration_us, error = excluded.error,
+		   failure = excluded.failure,
 		   record_id = excluded.record_id,
 		   assertions_passed = excluded.assertions_passed,
 		   assertions_total = excluded.assertions_total`,
 		runID, result.NodeID, result.Position, result.Status, result.OK, result.DurationUs, result.Error,
-		nullIfEmpty(result.RecordID), result.AssertionsPassed, result.AssertionsTotal)
+		failure, nullIfEmpty(result.RecordID), result.AssertionsPassed, result.AssertionsTotal)
 	if err != nil {
 		return fmt.Errorf("saving a result of run %s: %w", runID, err)
 	}
 	return nil
+}
+
+// failureColumn is a row's refusal the way the column holds it, and an empty string for a row the
+// app did not refuse: a failure nobody wrote a sentence for is the machine's, and the error column
+// is where that one already lives.
+func failureColumn(failure *domain.Failure) (string, error) {
+	if failure == nil {
+		return "", nil
+	}
+	encoded, err := json.Marshal(failure)
+	if err != nil {
+		return "", fmt.Errorf("encoding a failure: %w", err)
+	}
+	return string(encoded), nil
 }
 
 // LastRun reads the newest run of a node, or of the whole collection when the node is empty. The
@@ -450,8 +469,8 @@ func (s *Store) LastRun(
 	}
 
 	rows, err := s.db.QueryContext(ctx,
-		`SELECT node_id, position, status, ok, duration_us, error, ifnull(record_id, ''),
-		        assertions_passed, assertions_total
+		`SELECT node_id, position, status, ok, duration_us, error, ifnull(failure, ''),
+		        ifnull(record_id, ''), assertions_passed, assertions_total
 		   FROM collection_run_results WHERE run_id = ? ORDER BY position`, run.ID)
 	if err != nil {
 		return domain.CollectionRun{}, false, fmt.Errorf("reading the run %s: %w", run.ID, err)
@@ -461,17 +480,26 @@ func (s *Store) LastRun(
 	run.Results = []domain.CollectionRunResult{}
 	for rows.Next() {
 		var (
-			result domain.CollectionRunResult
-			status sql.NullInt64
+			result  domain.CollectionRunResult
+			status  sql.NullInt64
+			failure string
 		)
 		if err := rows.Scan(&result.NodeID, &result.Position, &status, &result.OK,
-			&result.DurationUs, &result.Error, &result.RecordID, &result.AssertionsPassed,
+			&result.DurationUs, &result.Error, &failure, &result.RecordID, &result.AssertionsPassed,
 			&result.AssertionsTotal); err != nil {
 			return domain.CollectionRun{}, false, fmt.Errorf("reading the run %s: %w", run.ID, err)
 		}
 		if status.Valid {
 			code := int(status.Int64)
 			result.Status = &code
+		}
+		if failure != "" {
+			var refusal domain.Failure
+			if err := json.Unmarshal([]byte(failure), &refusal); err != nil {
+				return domain.CollectionRun{}, false, fmt.Errorf("reading a failure of run %s: %w",
+					run.ID, err)
+			}
+			result.Failure = &refusal
 		}
 		run.Results = append(run.Results, result)
 	}

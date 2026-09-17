@@ -207,7 +207,7 @@ function valueClass(v: string): string {
             </template>
           </div>
           <IconButton variant="danger" size="xl" :hint="t('common.delete')" @click.stop="store.removeRow(RowKind.RowForm, row.id)">
-            <Icon name="trash" :size="13" />
+            <Icon name="trash" :size="14" :stroke-width="1.8" />
           </IconButton>
         </div>
         <div class="popover-foot">

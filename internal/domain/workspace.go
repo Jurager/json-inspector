@@ -20,22 +20,23 @@ func (k WorkspaceKind) Valid() bool {
 //
 // Color is the palette's word — "blue", "purple" — and not a value: the tint is drawn from a
 // token, and a word the window does not know is drawn in the default tint rather than refused.
-//
-// Personal is derived from the id where the row is read and never written back: saying it here
-// keeps the spelling of that id in one place, which is the one that also refuses the call.
 type Workspace struct {
 	ID        string        `json:"id"`
 	Name      string        `json:"name"`
 	Kind      WorkspaceKind `json:"kind"`
 	Color     string        `json:"color"`
-	Personal  bool          `json:"personal"`
 	CreatedAt int64         `json:"createdAt"`
 	UpdatedAt int64         `json:"updatedAt"`
 }
 
 // WorkspacePersonalID is the workspace the app is born with: the schema creates it, and it is the
-// one every fallback points at. It is a fixed word rather than a generated id for the same reason
-// DraftCommandLine is — it has to be nameable by a migration, by a fallback and by a rule.
+// one a window that has never chosen anything opens on. It is a fixed word rather than a generated
+// id for the same reason DraftCommandLine is — a migration has to be able to name it.
+//
+// It is not a workspace that cannot be deleted, and it is not what a fallback leans on: the last
+// space left is the one that may not go, whichever it is, and a stale pointer falls back to the
+// first row. What the word still names is the row the schema makes — and the row whose name is
+// empty, which the window draws as «Личное» in whatever language it is in.
 const WorkspacePersonalID = "personal"
 
 // SettingActiveWorkspace names the workspace the window is showing. It is a preference of the
@@ -50,6 +51,19 @@ const SettingActiveWorkspace = "workspace.activeId"
 type WorkspaceState struct {
 	Workspaces []Workspace `json:"workspaces"`
 	ActiveID   string      `json:"activeId"`
+	// Counts is what each space holds, by its id: three numbers for the manager window to draw.
+	// Beside the list and not on every Workspace, because a count is a reading of the space and not
+	// a part of it — a writer handed one would only have to ignore it.
+	Counts map[string]WorkspaceCounts `json:"counts,omitempty"`
+}
+
+// WorkspaceCounts is what a space holds: the collections in it, the environments, and the runs its
+// collections have been through. Three numbers and nothing else — what the design draws, and never
+// what a rule is made of.
+type WorkspaceCounts struct {
+	Collections  int `json:"collections"`
+	Environments int `json:"environments"`
+	Runs         int `json:"runs"`
 }
 
 // NewWorkspace is a workspace on its way in.
@@ -59,7 +73,6 @@ func NewWorkspace(id string, name string, kind WorkspaceKind, color string, now 
 		Name:      name,
 		Kind:      kind,
 		Color:     color,
-		Personal:  id == WorkspacePersonalID,
 		CreatedAt: now,
 		UpdatedAt: now,
 	}

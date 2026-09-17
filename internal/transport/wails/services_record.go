@@ -23,14 +23,18 @@ type RecordsService struct {
 	// cannot be asked it — a feature that owns a request must not know about the tree it sits in —
 	// and this layer is the one that knows both.
 	collections *collection.UseCase
+	// The host is here for the one thing this service writes to disk: a saved HAR session is a file
+	// the user names in a dialog, and the dialog is the window's.
+	host *Host
 }
 
 func NewRecordsService(
 	records *record.UseCase,
 	drafts *draft.UseCase,
 	collections *collection.UseCase,
+	host *Host,
 ) *RecordsService {
-	return &RecordsService{records: records, drafts: drafts, collections: collections}
+	return &RecordsService{records: records, drafts: drafts, collections: collections, host: host}
 }
 
 // Send starts the request a draft holds and answers with its id at once. The draft is read here

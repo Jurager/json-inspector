@@ -76,7 +76,12 @@ function syncCellScroll(e: Event) {
         aria-hidden="true"
       >
         <template v-for="(seg, si) in tokenSegments(row.value)" :key="si">
-          <VarToken v-if="seg.tokenName" :name="seg.tokenName" :offset="seg.start" />
+          <VarToken
+            v-if="seg.tokenName"
+            :name="seg.tokenName"
+            :text="seg.text"
+            :offset="seg.start"
+          />
           <span v-else>{{ seg.text }}</span>
         </template>
       </span>
@@ -88,7 +93,7 @@ function syncCellScroll(e: Event) {
       :hint="t('request.auth.derivedRemove')"
       @click.stop="emit('remove')"
     >
-      <Icon name="trash" :size="13" />
+      <Icon name="trash" :size="14" :stroke-width="1.8" />
     </IconButton>
   </div>
 </template>

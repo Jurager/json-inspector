@@ -4,6 +4,7 @@ package settings
 
 import (
 	"context"
+	"encoding/json"
 	"strconv"
 
 	"json-inspector/internal/domain"
@@ -51,6 +52,9 @@ func (u *UseCase) Snapshot(ctx context.Context) (domain.Settings, error) {
 	}
 	if retention := domain.Retention(stored[domain.SettingHistoryRetention]); retention.Valid() {
 		out.HistoryRetention = retention
+	}
+	if filters, ok := parseCaptureFilters(stored[domain.SettingCaptureFilters]); ok {
+		out.CaptureFilters = filters
 	}
 	if auto, ok := parseBool(stored[domain.SettingUpdateAuto]); ok {
 		out.UpdateCheckAuto = auto
@@ -182,6 +186,22 @@ func (u *UseCase) SetRetention(
 // SetUpdateCheck stores whether the app may look for a release on its own. Turning it off stops the
 // background check only: a check the user asks for is theirs to ask, and an app that refuses one
 // would be pretending the feature is gone rather than switched off.
+// SetCaptureFilters stores the rules the extension applies. What they are is the app's to decide:
+// the extension enforces them and shows them, and this is where they are kept.
+func (u *UseCase) SetCaptureFilters(
+	ctx context.Context,
+	filters domain.CaptureFilters,
+) (domain.Settings, error) {
+	encoded, err := json.Marshal(filters)
+	if err != nil {
+		return domain.Settings{}, err
+	}
+	if err := u.save(ctx, domain.SettingCaptureFilters, string(encoded)); err != nil {
+		return domain.Settings{}, err
+	}
+	return u.Snapshot(ctx)
+}
+
 func (u *UseCase) SetUpdateCheck(ctx context.Context, auto bool) (domain.Settings, error) {
 	if err := u.save(ctx, domain.SettingUpdateAuto, strconv.FormatBool(auto)); err != nil {
 		return domain.Settings{}, err
@@ -207,6 +227,23 @@ func (u *UseCase) SetUpdateChannel(
 
 func (u *UseCase) save(ctx context.Context, key, value string) error {
 	return u.store.SaveSetting(ctx, key, value)
+}
+
+// parseCaptureFilters reads the rules the extension filters by. An unreadable value keeps the
+// default — the same rule every other setting follows — because a filter nobody can parse is not a
+// reason to stop capturing.
+func parseCaptureFilters(raw string) (domain.CaptureFilters, bool) {
+	if raw == "" {
+		return domain.CaptureFilters{}, false
+	}
+	var filters domain.CaptureFilters
+	if err := json.Unmarshal([]byte(raw), &filters); err != nil {
+		return domain.CaptureFilters{}, false
+	}
+	if filters.Hosts == nil {
+		filters.Hosts = []string{}
+	}
+	return filters, true
 }
 
 func parseBool(raw string) (bool, bool) {

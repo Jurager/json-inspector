@@ -116,10 +116,14 @@ func parseLegacy(raw string) (*legacyState, error) {
 	return &state, nil
 }
 
-// writeLegacy lands in the default workspace, not in whichever one happens to be on screen:
-// the import repairs this installation's own data once and must not follow the user around.
+// writeLegacy lands in the workspace the installation started with, not in whichever one happens to
+// be on screen: the import repairs this installation's own data once and must not follow the user
+// around.
 func (u *UseCase) writeLegacy(ctx context.Context, state legacyState, report *ImportReport) error {
-	const workspace = domain.WorkspacePersonalID
+	workspace, err := u.home.FirstWorkspace(ctx)
+	if err != nil {
+		return err
+	}
 
 	for i, legacyEnv := range state.Environments {
 		env := domain.Environment{

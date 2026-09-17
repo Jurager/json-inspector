@@ -122,6 +122,23 @@ func existing(variables []domain.Variable, name string) (domain.Variable, bool) 
 
 // A secret leaves this side masked — see hideSecretValues.
 
+// writable refuses a write into an environment the window has closed. `readonly` is the design's
+// "Prod": the point of it is that nothing typed in the window lands inside by accident, and since
+// the flag is a flag on a row rather than a rule the store knows, this is the only side that can
+// hold that promise for every caller. The window's own controls check it too — a caller that
+// forgot one would otherwise write into a closed environment in silence, which is what a button
+// outside this window did.
+//
+// The globals scope is never closed: nothing about a name that applies everywhere is a value
+// somebody marked as too dangerous to touch.
+func writable(state domain.EnvState, scope domain.EnvScope) error {
+	env, ok := findEnvironment(state, scope.Environment)
+	if ok && env.Readonly {
+		return domain.Refuse(domain.CodeEnvironmentReadOnly, domain.ErrNotAllowed, nil)
+	}
+	return nil
+}
+
 // VariableDraft is a variable on its way in: the sheet's "add row" leaves it empty, the .env
 // dialog fills it in, and both go through one call.
 type VariableDraft struct {
@@ -143,6 +160,9 @@ func (u *UseCase) AddVariable(
 
 	state, err := u.store.EnvState(ctx, workspace)
 	if err != nil {
+		return domain.EnvState{}, err
+	}
+	if err := writable(state, scope); err != nil {
 		return domain.EnvState{}, err
 	}
 	position, err := nextVariablePosition(state, scope)
@@ -197,6 +217,9 @@ func (u *UseCase) UpdateVariable(
 	if err != nil {
 		return domain.EnvState{}, err
 	}
+	if err := writable(state, scope); err != nil {
+		return domain.EnvState{}, err
+	}
 	existing, ok := findVariable(state, scope, patch.ID)
 	if !ok {
 		return domain.EnvState{}, fmt.Errorf("variable %s: %w", patch.ID, domain.ErrNotFound)
@@ -244,6 +267,9 @@ func (u *UseCase) RemoveVariable(
 	if err != nil {
 		return domain.EnvState{}, err
 	}
+	if err := writable(state, scope); err != nil {
+		return domain.EnvState{}, err
+	}
 	if _, ok := findVariable(state, scope, id); !ok {
 		return domain.EnvState{}, fmt.Errorf("variable %s: %w", id, domain.ErrNotFound)
 	}
@@ -267,6 +293,9 @@ func (u *UseCase) ImportEntries(
 
 	state, err := u.store.EnvState(ctx, workspace)
 	if err != nil {
+		return domain.EnvState{}, err
+	}
+	if err := writable(state, scope); err != nil {
 		return domain.EnvState{}, err
 	}
 	position, err := nextVariablePosition(state, scope)
@@ -369,4 +398,29 @@ func hideSecretValues(state domain.EnvState) domain.EnvState {
 	}
 	state.Globals = hide(state.Globals)
 	return state
+}
+
+// ClearGlobals empties them. The globals cannot be deleted the way an environment can — there is
+// one globals scope and no second one to fall back to — so the only destructive thing left is to
+// take out what is in them.
+//
+// One statement per variable rather than a scope-wide delete: the ids come from a state read in
+// this same call, so there is nothing to look up, and a clear that stops halfway leaves fewer
+// globals than were there rather than a wrong set of them — running it again finishes the job.
+func (u *UseCase) ClearGlobals(ctx context.Context) (domain.EnvState, error) {
+	workspace, err := u.scope.ActiveWorkspace(ctx)
+	if err != nil {
+		return domain.EnvState{}, err
+	}
+
+	state, err := u.store.EnvState(ctx, workspace)
+	if err != nil {
+		return domain.EnvState{}, err
+	}
+	for _, v := range state.Globals {
+		if err := u.store.DeleteVariable(ctx, workspace, v.ID); err != nil {
+			return domain.EnvState{}, err
+		}
+	}
+	return u.snapshot(ctx, workspace)
 }

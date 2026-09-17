@@ -137,6 +137,10 @@ type CollectionRunResult struct {
 	OK         bool   `json:"ok"`
 	DurationUs int64  `json:"durationUs"`
 	Error      string `json:"error,omitempty"`
+	// Failure is the refusal behind an error, when the app is the one that refused rather than the
+	// network: a code and the values its sentence needs, which is how a row says «Переменной var3
+	// нет» in the window's own language. Error stays the machine's account of the same thing.
+	Failure *Failure `json:"failure,omitempty"`
 	// Assertions is what the scripts around this request asserted and how many of those held. The
 	// status says the request went through; this says what came back was what it asked for. They are
 	// two counts rather than the reports themselves: the page draws one table of them, and a report

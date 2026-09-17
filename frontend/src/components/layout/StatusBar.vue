@@ -15,7 +15,6 @@ import { formatVersion } from '../../lib/format'
 import { useEnvironmentsStore } from '../../stores/environments'
 import { useCollectionsStore } from '../../stores/collections'
 import { useSettings } from '../../composables/useSettings'
-import { BridgeService } from '../../../bindings/json-inspector/internal/transport/wails'
 import Icon from '../ui/Icon.vue'
 import { IconButton } from '../ui/button'
 import { ListSide } from '../../../bindings/json-inspector/internal/domain'
@@ -151,13 +150,9 @@ const captureDotClass = computed(() => {
   return 'dot dot-orange'
 })
 
-// The one fact the bar cannot read off the extension's other fields: a paused capture and a
-// connected extension with no tab under it both record nothing. So it asks, and the extension
-// answers with its own state.
-async function toggleCapture() {
-  if (capture.value.paused) await BridgeService.ResumeCapture()
-  else await BridgeService.PauseCapture()
-}
+// The switch is the store's: the browser page offers the same one, and two copies of it would be two
+// answers to the same question.
+const toggleCapture = () => store.toggleCapture()
 </script>
 
 <template>

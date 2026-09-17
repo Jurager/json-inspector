@@ -23,6 +23,17 @@ func (f fakeScope) ActiveWorkspace(context.Context) (string, error) {
 	return f.id, nil
 }
 
+// fakeHome answers with the workspace the installation began in, which every test here is: the
+// import it serves is about this installation's own data, not about the space on screen.
+type fakeHome struct{ id string }
+
+func (f fakeHome) FirstWorkspace(context.Context) (string, error) {
+	if f.id == "" {
+		return domain.WorkspacePersonalID, nil
+	}
+	return f.id, nil
+}
+
 type fakeStore struct {
 	saved    []domain.Record
 	bodies   map[string]string
@@ -275,8 +286,9 @@ func newScopedUseCase(
 	retention := RetentionSourceFunc(func(context.Context) (domain.Retention, error) {
 		return domain.RetainWeek, nil
 	})
-	return NewUseCase(store, scope, executor, notifier, retention, screen, mask,
-		platform.NewIDGen()), store, executor, notifier
+	return NewUseCase(store, scope, fakeHome{}, executor, notifier, retention, screen, mask,
+			platform.NewIDGen(), platform.BuildInfo{Name: "JSON Inspector", Version: "test"}), store,
+		executor, notifier
 }
 
 func input() SendInput {

@@ -43,11 +43,21 @@ const (
 	CodeUnknownListSide    Code = "unknownListSide"
 	CodeUnknownRetention   Code = "unknownRetention"
 	CodeUnknownChannel     Code = "unknownUpdateChannel"
-	CodePersonalWorkspace  Code = "personalWorkspace"
-	CodeWorkspaceMissing   Code = "workspaceMissing"
+	// The workspace the app is born with was the one that could not be deleted, and the rule is about
+	// number now: the app has to have somewhere to keep its data, so the last space may not go —
+	// whichever one it happens to be.
+	CodeLastWorkspace    Code = "lastWorkspace"
+	CodeWorkspaceMissing Code = "workspaceMissing"
 	// A collection leaves the machine — it is exported, duplicated and handed on — so a secret has
 	// no place in one, and this is the refusal that says so.
 	CodeVariableSecret Code = "variableSecret"
+	// An environment the user has closed to editing. The flag is a promise about the whole side, not
+	// about the button somebody happened to press, so the write itself is what refuses.
+	CodeEnvironmentReadOnly Code = "environmentReadOnly"
+	// A request that names a `{{token}}` nothing answers. It is a refusal rather than a request with
+	// braces in its address: the server would read `{{var3}}` as a path and answer something wrong,
+	// and a run that reported that answer would be reporting a request nobody meant to send.
+	CodeVariableMissing Code = "variableMissing"
 )
 
 // Args are the values a code's sentence interpolates. Strings because that is what a message

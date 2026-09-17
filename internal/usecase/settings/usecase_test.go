@@ -3,6 +3,7 @@ package settings
 import (
 	"context"
 	"errors"
+	"reflect"
 	"testing"
 
 	"json-inspector/internal/domain"
@@ -49,7 +50,8 @@ func TestSnapshotFallsBackToDefaults(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Snapshot: %v", err)
 	}
-	if got != domain.DefaultSettings() {
+	// `DeepEqual` rather than `==`: the capture rules are a list, and a list is not comparable.
+	if !reflect.DeepEqual(got, domain.DefaultSettings()) {
 		t.Errorf("Snapshot = %+v, want the defaults", got)
 	}
 }
@@ -266,3 +268,44 @@ func TestLanguageAnswersOnAFreshDatabase(t *testing.T) {
 }
 
 func ptr[T any](v T) *T { return &v }
+
+// The capture rules are stored as they are given and read back whole: the extension filters by
+// them, and a rule that came back different is a rule nobody set.
+func TestCaptureFiltersRoundTrip(t *testing.T) {
+	uc, _, _ := newUseCase()
+	ctx := context.Background()
+
+	// A fresh installation skips static files, which is what the extension did before anybody could
+	// say otherwise.
+	fresh, err := uc.Snapshot(ctx)
+	if err != nil {
+		t.Fatalf("Snapshot: %v", err)
+	}
+	if !fresh.CaptureFilters.Static || fresh.CaptureFilters.Analytics || fresh.CaptureFilters.JSON ||
+		len(fresh.CaptureFilters.Hosts) != 0 {
+		t.Errorf("fresh filters = %+v, want only static files skipped", fresh.CaptureFilters)
+	}
+
+	given := domain.CaptureFilters{
+		Hosts:     []string{"api.example.com", "example.com"},
+		Static:    true,
+		Analytics: true,
+		JSON:      true,
+	}
+	saved, err := uc.SetCaptureFilters(ctx, given)
+	if err != nil {
+		t.Fatalf("SetCaptureFilters: %v", err)
+	}
+	if !reflect.DeepEqual(saved.CaptureFilters, given) {
+		t.Errorf("saved filters = %+v, want what was given", saved.CaptureFilters)
+	}
+
+	// And they survive the read that the window makes on its own.
+	again, err := uc.Snapshot(ctx)
+	if err != nil {
+		t.Fatalf("Snapshot: %v", err)
+	}
+	if !reflect.DeepEqual(again.CaptureFilters, given) {
+		t.Errorf("filters read back = %+v, want what was written", again.CaptureFilters)
+	}
+}

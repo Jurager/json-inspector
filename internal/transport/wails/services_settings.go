@@ -60,6 +60,15 @@ func (s *SettingsService) SetLayout(
 	return s.settings.SetLayout(ctx, patch)
 }
 
+// SetCaptureFilters stores the rules the extension filters by. It does not hand them over: the
+// bridge is a different service, and the window calls it — one place to fail is not two.
+func (s *SettingsService) SetCaptureFilters(
+	ctx context.Context,
+	filters domain.CaptureFilters,
+) (domain.Settings, error) {
+	return s.settings.SetCaptureFilters(ctx, filters)
+}
+
 func (s *SettingsService) SetRetention(
 	ctx context.Context,
 	retention domain.Retention,

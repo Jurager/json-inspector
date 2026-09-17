@@ -27,6 +27,13 @@ export interface Token {
 
 const NAME_RE = /^[A-Za-z_][A-Za-z0-9_]*$/
 
+// The same rule Go's `validName` applies to a variable's name, and the same one a token has to
+// satisfy to be found at all: a name outside it is one no `{{token}}` can carry. The window says so
+// before the write rather than leaving the user with a row that quietly kept its old name.
+export function isVariableName(name: string): boolean {
+  return NAME_RE.test(name)
+}
+
 export function parseTokens(text: string): Token[] {
   const out: Token[] = []
   let i = 0

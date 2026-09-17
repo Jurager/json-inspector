@@ -72,7 +72,12 @@ function valueClass(v: string): string {
           />
           <span v-if="hasTokens(c.value)" class="cell-input row-display mono" aria-hidden="true">
             <template v-for="(seg, si) in tokenSegments(c.value)" :key="si">
-              <VarToken v-if="seg.tokenName" :name="seg.tokenName" :offset="seg.start" />
+              <VarToken
+                v-if="seg.tokenName"
+                :name="seg.tokenName"
+                :text="seg.text"
+                :offset="seg.start"
+              />
               <span v-else>{{ seg.text }}</span>
             </template>
           </span>
@@ -108,7 +113,7 @@ function valueClass(v: string): string {
           </button>
         </div>
         <IconButton variant="danger" size="xl" :hint="t('common.delete')" @click="store.removeRow(RowKind.RowCookies, c.id ?? '')">
-          <Icon name="trash" :size="13" />
+          <Icon name="trash" :size="14" :stroke-width="1.8" />
         </IconButton>
       </div>
       <button class="req-cookies-add" @click="store.addRow(RowKind.RowCookies)">

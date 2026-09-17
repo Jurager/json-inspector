@@ -93,10 +93,13 @@ func (h *legacyHeaders) UnmarshalJSON(data []byte) error {
 func (u *UseCase) ImportLegacy(ctx context.Context, raw string) (ImportReport, error) {
 	var report ImportReport
 
-	// What the old frontend kept in localStorage lands in the default workspace: this is a one-time
-	// repair of what the installation had before history moved into the database, and it must not
-	// follow the user around spaces.
-	const workspace = domain.WorkspacePersonalID
+	// What the old frontend kept in localStorage lands in the workspace the installation started in:
+	// this is a one-time repair of what it had before history moved into the database, and it must
+	// not follow the user around spaces.
+	workspace, err := u.home.FirstWorkspace(ctx)
+	if err != nil {
+		return report, err
+	}
 
 	claimed, err := u.store.ClaimImport(ctx, LegacySource)
 	if err != nil {

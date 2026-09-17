@@ -199,6 +199,7 @@ func (u *UseCase) attempt(
 	rec, err := u.sender.Send(ctx, requestFrom(workspace, full, item.auth, item.variables, runID))
 	if err != nil {
 		result.Error = err.Error()
+		result.Failure = domain.AsFailure(err)
 		return result
 	}
 	if rec.Skipped {

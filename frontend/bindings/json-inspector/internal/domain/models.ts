@@ -113,6 +113,37 @@ export enum BodySide {
 };
 
 /**
+ * CaptureFilters are the rules the extension applies before a request reaches the list: which hosts
+ * are kept, and which kinds of traffic are not worth keeping at all. They live in the app and are
+ * handed to the extension, because the app is where they are set and where the list they are about
+ * is read — an extension that decided them alone would be a second place for the same answer.
+ */
+export interface CaptureFilters {
+    /**
+     * Hosts are the ones kept. Empty means every host, which is the app's answer until somebody
+     * says otherwise: a filter that silently drops traffic nobody asked it to drop is worse than no
+     * filter.
+     */
+    "hosts": string[] | null;
+
+    /**
+     * Static is js, css, images and fonts — what a page is drawn from rather than what it does.
+     */
+    "static": boolean;
+
+    /**
+     * Analytics are the hosts that report what the page did somewhere else.
+     */
+    "analytics": boolean;
+
+    /**
+     * JSON keeps only answers that are JSON, which is a pair of a request and its response: the
+     * type is known when the answer arrives, and the pair is dropped there rather than earlier.
+     */
+    "json": boolean;
+}
+
+/**
  * Code names a failure the window can word itself: the catalogue holds one sentence per code per
  * language, which is how the app can refuse in words it does not know.
  * 
@@ -158,7 +189,13 @@ export enum Code {
     CodeUnknownListSide = "unknownListSide",
     CodeUnknownRetention = "unknownRetention",
     CodeUnknownChannel = "unknownUpdateChannel",
-    CodePersonalWorkspace = "personalWorkspace",
+
+    /**
+     * The workspace the app is born with was the one that could not be deleted, and the rule is about
+     * number now: the app has to have somewhere to keep its data, so the last space may not go —
+     * whichever one it happens to be.
+     */
+    CodeLastWorkspace = "lastWorkspace",
     CodeWorkspaceMissing = "workspaceMissing",
 
     /**
@@ -166,6 +203,19 @@ export enum Code {
      * no place in one, and this is the refusal that says so.
      */
     CodeVariableSecret = "variableSecret",
+
+    /**
+     * An environment the user has closed to editing. The flag is a promise about the whole side, not
+     * about the button somebody happened to press, so the write itself is what refuses.
+     */
+    CodeEnvironmentReadOnly = "environmentReadOnly",
+
+    /**
+     * A request that names a `{{token}}` nothing answers. It is a refusal rather than a request with
+     * braces in its address: the server would read `{{var3}}` as a path and answer something wrong,
+     * and a run that reported that answer would be reporting a request nobody meant to send.
+     */
+    CodeVariableMissing = "variableMissing",
 };
 
 /**
@@ -293,6 +343,13 @@ export interface CollectionRunResult {
     "ok": boolean;
     "durationUs": number;
     "error"?: string;
+
+    /**
+     * Failure is the refusal behind an error, when the app is the one that refused rather than the
+     * network: a code and the values its sentence needs, which is how a row says «Переменной var3
+     * нет» in the window's own language. Error stays the machine's account of the same thing.
+     */
+    "failure"?: Failure | null;
 
     /**
      * Assertions is what the scripts around this request asserted and how many of those held. The
@@ -988,6 +1045,7 @@ export interface Settings {
     "sideWidth": number;
     "listSide": ListSide;
     "historyRetention": Retention;
+    "captureFilters": CaptureFilters;
     "updateCheckAuto": boolean;
     "updateChannel": UpdateChannel;
 }
@@ -1113,18 +1171,25 @@ export enum VariableKind {
  * 
  * Color is the palette's word — "blue", "purple" — and not a value: the tint is drawn from a
  * token, and a word the window does not know is drawn in the default tint rather than refused.
- * 
- * Personal is derived from the id where the row is read and never written back: saying it here
- * keeps the spelling of that id in one place, which is the one that also refuses the call.
  */
 export interface Workspace {
     "id": string;
     "name": string;
     "kind": WorkspaceKind;
     "color": string;
-    "personal": boolean;
     "createdAt": number;
     "updatedAt": number;
+}
+
+/**
+ * WorkspaceCounts is what a space holds: the collections in it, the environments, and the runs its
+ * collections have been through. Three numbers and nothing else — what the design draws, and never
+ * what a rule is made of.
+ */
+export interface WorkspaceCounts {
+    "collections": number;
+    "environments": number;
+    "runs": number;
 }
 
 /**
@@ -1150,4 +1215,11 @@ export enum WorkspaceKind {
 export interface WorkspaceState {
     "workspaces": Workspace[] | null;
     "activeId": string;
+
+    /**
+     * Counts is what each space holds, by its id: three numbers for the manager window to draw.
+     * Beside the list and not on every Workspace, because a count is a reading of the space and not
+     * a part of it — a writer handed one would only have to ignore it.
+     */
+    "counts"?: { [_ in string]?: WorkspaceCounts } | null;
 }

@@ -31,7 +31,8 @@ func NewUseCase(store Store, ids platform.IDGen, notifier Notifier) *UseCase {
 }
 
 // Snapshot is every workspace and the pointer to the one on screen — the whole of what the switcher
-// draws, in one answer.
+// draws, in one answer — with what each of them holds, because the window draws the counts in the
+// same rows as the names.
 func (u *UseCase) Snapshot(ctx context.Context) (domain.WorkspaceState, error) {
 	list, err := u.store.Workspaces(ctx)
 	if err != nil {
@@ -41,7 +42,11 @@ func (u *UseCase) Snapshot(ctx context.Context) (domain.WorkspaceState, error) {
 	if err != nil {
 		return domain.WorkspaceState{}, err
 	}
-	return domain.WorkspaceState{Workspaces: list, ActiveID: active}, nil
+	counts, err := u.store.Counts(ctx)
+	if err != nil {
+		return domain.WorkspaceState{}, err
+	}
+	return domain.WorkspaceState{Workspaces: list, ActiveID: active, Counts: counts}, nil
 }
 
 // Switch points the app at another workspace. Nothing is asked first and nothing is confirmed: the
@@ -120,18 +125,23 @@ func (u *UseCase) Update(
 	return u.Snapshot(ctx)
 }
 
-// Delete removes a workspace and everything in it. The one the app is born with is refused: it is
-// the fallback every other answer leans on, and a database without it has no workspace to show.
-// Deleting the one on screen moves the pointer back to that default, so the window is never left
-// pointing at a row that is gone.
+// Delete removes a workspace and everything in it. The last one is refused: every other answer the
+// app gives leans on there being a space to keep things in, and which one it is does not matter —
+// the row the app is born with goes like any other. Deleting the one on screen moves the pointer to
+// the oldest that is left, so the window is never left pointing at a row that is gone.
 func (u *UseCase) Delete(ctx context.Context, id string) (domain.WorkspaceState, error) {
 	target, err := u.store.Workspace(ctx, id)
 	if err != nil {
 		return domain.WorkspaceState{}, err
 	}
-	if target.Personal {
-		return domain.WorkspaceState{}, domain.Refuse(domain.CodePersonalWorkspace,
-			domain.ErrNotAllowed, domain.Args{"name": target.Name})
+
+	list, err := u.store.Workspaces(ctx)
+	if err != nil {
+		return domain.WorkspaceState{}, err
+	}
+	if len(list) <= 1 {
+		return domain.WorkspaceState{}, domain.Refuse(domain.CodeLastWorkspace,
+			domain.ErrNotAllowed, nil)
 	}
 
 	// Which workspace is on screen is read before the row goes: afterwards the pointer names something
@@ -145,12 +155,19 @@ func (u *UseCase) Delete(ctx context.Context, id string) (domain.WorkspaceState,
 		return domain.WorkspaceState{}, err
 	}
 
+	// The successor is picked here rather than left to the store's fallback: a reader of this call
+	// should see which space the window lands on, and the fallback keeps its one job — a pointer that
+	// went stale behind the app's back.
 	if active == target.ID {
-		if err := u.store.SetActiveWorkspace(ctx, domain.WorkspacePersonalID); err != nil {
+		remaining, err := u.store.Workspaces(ctx)
+		if err != nil {
 			return domain.WorkspaceState{}, err
 		}
-		if fallback, err := u.store.Workspace(ctx, domain.WorkspacePersonalID); err == nil {
-			u.notifier.Publish(TopicChanged, Changed{Workspace: fallback})
+		if len(remaining) > 0 {
+			if err := u.store.SetActiveWorkspace(ctx, remaining[0].ID); err != nil {
+				return domain.WorkspaceState{}, err
+			}
+			u.notifier.Publish(TopicChanged, Changed{Workspace: remaining[0]})
 		}
 	}
 	return u.Snapshot(ctx)

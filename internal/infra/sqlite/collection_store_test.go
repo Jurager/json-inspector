@@ -644,3 +644,52 @@ func TestNodesSurviveACollectionRename(t *testing.T) {
 		t.Errorf("nested = %+v, want it still inside the collection", tree[0].Children[0])
 	}
 }
+
+// A refusal a row carried is read back with it: the page draws the words of a code, and a run
+// opened a week later has to say what the window said while it was going. A row the network failed
+// keeps its error and no code at all — that one belongs to the machine.
+func TestARunRowKeepsTheRefusalItCarried(t *testing.T) {
+	store := newMigratedStore(t)
+	ctx := context.Background()
+	seedTree(t, store)
+
+	run := domain.CollectionRun{
+		ID: "run-1", CollectionID: "col-1", NodeID: "f-1",
+		StartedAt: 1_700_000_000_000, Results: []domain.CollectionRunResult{},
+	}
+	if err := store.SaveRun(ctx, run); err != nil {
+		t.Fatalf("SaveRun: %v", err)
+	}
+
+	refusal := &domain.Failure{
+		Code: domain.CodeVariableMissing,
+		Args: domain.Args{"n": "1", "names": "var3"},
+	}
+	for _, result := range []domain.CollectionRunResult{
+		{NodeID: "r-1", Position: 0, OK: false, Error: refusal.Error(), Failure: refusal},
+		{NodeID: "r-2", Position: 1, OK: false, Error: "сервер не ответил"},
+	} {
+		if err := store.AppendRunResult(ctx, run.ID, result); err != nil {
+			t.Fatalf("AppendRunResult: %v", err)
+		}
+	}
+
+	last, found, err := store.LastRun(ctx, "col-1", "f-1")
+	if err != nil || !found {
+		t.Fatalf("LastRun = %v, %v", err, found)
+	}
+	if len(last.Results) != 2 {
+		t.Fatalf("run kept %d results, want 2", len(last.Results))
+	}
+	stored := last.Results[0].Failure
+	if stored == nil || stored.Code != domain.CodeVariableMissing {
+		t.Fatalf("first result = %+v, want the refusal it was written with", last.Results[0])
+	}
+	if stored.Args["names"] != "var3" || stored.Args["n"] != "1" {
+		t.Errorf("args = %+v, want the values the sentence interpolates", stored.Args)
+	}
+	if last.Results[1].Failure != nil {
+		t.Errorf("second result = %+v, want no code for a failure of the network's",
+			last.Results[1].Failure)
+	}
+}

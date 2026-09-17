@@ -18,6 +18,14 @@ import * as domain$0 from "../../domain/models.js";
 import * as settings$0 from "../../usecase/settings/models.js";
 
 /**
+ * SetCaptureFilters stores the rules the extension filters by. It does not hand them over: the
+ * bridge is a different service, and the window calls it — one place to fail is not two.
+ */
+export function SetCaptureFilters(filters: domain$0.CaptureFilters): $CancellablePromise<domain$0.Settings> {
+    return $Call.ByID(2877214555, filters);
+}
+
+/**
  * SetLanguage stores the choice and broadcasts it, the same way the theme is broadcast — and for
  * the same reason: no window is the one that tells the others.
  */

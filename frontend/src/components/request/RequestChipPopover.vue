@@ -176,12 +176,17 @@ function valueClass(v: string): string {
                 aria-hidden="true"
               >
                 <template v-for="(seg, si) in tokenSegments(p.value)" :key="si">
-                  <VarToken v-if="seg.tokenName" :name="seg.tokenName" :offset="seg.start" />
+                  <VarToken
+                    v-if="seg.tokenName"
+                    :name="seg.tokenName"
+                    :text="seg.text"
+                    :offset="seg.start"
+                  />
                   <span v-else>{{ seg.text }}</span>
                 </template>
               </span>
             </div>
-            <IconButton variant="danger" size="xl" :hint="t('common.delete')" @click.stop="remove(RowKind.RowParams, p.id)"><Icon name="trash" :size="13" /></IconButton>
+            <IconButton variant="danger" size="xl" :hint="t('common.delete')" @click.stop="remove(RowKind.RowParams, p.id)"><Icon name="trash" :size="14" :stroke-width="1.8" /></IconButton>
           </div>
         </TransitionGroup>
         <DerivedRow
@@ -222,12 +227,17 @@ function valueClass(v: string): string {
                 aria-hidden="true"
               >
                 <template v-for="(seg, si) in tokenSegments(h.value)" :key="si">
-                  <VarToken v-if="seg.tokenName" :name="seg.tokenName" :offset="seg.start" />
+                  <VarToken
+                    v-if="seg.tokenName"
+                    :name="seg.tokenName"
+                    :text="seg.text"
+                    :offset="seg.start"
+                  />
                   <span v-else>{{ seg.text }}</span>
                 </template>
               </span>
             </div>
-            <IconButton variant="danger" size="xl" :hint="t('common.delete')" @click.stop="remove(RowKind.RowHeaders, h.id)"><Icon name="trash" :size="13" /></IconButton>
+            <IconButton variant="danger" size="xl" :hint="t('common.delete')" @click.stop="remove(RowKind.RowHeaders, h.id)"><Icon name="trash" :size="14" :stroke-width="1.8" /></IconButton>
           </div>
         </TransitionGroup>
         <DerivedRow

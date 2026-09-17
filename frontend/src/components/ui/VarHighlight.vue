@@ -20,7 +20,7 @@ const segments = computed(() => tokenSegments(props.value))
 <template>
   <span class="highlight" :class="{ area: multiline }" aria-hidden="true">
     <template v-for="(seg, si) in segments" :key="si">
-      <VarToken v-if="seg.tokenName" :name="seg.tokenName" :offset="seg.start" />
+      <VarToken v-if="seg.tokenName" :name="seg.tokenName" :text="seg.text" :offset="seg.start" />
       <span v-else>{{ seg.text }}</span>
     </template>
   </span>

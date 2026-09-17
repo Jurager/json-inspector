@@ -454,11 +454,7 @@ html.window-translucent body {
 }
 
 .sidebar {
-  @apply relative w-[var(--rail-width)] flex-none border-r flex flex-col items-center py-3;
-  /* The rail carries the colour across its whole width in one even band — the handoff draws it that
-     way, and the band simply ends where the strip does, against the hairline the content starts
-     behind. The stops are proportions rather than the handoff's 76px: that is its rail's width, and
-     copying the number into a rail of another width left a band of untinted glass at the edge. */
+  @apply relative w-[var(--rail-width)] flex-none border-r flex flex-col items-center py-2;
   background-image:
     linear-gradient(var(--glass-chrome), var(--glass-chrome)),
     linear-gradient(90deg, var(--tint-near) 0%, var(--tint-far) 100%);
@@ -806,26 +802,35 @@ html.window-translucent body {
   font-family: var(--mono);
 }
 
+/* A tab's bar, at the handoff's 46px with the hairline it draws under a bar (`--line2`, a step
+   quieter than the line under the strip above it). */
 .toolbar {
-  @apply flex items-center justify-end gap-2 h-11 px-5 border-b border-border bg-bg-panel;
+  @apply flex items-center justify-end gap-2 h-[46px] px-5 border-b bg-bg-panel;
+  border-color: color-mix(in srgb, var(--border) 60%, transparent);
 }
 
 /* The row's own buttons, at the size the latest handoff gives a toolbar: taller than the small
-   button and shorter than the command line's send. */
+   button and shorter than the command line's send. The look is the handoff's bar control —
+   `--raise` fill and a `--line` hairline, with no shadow; it is the same control as `btn--bar`
+   outside a toolbar, and the two are meant to read as one. */
 .toolbar .btn {
   height: 30px;
   padding: 0 12px;
   border-radius: 7px;
   font-size: 13px;
   font-weight: 500;
+  background: var(--bg-inset);
+  border-color: var(--border);
+  box-shadow: none;
 }
 
-/* A toolbar button that carries its shortcut stands a step back from one that acts: the word is
-   what the eye should find first, and the key beside it is read only by whoever wants it. The
-   handoff gives these two a little more room between the two than the rest of the row. */
-.toolbar .btn.with-key {
-  gap: 8px;
-  color: var(--text-secondary);
+/* The icon buttons of a bar wear the same fill as the words beside them: inside a toolbar the
+   outlined control is this bar's control, and a card standing among them would read as a different
+   kind of thing. Outlined icon buttons elsewhere keep the raised look the primitive gives them. */
+.toolbar .icon-btn--outline {
+  background: var(--bg-inset);
+  border-color: var(--border);
+  box-shadow: none;
 }
 
 .search-count {
@@ -850,10 +855,6 @@ button {
 
 .badge {
   @apply inline-flex items-center px-[7px] py-px rounded-sm text-[11px] font-semibold leading-normal;
-}
-
-.badge-method {
-  @apply text-accent bg-accent-soft;
 }
 
 .badge-status-2xx {

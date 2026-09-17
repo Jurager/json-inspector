@@ -25,7 +25,6 @@ import {
   Lock,
   Plus,
   Minus,
-  Trash2,
   Search,
   Eye,
   EyeOff,
@@ -118,6 +117,23 @@ const PANEL_HIDDEN = createLucideIcon('panel-hidden', [
   ['path', { d: 'M4 5l16 14' }],
 ])
 
+// The bin the drawing draws, and not lucide's: the handoff's own path has straight sides and no
+// ridges, and its lid stops short of the body's corners, where lucide's is tapered, ridged and
+// lidded across the full width. They are two different bins at a glance, and the drawing uses its
+// own in three places — both sidebar heads and the variables table. Built on lucide's 24-unit grid
+// through the same factory as the rest, so it takes a size and a stroke like every other glyph.
+const TRASH = createLucideIcon('trash-bin', [
+  ['path', { d: 'M5 7h14M10 7V5h4v2M7 7v12h10V7' }],
+])
+
+// The warning the drawing draws: a plain triangle with an exclamation, where lucide's own is a
+// rounded one with a wider mouth. The same reasoning as the bin — the handoff's glyph, built here
+// through the same factory so it takes a size and a stroke like the rest.
+const WARNING = createLucideIcon('warning-triangle', [
+  ['path', { d: 'M12 4.5 2.8 20h18.4Z' }],
+  ['path', { d: 'M12 10v4.4M12 17.2h.01' }],
+])
+
 const ICONS: Record<string, Component> = {
   'arrow-up-right': ArrowUpRight,
   clock: Clock,
@@ -136,6 +152,7 @@ const ICONS: Record<string, Component> = {
   'chevrons-right': ChevronsRight,
   menu: Menu,
   info: Info,
+  warning: WARNING,
   sparkles: Sparkles,
   folder: Folder,
   'settings-2': Settings2,
@@ -143,7 +160,7 @@ const ICONS: Record<string, Component> = {
   lock: Lock,
   plus: Plus,
   minus: Minus,
-  trash: Trash2,
+  trash: TRASH,
   search: Search,
   eye: Eye,
   'eye-off': EyeOff,
@@ -174,15 +191,17 @@ const icon = computed(
 )
 const pixelSize = computed(() => props.size ?? 16)
 
-// `size` is the box the glyph is drawn in, and glyphs do not fill their box equally: lucide's `trash`
-// spans most of its 24-unit viewBox, `plus` 14 of them and `xmark` 12. At one nominal size the three
-// therefore come out at 10.6, 8.4 and 6.9 pixels of ink — so a plus beside a bin reads as a text
-// glyph rather than as an icon, which is how it looked. The ones that fill less are asked for at a
-// larger size instead; that is why `plus` is 16 where a bin is 13. Both numbers are the size of the
-// box, not of the mark, and changing either means looking at the pair, not at the number.
+// `size` is the box the glyph is drawn in, and glyphs do not fill their boxes equally: the bin the
+// drawing gives us spans 14 of its 24 units, `plus` the same 14, and `xmark` 12. Two marks that fill
+// their box differently and are asked for at one size come out at two sizes on screen, which is how a
+// plus beside a bin once read as a text glyph — so a mark that fills less is asked for larger
+// instead. Both numbers are the size of the box, not of the mark, and changing either means looking
+// at the pair, not at the number.
 //
 // The stroke needs no such care: it is scaled by size/24, so one default thickness gives every icon
-// the same line — which is why nothing here overrides `stroke-width`.
+// the same line. The bin is the one glyph whose callers pass a weight of their own — the drawing
+// gives it 1.8 in all three places it draws one, and at 14px that is what keeps it from reading as a
+// thinner mark than the word beside it.
 </script>
 
 <template>

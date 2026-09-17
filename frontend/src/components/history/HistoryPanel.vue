@@ -1,13 +1,14 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 import Icon from '../ui/Icon.vue'
-import { Button, IconButton } from '../ui/button'
+import { IconButton } from '../ui/button'
 import PanelFilter from '../ui/PanelFilter.vue'
 import { useListKeys } from '../../composables/useListKeys'
 import { useRequestsStore } from '../../stores/requests'
 import { RecordSource, type Record } from '../../../bindings/json-inspector/internal/domain'
 import { statusBadgeClass } from '../../lib/format'
 import { addressOf } from '../../lib/address'
+import { effectiveTab, groupHue, groupLabel, tabGroups, type TabGroup } from '../../lib/recordTabs'
 import { formatDate, formatMicros, useMessages } from '../../i18n'
 
 const props = defineProps<{ sourceKind: RecordSource }>()
@@ -33,6 +34,10 @@ function select(id: string) {
   if (props.sourceKind === RecordSource.SourceBrowser) store.selectBrowser(id)
   else store.selectManual(id)
 }
+
+// What the bin at the top of the panel is about: the two panels are the two halves of one sidebar,
+// and "clear" on its own would not say which half it empties.
+const clearHint = computed(() => (browser.value ? t('history.clearCaptured') : t('history.clear')))
 
 function clearAll() {
   void store.clearRecords(records.value.map((r) => r.id))
@@ -85,35 +90,12 @@ const manualGroups = computed(() => {
   return out
 })
 
-interface TabGroup {
-  key: string
-  title: string
-  url: string
-  favIconUrl: string
-  items: Record[]
-}
-
-const tabGroups = computed<TabGroup[]>(() => {
-  const map = new Map<string, TabGroup>()
-  for (const r of records.value) {
-    const key = r.tabId != null ? String(r.tabId) : r.tabURL || 'unknown'
-    let g = map.get(key)
-    if (!g) {
-      g = { key, title: r.tabTitle || '', url: r.tabURL || '', favIconUrl: r.favIconUrl || '', items: [] }
-      map.set(key, g)
-    }
-    g.items.push(r)
-    if (!g.title && r.tabTitle) g.title = r.tabTitle
-    if (!g.favIconUrl && r.favIconUrl) g.favIconUrl = r.favIconUrl
-    if (!g.url && r.tabURL) g.url = r.tabURL
-  }
-  return Array.from(map.values()).sort((a, b) => b.items[0].startedAt - a.items[0].startedAt)
-})
+const allGroups = computed<TabGroup[]>(() => tabGroups(records.value))
 
 const filteredGroups = computed(() => {
   const q = query.value.trim().toLowerCase()
-  if (!q) return tabGroups.value
-  return tabGroups.value
+  if (!q) return allGroups.value
+  return allGroups.value
     .map((g) => ({ ...g, items: g.items.filter((r) => matches(r, q)) }))
     .filter((g) => g.items.length > 0)
 })
@@ -122,8 +104,17 @@ const isEmptyFiltered = computed(() =>
   browser.value ? filteredGroups.value.length === 0 : filteredRecords.value.length === 0
 )
 
+// Whether this tab is the one being captured: the extension says which tabs it has armed and when,
+// so the label is that answer and not a guess about which group received the last request.
 function isRecording(g: TabGroup): boolean {
-  return store.capture.recording && filteredGroups.value[0]?.key === g.key
+  if (!store.capture.recording) return false
+  return store.capture.tabList.some((tab) => String(tab.tabId) === g.key)
+}
+
+// Since when this tab is under capture, or nothing when the extension did not say — a tab restored
+// after a restart that predates the answer.
+function sinceOf(g: TabGroup): number {
+  return store.capture.tabList.find((tab) => String(tab.tabId) === g.key)?.since ?? 0
 }
 
 const collapsed = ref<Set<string>>(new Set())
@@ -144,8 +135,23 @@ useListKeys({
   ids: () => rowIds.value,
   current: () => activeId.value,
   move: (id) => void select(id),
-  selected: '.history-panel .item.active',
+  selected: '.history-panel .item.active, .history-panel .group-head.active',
 })
+
+// The tab the pane is about. It is the effective one and not the chosen one, so the highlight and
+// the page can never point at different tabs: with nothing chosen — or with a tab whose records are
+// gone — the pane shows the newest, and this says the newest too.
+const activeTabKey = computed(() => {
+  if (store.browserId) return null
+  if (props.sourceKind !== RecordSource.SourceBrowser) return null
+  return effectiveTab(allGroups.value, store.browserTabKey)?.key ?? null
+})
+
+// The head opens the tab: the page for it is what a reader wants from a row that names a page. The
+// caret is the gesture of the list — opening and closing it — and stays where it was.
+function openTab(key: string) {
+  store.selectBrowserTab(key)
+}
 
 function toggleGroup(key: string) {
   const next = new Set(collapsed.value)
@@ -164,50 +170,37 @@ function clearGroup(g: TabGroup) {
   void store.clearRecords(g.items.map((r) => r.id))
 }
 
-function hostnameOf(url: string): string {
-  try {
-    return new URL(url).hostname
-  } catch {
-    return ''
-  }
-}
-
-function groupLabel(g: TabGroup): string {
-  return g.title || hostnameOf(g.url) || t('history.tab')
-}
-
-function groupHue(key: string): number {
-  let h = 0
-  for (let i = 0; i < key.length; i++) h = (h * 31 + key.charCodeAt(i)) >>> 0
-  return h % 360
-}
-
-// A deep link's tab may have nothing yet, but the link is clicked right after the page loads
-// and the first request lands a moment later — so the request is kept.
-function focusDeepLinkedTab() {
-  if (props.sourceKind !== RecordSource.SourceBrowser) return
-  const tabId = store.focusTabId
-  if (tabId == null) return
-  const g = tabGroups.value.find((x) => x.key === String(tabId))
-  if (!g || g.items.length === 0) return
-  const next = new Set(collapsed.value)
-  next.delete(g.key)
-  collapsed.value = next
-  // Items are newest-first, so the first one is the request just made.
-  store.selectBrowser(g.items[0].id)
-  store.focusTabId = null
-}
-
-watch(() => [store.focusTabId, store.records.length, props.sourceKind] as const, focusDeepLinkedTab, {
-  immediate: true,
-})
+// A deep link names a tab, and the store has already made it the one on screen. What is left for
+// this panel is to open the row: a tab whose requests are hidden describes nothing.
+watch(
+  () => [store.browserTabKey, allGroups.value.length, props.sourceKind] as const,
+  ([key]) => {
+    if (props.sourceKind !== RecordSource.SourceBrowser || !key) return
+    if (!allGroups.value.some((g) => g.key === key)) return
+    const next = new Set(collapsed.value)
+    next.delete(key)
+    collapsed.value = next
+  },
+  { immediate: true }
+)
 </script>
 
 <template>
   <div class="history-panel">
     <div class="panel-head">
       <span class="panel-title">{{ browser ? t('history.captured') : t('history.history') }}</span>
-      <Button variant="ghost" class="panel-clear" :disabled="records.length === 0" @click="clearAll">{{ t('history.clear') }}</Button>
+      <!-- The bin and not the word: the drawing puts an icon at the end of this bar, and the word it
+           used to carry took a line of the widest row in the panel. What it clears is in its title —
+           both panels are one sidebar, and each bin has to name its own pile. -->
+      <button
+        type="button"
+        class="panel-clear"
+        :title="clearHint"
+        :disabled="records.length === 0"
+        @click="clearAll"
+      >
+        <Icon name="trash" :size="17" :stroke-width="1.8" />
+      </button>
     </div>
 
     <div v-if="records.length === 0 && !browser" class="empty">
@@ -247,13 +240,18 @@ watch(() => [store.focusTabId, store.records.length, props.sourceKind] as const,
       <section v-for="g in filteredGroups" :key="g.key" class="group">
         <div
           class="group-head"
+          :class="{ active: g.key === activeTabKey }"
           role="button"
           tabindex="0"
-          @click="toggleGroup(g.key)"
-          @keydown.enter="toggleGroup(g.key)"
-          @keydown.space.prevent="toggleGroup(g.key)"
+          @click="openTab(g.key)"
+          @keydown.enter="openTab(g.key)"
+          @keydown.space.prevent="openTab(g.key)"
         >
-          <span class="caret" :class="{ open: !collapsed.has(g.key) }">
+          <span
+            class="caret"
+            :class="{ open: !collapsed.has(g.key) }"
+            @click.stop="toggleGroup(g.key)"
+          >
             <Icon name="chevron-right" :size="13" />
           </span>
           <img
@@ -271,7 +269,7 @@ watch(() => [store.focusTabId, store.records.length, props.sourceKind] as const,
             <span class="recording-dot"></span>{{ t('history.rec') }}
           </span>
           <span class="group-count">{{ g.items.length }}</span>
-          <IconButton variant="danger" size="sm" :hint="t('history.clearTab')" @click.stop="clearGroup(g)"><Icon name="trash" :size="13" /></IconButton>
+          <IconButton variant="danger" size="sm" :hint="t('history.clearTab')" @click.stop="clearGroup(g)"><Icon name="trash" :size="14" :stroke-width="1.8" /></IconButton>
         </div>
 
         <ul v-show="!collapsed.has(g.key)" class="group-items">
@@ -321,11 +319,21 @@ watch(() => [store.focusTabId, store.records.length, props.sourceKind] as const,
   @apply text-[14px] font-semibold text-text;
 }
 
-/* Written against the button's own classes, not beside them: the shared ghost button carries its own
-   padding and size, and a single class of the panel's loses to it. The border goes with the fill, and
-   the line box is set rather than left to the window's 1.5 — this is a small button, not a paragraph. */
-.panel-head .btn.panel-clear {
-  @apply text-[13px] font-normal leading-[17px] border-0 py-[5px] px-2;
+/* The head's bin, at the handoff's own numbers for it: 30px square, radius 7, ink on nothing until
+   the pointer arrives, and red then — it is the one control on this bar that destroys something. */
+.panel-clear {
+  @apply flex-none inline-flex items-center justify-center w-[30px] h-[30px] rounded-[7px]
+         border-0 bg-transparent cursor-pointer text-text-secondary;
+  --wails-draggable: no-drag;
+}
+
+.panel-clear:hover:not(:disabled) {
+  @apply bg-red-soft;
+  color: var(--red-text);
+}
+
+.panel-clear:disabled {
+  @apply opacity-50 cursor-default;
 }
 
 /* The separator is the panel's own line, so it breaks out of the list's inset rather than sitting
@@ -371,6 +379,17 @@ watch(() => [store.focusTabId, store.records.length, props.sourceKind] as const,
   @apply bg-bg-hover;
 }
 
+/* The tab the pane is about. The same paint the records below it get when one of them is open: the
+   two are one choice, drawn one at a time. */
+.group-head.active {
+  @apply bg-accent-soft text-accent;
+}
+
+.group-head.active .caret,
+.group-head.active .group-count {
+  @apply text-accent;
+}
+
 .caret {
   @apply inline-flex items-center justify-center flex-none w-[13px] h-[13px] text-text-secondary;
   transition: transform 0.12s ease;
@@ -388,6 +407,10 @@ watch(() => [store.focusTabId, store.records.length, props.sourceKind] as const,
 
 .avatar {
   @apply flex-none w-5 h-5 rounded-md text-white text-[10.5px] font-semibold inline-flex items-center justify-center leading-none uppercase;
+  /* The line box keeps room for the descenders a capital never reaches, so a single letter sits
+     about half of that below the middle of the square. Padding at the foot shrinks the box the line
+     is centred in, which lifts it by half the padding — and in em, so every size is the same. */
+  padding-bottom: 0.09em;
 }
 
 .group-title {

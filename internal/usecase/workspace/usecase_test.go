@@ -11,15 +11,16 @@ import (
 )
 
 // fakeStore is the switcher's two tables without a database: the workspaces in their order, and the
-// pointer that names the one on screen. It keeps the rules the SQL keeps — the default space exists
-// from the first launch, Personal is read back out of the id rather than written down, and a
-// pointer at a row that is gone answers with the default — so the tests below are about the use
-// case.
+// pointer that names the one on screen. It keeps the rules the SQL keeps — the space the schema
+// writes exists from the first launch, and a pointer at a row that is gone answers with the oldest
+// one left — so the tests below are about the use case.
 type fakeStore struct {
 	workspaces []domain.Workspace
 	active     string
 	// deleted is every id the use case asked to remove, so a test can say a refusal never got here.
 	deleted []string
+	// counts is what the store says each space holds, for the tests about the reading travelling.
+	counts map[string]domain.WorkspaceCounts
 }
 
 func newFakeStore() *fakeStore {
@@ -76,12 +77,21 @@ func (f *fakeStore) DeleteWorkspace(_ context.Context, id string) error {
 }
 
 // ActiveWorkspace answers the way the store does: the stored pointer when it names a row that is
-// still there, and the default otherwise.
+// still there, and the oldest row left otherwise.
 func (f *fakeStore) ActiveWorkspace(context.Context) (string, error) {
 	if f.active != "" && f.has(f.active) {
 		return f.active, nil
 	}
-	return domain.WorkspacePersonalID, nil
+	if len(f.workspaces) == 0 {
+		return "", domain.ErrNotFound
+	}
+	return f.workspaces[0].ID, nil
+}
+
+// Counts is the reading the window draws in the same rows as the names. What a workspace holds is
+// not this feature's business — the SQL counts it — so a test says what it should answer.
+func (f *fakeStore) Counts(context.Context) (map[string]domain.WorkspaceCounts, error) {
+	return f.counts, nil
 }
 
 func (f *fakeStore) SetActiveWorkspace(_ context.Context, id string) error {
@@ -128,9 +138,10 @@ func TestCreateAppendsToList(t *testing.T) {
 		t.Fatalf("workspaces = %d, want the default and the new one", len(state.Workspaces))
 	}
 
-	// The default keeps the first row: the list is drawn in the order the spaces were made.
-	if !state.Workspaces[0].Personal {
-		t.Errorf("the first workspace = %+v, want the one the app is born with", state.Workspaces[0])
+	// The space the app is born with keeps the first row: the list is drawn in the order the spaces
+	// were made.
+	if state.Workspaces[0].ID != domain.WorkspacePersonalID {
+		t.Errorf("the first workspace = %+v, want the one the schema wrote", state.Workspaces[0])
 	}
 
 	added := made(t, state)
@@ -140,9 +151,6 @@ func TestCreateAppendsToList(t *testing.T) {
 	// The form has no kind: a space made here is a personal one, and the row says so.
 	if added.Kind != domain.WorkspacePersonal {
 		t.Errorf("kind = %q, want a personal space", added.Kind)
-	}
-	if added.Personal {
-		t.Errorf("the new workspace reports itself as the default: %+v", added)
 	}
 	if added.ID == "" || added.ID == domain.WorkspacePersonalID {
 		t.Errorf("id = %q, want one of its own", added.ID)
@@ -156,16 +164,18 @@ func TestCreateAppendsToList(t *testing.T) {
 	}
 }
 
-func TestPersonalWorkspaceIsNotDeletable(t *testing.T) {
+// The rule is about the number and not about which row it is: with one space left, that one may not
+// go, and the app says so before the store is asked anything.
+func TestTheLastWorkspaceIsNotDeletable(t *testing.T) {
 	u, store, _ := newUseCase()
 	ctx := context.Background()
 
 	_, err := u.Delete(ctx, domain.WorkspacePersonalID)
 	if !errors.Is(err, domain.ErrNotAllowed) {
-		t.Fatalf("Delete of the default = %v, want domain.ErrNotAllowed", err)
+		t.Fatalf("Delete of the last workspace = %v, want domain.ErrNotAllowed", err)
 	}
-	if code := domain.CodeOf(err); code != domain.CodePersonalWorkspace {
-		t.Errorf("code = %q, want %q", code, domain.CodePersonalWorkspace)
+	if code := domain.CodeOf(err); code != domain.CodeLastWorkspace {
+		t.Errorf("code = %q, want %q", code, domain.CodeLastWorkspace)
 	}
 	// The refusal is the use case's, and it never reaches the store.
 	if len(store.deleted) != 0 {
@@ -181,7 +191,9 @@ func TestPersonalWorkspaceIsNotDeletable(t *testing.T) {
 	}
 }
 
-func TestDeleteFallsBackToTheDefault(t *testing.T) {
+// Deleting the newest space leaves the window on the one that has been there longest — the same
+// rule the born-with row obeys, said from the other side.
+func TestDeleteFallsBackToTheOldestLeft(t *testing.T) {
 	u, store, notifier := newUseCase()
 	ctx := context.Background()
 
@@ -348,5 +360,79 @@ func TestNameValidation(t *testing.T) {
 	if _, err := u.Update(ctx, domain.WorkspacePersonalID,
 		Patch{Name: &empty}); domain.CodeOf(err) != domain.CodeNameEmpty {
 		t.Errorf("renaming to an empty name = %q, want %q", domain.CodeOf(err), domain.CodeNameEmpty)
+	}
+}
+
+// The row the schema writes is a workspace like any other, and it goes like any other: what may not
+// happen is the app being left with none at all.
+func TestDeleteTakesTheBornWithWorkspaceWhenAnotherRemains(t *testing.T) {
+	u, store, _ := newUseCase()
+	ctx := context.Background()
+
+	if _, err := u.Create(ctx, CreateInput{Name: "Рабочее"}); err != nil {
+		t.Fatalf("Create: %v", err)
+	}
+	state, err := u.Delete(ctx, domain.WorkspacePersonalID)
+	if err != nil {
+		t.Fatalf("Delete: %v", err)
+	}
+	if len(state.Workspaces) != 1 || state.Workspaces[0].ID == domain.WorkspacePersonalID {
+		t.Errorf("workspaces = %+v, want the one that is left", state.Workspaces)
+	}
+	if len(store.deleted) != 1 || store.deleted[0] != domain.WorkspacePersonalID {
+		t.Errorf("the store was asked to delete %v, want the one that went", store.deleted)
+	}
+}
+
+// The window never lands on a row that is gone: the space that went was the one on screen, so the
+// pointer moves to the oldest that is left, and that is the space the windows are told about.
+func TestDeleteFallsBackToTheOldestRemaining(t *testing.T) {
+	u, store, notifier := newUseCase()
+	ctx := context.Background()
+
+	created, err := u.Create(ctx, CreateInput{Name: "Рабочее"})
+	if err != nil {
+		t.Fatalf("Create: %v", err)
+	}
+	left := made(t, created).ID
+	if _, err := u.Switch(ctx, domain.WorkspacePersonalID); err != nil {
+		t.Fatalf("Switch: %v", err)
+	}
+
+	state, err := u.Delete(ctx, domain.WorkspacePersonalID)
+	if err != nil {
+		t.Fatalf("Delete: %v", err)
+	}
+	if state.ActiveID != left || store.active != left {
+		t.Errorf("activeId = %q, stored = %q, want the space that is left %q", state.ActiveID,
+			store.active, left)
+	}
+	last := notifier.payloads[len(notifier.payloads)-1]
+	changed, ok := last.(Changed)
+	if !ok {
+		t.Fatalf("the last event carried %T, want Changed", last)
+	}
+	if changed.Workspace.ID != left {
+		t.Errorf("the event named %q, want the space the window landed in %q", changed.Workspace.ID,
+			left)
+	}
+}
+
+// What each space holds travels with the list: the switcher draws the counts in the same rows as
+// the names, and a state without them would be a second call at every open.
+func TestSnapshotCarriesTheCounts(t *testing.T) {
+	u, store, _ := newUseCase()
+	ctx := context.Background()
+	store.counts = map[string]domain.WorkspaceCounts{
+		domain.WorkspacePersonalID: {Collections: 2, Environments: 3, Runs: 1},
+	}
+
+	state, err := u.Snapshot(ctx)
+	if err != nil {
+		t.Fatalf("Snapshot: %v", err)
+	}
+	got := state.Counts[domain.WorkspacePersonalID]
+	if got.Collections != 2 || got.Environments != 3 || got.Runs != 1 {
+		t.Errorf("counts = %+v, want what the store answered with", got)
 	}
 }

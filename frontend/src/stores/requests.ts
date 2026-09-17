@@ -30,7 +30,13 @@ import {
 import type { Level } from '../../bindings/json-inspector/internal/usecase/scripting'
 import { NO_AUTH } from '../lib/requestSource'
 import type { ChipName } from '../lib/requestSource'
-import { DraftService, RecordsService, ScriptingService } from '../../bindings/json-inspector/internal/transport/wails'
+import {
+  BridgeService,
+  DraftService,
+  RecordsService,
+  ScriptingService,
+} from '../../bindings/json-inspector/internal/transport/wails'
+import { useSettings } from '../composables/useSettings'
 import { useEnvironmentsStore } from './environments'
 import { useWorkspacesStore } from './workspaces'
 import { focusUrlField } from '../composables/urlFocus'
@@ -47,11 +53,22 @@ const LEGACY_KEY = 'ji-history-v1'
 // write per character. Anything that ends the moment — blur, Enter, sending — flushes at once.
 const FLUSH_MS = 400
 
+// What one tab under capture is: which tab, and since when. The time is unix milliseconds and comes
+// from the extension, which is the only side that knows when it armed the tab.
+export interface CaptureTab {
+  tabId: number
+  since: number
+}
+
 interface CaptureState {
   connected: boolean
   recording: boolean
   paused: boolean
   tabs: number
+  // What the browser calls itself, version included: the extension reads it from its own user agent
+  // and the page draws it beside the name.
+  browser: string
+  tabList: CaptureTab[]
 }
 
 type AuthType = Auth['type']
@@ -69,6 +86,9 @@ export const useRequestsStore = defineStore('requests', {
     bodies: {} as { [id: string]: RecordBodies },
     manualId: null as string | null,
     browserId: null as string | null,
+    // The tab of captured traffic the window is looking at. A record and a tab are two answers to
+    // "what is on screen" and only one of them is drawn: selecting either clears the other.
+    browserTabKey: null as string | null,
     activeView: 'request' as 'request' | 'browser' | 'collections',
     unreadCount: 0,
     loading: false,
@@ -79,7 +99,14 @@ export const useRequestsStore = defineStore('requests', {
     // collection run sends through the same path, and its records belong in history, not in the
     // command line's pane.
     mine: [] as string[],
-    capture: { connected: false, recording: false, paused: false, tabs: 0 } as CaptureState,
+    capture: {
+      connected: false,
+      recording: false,
+      paused: false,
+      tabs: 0,
+      browser: '',
+      tabList: [],
+    } as CaptureState,
 
     // ---- the draft -------------------------------------------------------
     draft: null as Draft | null,
@@ -118,7 +145,6 @@ export const useRequestsStore = defineStore('requests', {
     scriptsFor: null as string | null,
     scripts: null as Scripts | null,
     chain: [] as Level[],
-    focusTabId: null as number | null,
     inspector: { open: false, path: null as string | null, width: 330 },
   }),
   getters: {
@@ -237,6 +263,14 @@ export const useRequestsStore = defineStore('requests', {
 
   actions: {
     // ---- the draft, from Go ----------------------------------------------
+
+    // The preview — which `{{tokens}}` resolve to nothing — is worked out on the draft side, and a
+    // variable added in the environments window is not an edit of this line: without asking again,
+    // the block that says the send is held would outlive the variable that caused it. Only the
+    // preview is taken, so nothing the window is holding in its buffers is touched.
+    async refreshPreview() {
+      this.preview = (await DraftService.Snapshot(DRAFT)).preview
+    },
 
     async loadDraft() {
       this.apply(await DraftService.Snapshot(DRAFT))
@@ -531,8 +565,17 @@ export const useRequestsStore = defineStore('requests', {
 
     // A capture is a different thing: the browser rail has no command line, so there a record is
     // only shown. «Открыть в „Запросе"» on one is what carries it across — see ResponseViewer.
+    // Looking at a tab rather than at one of its requests. The pane it opens is the tab's own page,
+    // and the key is what that page is about — the same key the list groups its records by.
+    selectBrowserTab(key: string) {
+      this.browserTabKey = key
+      this.browserId = null
+    },
+
     async selectBrowser(id: string) {
       this.browserId = id
+      // One thing on screen at a time: a request inside a tab replaces the tab.
+      this.browserTabKey = null
       await this.loadBodies(id)
     },
 
@@ -547,14 +590,33 @@ export const useRequestsStore = defineStore('requests', {
       this.manualId = null
     },
 
+    // The extension asking the window to look at a tab: what it wants is the tab, and the page that
+    // is about a tab is its own.
     focusBrowserTab(tabId: number) {
       this.activeView = 'browser'
       this.unreadCount = 0
-      this.focusTabId = tabId
+      this.browserTabKey = String(tabId)
+      this.browserId = null
     },
 
     setCaptureState(partial: Partial<CaptureState>) {
       this.capture = { ...this.capture, ...partial }
+    },
+
+    // The rules the extension filters by, said to whoever is listening. Sent on every state frame:
+    // this protocol has no acknowledgement, so repeating them is the only way an extension that has
+    // just reconnected learns what it missed.
+    async applyCaptureFilters() {
+      const filters = useSettings().settings.value?.captureFilters
+      if (!filters) return
+      await BridgeService.ApplyCaptureFilters(filters)
+    },
+
+    // Holding capture down and letting it go: one place for it, because the status bar and the
+    // browser page both offer the switch and two copies of it would be two answers.
+    async toggleCapture() {
+      if (this.capture.paused) await BridgeService.ResumeCapture()
+      else await BridgeService.PauseCapture()
     },
 
     // A body the record did not bring with it is read once, by name, and kept for as long as the

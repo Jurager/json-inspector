@@ -4,14 +4,15 @@ import Icon from '../ui/Icon.vue'
 import { Button } from '../ui/button'
 import CollectionAuth from './CollectionAuth.vue'
 import CollectionScripts from './CollectionScripts.vue'
+import { Sheet } from '../ui/sheet'
 import CollectionVariables from './CollectionVariables.vue'
 import { useCollectionsStore } from '../../stores/collections'
 import { useAuthSchemes } from '../../composables/useAuthSchemes'
 import { useToast } from '../../composables/useToast'
-import { childrenOf, findNode } from '../../lib/collectionTree'
+import { findNode } from '../../lib/collectionTree'
 import { addressOf } from '../../lib/address'
 import { methodInkClass, statusBadgeClass } from '../../lib/format'
-import { describeFailure, formatAgo, formatMicros, useMessages } from '../../i18n'
+import { describeFailure, formatAgo, formatMicros, refusalText, useMessages } from '../../i18n'
 import type {
   Collection,
   CollectionRun,
@@ -226,7 +227,10 @@ async function openRow(row: LevelRow) {
 
 // ---- what the level is ----------------------------------------------------
 
-const nested = computed(() => (level.value ? childrenOf(level.value).length : 0))
+// The folders the level holds — the collections in it, and not the rows it draws. A level's children
+// are its requests and its collections merged by position, so counting the lot of them as folders
+// said «1 папка» about a folder whose one row is a request.
+const folders = computed(() => (level.value?.children ?? []).length)
 
 const meta = computed(() => {
   const parts: string[] = []
@@ -238,7 +242,7 @@ const meta = computed(() => {
     parts.push(t('collections.aCollection'))
   }
   parts.push(t('counts.requests', store.selectedRequestCount))
-  if (nested.value > 0) parts.push(t('counts.folders', nested.value))
+  if (folders.value > 0) parts.push(t('counts.folders', folders.value))
   return parts.join(' · ')
 })
 
@@ -323,7 +327,11 @@ const runNote = computed(() => {
 // A failing row's line under its name: the reason, and how long it took when it was measured.
 function reportNote(result: CollectionRunResult): string {
   const parts: string[] = []
-  if (result.error) parts.push(result.error)
+  // A refusal the app is behind is said in the window's own words — the code's sentence, in the
+  // language the window is in. Only what the machine failed at is repeated as the machine wrote it.
+  const refused = refusalText(result.failure)
+  if (refused) parts.push(refused)
+  else if (result.error) parts.push(result.error)
   else if ((result.assertionsTotal ?? 0) > 0) {
     parts.push(
       t('collections.ofTotal', {
@@ -408,7 +416,6 @@ type Sheet = 'auth' | 'scripts' | 'variables' | 'report'
 const sheet = ref<Sheet | null>(null)
 
 const sheetTitle = computed(() => (sheet.value ? t(`collections.${sheet.value}Sheet`) : ''))
-
 
 const variablesNote = computed(() => {
   const own = trail.value?.collection?.variables ?? []
@@ -618,54 +625,39 @@ async function run() {
     <!-- The editors are leaves over the page rather than tabs inside it: a collection's authorization
          is set once and left, and a tab that is nearly always closed is a line of the page spent on
          nothing. -->
-    <div v-if="sheet" class="sheet-overlay" @click.self="closeSheet">
-      <div class="sheet">
-        <div class="sheet-head">
-          <div class="sheet-titles">
-            <span class="sheet-title">{{ sheetTitle }}</span>
-            <span class="sheet-sub">{{ sheetSub }}</span>
-          </div>
-          <button class="sheet-close" :title="t('common.close')" @click="closeSheet">
-            <Icon name="xmark" :size="15" :stroke-width="2.2" />
-          </button>
-        </div>
-
-        <div class="sheet-body">
-          <CollectionAuth v-if="sheet === 'auth'" ref="authEditor" />
-          <CollectionVariables v-else-if="sheet === 'variables'" ref="variablesEditor" />
-          <CollectionScripts v-else-if="sheet === 'scripts'" ref="scriptsEditor" />
-          <div v-else class="report">
-            <button
-              v-for="(line, i) in report"
-              :key="i"
-              type="button"
-              class="report-row"
-              :class="{ linked: line.result }"
-              :disabled="!line.result"
-              @click="line.result && store.openRunResult(line.result)"
-            >
-              <span class="report-text">
-                <span class="report-label">{{ line.label }}</span>
-                <span class="report-note">{{ line.note }}</span>
-              </span>
-              <span class="report-tag" :class="line.tone">{{ line.tag }}</span>
-            </button>
-          </div>
-        </div>
-
-        <!-- The report is read, not edited: it has nothing to cancel, and a Cancel beside its Close
-             would be two names for the one thing that button does. -->
-        <div class="sheet-foot">
-          <button v-if="sheet !== 'report'" class="sheet-cancel" @click="closeSheet">
-            {{ t('common.cancel') }}
-          </button>
-          <button v-if="sheet === 'report'" class="sheet-action" @click="closeSheet">
-            {{ t('common.close') }}
-          </button>
-          <button v-else class="sheet-action" @click="saveSheet">{{ t('common.save') }}</button>
-        </div>
+    <!-- The report is read, not edited: it has nothing to cancel, and a Cancel beside its Close would
+         be two names for the one thing that button does. -->
+    <Sheet
+      :open="sheet !== null"
+      :title="sheetTitle"
+      :sub="sheetSub"
+      :cancel="sheet !== null && sheet !== 'report' ? t('common.cancel') : ''"
+      :action="sheet === 'report' ? t('common.close') : t('common.save')"
+      @close="closeSheet"
+      @cancel="closeSheet"
+      @action="sheet === 'report' ? closeSheet() : saveSheet()"
+    >
+      <CollectionAuth v-if="sheet === 'auth'" ref="authEditor" />
+      <CollectionVariables v-else-if="sheet === 'variables'" ref="variablesEditor" />
+      <CollectionScripts v-else-if="sheet === 'scripts'" ref="scriptsEditor" />
+      <div v-else class="report">
+        <button
+          v-for="(line, i) in report"
+          :key="i"
+          type="button"
+          class="report-row"
+          :class="{ linked: line.result }"
+          :disabled="!line.result"
+          @click="line.result && store.openRunResult(line.result)"
+        >
+          <span class="report-text">
+            <span class="report-label">{{ line.label }}</span>
+            <span class="report-note">{{ line.note }}</span>
+          </span>
+          <span class="report-tag" :class="line.tone">{{ line.tag }}</span>
+        </button>
       </div>
-    </div>
+    </Sheet>
   </div>
 </template>
 
@@ -893,82 +885,6 @@ async function run() {
 
 /* The sheet is a leaf of its own, sized to one editor: the environments' sheet is a whole workspace
    with a list beside the table, and a collection's authorization is a form. */
-.sheet-overlay {
-  @apply fixed inset-0 z-1500 flex items-center justify-center;
-  background: rgba(0, 0, 0, 0.22);
-}
-
-/* The drawing's sheet: one card rather than a panel with a bar, sized to the editors it holds and
-   padded once — the editors inside bring no padding of their own. */
-.sheet {
-  @apply flex flex-col w-[440px] max-w-[92vw] rounded-[14px];
-  max-height: calc(100vh - 96px);
-  padding: 18px;
-  gap: 16px;
-  background: var(--glass-sheet);
-  backdrop-filter: var(--blur-sheet);
-  box-shadow: var(--glass-sheet-shadow), 0 0 0 1px var(--glass-overlay-border);
-}
-
-.sheet-head {
-  @apply flex-none flex items-start gap-3;
-}
-
-/* The handoff's own close for this card: 28 square, and the ink is the tertiary one until the
-   pointer arrives. */
-.sheet-close {
-  @apply flex-none inline-flex items-center justify-center w-7 h-7 rounded-[7px] border-0
-         bg-transparent text-text-tertiary cursor-pointer;
-  --wails-draggable: no-drag;
-}
-
-.sheet-close:hover {
-  @apply bg-bg-active text-text;
-}
-
-/* Save and Cancel: the sheet holds what is being edited until one of them is pressed. */
-.sheet-foot {
-  @apply flex-none flex justify-end gap-2.5 pt-1 border-t border-border;
-}
-
-.sheet-cancel {
-  @apply h-[34px] px-3.5 rounded-lg border border-border-strong bg-bg-inset text-text
-         text-[13.5px] font-medium cursor-pointer;
-  font-family: inherit;
-}
-
-.sheet-cancel:hover {
-  @apply bg-bg-hover;
-}
-
-.sheet-action {
-  @apply h-[34px] px-4 rounded-lg border-0 bg-accent text-accent-text text-[13.5px] font-semibold
-         cursor-pointer;
-  font-family: inherit;
-}
-
-.sheet-action:hover {
-  @apply brightness-110;
-}
-
-/* The sheet's head is a name and a sentence: what this is, and what it is about. The sentence is the
-   card's own, so a sheet says the same thing the line it was opened from does. */
-.sheet-titles {
-  @apply flex flex-col flex-1 gap-[5px] min-w-0;
-}
-
-.sheet-title {
-  @apply text-[16px] font-semibold;
-}
-
-.sheet-sub {
-  @apply text-[13px] leading-normal text-text-secondary;
-  line-height: 1.5;
-}
-
-.sheet-body {
-  @apply flex-1 min-h-0 overflow-y-auto;
-}
 
 /* The run's report: the failures one by one, then what the run came to, then the slowest row — the
    three things worth reading about a run that has already been drawn row by row above. */

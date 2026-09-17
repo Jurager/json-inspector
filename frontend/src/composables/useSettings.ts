@@ -1,6 +1,6 @@
 import { ref } from 'vue'
-import { SettingsService } from '../../bindings/json-inspector/internal/transport/wails'
-import type { Settings } from '../../bindings/json-inspector/internal/domain'
+import { BridgeService, SettingsService } from '../../bindings/json-inspector/internal/transport/wails'
+import type { CaptureFilters, Settings } from '../../bindings/json-inspector/internal/domain'
 import type { LayoutPatch } from '../../bindings/json-inspector/internal/usecase/settings'
 
 // What the user has set up, as Go remembers it. The window reads it once at startup and writes back
@@ -21,6 +21,7 @@ export function useSettings() {
     setLanguage,
     setLayout,
     setRetention,
+    setCaptureFilters,
     setUpdateCheck,
     setUpdateChannel,
   }
@@ -76,6 +77,16 @@ function setLayout(patch: LayoutPatch): void {
         // Geometry that failed to save is geometry the next drag will try again.
       })
   }, LAYOUT_DEBOUNCE_MS)
+}
+
+// The capture rules are stored here and handed to the extension by the bridge: two calls, because
+// they are two different things — one keeps the answer, the other delivers it to whoever is listening
+// right now. Which of them fails is what says what went wrong.
+async function setCaptureFilters(filters: CaptureFilters): Promise<Settings> {
+  const saved = await SettingsService.SetCaptureFilters(filters)
+  settings.value = saved
+  await BridgeService.ApplyCaptureFilters(saved.captureFilters)
+  return saved
 }
 
 async function setRetention(retention: Settings['historyRetention']): Promise<void> {
