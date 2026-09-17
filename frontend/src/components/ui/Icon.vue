@@ -44,6 +44,9 @@ import {
   Contrast,
   Globe,
   User,
+  ArrowRightLeft,
+  Shield,
+  RefreshCw,
   createLucideIcon,
 } from 'lucide-vue-next'
 
@@ -182,6 +185,11 @@ const ICONS: Record<string, Component> = {
   contrast: Contrast,
   globe: Globe,
   user: User,
+  // The settings rail's own three: a request going out and an answer coming back, the shield a proxy
+  // stands behind, and the circle an update comes around in.
+  exchange: ArrowRightLeft,
+  shield: Shield,
+  refresh: RefreshCw,
 }
 
 // `filled` asks for the solid version of a glyph, and only the two above have one: a name without a

@@ -21,6 +21,10 @@ type Store interface {
 		error)
 	ReadBody(ctx context.Context, id string, side domain.BodySide) (string, error)
 	DeleteRecords(ctx context.Context, ids []string) error
+	// DeleteAllRecords is the whole of one space's history, which is a call of its own rather than the
+	// one above with every id in it: the ids are the list's, and the list is capped and filtered.
+	DeleteAllRecords(ctx context.Context, workspaceID string) (int, error)
+	HistoryStats(ctx context.Context, workspaceID string) (domain.HistoryStats, error)
 	Prune(ctx context.Context, workspaceID string, opts domain.PruneOptions) (int, error)
 
 	ClaimImport(ctx context.Context, source string) (bool, error)

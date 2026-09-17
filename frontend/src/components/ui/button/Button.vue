@@ -8,8 +8,8 @@
 // overview — still measures by the sizes above.
 withDefaults(
   defineProps<{
-    variant?: 'outline' | 'primary' | 'ghost' | 'quiet'
-    size?: 'sm' | 'md' | 'lg' | 'xl' | 'xl-quiet' | 'panel' | 'page' | 'bar'
+    variant?: 'outline' | 'primary' | 'ghost' | 'quiet' | 'danger'
+    size?: 'sm' | 'md' | 'lg' | 'xl' | 'xl-quiet' | 'panel' | 'page' | 'bar' | 'field'
   }>(),
   { variant: 'outline', size: 'md' }
 )
@@ -197,5 +197,32 @@ withDefaults(
   background: var(--bg-inset);
   border-color: var(--border);
   box-shadow: none;
+}
+
+/* The settings rows' button: the height and the radius of the field it stands beside. Geometry only —
+   the fill is the variant's, which is why nothing here paints: a size that painted would beat
+   `btn--primary` (two classes against one) and leave a white label on a white button, which is how
+   the one danger button in this window was drawn invisible the first time round. No shadow either:
+   the drawing has the button stand in the row rather than lift off it. */
+.btn.btn--field {
+  gap: 6px;
+  height: 30px;
+  padding: 0 12px;
+  border-radius: 7px;
+  font-size: 12.5px;
+  font-weight: 500;
+  box-shadow: none;
+}
+
+/* A row that throws something away: the colour of the danger strip under an environment's variables
+   or a workspace's delete, so the same act looks the same wherever the window puts it. */
+.btn--danger {
+  color: var(--red-text);
+  border-color: var(--red-soft);
+  background: transparent;
+}
+
+.btn--danger:hover:not(:disabled) {
+  background: var(--red-soft);
 }
 </style>

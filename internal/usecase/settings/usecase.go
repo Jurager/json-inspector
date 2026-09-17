@@ -18,6 +18,16 @@ const TopicThemeChanged = "settings:theme"
 // the one that made the choice has already done so.
 const TopicLanguageChanged = "settings:language"
 
+// TopicChanged carries a whole snapshot for every other preference: the settings window writes and
+// the main window draws the same rows — a retention it shows on the browser card, a wrap the raw
+// viewer obeys — and neither is reloaded when the other one writes.
+//
+// The snapshot travels rather than the one value that moved, because what a listener has to do with
+// it is the same in every case: replace what it shows. Geometry is the exception and does not
+// publish — a drag writes once it settles, and a snapshot arriving mid-drag would undo the panel
+// the pointer is still holding.
+const TopicChanged = "settings:changed"
+
 type UseCase struct {
 	store    Store
 	notifier Notifier
@@ -62,7 +72,29 @@ func (u *UseCase) Snapshot(ctx context.Context) (domain.Settings, error) {
 	if channel := domain.UpdateChannel(stored[domain.SettingUpdateChannel]); channel.Valid() {
 		out.UpdateChannel = channel
 	}
+	// Three whose absence means "on": a database written before they existed has no row for them, and
+	// an editor that stopped wrapping lines because nobody had ever said so would be a change nobody
+	// asked for. Only a value that parses and says false turns one off.
+	if wrap, ok := parseBool(stored[domain.SettingWrapLines]); ok {
+		out.WrapLines = wrap
+	}
+	if numbers, ok := parseBool(stored[domain.SettingLineNumbers]); ok {
+		out.LineNumbers = numbers
+	}
+	if reopen, ok := parseBool(stored[domain.SettingReopenWorkspace]); ok {
+		out.ReopenWorkspace = reopen
+	}
 	return out, nil
+}
+
+// announced hands a snapshot to every window and back to the caller: the shape of every setter
+// whose row another window draws.
+func (u *UseCase) announced(current domain.Settings, err error) (domain.Settings, error) {
+	if err != nil {
+		return current, err
+	}
+	u.notifier.Publish(TopicChanged, current)
+	return current, nil
 }
 
 // Theme is the one preference the window needs before it exists: the first paint has to happen in
@@ -135,7 +167,9 @@ type LayoutPatch struct {
 }
 
 // SetLayout remembers where the user put the panels. This is written often — every drag — so it
-// saves exactly the fields it is given and nothing else.
+// saves exactly the fields it is given and nothing else, and publishes only the one that is a
+// choice
+// rather than a measurement.
 func (u *UseCase) SetLayout(ctx context.Context, patch LayoutPatch) (domain.Settings, error) {
 	if patch.InspectorOpen != nil {
 		if err := u.save(ctx, domain.SettingInspectorOpen,
@@ -165,6 +199,11 @@ func (u *UseCase) SetLayout(ctx context.Context, patch LayoutPatch) (domain.Sett
 		if err := u.save(ctx, domain.SettingListSide, string(*patch.ListSide)); err != nil {
 			return domain.Settings{}, err
 		}
+		// The side is moved by a click and not by a drag, and it is the one thing in this patch the
+		// settings window draws: every window follows it, the way they follow a preference. Widths
+		// and the inspector's flag stay unpublished — a panel under the pointer is nobody else's to
+		// move, and the snapshot that followed a drag would fight the drag that is still happening.
+		return u.announced(u.Snapshot(ctx))
 	}
 	return u.Snapshot(ctx)
 }
@@ -180,12 +219,9 @@ func (u *UseCase) SetRetention(
 	if err := u.save(ctx, domain.SettingHistoryRetention, string(retention)); err != nil {
 		return domain.Settings{}, err
 	}
-	return u.Snapshot(ctx)
+	return u.announced(u.Snapshot(ctx))
 }
 
-// SetUpdateCheck stores whether the app may look for a release on its own. Turning it off stops the
-// background check only: a check the user asks for is theirs to ask, and an app that refuses one
-// would be pretending the feature is gone rather than switched off.
 // SetCaptureFilters stores the rules the extension applies. What they are is the app's to decide:
 // the extension enforces them and shows them, and this is where they are kept.
 func (u *UseCase) SetCaptureFilters(
@@ -199,14 +235,17 @@ func (u *UseCase) SetCaptureFilters(
 	if err := u.save(ctx, domain.SettingCaptureFilters, string(encoded)); err != nil {
 		return domain.Settings{}, err
 	}
-	return u.Snapshot(ctx)
+	return u.announced(u.Snapshot(ctx))
 }
 
+// SetUpdateCheck stores whether the app may look for a release on its own. Turning it off stops the
+// background check only: a check the user asks for is theirs to ask, and an app that refuses one
+// would be pretending the feature is gone rather than switched off.
 func (u *UseCase) SetUpdateCheck(ctx context.Context, auto bool) (domain.Settings, error) {
 	if err := u.save(ctx, domain.SettingUpdateAuto, strconv.FormatBool(auto)); err != nil {
 		return domain.Settings{}, err
 	}
-	return u.Snapshot(ctx)
+	return u.announced(u.Snapshot(ctx))
 }
 
 // SetUpdateChannel stores which releases may be offered. The choice is not applied to a check that
@@ -222,7 +261,43 @@ func (u *UseCase) SetUpdateChannel(
 	if err := u.save(ctx, domain.SettingUpdateChannel, string(channel)); err != nil {
 		return domain.Settings{}, err
 	}
-	return u.Snapshot(ctx)
+	return u.announced(u.Snapshot(ctx))
+}
+
+// EditorPatch is a partial update of what the raw viewer does with its lines: a nil field is left
+// as it is, the same rule the layout patch follows.
+type EditorPatch struct {
+	WrapLines   *bool `json:"wrapLines,omitempty"`
+	LineNumbers *bool `json:"lineNumbers,omitempty"`
+}
+
+// SetEditor remembers how the raw viewer draws a long line and its gutter. Both are the viewer's
+// own business to apply — this only keeps the answer, and tells the window that is drawing one.
+func (u *UseCase) SetEditor(ctx context.Context, patch EditorPatch) (domain.Settings, error) {
+	if patch.WrapLines != nil {
+		if err := u.save(ctx, domain.SettingWrapLines,
+			strconv.FormatBool(*patch.WrapLines)); err != nil {
+			return domain.Settings{}, err
+		}
+	}
+	if patch.LineNumbers != nil {
+		if err := u.save(ctx, domain.SettingLineNumbers,
+			strconv.FormatBool(*patch.LineNumbers)); err != nil {
+			return domain.Settings{}, err
+		}
+	}
+	return u.announced(u.Snapshot(ctx))
+}
+
+// SetReopenWorkspace stores whether the app comes back to the space it was left in. Nothing is
+// written to the pointer here: the choice is read where the pointer is read, so turning it back on
+// returns the user to the space they were last in rather than to whichever one was on screen when
+// they turned it off.
+func (u *UseCase) SetReopenWorkspace(ctx context.Context, reopen bool) (domain.Settings, error) {
+	if err := u.save(ctx, domain.SettingReopenWorkspace, strconv.FormatBool(reopen)); err != nil {
+		return domain.Settings{}, err
+	}
+	return u.announced(u.Snapshot(ctx))
 }
 
 func (u *UseCase) save(ctx context.Context, key, value string) error {

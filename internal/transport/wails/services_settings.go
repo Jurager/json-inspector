@@ -60,6 +60,24 @@ func (s *SettingsService) SetLayout(
 	return s.settings.SetLayout(ctx, patch)
 }
 
+// SetEditor stores what the raw viewer does with a long line and with its gutter. The viewer reads
+// it from the broadcast, so the window that changed it does not have to hand it over.
+func (s *SettingsService) SetEditor(
+	ctx context.Context,
+	patch settings.EditorPatch,
+) (domain.Settings, error) {
+	return s.settings.SetEditor(ctx, patch)
+}
+
+// SetReopenWorkspace stores whether the app comes back to the space it was left in. It takes effect
+// at the next launch, which is where the pointer is resolved.
+func (s *SettingsService) SetReopenWorkspace(
+	ctx context.Context,
+	reopen bool,
+) (domain.Settings, error) {
+	return s.settings.SetReopenWorkspace(ctx, reopen)
+}
+
 // SetCaptureFilters stores the rules the extension filters by. It does not hand them over: the
 // bridge is a different service, and the window calls it — one place to fail is not two.
 func (s *SettingsService) SetCaptureFilters(
@@ -76,9 +94,9 @@ func (s *SettingsService) SetRetention(
 	return s.settings.SetRetention(ctx, retention)
 }
 
-// SetUpdateCheck stores whether the app may look for a release on its own. It broadcasts nothing:
-// the window that changed it draws the switch itself, and the next launch is what the preference
-// is for.
+// SetUpdateCheck stores whether the app may look for a release on its own. The settings window
+// turns it off, and the browser card draws how it is kept — which is why the snapshot it saves
+// travels to the other windows.
 func (s *SettingsService) SetUpdateCheck(
 	ctx context.Context,
 	auto bool,

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import ColorSwatches from '../ui/ColorSwatches.vue'
-import Segmented from './Segmented.vue'
+import Segment from '../ui/Segment.vue'
 import { DEFAULT_ENVIRONMENT_COLOR, ENVIRONMENT_COLORS, ENVIRONMENT_TINTS } from './palette'
 import { useEnvironmentsStore } from '../../stores/environments'
 import { useSheetNotice } from '../../composables/useSheetNotice'
@@ -122,7 +122,7 @@ function cancel() {
 
       <div class="field">
         <span class="field-label">{{ t('environments.startFrom') }}</span>
-        <Segmented class="bases" :options="bases" :value="base" @pick="base = $event" />
+        <Segment class="bases" :options="bases" :value="base" @pick="base = $event" />
       </div>
 
       <div class="field">

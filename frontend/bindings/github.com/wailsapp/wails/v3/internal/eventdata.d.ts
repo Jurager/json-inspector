@@ -34,10 +34,12 @@ declare module "@wailsio/runtime" {
             "capture-state": bridge$0.CaptureState;
             "collection:run-finished": domain$0.CollectionRun;
             "collection:run-progress": collection$0.RunProgress;
+            "history:cleared": record$0.HistoryCleared;
             "open-tab": number;
             "record:added": domain$0.Record;
             "request:failed": record$0.RequestFailed;
             "request:finished": record$0.RequestFinished;
+            "settings:changed": domain$0.Settings;
             "settings:language": settings$0.LanguageChanged;
             "settings:theme": settings$0.ThemeChanged;
             "update-changed": update$0.Info | null;

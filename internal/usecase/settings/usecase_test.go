@@ -193,6 +193,34 @@ func TestSetLayoutWritesOnlyWhatItIsGiven(t *testing.T) {
 	}
 }
 
+// The one field of a layout patch that is a choice rather than a measurement travels: the side of
+// the list is clicked in the status bar or in the settings window, and both of them draw it. A drag
+// publishes nothing — a panel under the pointer is nobody else's to move.
+func TestSetLayoutPublishesASideAndNotADrag(t *testing.T) {
+	uc, _, notifier := newUseCase()
+	ctx := context.Background()
+
+	drag := LayoutPatch{SideWidth: ptr(320), InspectorOpen: ptr(true)}
+	if _, err := uc.SetLayout(ctx, drag); err != nil {
+		t.Fatalf("SetLayout: %v", err)
+	}
+	if len(notifier.seen) != 0 {
+		t.Errorf("a drag published %+v, want silence", notifier.seen)
+	}
+
+	side := domain.ListSideRight
+	if _, err := uc.SetLayout(ctx, LayoutPatch{ListSide: &side}); err != nil {
+		t.Fatalf("SetLayout: %v", err)
+	}
+	if len(notifier.seen) != 1 || notifier.seen[0].topic != TopicChanged {
+		t.Fatalf("published %+v, want the snapshot on %s", notifier.seen, TopicChanged)
+	}
+	if changed, ok := notifier.seen[0].payload.(domain.Settings); !ok ||
+		changed.ListSide != domain.ListSideRight {
+		t.Errorf("payload = %+v, want the side as it now is", notifier.seen[0].payload)
+	}
+}
+
 // The side of the list is a choice, not a measurement: a value the window cannot lay out is refused
 // rather than clamped, because "hidden-ish" would leave the panel somewhere nobody asked for.
 func TestSetLayoutRefusesAnUnknownListSide(t *testing.T) {
@@ -226,7 +254,7 @@ func TestSetLayoutRefusesAnUnknownListSide(t *testing.T) {
 }
 
 func TestSetRetentionValidates(t *testing.T) {
-	uc, store, _ := newUseCase()
+	uc, store, notifier := newUseCase()
 	ctx := context.Background()
 
 	if _, err := uc.SetRetention(ctx, domain.RetainWeek); err != nil {
@@ -235,8 +263,92 @@ func TestSetRetentionValidates(t *testing.T) {
 	if store[domain.SettingHistoryRetention] != "7" {
 		t.Errorf("stored retention = %q, want 7", store[domain.SettingHistoryRetention])
 	}
+	// The main window draws how history is kept on the browser card, and the settings window is the
+	// one that changes it: the snapshot has to travel, or that card goes on saying the old window.
+	if len(notifier.seen) != 1 || notifier.seen[0].topic != TopicChanged {
+		t.Fatalf("published %+v, want the snapshot on %s", notifier.seen, TopicChanged)
+	}
+	if changed, ok := notifier.seen[0].payload.(domain.Settings); !ok ||
+		changed.HistoryRetention != domain.RetainWeek {
+		t.Errorf("payload = %+v, want the settings as they now are", notifier.seen[0].payload)
+	}
+
 	if _, err := uc.SetRetention(ctx, "whenever"); !errors.Is(err, domain.ErrNotAllowed) {
 		t.Errorf("unknown retention = %v, want ErrNotAllowed", err)
+	}
+	if len(notifier.seen) != 1 {
+		t.Errorf("a refusal published %+v, want silence", notifier.seen[1:])
+	}
+}
+
+// The three whose absence has to read as "on": a database written before they existed has no row
+// for them, and an editor that stopped wrapping because nobody had ever said so would be a change
+// nobody asked for.
+func TestSnapshotKeepsDefaultsForUnreadableSwitches(t *testing.T) {
+	uc, store, _ := newUseCase()
+	store[domain.SettingWrapLines] = "not a bool"
+	store[domain.SettingLineNumbers] = ""
+	store[domain.SettingReopenWorkspace] = "0"
+
+	got, err := uc.Snapshot(context.Background())
+	if err != nil {
+		t.Fatalf("Snapshot: %v", err)
+	}
+	if !got.WrapLines || !got.LineNumbers {
+		t.Errorf("wrap = %v, numbers = %v; want both left on", got.WrapLines, got.LineNumbers)
+	}
+	// `strconv.ParseBool` reads "0" as false, and false is a value somebody may have chosen: only an
+	// unreadable one falls back.
+	if got.ReopenWorkspace {
+		t.Error("reopenWorkspace = true, want the stored false to be honoured")
+	}
+}
+
+func TestSetEditorWritesOnlyWhatItIsGiven(t *testing.T) {
+	uc, store, notifier := newUseCase()
+	ctx := context.Background()
+
+	if _, err := uc.SetEditor(ctx, EditorPatch{LineNumbers: ptr(false)}); err != nil {
+		t.Fatalf("SetEditor: %v", err)
+	}
+	if store[domain.SettingLineNumbers] != "false" {
+		t.Errorf("stored lineNumbers = %q, want false", store[domain.SettingLineNumbers])
+	}
+	if _, written := store[domain.SettingWrapLines]; written {
+		t.Error("the wrap nobody mentioned was written")
+	}
+	if len(notifier.seen) != 1 || notifier.seen[0].topic != TopicChanged {
+		t.Errorf("published %+v, want the snapshot on %s", notifier.seen, TopicChanged)
+	}
+
+	saved, err := uc.SetEditor(ctx, EditorPatch{WrapLines: ptr(false)})
+	if err != nil {
+		t.Fatalf("SetEditor: %v", err)
+	}
+	if saved.WrapLines || saved.LineNumbers {
+		t.Errorf("editor = %+v, want the line numbers left off and the wrap off", saved)
+	}
+}
+
+func TestSetReopenWorkspaceStoresTheChoice(t *testing.T) {
+	uc, store, notifier := newUseCase()
+	ctx := context.Background()
+
+	saved, err := uc.SetReopenWorkspace(ctx, false)
+	if err != nil {
+		t.Fatalf("SetReopenWorkspace: %v", err)
+	}
+	if store[domain.SettingReopenWorkspace] != "false" || saved.ReopenWorkspace {
+		t.Errorf("stored %q and answered %v, want false",
+			store[domain.SettingReopenWorkspace], saved.ReopenWorkspace)
+	}
+	// The pointer is not touched: turning the preference back on has to return the user to the space
+	// they were last in, not to the one that was on screen when they turned it off.
+	if _, written := store[domain.SettingActiveWorkspace]; written {
+		t.Error("the active workspace was rewritten, want the pointer left alone")
+	}
+	if len(notifier.seen) != 1 || notifier.seen[0].topic != TopicChanged {
+		t.Errorf("published %+v, want the snapshot on %s", notifier.seen, TopicChanged)
 	}
 }
 

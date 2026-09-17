@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, nextTick, ref, watch } from 'vue'
 import ColorSwatches from '../ui/ColorSwatches.vue'
-import Segmented from '../environments/Segmented.vue'
+import Segment from '../ui/Segment.vue'
 import Tooltip from '../ui/tooltip/Tooltip.vue'
 import Icon from '../ui/Icon.vue'
 import { WORKSPACE_COLORS, WORKSPACE_TINTS } from './palette'
@@ -158,7 +158,7 @@ defineExpose({ cancelTop })
 
       <div class="field">
         <span class="field-label">{{ t('workspaces.kindLabel') }}</span>
-        <Segmented
+        <Segment
           class="kinds"
           :options="kinds"
           :value="kind"

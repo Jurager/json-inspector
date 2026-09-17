@@ -12,6 +12,9 @@ const (
 	SettingUpdateAuto       = "update.checkAutomatically"
 	SettingUpdateChannel    = "update.channel"
 	SettingCaptureFilters   = "capture.filters"
+	SettingWrapLines        = "editor.wrapLines"
+	SettingLineNumbers      = "editor.lineNumbers"
+	SettingReopenWorkspace  = "workspace.reopenLast"
 )
 
 // CaptureFilters are the rules the extension applies before a request reaches the list: which hosts
@@ -99,7 +102,7 @@ func (s ListSide) Valid() bool {
 	return s == ListSideLeft || s == ListSideRight || s == ListSideHidden
 }
 
-// Settings is everything the app remembers about how it is set up, in the order the screen shows
+// Settings is everything the app remembers about how it is set up, grouped the way the screen shows
 // it. Defaults live in one place — the use case's — so a fresh database and a missing row agree.
 type Settings struct {
 	Theme            Theme          `json:"theme"`
@@ -112,6 +115,12 @@ type Settings struct {
 	CaptureFilters   CaptureFilters `json:"captureFilters"`
 	UpdateCheckAuto  bool           `json:"updateCheckAuto"`
 	UpdateChannel    UpdateChannel  `json:"updateChannel"`
+	// What the raw viewer does with a long line and with its gutter, and whether the app comes back
+	// to the space it was left in. Booleans whose default is "on", which is why the absence of a row
+	// has to be read as true rather than as false.
+	WrapLines       bool `json:"wrapLines"`
+	LineNumbers     bool `json:"lineNumbers"`
+	ReopenWorkspace bool `json:"reopenWorkspace"`
 }
 
 // DefaultSettings is what the app runs with before anyone has changed anything.
@@ -129,6 +138,11 @@ func DefaultSettings() Settings {
 		// where a security fix goes unnoticed, and "off" is one click away in the settings.
 		UpdateCheckAuto: true,
 		UpdateChannel:   ChannelStable,
+		// The viewer wraps and numbers its lines, and the window opens where it was left: all three
+		// are what the app already did before they could be switched off.
+		WrapLines:       true,
+		LineNumbers:     true,
+		ReopenWorkspace: true,
 	}
 }
 

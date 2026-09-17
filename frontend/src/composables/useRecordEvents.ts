@@ -56,6 +56,17 @@ export function useRecordEvents(
         else holdAnswer(id, { failed: true })
       }),
 
+      // A history thrown away — the settings window's "clear history now", which is about the space
+      // on screen and not necessarily about the one this window is drawing. A list of another space
+      // is left alone: its rows are still there, and reading the database again would only cost.
+      //
+      // The space last left in is not read from Go here: the window knows which one it is showing,
+      // and the answer is the same one the event was made of.
+      Events.On('history:cleared', (ev) => {
+        if (ev.data.workspaceId && ev.data.workspaceId !== store.workspaceId) return
+        void store.load()
+      }),
+
       // A run of a collection: one event per request it reaches, and the finished run with its
       // counters — which is what the overview draws, and what the status bar counts.
       Events.On('collection:run-progress', (ev) => {

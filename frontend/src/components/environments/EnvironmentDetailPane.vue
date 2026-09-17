@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, nextTick, ref, watch } from 'vue'
 import ColorSwatches from '../ui/ColorSwatches.vue'
-import Segmented from './Segmented.vue'
+import Segment from '../ui/Segment.vue'
 import VariablesTable from './VariablesTable.vue'
 import { ENVIRONMENT_COLORS, ENVIRONMENT_TINTS } from './palette'
 import { useEnvironmentsStore } from '../../stores/environments'
@@ -163,7 +163,7 @@ defineExpose({ cancelTop })
 
       <div v-if="env" class="field">
         <span class="field-label">{{ t('environments.accessLabel') }}</span>
-        <Segmented class="access" :options="accessOptions" :value="access" @pick="pickAccess" />
+        <Segment class="access" :options="accessOptions" :value="access" @pick="pickAccess" />
       </div>
 
       <VariablesTable ref="table" :locked="Boolean(env?.readonly)" @import="emit('import')" />

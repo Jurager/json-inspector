@@ -153,6 +153,18 @@ func (s *RecordsService) Clear(ctx context.Context, ids []string) error {
 	return s.records.Clear(ctx, ids)
 }
 
+// ClearAll is the whole of the space on screen, which is what the settings screen's "clear history
+// now" does: what it clears is the history the panel beside it is showing.
+func (s *RecordsService) ClearAll(ctx context.Context) (int, error) {
+	return s.records.ClearAll(ctx)
+}
+
+// History is what the space on screen is holding — how many requests, how many bytes of bodies —
+// which is the line the settings screen puts beside that button.
+func (s *RecordsService) History(ctx context.Context) (domain.HistoryStats, error) {
+	return s.records.History(ctx)
+}
+
 // Prune applies the retention rules now, which is what the settings screen does when the window is
 // shortened.
 func (s *RecordsService) Prune(ctx context.Context) (int, error) {

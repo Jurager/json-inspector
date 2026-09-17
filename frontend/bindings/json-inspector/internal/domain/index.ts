@@ -44,6 +44,7 @@ export type {
     Field,
     FormRow,
     HeaderPair,
+    HistoryStats,
     LevelRow,
     Option,
     ProjectedRow,

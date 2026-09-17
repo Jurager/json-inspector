@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import ColorSwatches from '../ui/ColorSwatches.vue'
-import Segmented from '../environments/Segmented.vue'
+import Segment from '../ui/Segment.vue'
 import { WORKSPACE_COLORS, WORKSPACE_TINTS } from './palette'
 import { useWorkspacesStore } from '../../stores/workspaces'
 import { useSheetNotice } from '../../composables/useSheetNotice'
@@ -93,7 +93,7 @@ function cancel() {
 
       <div class="field">
         <span class="field-label">{{ t('workspaces.kindLabel') }}</span>
-        <Segmented
+        <Segment
           class="kinds"
           :options="kinds"
           :value="'personal'"

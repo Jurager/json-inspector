@@ -17,6 +17,10 @@ import (
 type fakeStore struct {
 	workspaces []domain.Workspace
 	active     string
+	// reopen is the preference the store answers for "reopen the last workspace". The store the app
+	// runs on reads it from the settings table; the zero value here would be a fresh installation
+	// that never stored it, which is on — so the fake is built with it on and a test turns it off.
+	reopen bool
 	// deleted is every id the use case asked to remove, so a test can say a refusal never got here.
 	deleted []string
 	// counts is what the store says each space holds, for the tests about the reading travelling.
@@ -24,9 +28,12 @@ type fakeStore struct {
 }
 
 func newFakeStore() *fakeStore {
-	return &fakeStore{workspaces: []domain.Workspace{
-		domain.NewWorkspace(domain.WorkspacePersonalID, "", domain.WorkspacePersonal, "blue", 0),
-	}}
+	return &fakeStore{
+		reopen: true,
+		workspaces: []domain.Workspace{
+			domain.NewWorkspace(domain.WorkspacePersonalID, "", domain.WorkspacePersonal, "blue", 0),
+		},
+	}
 }
 
 func (f *fakeStore) has(id string) bool {
@@ -97,6 +104,10 @@ func (f *fakeStore) Counts(context.Context) (map[string]domain.WorkspaceCounts, 
 func (f *fakeStore) SetActiveWorkspace(_ context.Context, id string) error {
 	f.active = id
 	return nil
+}
+
+func (f *fakeStore) ReopenLast(context.Context) (bool, error) {
+	return f.reopen, nil
 }
 
 // fakeNotifier keeps what was published, so a test can say the windows were told and what about.
@@ -234,6 +245,49 @@ func TestDeleteFallsBackToTheOldestLeft(t *testing.T) {
 	}
 	if topic := notifier.topics[len(notifier.topics)-1]; topic != TopicChanged {
 		t.Errorf("the last topic = %q, want %q", topic, TopicChanged)
+	}
+}
+
+// Where a launch starts: the space the app was left in, unless the user has turned that off, in
+// which case the pointer is moved to the oldest one. It is written rather than answered, so
+// nothing below this launch has to know the preference exists.
+func TestStartPointsAtTheOldestWhenReopeningIsOff(t *testing.T) {
+	u, store, _ := newUseCase()
+	ctx := context.Background()
+
+	created, err := u.Create(ctx, CreateInput{Name: "Команда"})
+	if err != nil {
+		t.Fatalf("Create: %v", err)
+	}
+	second := made(t, created).ID
+	if _, err := u.Switch(ctx, second); err != nil {
+		t.Fatalf("Switch: %v", err)
+	}
+
+	if err := u.Start(ctx); err != nil {
+		t.Fatalf("Start: %v", err)
+	}
+	if store.active != second {
+		t.Errorf("with reopening on the pointer = %q, want %q — the space last left in",
+			store.active, second)
+	}
+
+	store.reopen = false
+	if err := u.Start(ctx); err != nil {
+		t.Fatalf("Start: %v", err)
+	}
+	if store.active != domain.WorkspacePersonalID {
+		t.Errorf("with reopening off the pointer = %q, want the oldest space", store.active)
+	}
+
+	// Turning the preference back on does not undo the move: it says what the *next* launch does, and
+	// until the user switches somewhere the app opens where this one left it.
+	store.reopen = true
+	if err := u.Start(ctx); err != nil {
+		t.Fatalf("Start: %v", err)
+	}
+	if store.active != domain.WorkspacePersonalID {
+		t.Errorf("the pointer = %q, want it left where the last launch put it", store.active)
 	}
 }
 

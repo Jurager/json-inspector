@@ -36,12 +36,18 @@ func init() {
 	// window is written in the same language.
 	application.RegisterEvent[settings.ThemeChanged](settings.TopicThemeChanged)
 	application.RegisterEvent[settings.LanguageChanged](settings.TopicLanguageChanged)
+	// A preference that is written in one window and drawn in another: the snapshot travels, because
+	// what the listener does with it is replace what it shows.
+	application.RegisterEvent[domain.Settings](settings.TopicChanged)
 	// Which workspace is on screen moved: every window draws around the same one.
 	application.RegisterEvent[workspace.Changed](workspace.TopicChanged)
 
 	// History and the attempts that fill it. A record is the same type the list draws and the same
 	// event, whichever side it came from.
 	application.RegisterEvent[domain.Record](record.TopicRecordAdded)
+	// A history thrown away in the settings window: the list in the main one is not a list of ids it
+	// can prune one by one, and it reads itself again on this.
+	application.RegisterEvent[record.HistoryCleared](record.TopicHistoryCleared)
 	application.RegisterEvent[record.RequestFinished](record.TopicRequestFinished)
 	application.RegisterEvent[record.RequestFailed](record.TopicRequestFailed)
 

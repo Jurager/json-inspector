@@ -30,6 +30,35 @@ func NewUseCase(store Store, ids platform.IDGen, notifier Notifier) *UseCase {
 	return &UseCase{store: store, ids: ids, notifier: notifier}
 }
 
+// Start points the app at the space it opens in: the one it was left in, or the oldest one when the
+// user has turned "reopen the last workspace" off.
+//
+// It writes the pointer rather than answering a different one, and it runs once at launch. A
+// preference read on every resolve would follow the whole session: everything that asks which
+// space is on screen — the list, the history, the pruning, the imports — would be answered with
+// the oldest one, and a window that switched away from it would be switched back.
+func (u *UseCase) Start(ctx context.Context) error {
+	reopen, err := u.store.ReopenLast(ctx)
+	if err != nil {
+		return err
+	}
+	if reopen {
+		return nil
+	}
+
+	list, err := u.store.Workspaces(ctx)
+	if err != nil || len(list) == 0 {
+		return err
+	}
+	active, err := u.store.ActiveWorkspace(ctx)
+	if err != nil || active == list[0].ID {
+		return err
+	}
+	// The event is not published: at this hour nothing is listening yet, and the window reads the
+	// snapshot on its way up rather than waiting to be told.
+	return u.store.SetActiveWorkspace(ctx, list[0].ID)
+}
+
 // Snapshot is every workspace and the pointer to the one on screen — the whole of what the switcher
 // draws, in one answer — with what each of them holds, because the window draws the counts in the
 // same rows as the names.

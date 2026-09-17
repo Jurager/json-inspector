@@ -15,7 +15,18 @@ const (
 	TopicRecordAdded     = "record:added"
 	TopicRequestFinished = "request:finished"
 	TopicRequestFailed   = "request:failed"
+	// A whole history going, which happens in the settings window and is drawn in the main one: a
+	// list that was told about every record one by one has to be told about this too, or it goes on
+	// drawing rows that are no longer there.
+	TopicHistoryCleared = "history:cleared"
 )
+
+// HistoryCleared says whose history went, because every open window has to decide whether the
+// list it draws is the one that was cleared.
+type HistoryCleared struct {
+	WorkspaceID string `json:"workspaceId"`
+	Removed     int    `json:"removed"`
+}
 
 type UseCase struct {
 	store     Store

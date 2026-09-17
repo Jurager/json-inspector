@@ -23,6 +23,7 @@
   --color-orange-soft: var(--orange-soft);
   --color-yellow: var(--yellow);
   --color-purple: var(--purple);
+  --color-teal: var(--teal);
   --color-tok-str: var(--tok-str);
   --color-tok-num: var(--tok-num);
   --color-tok-bool: var(--tok-bool);
@@ -62,6 +63,9 @@
   --orange-text: #b26a00;
   --yellow: #ffcc00;
   --purple: #af52de;
+  /* The one hue the settings rail needed that the palette did not have: the drawing's Export tile is
+     a dark cyan, and a literal hex would be the one surface that never follows the theme. */
+  --teal: #0a7a8c;
   --tok-str: #c41a16;
   --tok-num: #1c00cf;
   --tok-bool: #1c00cf;
@@ -196,6 +200,7 @@
   --orange-text: #ff9f0a;
   --yellow: #ffd60a;
   --purple: #bf5af2;
+  --teal: #3aa8bb;
   --tok-str: #fc6a5d;
   --tok-num: #d0bf69;
   --tok-bool: #d0bf69;

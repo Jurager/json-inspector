@@ -26,6 +26,14 @@ export function SetCaptureFilters(filters: domain$0.CaptureFilters): $Cancellabl
 }
 
 /**
+ * SetEditor stores what the raw viewer does with a long line and with its gutter. The viewer reads
+ * it from the broadcast, so the window that changed it does not have to hand it over.
+ */
+export function SetEditor(patch: settings$0.EditorPatch): $CancellablePromise<domain$0.Settings> {
+    return $Call.ByID(1729473835, patch);
+}
+
+/**
  * SetLanguage stores the choice and broadcasts it, the same way the theme is broadcast — and for
  * the same reason: no window is the one that tells the others.
  */
@@ -35,6 +43,14 @@ export function SetLanguage(language: domain$0.Language): $CancellablePromise<do
 
 export function SetLayout(patch: settings$0.LayoutPatch): $CancellablePromise<domain$0.Settings> {
     return $Call.ByID(3666996644, patch);
+}
+
+/**
+ * SetReopenWorkspace stores whether the app comes back to the space it was left in. It takes effect
+ * at the next launch, which is where the pointer is resolved.
+ */
+export function SetReopenWorkspace(reopen: boolean): $CancellablePromise<domain$0.Settings> {
+    return $Call.ByID(4250147840, reopen);
 }
 
 export function SetRetention(retention: domain$0.Retention): $CancellablePromise<domain$0.Settings> {
@@ -58,9 +74,9 @@ export function SetUpdateChannel(channel: domain$0.UpdateChannel): $CancellableP
 }
 
 /**
- * SetUpdateCheck stores whether the app may look for a release on its own. It broadcasts nothing:
- * the window that changed it draws the switch itself, and the next launch is what the preference
- * is for.
+ * SetUpdateCheck stores whether the app may look for a release on its own. The settings window
+ * turns it off, and the browser card draws how it is kept — which is why the snapshot it saves
+ * travels to the other windows.
  */
 export function SetUpdateCheck(auto: boolean): $CancellablePromise<domain$0.Settings> {
     return $Call.ByID(1861163125, auto);

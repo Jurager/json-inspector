@@ -148,6 +148,11 @@ func (s *Store) Counts(ctx context.Context) (map[string]domain.WorkspaceCounts, 
 // when the pointer is empty, missing, or names a space that has since been deleted. A stale pointer
 // is not an error — the window has to land somewhere, and the space that has been there longest is
 // the one the app is most likely to still have.
+//
+// "Reopen the last workspace" is not read here. It decides where the app *starts*: the use case
+// settles it once at launch by pointing the pointer at the oldest space. A preference applied on
+// every read would answer for the rest of the session too, and the window would snap back to the
+// oldest space the moment anyone switched away from it.
 func (s *Store) ActiveWorkspace(ctx context.Context) (string, error) {
 	pointed, ok, err := s.Setting(ctx, domain.SettingActiveWorkspace)
 	if err != nil {
@@ -164,6 +169,17 @@ func (s *Store) ActiveWorkspace(ctx context.Context) (string, error) {
 		}
 	}
 	return s.FirstWorkspace(ctx)
+}
+
+// ReopenLast answers whether the app comes back to the space it was left in. A setting of the
+// installation rather than data of a workspace, which is why it is read here beside the pointer —
+// and absent means on, the way it does for every switch the app started with.
+func (s *Store) ReopenLast(ctx context.Context) (bool, error) {
+	raw, told, err := s.Setting(ctx, domain.SettingReopenWorkspace)
+	if err != nil {
+		return false, err
+	}
+	return !told || raw != "false", nil
 }
 
 func (s *Store) SetActiveWorkspace(ctx context.Context, id string) error {

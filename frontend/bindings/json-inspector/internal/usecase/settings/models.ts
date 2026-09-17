@@ -6,6 +6,15 @@
 import * as domain$0 from "../../domain/models.js";
 
 /**
+ * EditorPatch is a partial update of what the raw viewer does with its lines: a nil field is left
+ * as it is, the same rule the layout patch follows.
+ */
+export interface EditorPatch {
+    "wrapLines"?: boolean | null;
+    "lineNumbers"?: boolean | null;
+}
+
+/**
  * LanguageChanged is what a window receives when the interface language moves.
  */
 export interface LanguageChanged {

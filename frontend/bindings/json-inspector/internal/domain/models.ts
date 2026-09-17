@@ -578,6 +578,19 @@ export interface HeaderPair {
 }
 
 /**
+ * HistoryStats is what one workspace's history weighs: how many requests it holds and how many
+ * bytes of bodies it keeps for them. It is a reading rather than a rule — what the settings screen
+ * shows beside the button that throws it away, so nobody has to guess what "clear" costs.
+ * 
+ * Bodies rather than the database file: the file is shared by every space, and a number that
+ * counted the whole of it would change under a user who only captures in one.
+ */
+export interface HistoryStats {
+    "count": number;
+    "bytes": number;
+}
+
+/**
  * Language is the user's choice of interface language, in the same shape as Theme. Which language
  * "system" means is decided in the window, because the webview is the only side that can ask for
  * it.
@@ -1034,7 +1047,7 @@ export enum SearchTarget {
 };
 
 /**
- * Settings is everything the app remembers about how it is set up, in the order the screen shows
+ * Settings is everything the app remembers about how it is set up, grouped the way the screen shows
  * it. Defaults live in one place — the use case's — so a fresh database and a missing row agree.
  */
 export interface Settings {
@@ -1048,6 +1061,15 @@ export interface Settings {
     "captureFilters": CaptureFilters;
     "updateCheckAuto": boolean;
     "updateChannel": UpdateChannel;
+
+    /**
+     * What the raw viewer does with a long line and with its gutter, and whether the app comes back
+     * to the space it was left in. Booleans whose default is "on", which is why the absence of a row
+     * has to be read as true rather than as false.
+     */
+    "wrapLines": boolean;
+    "lineNumbers": boolean;
+    "reopenWorkspace": boolean;
 }
 
 /**

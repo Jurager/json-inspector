@@ -2,9 +2,8 @@
 import { computed, onMounted, ref } from 'vue'
 import Icon from '../ui/Icon.vue'
 import { Button } from '../ui/button'
-import { Checkbox } from '../ui/checkbox'
-import { Input } from '../ui/input'
 import { Sheet, SheetRow } from '../ui/sheet'
+import CaptureFiltersSheet from './CaptureFiltersSheet.vue'
 import { useRequestsStore } from '../../stores/requests'
 import { useSettings } from '../../composables/useSettings'
 import { useToast } from '../../composables/useToast'
@@ -15,7 +14,6 @@ import { formatBytes, formatDate, formatMicros, useMessages } from '../../i18n'
 import {
   RecordSource,
   Retention,
-  type CaptureFilters,
   type Record,
 } from '../../../bindings/json-inspector/internal/domain'
 import {
@@ -28,7 +26,7 @@ import {
 // of it arrived. It is a page rather than a viewer because a session is worth reading before its
 // requests are: the four numbers say whether anything here is broken, and the table says what.
 const store = useRequestsStore()
-const { settings, setCaptureFilters } = useSettings()
+const { settings } = useSettings()
 const toast = useToast()
 const { t } = useMessages()
 
@@ -144,54 +142,10 @@ const facts = computed(() => [
   { label: t('browser.extTabs'), tag: '', on: false, value: String(store.capture.tabs) },
 ])
 
-// The rules are the sheet's while it is open, and its Save is what writes them: a switch that wrote
-// on every click would leave Cancel with nothing to cancel.
-const draftFilters = ref<CaptureFilters>(emptyFilters())
-const hostsText = ref('')
-
-// Three of the rules are the same kind of switch, so they are one list rather than three blocks of
-// markup that have to be kept in step by hand.
-const rules = computed(() => [
-  {
-    name: t('browser.ruleStatic'),
-    note: t('browser.ruleStaticNote'),
-    on: () => draftFilters.value.static,
-    toggle: () => (draftFilters.value.static = !draftFilters.value.static),
-  },
-  {
-    name: t('browser.ruleAnalytics'),
-    note: t('browser.ruleAnalyticsNote'),
-    on: () => draftFilters.value.analytics,
-    toggle: () => (draftFilters.value.analytics = !draftFilters.value.analytics),
-  },
-  {
-    name: t('browser.ruleJson'),
-    note: t('browser.ruleJsonNote'),
-    on: () => draftFilters.value.json,
-    toggle: () => (draftFilters.value.json = !draftFilters.value.json),
-  },
-])
-
-function emptyFilters(): CaptureFilters {
-  return { hosts: [], static: true, analytics: false, json: false }
-}
-
+// The rules are the sheet's own: it reads what is stored when it opens and the draft is its business
+// until Save. This page only decides that it is the one on screen.
 function openFilters() {
-  const current = settings.value?.captureFilters ?? emptyFilters()
-  draftFilters.value = { ...current, hosts: [...(current.hosts ?? [])] }
-  hostsText.value = (current.hosts ?? []).join(', ')
   sheet.value = 'filters'
-}
-
-async function saveFilters() {
-  const hosts = hostsText.value
-    .split(',')
-    .map((host) => host.trim())
-    .filter(Boolean)
-
-  await setCaptureFilters({ ...draftFilters.value, hosts })
-  sheet.value = null
-  toast.show(t('browser.filtersSaved'))
 }
 
 async function exportHar() {
@@ -294,34 +248,24 @@ async function exportHar() {
     <!-- A leaf over the page rather than a tab inside it: the rules are set once and left, and a tab
          that is nearly always closed is a line of the page spent on nothing. -->
     <Sheet
-      :open="sheet !== null"
-      :title="sheet === 'extension' ? t('browser.extSheet') : t('browser.filtersSheet')"
-      :sub="sheet === 'extension' ? t('browser.extSub') : t('browser.filtersSub')"
-      :cancel="sheet === 'filters' ? t('common.cancel') : ''"
-      :action="sheet === 'filters' ? t('browser.filtersSave') : t('browser.extDone')"
+      :open="sheet === 'extension'"
+      :title="t('browser.extSheet')"
+      :sub="t('browser.extSub')"
+      :action="t('browser.extDone')"
       @close="sheet = null"
-      @cancel="sheet = null"
-      @action="sheet === 'filters' ? saveFilters() : (sheet = null)"
+      @action="sheet = null"
     >
       <div class="rows">
-        <template v-if="sheet === 'extension'">
-          <SheetRow v-for="fact in facts" :key="fact.label" :label="fact.label">
-            <span v-if="fact.tag" class="row-tag" :class="fact.on ? 'on' : 'off'">{{ fact.tag }}</span>
-            <span v-else class="row-value mono">{{ fact.value }}</span>
-          </SheetRow>
-        </template>
-
-        <template v-else>
-          <SheetRow :label="t('browser.ruleHosts')" :note="t('browser.ruleHostsNote')">
-            <Input v-model="hostsText" mono :placeholder="t('browser.ruleHostsPlaceholder')" spellcheck="false" />
-          </SheetRow>
-
-          <SheetRow v-for="rule in rules" :key="rule.name" :label="rule.name" :note="rule.note">
-            <Checkbox :model-value="rule.on()" @update:model-value="rule.toggle()" />
-          </SheetRow>
-        </template>
+        <SheetRow v-for="fact in facts" :key="fact.label" :label="fact.label">
+          <span v-if="fact.tag" class="row-tag" :class="fact.on ? 'on' : 'off'">{{ fact.tag }}</span>
+          <span v-else class="row-value mono">{{ fact.value }}</span>
+        </SheetRow>
       </div>
     </Sheet>
+
+    <!-- The rules are the settings window's as much as this page's, so the sheet is one component in
+         one place: both cards raise the same one, and neither can drift from the other. -->
+    <CaptureFiltersSheet v-if="sheet === 'filters'" @close="sheet = null" />
   </div>
 </template>
 

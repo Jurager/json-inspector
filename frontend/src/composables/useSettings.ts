@@ -1,7 +1,12 @@
 import { ref } from 'vue'
-import { BridgeService, SettingsService } from '../../bindings/json-inspector/internal/transport/wails'
+import { Events } from '@wailsio/runtime'
+import {
+  BridgeService,
+  RecordsService,
+  SettingsService,
+} from '../../bindings/json-inspector/internal/transport/wails'
 import type { CaptureFilters, Settings } from '../../bindings/json-inspector/internal/domain'
-import type { LayoutPatch } from '../../bindings/json-inspector/internal/usecase/settings'
+import type { EditorPatch, LayoutPatch } from '../../bindings/json-inspector/internal/usecase/settings'
 
 // What the user has set up, as Go remembers it. The window reads it once at startup and writes back
 // what it changes; there is no local copy of the truth here.
@@ -12,6 +17,16 @@ let loading: Promise<void> | null = null
 const pendingLayout: Record<string, unknown> = {}
 let layoutTimer: ReturnType<typeof setTimeout> | null = null
 const LAYOUT_DEBOUNCE_MS = 400
+
+// The settings window writes what this one draws — how history is kept, what the raw viewer does with
+// its lines, where the list sits — and neither is reloaded when the other writes. So Go's snapshot
+// travels, and this is where it lands. A layout of this window's own that is still on its way out
+// wins over the arriving one: the panel under the pointer is the one the user is deciding.
+Events.On('settings:changed', (ev) => {
+  const incoming = ev.data as Settings | null
+  if (!incoming) return
+  settings.value = { ...incoming, ...pendingLayout }
+})
 
 export function useSettings() {
   return {
@@ -24,6 +39,8 @@ export function useSettings() {
     setCaptureFilters,
     setUpdateCheck,
     setUpdateChannel,
+    setEditor,
+    setReopenWorkspace,
   }
 }
 
@@ -89,8 +106,25 @@ async function setCaptureFilters(filters: CaptureFilters): Promise<Settings> {
   return saved
 }
 
+// Shortening how long history is kept applies at once: the rules are read where records are saved
+// and at startup, and without this call a window changed from "forever" to a week would keep the
+// older records until twenty more requests had gone out. The count it drops is the answer, and the
+// caller that drew a number beside the row reads it again.
 async function setRetention(retention: Settings['historyRetention']): Promise<void> {
   settings.value = await SettingsService.SetRetention(retention)
+  try {
+    await RecordsService.Prune()
+  } catch {
+    // The choice is stored either way; what did not happen is the pruning, and the next save does it.
+  }
+}
+
+async function setEditor(patch: EditorPatch): Promise<void> {
+  settings.value = await SettingsService.SetEditor(patch)
+}
+
+async function setReopenWorkspace(reopen: boolean): Promise<void> {
+  settings.value = await SettingsService.SetReopenWorkspace(reopen)
 }
 
 // Whether the app may look for a release on its own. The switch moves on the caller's side and the

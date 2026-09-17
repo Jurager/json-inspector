@@ -1,9 +1,10 @@
 <script setup lang="ts">
-import { onBeforeUnmount, onMounted, ref, shallowRef, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, shallowRef, watch } from 'vue'
 import { EditorState, RangeSetBuilder, StateEffect, StateField, type Text } from '@codemirror/state'
 import { Decoration, EditorView, lineNumbers, type DecorationSet } from '@codemirror/view'
 import { HighlightStyle, codeFolding, foldGutter, foldKeymap, syntaxHighlighting } from '@codemirror/language'
 import { json } from '@codemirror/lang-json'
+import { useSettings } from '../../composables/useSettings'
 import { useMessages } from '../../i18n'
 import { keymap } from '@codemirror/view'
 import { tags } from '@lezer/highlight'
@@ -25,6 +26,12 @@ const { t } = useMessages()
 
 const host = ref<HTMLElement | null>(null)
 const view = shallowRef<EditorView | null>(null)
+
+// What the reader asked the viewer to do, from Go's settings: a missing value is the default, which
+// is what the viewer did before either of them could be changed.
+const { settings } = useSettings()
+const wrap = computed(() => settings.value?.wrapLines ?? true)
+const numbers = computed(() => settings.value?.lineNumbers ?? true)
 
 // The app's own token colours, so Raw reads like the tree instead of introducing
 // a second palette.
@@ -181,7 +188,9 @@ function buildState(doc: string): EditorState {
   return EditorState.create({
     doc,
     extensions: [
-      lineNumbers(),
+      // Two of these are the user's: a gutter can be turned off, and so can wrapping. A long response
+      // is read either way — down, or across — and which one is the reader's call.
+      ...(numbers.value ? [lineNumbers()] : []),
       foldGutter(),
       folding,
       keymap.of(foldKeymap),
@@ -189,7 +198,7 @@ function buildState(doc: string): EditorState {
       syntaxHighlighting(appHighlight),
       EditorState.readOnly.of(true),
       EditorView.editable.of(false),
-      EditorView.lineWrapping,
+      ...(wrap.value ? [EditorView.lineWrapping] : []),
       queryField,
       matchField,
       appTheme,
@@ -222,6 +231,16 @@ watch(
     applyQuery(props.query)
   }
 )
+
+// The two the user can change while this is on screen: the settings window writes them, Go says so,
+// and the editor is rebuilt the same way it is rebuilt for another response. Folding goes with the
+// rebuild, which is the price the text watcher above already pays.
+watch([wrap, numbers], () => {
+  const v = view.value
+  if (!v) return
+  v.setState(buildState(props.text))
+  applyQuery(props.query)
+})
 
 watch(() => props.query, applyQuery)
 

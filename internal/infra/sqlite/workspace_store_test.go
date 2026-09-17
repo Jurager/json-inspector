@@ -300,6 +300,34 @@ func TestActiveWorkspaceFallsBackToTheDefault(t *testing.T) {
 	}
 }
 
+// "Reopen the last workspace" is a switch the app started with, so an absent row means on: a
+// database written before the preference existed opens where it was left.
+func TestReopenLastDefaultsToOn(t *testing.T) {
+	store := newMigratedStore(t)
+	ctx := context.Background()
+
+	reopen, err := store.ReopenLast(ctx)
+	if err != nil || !reopen {
+		t.Errorf("with nothing stored = %v, %v; want on", reopen, err)
+	}
+
+	if err := store.SaveSetting(ctx, domain.SettingReopenWorkspace, "false"); err != nil {
+		t.Fatalf("SaveSetting: %v", err)
+	}
+	reopen, err = store.ReopenLast(ctx)
+	if err != nil || reopen {
+		t.Errorf("with it stored off = %v, %v; want off", reopen, err)
+	}
+
+	// The pointer is not what this reads: the preference and the space last left in are two rows.
+	if err := store.SetActiveWorkspace(ctx, domain.WorkspacePersonalID); err != nil {
+		t.Fatalf("SetActiveWorkspace: %v", err)
+	}
+	if reopen, err = store.ReopenLast(ctx); err != nil || reopen {
+		t.Errorf("after a switch = %v, %v; want the stored off", reopen, err)
+	}
+}
+
 // Which environment a space is working in is a column of its own. Two spaces are two answers, and a
 // setting that kept one would resolve the variables of a space the request never happened in.
 func TestActiveEnvironmentIsPerWorkspace(t *testing.T) {
