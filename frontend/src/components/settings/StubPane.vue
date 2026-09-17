@@ -29,27 +29,10 @@ type Control =
 type Row = { title: string; note: string; control: Control }
 type Section = { label: string; note: string; rows: Row[] }
 
+// The account is not here any more: it is a live category of its own, and the drawing's rows for it
+// are drawn by the pane that can fill them. What is left is what the app still cannot.
 const sections = computed<Section[]>(() => {
   switch (props.category) {
-    case 'account':
-      return [
-        {
-          label: t('settings.sec.account'),
-          note: t('settings.stub.account.note'),
-          rows: [
-            {
-              title: t('settings.stub.account.out'),
-              note: t('settings.stub.account.outNote'),
-              control: { kind: 'button', label: t('settings.stub.account.outAction'), primary: true },
-            },
-            {
-              title: t('settings.stub.account.server'),
-              note: t('settings.stub.account.serverNote'),
-              control: { kind: 'value', value: 'app.jsoninspector.dev' },
-            },
-          ],
-        },
-      ]
     case 'proxy':
       return [
         {

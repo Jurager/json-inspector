@@ -239,7 +239,7 @@ async function exportHar() {
       <div class="card">
         <span class="card-title">{{ t('browser.retentionTitle') }}</span>
         <span class="card-body">{{ t('browser.retentionBody', { retention }) }}</span>
-        <button type="button" class="card-action" @click="SystemService.ShowSettings()">
+        <button type="button" class="card-action" @click="SystemService.ShowSettings('requests')">
           {{ t('browser.retentionAction') }}
         </button>
       </div>

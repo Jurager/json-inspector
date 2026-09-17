@@ -8,4 +8,6 @@ build/windows/nsis/MicrosoftEdgeWebview2Setup.exe
 build/linux/*.desktop
 *.syso
 .DS_Store
+go.work
+go.work.sum
 .idea/

@@ -255,7 +255,9 @@ export const useSearchStore = defineStore('search', {
           useEnvironmentsStore().openSheet()
           break
         case 'settings':
-          void SystemService.ShowSettings()
+          // An empty category: the window opens where it was, which is what a search result about
+          // the settings as a whole means.
+          void SystemService.ShowSettings('')
           break
       }
     },

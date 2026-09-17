@@ -113,6 +113,7 @@ const en = {
     loadSample: 'Load a sample',
     checkUpdates: 'Check for updates',
     about: 'About',
+    account: 'Account',
     settings: 'Settings',
   },
 
@@ -865,6 +866,11 @@ const en = {
       environmentReadOnly: 'This environment is read-only — switch its Access to Editable and try again.',
       unknownRetention: 'Unknown history retention: {retention}',
       unknownUpdateChannel: 'Unknown update channel: {channel}',
+      notSignedIn: 'Nobody is signed in.',
+      serverUnreachable: 'The server could not be reached.',
+      serverRefused: 'The server refused the request.',
+      signInFailed: 'The sign-in did not finish.',
+      sessionUnknown: 'That device is not signed in any more.',
     },
     requestFailed: 'The request did not go through: {error}',
     updateCheckFailed: 'Could not check for updates',
@@ -887,6 +893,65 @@ const en = {
   // The pages a sign-in puts in the browser. Like the menu's words they are not read from here by the
   // page that draws them — Go serves those pages and has no catalogue — so they travel to Go as they
   // stand, and this is where they are worded.
+  account: {
+    signedInAs: 'Signed in as',
+    signedOut: 'Not signed in',
+    signedOutNote: 'Collections, environments and history stay on this machine only',
+    signIn: 'Sign in…',
+    server: 'Custom server',
+    serverNote: 'For a self-hosted deployment',
+    sync: 'Sync',
+    syncNote: 'Collections, environments and history',
+    syncSoon: 'Coming with sync: nothing leaves this machine yet.',
+    signOut: 'Sign out of this device',
+    signOutNote: 'Local collections stay on the machine',
+    devices: 'Sessions and devices',
+    devicesNote: 'Where the account is currently signed in.',
+    thisDevice: 'This device',
+    end: 'End',
+    endOthers: 'End all other sessions',
+    endOthersNote: 'Keeps only this device signed in',
+    devicesEmpty: 'Nowhere else: this is the only device signed in.',
+    devicesFailed: 'Could not reach the server for the list of devices.',
+    plan: 'Plan',
+    seats: 'Seats',
+    leave: 'Delete account',
+    leaveNote: 'The account and every device on it are signed out',
+    // The sign-out confirmation: what happens to this device and what stays here. Rows about teams and
+    // a keychain arrive with sync — until then their words would be untrue.
+    signOutSheetDevice: 'This device',
+    signOutSheetDeviceNote: 'Is signed out of the account; the other devices stay signed in',
+    signOutSheetDeviceTag: 'Signed out',
+    signOutSheetData: 'Collections, environments and history',
+    signOutSheetDataNote: 'Stay on this machine',
+    signOutSheetSecrets: 'Variables and secrets',
+    signOutSheetSecretsNote: 'Stay here: they never left',
+    leaveConfirm: 'Delete the account?',
+    leaveText: 'The account is deleted and every program signed out of it. Collections on this machine stay. This cannot be undone.',
+    leaveAction: 'Delete',
+
+    dialog: {
+      title: 'Sign in',
+      startTitle: 'Sign in to JSON Inspector',
+      startText: 'The application opens your browser, where you confirm a code. There is no password here.',
+      browser: 'Continue in the browser',
+      without: 'Continue without an account',
+      custom: 'Custom server',
+      serverLabel: 'Server address',
+      serverHint: 'The JSON Inspector server is used by default. A custom one is for self-hosted deployments; an empty field goes back to it.',
+      apply: 'Apply',
+      waitingTitle: 'Opening the browser…',
+      waitingText: 'Confirm the code there — the application continues on its own.',
+      codeLabel: 'Code',
+      openAgain: 'Open the browser again',
+      cancel: 'Cancel',
+      doneTitle: 'Done',
+      doneText: 'The account is connected.',
+      refusedTitle: 'Signing in did not finish',
+      retry: 'Try again',
+    },
+  },
+
   signIn: {
     // The implicit grant's page, shown while it hands the browser's own fragment back.
     waiting: {
@@ -923,6 +988,7 @@ const en = {
       updates: 'Updates',
     },
     meta: {
+      account: 'Sign in, sessions',
       general: 'Language, startup, editor',
       appearance: 'Theme and layout',
       requests: 'History and capture',
@@ -1003,14 +1069,6 @@ const en = {
     // control is switched off, and the note under the first card of each says why nothing is behind
     // it: a screen that looked operable and did nothing would be worse than a missing one.
     stub: {
-      account: {
-        note: 'Signing in arrives with a server. Until then everything lives on this machine.',
-        out: 'Not signed in',
-        outNote: 'Collections and environments stay on this machine only',
-        outAction: 'Sign in…',
-        server: 'Custom server',
-        serverNote: 'For a self-hosted deployment',
-      },
       proxy: {
         note: 'None of this reaches the request engine yet: requests leave directly, and the proxy the system is set to is not read.',
         mode: 'Mode',

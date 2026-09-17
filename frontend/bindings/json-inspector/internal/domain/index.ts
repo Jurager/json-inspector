@@ -25,17 +25,20 @@ export {
 } from "./models.js";
 
 export type {
+    Account,
     Args,
     Auth,
     AuthToken,
     BodyRef,
     CaptureFilters,
+    Challenge,
     Collection,
     CollectionNode,
     CollectionRun,
     CollectionRunResult,
     Condition,
     CookieRow,
+    Device,
     Draft,
     EnvScope,
     EnvState,
@@ -59,6 +62,7 @@ export type {
     SearchNote,
     SearchOpen,
     SearchResult,
+    Session,
     Settings,
     SignInPage,
     SignInPages,

@@ -63,8 +63,13 @@ export function ShowAbout(): $CancellablePromise<void> {
     return $Call.ByID(2638395008);
 }
 
-export function ShowSettings(): $CancellablePromise<void> {
-    return $Call.ByID(1282847998);
+/**
+ * ShowSettings opens the preferences window. The category is the one to show — "account" for the
+ * account menu — and an empty one leaves the window where it was, which is what the rail's gear
+ * asks for.
+ */
+export function ShowSettings(category: string): $CancellablePromise<void> {
+    return $Call.ByID(1282847998, category);
 }
 
 /**

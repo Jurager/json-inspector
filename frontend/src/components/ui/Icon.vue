@@ -44,6 +44,7 @@ import {
   Contrast,
   Globe,
   User,
+  LogOut,
   ArrowRightLeft,
   Shield,
   RefreshCw,
@@ -137,7 +138,22 @@ const WARNING = createLucideIcon('warning-triangle', [
   ['path', { d: 'M12 10v4.4M12 17.2h.01' }],
 ])
 
+// The page the sign-in modal draws on its first step, and the window its button opens: both are the
+// handoff's own paths, built here through the factory like the bin and the warning, because lucide's
+// document has a folded corner and its window has a title bar the drawing does not.
+const FILE = createLucideIcon('file-text', [
+  ['path', { d: 'M8 3h8l4 4v10a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2Z' }],
+  ['path', { d: 'M9 9h6M9 13h6M9 17h3' }],
+])
+
+const APP_WINDOW = createLucideIcon('app-window', [
+  ['rect', { x: '3', y: '4.5', width: '18', height: '15', rx: '2.2' }],
+  ['path', { d: 'm3.6 8h16.8' }],
+])
+
 const ICONS: Record<string, Component> = {
+  file: FILE,
+  window: APP_WINDOW,
   'arrow-up-right': ArrowUpRight,
   clock: Clock,
   record: CircleDot,
@@ -185,6 +201,7 @@ const ICONS: Record<string, Component> = {
   contrast: Contrast,
   globe: Globe,
   user: User,
+  logout: LogOut,
   // The settings rail's own three: a request going out and an answer coming back, the shield a proxy
   // stands behind, and the circle an update comes around in.
   exchange: ArrowRightLeft,

@@ -1,31 +1,48 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
-import { Window } from '@wailsio/runtime'
+import { Events, Window } from '@wailsio/runtime'
 import { useSettings } from '../composables/useSettings'
+import { useAccount } from '../composables/useAccount'
+import SignInModal from '../components/settings/SignInModal.vue'
+import SignOutSheet from '../components/settings/SignOutSheet.vue'
 import { usePlatform } from '../composables/usePlatform'
 import { useSheetNotice } from '../composables/useSheetNotice'
 import { useMessages } from '../i18n'
 import SettingsRail from '../components/settings/SettingsRail.vue'
+import AccountPane from '../components/settings/AccountPane.vue'
 import GeneralPane from '../components/settings/GeneralPane.vue'
 import AppearancePane from '../components/settings/AppearancePane.vue'
 import RequestsPane from '../components/settings/RequestsPane.vue'
 import UpdatesPane from '../components/settings/UpdatesPane.vue'
 import StubPane from '../components/settings/StubPane.vue'
-import { CATEGORIES, type CategoryId } from '../components/settings/categories'
+import { asCategory, CATEGORIES, type CategoryId } from '../components/settings/categories'
 
 // The window is the rail plus one category: the drawing's frame, drawn inside a window of its own. The
 // backdrop and the "Done" button the drawing puts around it belong to an overlay raised over another
 // window, and this one has a title bar of its own — the platform's on macOS, ours on Windows — which
 // is what closes it.
 //
-// The four categories the app has nothing for are drawn all the same: their rows are the design's,
+// The three categories the app has nothing for are drawn all the same: their rows are the design's,
 // every control is off, and each says in its first card why.
 const { t } = useMessages()
 const { customTitlebar } = usePlatform()
 const { loadSettings } = useSettings()
 const { notice, clearNotice } = useSheetNotice()
+const {
+  state: accountState,
+  signInOpen,
+  signOutOpen,
+  beginSignIn,
+  cancelSignIn,
+  closeSignIn,
+  closeSignOut,
+  signOut,
+} = useAccount()
+const account = computed(() => accountState.value?.account ?? null)
 
-const active = ref<CategoryId>('general')
+// The category is opened on the one asked for: Go puts it on the address of a window it is about to
+// create, and tells a window that is already on screen — a page reads no URL twice.
+const active = ref<CategoryId>(asCategory(new URLSearchParams(location.search).get('tab')))
 
 const isLive = computed(() =>
   CATEGORIES.some((category) => category.id === active.value && !category.soon)
@@ -43,6 +60,13 @@ onMounted(() => {
   // ours, but the taskbar reads the platform's. Go names the window by identity; the words are here,
   // where the language is known.
   void Window.SetTitle(t('settings.title'))
+
+  // A window that is already open is asked to switch by an event: the account menu sends people to
+  // the account, and a page that has been painted reads no address again.
+  Events.On('settings-tab', (event) => {
+    const asked = event.data as string
+    if (asked) select(asCategory(asked))
+  })
 })
 </script>
 
@@ -63,7 +87,8 @@ onMounted(() => {
 
       <section class="settings-pane">
         <div class="pane-scroll">
-          <GeneralPane v-if="active === 'general'" />
+          <AccountPane v-if="active === 'account'" />
+          <GeneralPane v-else-if="active === 'general'" />
           <AppearancePane v-else-if="active === 'appearance'" />
           <RequestsPane v-else-if="active === 'requests'" />
           <UpdatesPane v-else-if="active === 'updates'" />
@@ -75,6 +100,17 @@ onMounted(() => {
         <div v-if="notice" class="pane-notice">{{ notice }}</div>
       </section>
     </div>
+
+    <!-- The account's two dialogs, raised from the rows on this page and from the rail's menu in the
+         other window. Each window draws its own: the flag travels with the window, not the account. -->
+    <SignInModal
+      v-if="signInOpen"
+      :server="account?.server ?? ''"
+      @begin="beginSignIn"
+      @cancel="cancelSignIn"
+      @close="closeSignIn()"
+    />
+    <SignOutSheet v-if="signOutOpen" @close="closeSignOut()" @confirm="signOut()" />
   </div>
 </template>
 

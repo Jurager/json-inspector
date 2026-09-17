@@ -7,6 +7,7 @@ import (
 
 	"json-inspector/internal/domain"
 	"json-inspector/internal/transport/bridge"
+	"json-inspector/internal/usecase/account"
 	"json-inspector/internal/usecase/collection"
 	"json-inspector/internal/usecase/record"
 	"json-inspector/internal/usecase/settings"
@@ -20,6 +21,7 @@ const (
 	eventCaptureState        = "capture-state"
 	eventCaptureDisconnected = "capture-disconnected"
 	eventOpenTab             = "open-tab"
+	eventSettingsTab         = "settings-tab"
 	eventUpdateChanged       = "update-changed"
 	eventUpdateCheck         = "update-check"
 )
@@ -30,6 +32,9 @@ func init() {
 	application.RegisterEvent[bridge.CaptureState](eventCaptureState)
 	application.RegisterEvent[application.Void](eventCaptureDisconnected)
 	application.RegisterEvent[int](eventOpenTab)
+	// Which category the preferences window is to show, for the window that is already on screen: a
+	// window that has not been created yet reads the same thing off its address.
+	application.RegisterEvent[string](eventSettingsTab)
 	application.RegisterEvent[*update.Info](eventUpdateChanged)
 	application.RegisterEvent[application.Void](eventUpdateCheck)
 	// A preference change reaches every window: the About window draws in the same palette, and every
@@ -41,6 +46,9 @@ func init() {
 	application.RegisterEvent[domain.Settings](settings.TopicChanged)
 	// Which workspace is on screen moved: every window draws around the same one.
 	application.RegisterEvent[workspace.Changed](workspace.TopicChanged)
+	// The account: every window draws who this installation is signed in as, and the sign-in itself
+	// finishes long after the call that started it returned.
+	application.RegisterEvent[account.State](account.TopicChanged)
 
 	// History and the attempts that fill it. A record is the same type the list draws and the same
 	// event, whichever side it came from.

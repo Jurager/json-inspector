@@ -606,6 +606,77 @@ html.window-translucent body {
   animation: panel-out 0.1s ease-in forwards;
 }
 
+/* The account menu in the rail: the drawing's 252px card, its head carrying who this installation is
+   and which server it is on, and rows that are menu rows rather than sheet rows. The class is global
+   for the same reason every popover's is: it lands on an element reka builds in a portal, where no
+   component's own scope reaches. */
+.account-menu {
+  @apply flex flex-col;
+  width: 252px;
+  padding: 8px;
+  gap: 2px;
+}
+
+.account-head {
+  @apply flex items-center gap-2.5;
+  padding: 4px 6px 10px;
+  border-bottom: 1px solid var(--border);
+}
+
+.account-face {
+  @apply flex-none inline-flex items-center justify-center w-[34px] h-[34px] rounded-full
+         bg-bg-inset text-text-secondary;
+}
+
+.account-who {
+  @apply flex-1 min-w-0 flex flex-col gap-0.5;
+}
+
+.account-name {
+  @apply text-[12.5px] font-semibold truncate;
+}
+
+.account-meta {
+  @apply text-[11px] text-text-tertiary truncate;
+}
+
+.account-row {
+  @apply flex items-center gap-[9px] h-8 px-2 rounded-[7px] border-0 bg-transparent
+         text-[13px] text-text text-left cursor-pointer;
+  font-family: inherit;
+}
+
+.account-row:hover {
+  @apply bg-bg-hover;
+}
+
+/* Leaving is the one row that is not the same colour as the rest, and it says so on hover as well:
+   the two fills are the same pair the menus use for a destructive item. */
+.account-row.bad {
+  color: var(--red-text);
+}
+
+.account-row.bad:hover {
+  @apply bg-red-soft;
+}
+
+.account-row.good {
+  color: var(--accent);
+}
+
+.account-divider {
+  @apply h-px my-[5px] mx-0.5 bg-border;
+}
+
+/* Presence on the rail's account button: the dot says an account is held, and it wears the rail's
+   own colour as a ring so that it reads as sitting on the button rather than beside it. */
+.rail-presence {
+  @apply absolute w-2 h-2 rounded-full bg-green;
+  right: 14px;
+  bottom: 5px;
+  box-shadow: 0 0 0 2px var(--bg-sidebar);
+}
+
 @keyframes panel-in {
   from {
     opacity: 0;

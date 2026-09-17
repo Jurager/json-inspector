@@ -26,6 +26,9 @@ import SearchPalette from './components/search/SearchPalette.vue'
 import WorkspacesSheet from './components/workspaces/WorkspacesSheet.vue'
 import UnsavedChangesDialog from './components/collections/UnsavedChangesDialog.vue'
 import UnsavedLineDialog from './components/request/UnsavedLineDialog.vue'
+import SignInModal from './components/settings/SignInModal.vue'
+import SignOutSheet from './components/settings/SignOutSheet.vue'
+import { useAccount } from './composables/useAccount'
 import Toast from './components/ui/Toast.vue'
 import { Button } from './components/ui/button'
 
@@ -39,6 +42,17 @@ const envStore = useEnvironmentsStore()
 const search = useSearchStore()
 const workspaces = useWorkspacesStore()
 const { availableUpdate } = useUpdates()
+const {
+  state: accountState,
+  signInOpen,
+  signOutOpen,
+  beginSignIn,
+  cancelSignIn,
+  closeSignIn,
+  closeSignOut,
+  signOut,
+} = useAccount()
+const account = computed(() => accountState.value?.account ?? null)
 
 // Without a database every other call fails, and this is the one screen that can say why instead of
 // leaving a window full of empty panels.
@@ -138,6 +152,17 @@ function closeSheet() {
   <!-- The manager window, in the same frame as the environments one: the spaces on the left, the
        form or the space itself on the right. -->
   <WorkspacesSheet v-if="startup?.ready && workspaces.sheetOpen" @close="workspaces.closeSheet()" />
+
+  <!-- The account's two dialogs hang off the window root and not off the rail: the rail draws a
+       material, and a fixed overlay inside it would cover the rail instead of the window. -->
+  <SignInModal
+    v-if="startup?.ready && signInOpen"
+    :server="account?.server ?? ''"
+    @begin="beginSignIn"
+    @cancel="cancelSignIn"
+    @close="closeSignIn()"
+  />
+  <SignOutSheet v-if="startup?.ready && signOutOpen" @close="closeSignOut()" @confirm="signOut()" />
 
   <!-- One alert for the whole window: what asks to leave a card with unsaved edits is not always
        the same view. -->

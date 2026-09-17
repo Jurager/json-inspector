@@ -95,6 +95,7 @@ const ru = {
     loadSample: 'Загрузить образец',
     checkUpdates: 'Проверить обновления',
     about: 'О программе',
+    account: 'Аккаунт',
     settings: 'Настройки',
   },
 
@@ -833,6 +834,11 @@ const ru = {
       environmentReadOnly: 'Окружение только для чтения — переключите «Доступ» на «Редактируется» и повторите.',
       unknownRetention: 'Неизвестный срок хранения: {retention}',
       unknownUpdateChannel: 'Неизвестный канал обновлений: {channel}',
+      notSignedIn: 'Вход не выполнен.',
+      serverUnreachable: 'Сервер не отвечает.',
+      serverRefused: 'Сервер отказал в запросе.',
+      signInFailed: 'Вход не завершён.',
+      sessionUnknown: 'Этого устройства больше нет среди вошедших.',
     },
     requestFailed: 'Запрос не выполнен: {error}',
     updateCheckFailed: 'Не удалось проверить обновления',
@@ -855,6 +861,65 @@ const ru = {
   // The pages a sign-in puts in the browser. Like the menu's words they are not read from here by the
   // page that draws them — Go serves those pages and has no catalogue — so they travel to Go as they
   // stand, and this is where they are worded.
+  account: {
+    signedInAs: 'Вы вошли как',
+    signedOut: 'Вход не выполнен',
+    signedOutNote: 'Коллекции, окружения и история остаются на этой машине',
+    signIn: 'Войти…',
+    server: 'Свой сервер',
+    serverNote: 'Для self-hosted-развёртывания',
+    sync: 'Синхронизация',
+    syncNote: 'Коллекции, окружения и история',
+    syncSoon: 'Появится вместе с синхронизацией: пока ничего не уезжает с этой машины.',
+    signOut: 'Выйти на этом устройстве',
+    signOutNote: 'Коллекции останутся на машине',
+    devices: 'Устройства',
+    devicesNote: 'Где аккаунт открыт сейчас.',
+    thisDevice: 'Это устройство',
+    end: 'Завершить',
+    endOthers: 'Завершить все другие',
+    endOthersNote: 'Останется только это устройство',
+    devicesEmpty: 'Больше нигде: это единственное устройство с выполненным входом.',
+    devicesFailed: 'Не удалось получить список устройств с сервера.',
+    plan: 'Тариф',
+    seats: 'Мест',
+    leave: 'Удалить аккаунт',
+    leaveNote: 'Аккаунт и все устройства на нём будут отключены',
+    // Лист подтверждения выхода: что случится с этим устройством и что останется здесь. Строки про
+    // команды и keychain появятся вместе с синхронизацией — сейчас их слова были бы неправдой.
+    signOutSheetDevice: 'Это устройство',
+    signOutSheetDeviceNote: 'Отключится от аккаунта; остальные устройства останутся',
+    signOutSheetDeviceTag: 'Отключится',
+    signOutSheetData: 'Коллекции, окружения и история',
+    signOutSheetDataNote: 'Останутся на этой машине',
+    signOutSheetSecrets: 'Переменные и секреты',
+    signOutSheetSecretsNote: 'Останутся здесь: они никуда не уезжали',
+    leaveConfirm: 'Удалить аккаунт?',
+    leaveText: 'Аккаунт будет удалён, а все программы — отключены. Коллекции на этой машине останутся. Вернуть это нельзя.',
+    leaveAction: 'Удалить',
+
+    dialog: {
+      title: 'Вход',
+      startTitle: 'Войти в JSON Inspector',
+      startText: 'Приложение откроет браузер, где вы подтвердите код. Пароля здесь нет.',
+      browser: 'Продолжить в браузере',
+      without: 'Продолжить без аккаунта',
+      custom: 'Свой сервер',
+      serverLabel: 'Адрес сервера',
+      serverHint: 'По умолчанию — сервер JSON Inspector. Свой — для self-hosted-развёртывания; пустое поле возвращает к нему.',
+      apply: 'Применить',
+      waitingTitle: 'Открываем браузер…',
+      waitingText: 'Подтвердите код в браузере — приложение продолжит само.',
+      codeLabel: 'Код',
+      openAgain: 'Открыть браузер ещё раз',
+      cancel: 'Отмена',
+      doneTitle: 'Готово',
+      doneText: 'Аккаунт подключён.',
+      refusedTitle: 'Вход не завершён',
+      retry: 'Попробовать снова',
+    },
+  },
+
   signIn: {
     // The implicit grant's page, shown while it hands the browser's own fragment back.
     waiting: {
@@ -888,6 +953,7 @@ const ru = {
       updates: 'Обновления',
     },
     meta: {
+      account: 'Вход и устройства',
       general: 'Язык, запуск, редактор',
       appearance: 'Тема и раскладка',
       requests: 'История и захват',
@@ -964,14 +1030,6 @@ const ru = {
     english: 'English',
 
     stub: {
-      account: {
-        note: 'Вход появится вместе с сервером. Пока всё живёт на этой машине.',
-        out: 'Вход не выполнен',
-        outNote: 'Коллекции и окружения остаются только здесь',
-        outAction: 'Войти…',
-        server: 'Свой сервер',
-        serverNote: 'Для собственного развёртывания',
-      },
       proxy: {
         note: 'Ничего из этого ещё не доходит до движка запросов: запросы уходят напрямую, а системный прокси не читается.',
         mode: 'Режим',

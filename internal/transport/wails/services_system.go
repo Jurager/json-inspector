@@ -86,8 +86,11 @@ func (s *SystemService) ApplyLanguage(labels MenuLabels, pages domain.SignInPage
 	s.auth.SetPages(pages)
 }
 
-func (s *SystemService) ShowSettings() {
-	s.host.ShowSettings()
+// ShowSettings opens the preferences window. The category is the one to show — "account" for the
+// account menu — and an empty one leaves the window where it was, which is what the rail's gear
+// asks for.
+func (s *SystemService) ShowSettings(category string) {
+	s.host.ShowSettings(category)
 }
 
 // StartupStatus is what the frontend reads first: without a database there is nothing else to
