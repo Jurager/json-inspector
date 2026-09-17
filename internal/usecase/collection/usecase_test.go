@@ -146,6 +146,26 @@ func (f *fakeStore) Node(_ context.Context, id string) (domain.CollectionNode, e
 	return domain.CollectionNode{}, domain.ErrNotFound
 }
 
+// LevelRows is the page's read: the same requests the tree holds, narrowed to what the table draws.
+func (f *fakeStore) LevelRows(_ context.Context, collectionID string) ([]domain.LevelRow, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+
+	out := []domain.LevelRow{}
+	for _, node := range f.nodes {
+		if node.CollectionID != collectionID || f.hidden(node.ID) {
+			continue
+		}
+		out = append(out, domain.LevelRow{
+			ID:     node.ID,
+			Name:   node.Name,
+			Method: node.Method,
+			URL:    node.URL,
+		})
+	}
+	return out, nil
+}
+
 func (f *fakeStore) SaveCollection(
 	_ context.Context,
 	_ string,
@@ -529,6 +549,39 @@ func (f *fakeSender) requests() []RunRequest {
 	return append([]RunRequest{}, f.sent...)
 }
 
+// fakeAssertions is the reports of a run's rows: what the scripts around each record asserted. It
+// answers by record id, which is what the run hands it — a row whose id nobody wrote about is a row
+// with nothing asserted, not an error.
+type fakeAssertions struct {
+	mu      sync.Mutex
+	answers map[string][2]int
+}
+
+func newFakeAssertions() *fakeAssertions {
+	return &fakeAssertions{answers: map[string][2]int{}}
+}
+
+// asserts sets what the report of one record says: how many of its assertions held, and out of how
+// many.
+func (f *fakeAssertions) asserts(recordID string, passed, total int) *fakeAssertions {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+
+	f.answers[recordID] = [2]int{passed, total}
+	return f
+}
+
+func (f *fakeAssertions) Assertions(_ context.Context, recordID string) (int, int, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+
+	counts, ok := f.answers[recordID]
+	if !ok {
+		return 0, 0, nil
+	}
+	return counts[0], counts[1], nil
+}
+
 // fakeNotifier keeps what was published and lets a test wait for the end of a run instead of
 // sleeping: the run writes from its own goroutine.
 type fakeNotifier struct {
@@ -591,18 +644,19 @@ func (n *fakeNotifier) runFinished(t *testing.T) domain.CollectionRun {
 }
 
 func newTestUseCase() (*UseCase, *fakeStore) {
-	uc, store, _, _ := newTestRun()
+	uc, store, _, _, _ := newTestRun()
 	return uc, store
 }
 
-// newTestRun is the use case with all three of its dependencies, for the tests that also look at
-// what was sent and what was published.
-func newTestRun() (*UseCase, *fakeStore, *fakeSender, *fakeNotifier) {
+// newTestRun is the use case with all of its dependencies, for the tests that also look at what was
+// sent, what was published and what the scripts asserted.
+func newTestRun() (*UseCase, *fakeStore, *fakeSender, *fakeNotifier, *fakeAssertions) {
 	store := newFakeStore()
 	sender := newFakeSender()
 	notifier := newFakeNotifier()
-	return NewUseCase(store, fakeScope{}, sender, notifier,
-		platform.NewIDGen()), store, sender, notifier
+	asserted := newFakeAssertions()
+	return NewUseCase(store, fakeScope{}, sender, asserted, newFakeEnvironment(), notifier,
+		platform.NewIDGen()), store, sender, notifier, asserted
 }
 
 func only(t *testing.T, tree []domain.Collection) domain.Collection {
@@ -617,11 +671,11 @@ func TestCreateCollectionAppends(t *testing.T) {
 	uc, _ := newTestUseCase()
 	ctx := context.Background()
 
-	first, err := uc.CreateCollection(ctx, "  Пользователи  ", " тестовые ")
+	first, err := uc.CreateCollection(ctx, "  Пользователи  ", " тестовые ", "")
 	if err != nil {
 		t.Fatalf("CreateCollection: %v", err)
 	}
-	tree, err := uc.CreateCollection(ctx, "Заказы", "")
+	tree, err := uc.CreateCollection(ctx, "Заказы", "", "")
 	if err != nil {
 		t.Fatalf("CreateCollection: %v", err)
 	}
@@ -643,7 +697,7 @@ func TestCreateCollectionAppends(t *testing.T) {
 func TestCreateCollectionRejectsAnEmptyName(t *testing.T) {
 	uc, _ := newTestUseCase()
 
-	if _, err := uc.CreateCollection(context.Background(), "   ", ""); !errors.Is(err,
+	if _, err := uc.CreateCollection(context.Background(), "   ", "", ""); !errors.Is(err,
 		domain.ErrNotAllowed) {
 		t.Fatalf("empty name = %v, want ErrNotAllowed", err)
 	}
@@ -653,7 +707,7 @@ func TestCreateNodeLandsAtTheEndOfItsLevel(t *testing.T) {
 	uc, _ := newTestUseCase()
 	ctx := context.Background()
 
-	tree, err := uc.CreateCollection(ctx, "Коллекция", "")
+	tree, err := uc.CreateCollection(ctx, "Коллекция", "", "")
 	if err != nil {
 		t.Fatalf("CreateCollection: %v", err)
 	}
@@ -707,7 +761,7 @@ func nestCollectionAt(t *testing.T, uc *UseCase, name string, parentID string, a
 	t.Helper()
 	ctx := context.Background()
 
-	tree, err := uc.CreateCollection(ctx, name, "")
+	tree, err := uc.CreateCollection(ctx, name, "", "")
 	if err != nil {
 		t.Fatalf("CreateCollection: %v", err)
 	}
@@ -725,7 +779,7 @@ func TestCreateNodeTakesAWholeRequest(t *testing.T) {
 	uc, store := newTestUseCase()
 	ctx := context.Background()
 
-	tree, err := uc.CreateCollection(ctx, "Коллекция", "")
+	tree, err := uc.CreateCollection(ctx, "Коллекция", "", "")
 	if err != nil {
 		t.Fatalf("CreateCollection: %v", err)
 	}
@@ -772,7 +826,7 @@ func TestRenameReachesBothKinds(t *testing.T) {
 	uc, _ := newTestUseCase()
 	ctx := context.Background()
 
-	tree, _ := uc.CreateCollection(ctx, "Коллекция", "")
+	tree, _ := uc.CreateCollection(ctx, "Коллекция", "", "")
 	collectionID := only(t, tree).ID
 	_, tree, _ = uc.CreateNode(ctx, NodeDraft{CollectionID: collectionID, Name: "Запрос"})
 	requestID := only(t, tree).Items[0].ID
@@ -800,7 +854,7 @@ func TestRenameKeepsANestedCollectionNested(t *testing.T) {
 	uc, _ := newTestUseCase()
 	ctx := context.Background()
 
-	tree, _ := uc.CreateCollection(ctx, "Коллекция", "")
+	tree, _ := uc.CreateCollection(ctx, "Коллекция", "", "")
 	collectionID := only(t, tree).ID
 	nestedID := nestCollection(t, uc, "Вложенная", collectionID)
 
@@ -823,7 +877,7 @@ func TestDescribeReachesBothKinds(t *testing.T) {
 	uc, _ := newTestUseCase()
 	ctx := context.Background()
 
-	tree, _ := uc.CreateCollection(ctx, "Коллекция", "старое описание")
+	tree, _ := uc.CreateCollection(ctx, "Коллекция", "старое описание", "")
 	collectionID := only(t, tree).ID
 	nestedID := nestCollection(t, uc, "Вложенная", collectionID)
 
@@ -869,7 +923,7 @@ func TestDuplicateCopiesTheSubtree(t *testing.T) {
 	uc, store := newTestUseCase()
 	ctx := context.Background()
 
-	tree, _ := uc.CreateCollection(ctx, "Коллекция", "")
+	tree, _ := uc.CreateCollection(ctx, "Коллекция", "", "")
 	collectionID := only(t, tree).ID
 	nestedID := nestCollection(t, uc, "Вложенная", collectionID)
 	// The tree is read again: the row looked up on the next line is the one this call adds.
@@ -939,7 +993,7 @@ func TestDuplicateCopiesTheRequestItself(t *testing.T) {
 	uc, store := newTestUseCase()
 	ctx := context.Background()
 
-	tree, _ := uc.CreateCollection(ctx, "Коллекция", "")
+	tree, _ := uc.CreateCollection(ctx, "Коллекция", "", "")
 	collectionID := only(t, tree).ID
 	_, tree, _ = uc.CreateNode(ctx, NodeDraft{CollectionID: collectionID, Name: "Запрос"})
 	requestID := only(t, tree).Items[0].ID
@@ -1008,7 +1062,7 @@ func TestSavingARequestKeepsItsScripts(t *testing.T) {
 	uc, store := newTestUseCase()
 	ctx := context.Background()
 
-	tree, _ := uc.CreateCollection(ctx, "Коллекция", "")
+	tree, _ := uc.CreateCollection(ctx, "Коллекция", "", "")
 	collectionID := only(t, tree).ID
 	_, tree, _ = uc.CreateNode(ctx, NodeDraft{CollectionID: collectionID, Name: "Запрос"})
 	requestID := only(t, tree).Items[0].ID
@@ -1039,7 +1093,7 @@ func TestDuplicateCopiesTheCollectionScripts(t *testing.T) {
 	uc, store := newTestUseCase()
 	ctx := context.Background()
 
-	tree, _ := uc.CreateCollection(ctx, "Коллекция", "")
+	tree, _ := uc.CreateCollection(ctx, "Коллекция", "", "")
 	collectionID := only(t, tree).ID
 	if err := store.SaveScripts(ctx, ws, collectionID,
 		&domain.Scripts{Pre: "console.log('пошли');"}); err != nil {
@@ -1066,7 +1120,7 @@ func TestDuplicateCopiesACollection(t *testing.T) {
 	uc, store := newTestUseCase()
 	ctx := context.Background()
 
-	tree, _ := uc.CreateCollection(ctx, "Коллекция", "описание")
+	tree, _ := uc.CreateCollection(ctx, "Коллекция", "описание", "")
 	collectionID := only(t, tree).ID
 	_, tree, _ = uc.CreateNode(ctx, NodeDraft{CollectionID: collectionID, Name: "Первый"})
 	nestedID := nestCollection(t, uc, "Вложенная", collectionID)
@@ -1128,7 +1182,7 @@ func TestDuplicateClipsTheNameAtTheCeiling(t *testing.T) {
 	for len([]rune(long)) < maxNameLength {
 		long += "я"
 	}
-	tree, err := uc.CreateCollection(ctx, long, "")
+	tree, err := uc.CreateCollection(ctx, long, "", "")
 	if err != nil {
 		t.Fatalf("CreateCollection: %v", err)
 	}
@@ -1146,7 +1200,7 @@ func TestDeleteTakesTheWholeSubtree(t *testing.T) {
 	uc, _ := newTestUseCase()
 	ctx := context.Background()
 
-	tree, _ := uc.CreateCollection(ctx, "Коллекция", "")
+	tree, _ := uc.CreateCollection(ctx, "Коллекция", "", "")
 	collectionID := only(t, tree).ID
 	nestedID := nestCollection(t, uc, "Вложенная", collectionID)
 	// The node has to exist for the cascade below to have something to take: what the tree looks like
@@ -1178,7 +1232,7 @@ func TestSaveNodeKeepsWhereItLives(t *testing.T) {
 	uc, store := newTestUseCase()
 	ctx := context.Background()
 
-	tree, _ := uc.CreateCollection(ctx, "Коллекция", "")
+	tree, _ := uc.CreateCollection(ctx, "Коллекция", "", "")
 	collectionID := only(t, tree).ID
 	nestedID := nestCollection(t, uc, "Вложенная", collectionID)
 	_, tree, _ = uc.CreateNode(ctx, NodeDraft{CollectionID: nestedID, Name: "Запрос"})
@@ -1221,7 +1275,7 @@ func TestSaveNodeRejectsAnEmptyName(t *testing.T) {
 	uc, _ := newTestUseCase()
 	ctx := context.Background()
 
-	tree, _ := uc.CreateCollection(ctx, "Коллекция", "")
+	tree, _ := uc.CreateCollection(ctx, "Коллекция", "", "")
 	collectionID := only(t, tree).ID
 	_, tree, _ = uc.CreateNode(ctx, NodeDraft{CollectionID: collectionID, Name: "Запрос"})
 	requestID := only(t, tree).Items[0].ID
@@ -1236,7 +1290,7 @@ func TestMoveNodeTakesTheDropIndex(t *testing.T) {
 	uc, _ := newTestUseCase()
 	ctx := context.Background()
 
-	tree, err := uc.CreateCollection(ctx, "Коллекция", "")
+	tree, err := uc.CreateCollection(ctx, "Коллекция", "", "")
 	if err != nil {
 		t.Fatalf("CreateCollection: %v", err)
 	}
@@ -1285,7 +1339,7 @@ func TestMoveNodeBetweenCollections(t *testing.T) {
 	uc, store := newTestUseCase()
 	ctx := context.Background()
 
-	tree, _ := uc.CreateCollection(ctx, "Коллекция", "")
+	tree, _ := uc.CreateCollection(ctx, "Коллекция", "", "")
 	collectionID := only(t, tree).ID
 	nestedID := nestCollection(t, uc, "Вложенная", collectionID)
 	_, tree, _ = uc.CreateNode(ctx, NodeDraft{CollectionID: collectionID, Name: "Снаружи"})
@@ -1317,7 +1371,7 @@ func TestMoveCollectionRefusesARing(t *testing.T) {
 	uc, _ := newTestUseCase()
 	ctx := context.Background()
 
-	tree, _ := uc.CreateCollection(ctx, "Коллекция", "")
+	tree, _ := uc.CreateCollection(ctx, "Коллекция", "", "")
 	collectionID := only(t, tree).ID
 	nestedID := nestCollection(t, uc, "Вложенная", collectionID)
 
@@ -1349,7 +1403,7 @@ func TestMoveCollectionReturnsToTheTopLevel(t *testing.T) {
 	uc, _ := newTestUseCase()
 	ctx := context.Background()
 
-	tree, _ := uc.CreateCollection(ctx, "Коллекция", "")
+	tree, _ := uc.CreateCollection(ctx, "Коллекция", "", "")
 	collectionID := only(t, tree).ID
 	nestedID := nestCollection(t, uc, "Вложенная", collectionID)
 
@@ -1441,7 +1495,7 @@ func TestFullReadsTheRequestsWhole(t *testing.T) {
 	uc, _ := newTestUseCase()
 	ctx := context.Background()
 
-	tree, err := uc.CreateCollection(ctx, "Коллекция", "описание")
+	tree, err := uc.CreateCollection(ctx, "Коллекция", "описание", "")
 	if err != nil {
 		t.Fatalf("CreateCollection: %v", err)
 	}
@@ -1483,7 +1537,7 @@ func TestFullReadsNestedCollectionsWhole(t *testing.T) {
 	uc, _ := newTestUseCase()
 	ctx := context.Background()
 
-	tree, _ := uc.CreateCollection(ctx, "Коллекция", "")
+	tree, _ := uc.CreateCollection(ctx, "Коллекция", "", "")
 	collectionID := only(t, tree).ID
 	nestedID := nestCollection(t, uc, "Вложенная", collectionID)
 	if _, _, err := uc.CreateNode(ctx, NodeDraft{
@@ -1511,4 +1565,31 @@ func TestNodeInAMissingTree(t *testing.T) {
 	if _, err := uc.Node(context.Background(), "нет-такого"); !errors.Is(err, domain.ErrNotFound) {
 		t.Fatalf("missing node = %v, want ErrNotFound", err)
 	}
+}
+
+// fakeEnvironment is the environment a run is said to have gone out under. A run keeps that name,
+// so the tests that read a run back look at what this answered when it started.
+type fakeEnvironment struct {
+	mu   sync.Mutex
+	name string
+	err  error
+}
+
+func newFakeEnvironment() *fakeEnvironment {
+	return &fakeEnvironment{}
+}
+
+func (f *fakeEnvironment) named(name string) *fakeEnvironment {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+
+	f.name = name
+	return f
+}
+
+func (f *fakeEnvironment) ActiveEnvironment(_ context.Context) (string, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+
+	return f.name, f.err
 }

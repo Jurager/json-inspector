@@ -98,7 +98,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
         <Icon v-if="copied" name="check" :size="12" />
         <span>{{ copied ? t('common.copied') : t('common.copy') }}</span>
       </Button>
-      <Button size="sm" @click="openSearch"><span>{{ t('common.search') }}</span><kbd class="keycap">{{ searchShortcut }}</kbd></Button>
+      <Button size="sm" class="with-key" @click="openSearch"><span>{{ t('common.search') }}</span><kbd class="keycap">{{ searchShortcut }}</kbd></Button>
     </template>
   </div>
 

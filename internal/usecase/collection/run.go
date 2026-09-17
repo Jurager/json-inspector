@@ -23,11 +23,14 @@ type RunProgress struct {
 	RunID string `json:"runId"`
 	// What the run was started from, so a window that has since looked at another level can tell
 	// which run a row belongs to: it is the same pair the finished run carries.
-	CollectionID string                     `json:"collectionId"`
-	NodeID       string                     `json:"nodeId"`
-	Done         int                        `json:"done"`
-	Total        int                        `json:"total"`
-	Result       domain.CollectionRunResult `json:"result"`
+	CollectionID string `json:"collectionId"`
+	NodeID       string `json:"nodeId"`
+	// The environment the run is going out under, carried here for the same reason the page keeps it:
+	// a window that draws rows as they arrive must not label them with whatever is selected by then.
+	Environment string                     `json:"environment,omitempty"`
+	Done        int                        `json:"done"`
+	Total       int                        `json:"total"`
+	Result      domain.CollectionRunResult `json:"result"`
 }
 
 // Run executes everything under a node, one request after another, and answers with the id of the
@@ -76,10 +79,16 @@ func (u *UseCase) Run(ctx context.Context, collectionID string, nodeID string) (
 		return "", domain.Refuse(domain.CodeNodeHasNoRequests, domain.ErrNotAllowed, nil)
 	}
 
+	// What the run goes out under is read here, once, and kept with it: the window may be on another
+	// environment by the time the page is read again, and the run is not. A failure to answer leaves
+	// the name empty, which reads as "nothing known" rather than as the wrong environment.
+	environment, _ := u.environment.ActiveEnvironment(ctx)
+
 	run := domain.CollectionRun{
 		ID:           u.ids(),
 		CollectionID: collectionID,
 		NodeID:       nodeID,
+		Environment:  environment,
 		StartedAt:    time.Now().UnixMilli(),
 		Results:      []domain.CollectionRunResult{},
 	}
@@ -151,6 +160,7 @@ func (u *UseCase) execute(workspace string, run domain.CollectionRun, requests [
 			RunID:        run.ID,
 			CollectionID: run.CollectionID,
 			NodeID:       run.NodeID,
+			Environment:  run.Environment,
 			Done:         len(run.Results),
 			Total:        len(requests),
 			Result:       result,
@@ -186,7 +196,7 @@ func (u *UseCase) attempt(
 		return result
 	}
 
-	rec, err := u.sender.Send(ctx, requestFrom(workspace, full, item.auth, runID))
+	rec, err := u.sender.Send(ctx, requestFrom(workspace, full, item.auth, item.variables, runID))
 	if err != nil {
 		result.Error = err.Error()
 		return result
@@ -202,6 +212,7 @@ func (u *UseCase) attempt(
 	// and nothing about what it answered.
 	result.RecordID = rec.ID
 	result.DurationUs = rec.DurationUs
+	result = u.withAssertions(ctx, result, rec.ID)
 	if rec.Status == 0 {
 		// Nothing came back, so the error is all there is to report. A status of zero is not a
 		// status: it is the absence of one.
@@ -215,12 +226,33 @@ func (u *UseCase) attempt(
 	return result
 }
 
+// withAssertions answers a row with what the scripts around its request asserted. A report that
+// cannot be read is a row nobody asserted anything about, which the page draws the same way as a
+// request nothing was written for: the answer is the row's subject, and a run is not the place to
+// fail over what a script said about it.
+func (u *UseCase) withAssertions(
+	ctx context.Context,
+	result domain.CollectionRunResult,
+	recordID string,
+) domain.CollectionRunResult {
+	if recordID == "" {
+		return result
+	}
+	passed, total, err := u.assertions.Assertions(ctx, recordID)
+	if err != nil {
+		return result
+	}
+	result.AssertionsPassed, result.AssertionsTotal = passed, total
+	return result
+}
+
 // The URL is the request's own — a query string is a URL's rows, not a second copy of them — so
 // the parameters travel for the record and do not rewrite the address.
 func requestFrom(
 	workspace string,
 	node domain.CollectionNode,
 	auth *domain.Auth,
+	above []domain.Variable,
 	runID string,
 ) RunRequest {
 	request := RunRequest{
@@ -236,6 +268,7 @@ func requestFrom(
 		Headers:   []domain.HeaderPair{},
 		Cookies:   domain.OrEmpty(node.Cookies),
 		Auth:      auth,
+		Variables: above,
 	}
 	for _, row := range node.Headers {
 		if row.Enabled && strings.TrimSpace(row.Name) != "" {
@@ -250,6 +283,9 @@ func requestFrom(
 type runnable struct {
 	node domain.CollectionNode
 	auth *domain.Auth
+	// What the levels above answer for `{{tokens}}`, outermost first: the walk down the tree is where
+	// it is collected, and the sender is handed it because by then the tree is out of reach.
+	variables []domain.Variable
 }
 
 // A request is a list of one, so running a saved request and running a collection are the same
@@ -257,30 +293,47 @@ type runnable struct {
 // an empty run.
 func requestsUnder(collection domain.Collection, nodeID string) ([]runnable, error) {
 	if nodeID == "" || nodeID == collection.ID {
-		return requestsIn(collection, nil), nil
+		return requestsIn(collection, nil, nil), nil
 	}
 	if nested, ok := findCollection(collection.Children, nodeID); ok {
-		return requestsIn(nested, answerOf(collection.Auth, nil)), nil
+		return requestsIn(nested, answerOf(collection.Auth, nil), collection.Variables), nil
 	}
 	node, ok := findNode([]domain.Collection{collection}, nodeID)
 	if !ok {
 		return nil, fmt.Errorf("node %s: %w", nodeID, domain.ErrNotFound)
 	}
-	return []runnable{{node: node, auth: answerOf(node.Auth, answerOf(collection.Auth, nil))}}, nil
+	return []runnable{{
+		node:      node,
+		auth:      answerOf(node.Auth, answerOf(collection.Auth, nil)),
+		variables: collection.Variables,
+	}}, nil
 }
 
 // The order is the level's own, not requests-then-collections, and the answer of the levels above
 // is carried down.
-func requestsIn(collection domain.Collection, inherited *domain.Auth) []runnable {
+func requestsIn(
+	collection domain.Collection,
+	inherited *domain.Auth,
+	above []domain.Variable,
+) []runnable {
 	at := answerOf(collection.Auth, inherited)
+	// A level's own variables stand over the ones above it, so they are appended: the reader takes the
+	// last answer for a name, which is the nearest level.
+	variables := make([]domain.Variable, 0, len(above)+len(collection.Variables))
+	variables = append(variables, above...)
+	variables = append(variables, collection.Variables...)
 
 	out := []runnable{}
 	for _, entry := range collection.Level() {
 		if entry.Collection != nil {
-			out = append(out, requestsIn(*entry.Collection, at)...)
+			out = append(out, requestsIn(*entry.Collection, at, variables)...)
 			continue
 		}
-		out = append(out, runnable{node: *entry.Node, auth: answerOf(entry.Node.Auth, at)})
+		out = append(out, runnable{
+			node:      *entry.Node,
+			auth:      answerOf(entry.Node.Auth, at),
+			variables: variables,
+		})
 	}
 	return out
 }

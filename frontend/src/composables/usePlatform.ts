@@ -1,6 +1,13 @@
 import { computed, ref } from 'vue'
 import { System } from '@wailsio/runtime'
-import { detectPlatform, drawsOwnTitlebar, shortcutFor, type Platform } from '../lib/platform'
+import {
+  chordAvailable,
+  detectPlatform,
+  drawsOwnTitlebar,
+  keyName,
+  shortcutFor,
+  type Platform,
+} from '../lib/platform'
 
 // window._wails.environment arrives asynchronously, so the user agent seeds the platform;
 // the seed stands if the probe fails — an unknown platform has no caption buttons.
@@ -17,5 +24,7 @@ export function usePlatform() {
     isMac: computed(() => platform.value === 'darwin'),
     customTitlebar: computed(() => drawsOwnTitlebar(platform.value)),
     shortcut: (key: string) => shortcutFor(key, platform.value),
+    chord: (key: 'N' | 'D' | 'R') => chordAvailable(key, platform.value),
+    keyLabel: (key: 'enter' | 'delete') => keyName(key, platform.value),
   }
 }

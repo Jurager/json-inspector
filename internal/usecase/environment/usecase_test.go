@@ -320,7 +320,7 @@ func TestResolutionOrderAndMasking(t *testing.T) {
 
 	// The environment wins over the globals: the order the design names is
 	// Request → Environment → Globals.
-	resolved, err := u.SubstituteTexts(ctx, []string{"{{token}}"}, false)
+	resolved, err := u.SubstituteTexts(ctx, nil, []string{"{{token}}"}, false)
 	if err != nil {
 		t.Fatalf("SubstituteTexts: %v", err)
 	}
@@ -330,14 +330,14 @@ func TestResolutionOrderAndMasking(t *testing.T) {
 
 	// Substitution: the request gets the values, everything that outlives it gets the mask — and a
 	// secret is the difference between the two.
-	sent, err := u.SubstituteTexts(ctx, []string{"{{token}}/{{secret}}"}, false)
+	sent, err := u.SubstituteTexts(ctx, nil, []string{"{{token}}/{{secret}}"}, false)
 	if err != nil {
 		t.Fatalf("SubstituteTexts: %v", err)
 	}
 	if sent[0] != "env-value/s3cret" {
 		t.Errorf("for sending = %q, want the real values", sent[0])
 	}
-	masked, err := u.SubstituteTexts(ctx, []string{"{{token}}/{{secret}}"}, true)
+	masked, err := u.SubstituteTexts(ctx, nil, []string{"{{token}}/{{secret}}"}, true)
 	if err != nil {
 		t.Fatalf("SubstituteTexts (masked): %v", err)
 	}
@@ -346,7 +346,7 @@ func TestResolutionOrderAndMasking(t *testing.T) {
 	}
 
 	// Several texts at once, and a name that repeats across them is one thing missing.
-	missing, err := u.Missing(ctx, []string{"{{token}}/{{nope}}", "{{nope}}/{{other}}"})
+	missing, err := u.Missing(ctx, nil, []string{"{{token}}/{{nope}}", "{{nope}}/{{other}}"})
 	if err != nil {
 		t.Fatalf("Missing: %v", err)
 	}
@@ -361,12 +361,82 @@ func TestResolutionOrderAndMasking(t *testing.T) {
 	}); err != nil {
 		t.Fatalf("UpdateVariable (disable): %v", err)
 	}
-	again, err := u.SubstituteTexts(ctx, []string{"{{token}}"}, false)
+	again, err := u.SubstituteTexts(ctx, nil, []string{"{{token}}"}, false)
 	if err != nil {
 		t.Fatalf("SubstituteTexts: %v", err)
 	}
 	if again[0] != "global-value" {
 		t.Errorf("with the override disabled, token = %q, want the global", again[0])
+	}
+}
+
+// A collection answers for the requests inside it, and its answer stands over the environment's:
+// a level that names `baseUrl` means that value for everything below, which is what lets a
+// collection be carried from one environment to another and still mean what it says. A name it does
+// not answer is still the environment's, and a row switched off answers nothing — the same rule the
+// environment's own rows follow.
+func TestCollectionVariablesStandOverTheEnvironment(t *testing.T) {
+	u, _ := newUseCase(t)
+	ctx := context.Background()
+	_, env := seed(t, u, "Local")
+
+	if _, err := u.AddVariable(ctx, domain.EnvScope{Environment: env.ID},
+		VariableDraft{Kind: domain.VariableText}); err != nil {
+		t.Fatalf("AddVariable: %v", err)
+	}
+	if _, err := u.AddVariable(ctx, domain.EnvScope{Environment: env.ID},
+		VariableDraft{Kind: domain.VariableText}); err != nil {
+		t.Fatalf("AddVariable: %v", err)
+	}
+
+	snapshot, err := u.Snapshot(ctx)
+	if err != nil {
+		t.Fatalf("Snapshot: %v", err)
+	}
+	envURL, envPage := snapshot.Environments[0].Vars[0], snapshot.Environments[0].Vars[1]
+	set := func(v domain.Variable, name, value string) {
+		t.Helper()
+		if _, err := u.UpdateVariable(ctx, domain.EnvScope{Environment: env.ID}, VariablePatch{
+			ID: v.ID, Name: name, Kind: domain.VariableText, Enabled: true, Value: value,
+			SetValue: true,
+		}); err != nil {
+			t.Fatalf("UpdateVariable(%s): %v", name, err)
+		}
+	}
+	set(envURL, "baseUrl", "https://env")
+	set(envPage, "page", "3")
+
+	above := []domain.Variable{
+		{Name: "baseUrl", Value: "https://collection", Kind: domain.VariableText, Enabled: true},
+	}
+
+	resolved, err := u.SubstituteTexts(ctx, above, []string{"{{baseUrl}}/{{page}}"}, false)
+	if err != nil {
+		t.Fatalf("SubstituteTexts: %v", err)
+	}
+	if resolved[0] != "https://collection/3" {
+		t.Errorf("resolved = %q, want the collection's base and the environment's page",
+			resolved[0])
+	}
+
+	// The collection's own row switched off is a level that answered nothing, so the environment is
+	// what stands again.
+	above[0].Enabled = false
+	off, err := u.SubstituteTexts(ctx, above, []string{"{{baseUrl}}"}, false)
+	if err != nil {
+		t.Fatalf("SubstituteTexts(disabled): %v", err)
+	}
+	if off[0] != "https://env" {
+		t.Errorf("resolved = %q, want the environment's base", off[0])
+	}
+
+	// And what a request in no collection asks is unchanged: no levels above it, no answers.
+	none, err := u.SubstituteTexts(ctx, nil, []string{"{{baseUrl}}"}, false)
+	if err != nil {
+		t.Fatalf("SubstituteTexts(none): %v", err)
+	}
+	if none[0] != "https://env" {
+		t.Errorf("resolved = %q, want the environment's base", none[0])
 	}
 }
 

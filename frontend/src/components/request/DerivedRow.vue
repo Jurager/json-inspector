@@ -45,7 +45,7 @@ function syncCellScroll(e: Event) {
 
 <template>
   <div class="row derived" :title="t('request.auth.derivedFrom', { scheme: scheme() ? t(scheme()!.label) : row.from })">
-    <span class="mark"><Icon name="link" :size="12" /></span>
+    <span class="mark"><Icon name="link" :size="13" /></span>
 
     <input
       v-if="row.editable"
@@ -84,7 +84,7 @@ function syncCellScroll(e: Event) {
 
     <IconButton
       variant="danger"
-      size="sm"
+      size="xl"
       :hint="t('request.auth.derivedRemove')"
       @click.stop="emit('remove')"
     >
@@ -96,8 +96,10 @@ function syncCellScroll(e: Event) {
 <style scoped>
 @reference "../../style.css";
 
+/* The same grid the rows around it stand on — the columns have to line up with theirs, which is the
+   whole reason this row is drawn at all. */
 .row {
-  @apply grid grid-cols-[20px_150px_1fr_22px] gap-1.5 items-center py-[3px] px-1;
+  @apply grid grid-cols-[24px_160px_minmax(0,1fr)_28px] gap-2 items-center h-[38px] px-1.5 rounded-lg;
 }
 
 /* The mark is the checkbox column of the rows around it. A projected row is not switched on and off,
@@ -107,12 +109,12 @@ function syncCellScroll(e: Event) {
 }
 
 .row-text {
-  @apply min-w-0 text-xs truncate;
+  @apply min-w-0 text-[13.5px] truncate;
   color: var(--text-secondary);
 }
 
 .row-input {
-  @apply min-w-0 bg-transparent border-0 outline-none text-xs p-0 rounded-sm;
+  @apply min-w-0 bg-transparent border-0 outline-none text-[13.5px] p-0 rounded-sm;
   font-family: var(--mono);
   color: var(--text);
 }

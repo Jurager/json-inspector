@@ -13,6 +13,7 @@ import ResponseViewer from '../response/ResponseViewer.vue'
 import BrowserEmptyState from '../browser/BrowserEmptyState.vue'
 import CollectionTree from '../collections/CollectionTree.vue'
 import CollectionOverview from '../collections/CollectionOverview.vue'
+import CollectionCrumbs from '../collections/CollectionCrumbs.vue'
 import CollectionsEmptyState from '../collections/CollectionsEmptyState.vue'
 
 const store = useRequestsStore()
@@ -99,6 +100,7 @@ const sidePanelShown = computed(() => {
         <template v-else>
           <CollectionsEmptyState v-if="collectionsEmpty" />
           <template v-else-if="collections.cardOpen">
+            <CollectionCrumbs />
             <RequestBuilder source="collection" />
             <ResponseViewer v-if="collections.response" :record="collections.response" source="collection" />
             <div v-else-if="collections.loading" class="empty">

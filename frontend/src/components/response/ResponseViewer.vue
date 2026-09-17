@@ -10,6 +10,7 @@ import {
   DropdownMenuTrigger,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
 } from '../ui/dropdown-menu'
 import type { RecordView } from '../../lib/requestRecord'
 import { tryParseJson, prettyJson, highlightJson } from '../../lib/json'
@@ -182,8 +183,18 @@ const urlQueryParams = computed(() => {
   return out
 })
 
-function paramValueClass(v: string): string {
-  return /^-?\d+(\.\d+)?$/.test(v.trim()) ? 'num' : 'str'
+// The same query as one line of text, which is what a reader copies.
+const queryString = computed(() => {
+  try {
+    return new URL(props.record.url).search
+  } catch {
+    return ''
+  }
+})
+
+// A number reads as a number and a word as a word, which is the whole of what the tint says.
+function paramTint(v: string): string {
+  return /^-?\d+(\.\d+)?$/.test(v.trim()) ? 'num' : ''
 }
 
 
@@ -263,12 +274,21 @@ async function copyHeaders() {
   }
 }
 
-const urlCopied = ref(false)
-
+// The link is one of the ways a record is copied, so it says so the way the others do: on the
+// button that opened the menu, which is the thing the eye is already on.
 async function copyUrl() {
   if (await copyToClipboard(props.record.url)) {
-    urlCopied.value = true
-    setTimeout(() => (urlCopied.value = false), 1500)
+    copied.value = true
+    setTimeout(() => (copied.value = false), 1500)
+  }
+}
+
+const queryCopied = ref(false)
+
+async function copyQuery() {
+  if (await copyToClipboard(queryString.value)) {
+    queryCopied.value = true
+    setTimeout(() => (queryCopied.value = false), 1500)
   }
 }
 
@@ -319,73 +339,94 @@ async function copyAs(format: CommandFormat) {
 
 <template>
   <div class="resp">
-    <div class="resp-bar">
-      <IconButton v-if="hasPrev" variant="outline" :hint="t('response.back')" @click="goBack"><Icon name="chevron-left" :size="14" /></IconButton>
-      <span class="badge badge-method">{{ record.method }}</span>
-      <span class="badge" :class="statusBadgeClass(record.status)">{{ record.status }}</span>
+    <!-- The line a captured request gets, and the only one it can: it has no command line to be
+         read in, so where it went and what it carried are said here. What the answer was is the
+         strip below — a method and a status in this line would be the response said twice. -->
+    <div v-if="record.source === 'browser'" class="req-line">
+      <button v-if="hasPrev" class="req-back" :title="t('response.back')" @click="goBack">
+        <Icon name="chevron-left" :size="16" :stroke-width="2" />
+      </button>
+      <span class="req-url mono" :title="record.url">{{ hostPath(record.url) }}</span>
 
-      <!-- URL only for captured requests: a manual one already sits in the command line. -->
-      <span v-if="record.source === 'browser'" class="resp-url mono" :title="record.url">{{ hostPath(record.url) }}</span>
-      <template v-else>
+      <Popover v-if="urlQueryParams.length">
+        <PopoverTrigger as-child>
+          <button class="req-params">
+            {{ t('request.chips.params') }}
+            <span class="req-params-count">{{ urlQueryParams.length }}</span>
+          </button>
+        </PopoverTrigger>
+        <PopoverContent class="params-menu" align="end">
+          <div class="params-head">
+            <span class="params-title">{{ t('response.paramsTitle') }}</span>
+            <span class="params-count mono">{{ urlQueryParams.length }}</span>
+            <span class="params-spacer"></span>
+            <button class="params-copy" @click="copyQuery">
+              {{ queryCopied ? t('common.copied') : t('response.copyQuery') }}
+            </button>
+            <PopoverClose as-child>
+              <IconButton :hint="t('common.close')" size="xl"><Icon name="xmark" :size="14" /></IconButton>
+            </PopoverClose>
+          </div>
+
+          <!-- One row per parameter rather than one grid with rows in it: the divider between two
+               parameters is drawn by the row and spans it, which a cell of a shared grid cannot do. -->
+          <div v-for="p in urlQueryParams" :key="p.name" class="params-row">
+            <div class="params-name-cell">
+              <span class="params-name mono">{{ p.name }}</span>
+              <span v-if="p.values.length > 1" class="params-item-count mono">{{ p.values.length }}</span>
+            </div>
+            <div class="params-chips">
+              <span
+                v-for="(v, i) in p.values"
+                :key="i"
+                class="params-chip mono"
+                :class="paramTint(v)"
+              >{{ v }}</span>
+            </div>
+          </div>
+
+          <!-- The query as one string, which is what the button above hands over: a chip per value
+               says what the request asked for, and this says what the address was. -->
+          <div class="params-string">
+            <span class="params-string-label">{{ t('response.queryString') }}</span>
+            <span class="params-string-text mono">{{ queryString }}</span>
+          </div>
+        </PopoverContent>
+      </Popover>
+
+      <span class="req-readonly">{{ t('common.readOnly') }}</span>
+    </div>
+
+    <div class="resp-bar">
+      <IconButton v-if="hasPrev && record.source !== 'browser'" variant="outline" :hint="t('response.back')" @click="goBack"><Icon name="chevron-left" :size="14" /></IconButton>
+      <span class="badge badge-method">{{ record.method }}</span>
+      <span class="badge resp-status" :class="statusBadgeClass(record.status)">{{ record.status }}</span>
+
+      <span class="divider"></span>
+      <span class="resp-meta">{{ formatMicros(record.durationUs) }}</span>
+      <span class="divider"></span>
+      <span class="resp-meta">{{ formatBytes(bodySize) }}</span>
+      <template v-if="record.contentType">
         <span class="divider"></span>
-        <span class="resp-meta">{{ formatMicros(record.durationUs) }}</span>
-        <span class="divider"></span>
-        <span class="resp-meta">{{ formatBytes(bodySize) }}</span>
-        <span class="divider"></span>
-        <span v-if="record.contentType" class="resp-meta truncate max-w-[240px]">{{ record.contentType }}</span>
+        <span class="resp-meta truncate max-w-[240px]">{{ record.contentType }}</span>
       </template>
 
       <span class="resp-spacer"></span>
 
-      <!-- Params kept off the URL's own row so a long link keeps the full width up to here. -->
-      <template v-if="record.source === 'browser'">
-        <IconButton :hint="t('response.copyUrl')" size="sm" @click="copyUrl">
-          <Icon :name="urlCopied ? 'check' : 'link'" :size="14" />
-        </IconButton>
-        <Popover v-if="urlQueryParams.length">
-          <PopoverTrigger as-child>
-            <Button size="sm">{{ t('response.params', { n: urlQueryParams.length }) }}</Button>
-          </PopoverTrigger>
-          <PopoverContent class="params-menu" align="end">
-            <div class="params-head">
-              <span class="params-title">{{ t('response.paramsTitle') }}</span>
-              <span class="params-count mono">{{ urlQueryParams.length }}</span>
-              <span class="params-spacer"></span>
-              <span class="params-readonly">{{ t('common.readOnly') }}</span>
-              <PopoverClose as-child>
-                <IconButton :hint="t('common.close')" size="sm"><Icon name="xmark" :size="13" /></IconButton>
-              </PopoverClose>
-            </div>
-
-            <div class="params-grid">
-              <template v-for="p in urlQueryParams" :key="p.name">
-                <div class="params-name-cell">
-                  <span class="params-name mono">{{ p.name }}</span>
-                  <span v-if="p.values.length > 1" class="params-item-count mono">{{ p.values.length }}</span>
-                </div>
-                <div v-if="p.values.length > 1" class="params-chips">
-                  <span v-for="(v, i) in p.values" :key="i" class="params-chip mono">{{ v }}</span>
-                </div>
-                <div v-else class="params-value mono" :class="paramValueClass(p.values[0])">{{ p.values[0] }}</div>
-              </template>
-            </div>
-          </PopoverContent>
-        </Popover>
-        <!-- The handoff keeps "742 мс · 35,1 КБ" here, so duration/size must not
-             vanish when a captured URL has query params. -->
-        <span class="resp-meta">{{ formatMicros(record.durationUs) }} · {{ formatBytes(bodySize) }}</span>
-      </template>
-
-      <Button size="sm" disabled :title="t('response.compareSoon')">{{ t('response.compare') }}</Button>
+      <Button size="bar" disabled :title="t('response.compareSoon')">{{ t('response.compare') }}</Button>
       <DropdownMenu>
         <DropdownMenuTrigger as-child>
-          <Button size="sm">
+          <Button size="bar">
             <Icon v-if="copied" name="check" :size="12" />
             <span>{{ copied ? t('common.copied') : t('common.copy') }}</span>
-            <svg viewBox="0 0 10 6" width="10" height="6" fill="none" aria-hidden="true"><path d="M1.5 1.5L5 5L8.5 1.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            <svg class="caret" viewBox="0 0 24 24" width="11" height="11" fill="none" aria-hidden="true"><path d="m6 9 6 6 6-6" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent :side-offset="4">
+          <!-- The link comes first and the wire formats after it: one is this request, the others
+               are the shapes it can be written in, and the two are read for different reasons. -->
+          <DropdownMenuItem @select="copyUrl">{{ t('response.copyUrl') }}</DropdownMenuItem>
+          <DropdownMenuSeparator />
           <DropdownMenuItem v-for="f in COPY_FORMATS" :key="f.id" @select="copyAs(f.id)">
             {{ f.label }}
           </DropdownMenuItem>
@@ -429,8 +470,14 @@ async function copyAs(format: CommandFormat) {
             <span class="head-spacer"></span>
             <Button v-if="hasHistory && record.source === 'browser'" size="sm" class="open-in-request" @click="openInRequest">{{ t('response.openInRequest') }}</Button>
             <Button size="sm" @click="copyBody"><Icon v-if="bodyCopied" name="check" :size="12" /><span>{{ bodyCopied ? t('common.copied') : t('common.copy') }}</span></Button>
-            <Button size="sm" :title="t('response.inspector', { shortcut: '⌥I' })" @click="toggleInspector">{{ t('response.inspectorShort') }} <kbd class="keycap">⌥I</kbd></Button>
-            <Button size="sm" @click="openBodySearch"><span>{{ t('common.search') }}</span><kbd class="keycap">{{ searchShortcut }}</kbd></Button>
+            <Button
+              size="sm"
+              class="inspector-toggle"
+              :class="{ 'inspector-open': store.inspector.open }"
+              :title="t('response.inspector', { shortcut: '⌥I' })"
+              @click="toggleInspector"
+            >{{ t('response.inspectorShort') }} <kbd class="keycap">⌥I</kbd></Button>
+            <Button size="sm" class="with-key" @click="openBodySearch"><span>{{ t('common.search') }}</span><kbd class="keycap">{{ searchShortcut }}</kbd></Button>
           </template>
         </div>
         <div v-else-if="record.source === 'browser'" class="toolbar">
@@ -516,7 +563,7 @@ async function copyAs(format: CommandFormat) {
           <pre v-if="record.requestBody" class="code" v-html="highlightJson(record.requestBody)"></pre>
         </div>
       </TabsContent>
-      <NodeInspector v-if="store.inspector.open" :doc="doc" @close="store.setInspector({ open: false })" @fetch="follow" />
+      <NodeInspector v-if="store.inspector.open" :doc="doc" :source="source" @close="store.setInspector({ open: false })" @fetch="follow" />
     </div>
     </Tabs>
   </div>
@@ -529,16 +576,78 @@ async function copyAs(format: CommandFormat) {
   @apply flex flex-col h-full min-h-0 bg-bg;
 }
 
-.resp-bar {
-  @apply flex items-center gap-2 h-12 px-3 border-b border-border bg-bg-panel;
+/* The line a captured request gets, drawn taller than the strip under it because a link is what it
+   is about. The method and the status are not here: a captured request has no command line to be
+   edited in, but its answer is still the strip's to say, and the two would otherwise say it twice. */
+.req-line {
+  /* The drawing's own lines, as on the collection page: the window's base is Tailwind's 1.5, which
+     leaves a 66px line of chips taller than the handoff's. */
+  line-height: normal;
+  @apply flex items-center gap-3 h-[66px] px-5 border-b border-border bg-bg-panel;
 }
 
-.resp-url {
-  @apply flex-1 min-w-0 overflow-hidden text-ellipsis whitespace-nowrap text-text-secondary text-[13px];
+.req-back {
+  @apply flex-none inline-flex items-center justify-center w-[34px] h-[34px] rounded-lg cursor-pointer
+         text-text-secondary bg-bg-inset border border-border;
+  --wails-draggable: no-drag;
+}
+
+.req-back:hover {
+  @apply bg-bg-hover text-text;
+}
+
+.req-url {
+  @apply flex-1 min-w-0 overflow-hidden text-ellipsis whitespace-nowrap text-[14px] text-text;
+  font-family: var(--mono);
+}
+
+/* The query, drawn as the command line's own chip: a URL in this window reads the same both places
+   it is read, and the count is what says there is something behind the chip. */
+.req-params {
+  @apply flex-none inline-flex items-center gap-[7px] h-[30px] px-2.5 rounded-[7px] cursor-pointer
+         text-[12.5px] font-medium text-text bg-bg-inset border border-border;
+  font-family: inherit;
+  --wails-draggable: no-drag;
+}
+
+.req-params:hover {
+  @apply bg-bg-hover;
+}
+
+.req-params[data-state='open'] {
+  @apply bg-accent border-accent text-accent-text;
+}
+
+.req-params-count {
+  @apply inline-flex items-center justify-center min-w-[17px] h-[17px] px-[5px] rounded-full
+         font-bold text-[10.5px] text-accent bg-accent-soft;
+  font-family: var(--mono);
+}
+
+.req-params[data-state='open'] .req-params-count {
+  background: rgba(255, 255, 255, 0.28);
+  color: var(--accent-text);
+}
+
+.req-readonly {
+  @apply flex-none text-[12px] font-medium py-2 px-2 rounded-md text-text-tertiary bg-bg-hover;
+}
+
+.resp-bar {
+  @apply flex items-center gap-3.5 h-12 px-5 border-b border-border bg-bg-panel;
 }
 
 .resp-meta {
-  @apply text-text-tertiary text-xs whitespace-nowrap;
+  @apply text-text-tertiary text-[13px] whitespace-nowrap;
+}
+
+/* The status on the bar is the one word about the answer, so it is drawn a step larger than the
+   badges in the list. */
+.resp-status {
+  font-size: 12px;
+  font-weight: 700;
+  padding: 4px 9px;
+  border-radius: 6px;
 }
 
 .divider {
@@ -575,8 +684,10 @@ async function copyAs(format: CommandFormat) {
   @apply flex-1 min-h-0 overflow-auto;
 }
 
+/* The padding the design gives a tab that is a table: 18px above and below what it holds and 20 at
+   the sides, so a card on this surface stands the same distance off every edge. */
 .resp-pad {
-  @apply py-3 px-5 m-0;
+  @apply py-[18px] px-5 m-0;
 }
 
 /* The handoff's "table" tabs (Raw, Headers, Cookies, Timings, Tests, Request) sit on a solid
@@ -586,20 +697,42 @@ async function copyAs(format: CommandFormat) {
   @apply bg-bg-panel;
 }
 
+/* A tab's table is a card of its own on that surface: the design draws it with its own border and a
+   12px radius, which is why this one is neither a bare table nor full-bleed. */
 .kv-table {
-  @apply border-collapse w-full;
-  font-size: 11.5px;
+  @apply w-full rounded-xl overflow-hidden border border-border;
+  border-collapse: separate;
+  border-spacing: 0;
+  font-family: var(--mono);
+  font-size: 13.5px;
+}
+
+/* 44px rows with the name and the value centred in them, and no line under the last: the card's own
+   border is the line the table ends on. The height is the row's rather than the cells', so that a value
+   long enough to wrap leaves the two cells — and the hover fill across them — the same height. */
+.kv-table tr {
+  height: 44px;
 }
 
 .kv-key {
-  @apply text-text-secondary align-top whitespace-nowrap border-b border-border;
-  width: 220px;
-  padding: 5px 12px 5px 0;
+  @apply text-text-secondary whitespace-nowrap border-b border-border;
+  width: 300px;
+  padding: 0 16px;
 }
 
 .kv-val {
-  @apply text-text break-all select-text align-top border-b border-border;
-  padding: 5px 0;
+  @apply text-text break-all select-text border-b border-border;
+  padding: 0 16px;
+}
+
+.kv-table tr:last-child .kv-key,
+.kv-table tr:last-child .kv-val {
+  border-bottom: 0;
+}
+
+.kv-table tr:hover .kv-key,
+.kv-table tr:hover .kv-val {
+  background: var(--bg-hover);
 }
 
 .kv-row {
@@ -616,69 +749,106 @@ async function copyAs(format: CommandFormat) {
 
 
 .params-head {
-  @apply flex items-center gap-2 px-1 pb-2;
+  @apply flex items-center gap-2.5 pb-2.5;
 }
 
 .params-title {
-  @apply text-xs font-semibold;
+  @apply text-sm font-semibold;
 }
 
-.params-count,
-.params-readonly {
-  @apply text-[11px] text-text-tertiary;
+.params-count {
+  @apply text-[12.5px] text-text-tertiary;
+  font-family: var(--mono);
 }
 
 .params-spacer {
   @apply flex-1;
 }
 
-.params-grid {
-  @apply grid items-start;
-  grid-template-columns: 148px minmax(0, 1fr);
-  gap: 0 10px;
+.params-copy {
+  @apply flex-none h-7 px-2.5 rounded-[7px] border cursor-pointer text-[12.5px] text-text
+         bg-bg-inset border-border-strong;
+  font-family: inherit;
+  --wails-draggable: no-drag;
 }
 
-.params-name-cell,
-.params-grid > .params-chips,
-.params-grid > .params-value {
-  @apply py-2 px-1 border-t border-border;
+.params-copy:hover {
+  @apply bg-bg-hover;
+}
+
+.params-row {
+  @apply grid items-start gap-3 py-2.5 px-1.5;
+  grid-template-columns: 170px minmax(0, 1fr);
+  border-top: 1px solid color-mix(in srgb, var(--border) 60%, transparent);
 }
 
 .params-name-cell {
-  @apply flex items-baseline gap-1.5;
+  @apply flex items-baseline gap-[7px];
 }
 
 .params-name {
-  @apply text-xs text-text;
+  @apply text-[13px] text-text;
 }
 
 .params-item-count {
-  @apply text-xs text-text-tertiary;
+  @apply text-[11.5px] text-text-tertiary;
 }
 
 .params-chips {
-  @apply flex flex-wrap gap-1;
+  @apply flex flex-wrap gap-[5px];
 }
 
 .params-chip {
-  @apply text-[11px] text-accent py-0.5 px-1.5 rounded-sm;
+  @apply text-[12.5px] text-accent py-[3px] px-2 rounded-md;
   background: var(--accent-soft);
 }
 
-.params-value {
-  @apply text-xs text-text break-all;
+/* A number is not a word, and the pair of colours is what says which of the two a value is. */
+.params-chip.num {
+  @apply text-tok-num bg-bg-hover;
 }
 
-.params-value.num {
-  @apply text-tok-num;
+/* The query as one string: what the chips say value by value, in the shape it is pasted in. */
+.params-string {
+  @apply flex gap-3 mt-2.5 p-3 rounded-[9px] bg-bg-inset;
 }
 
-.params-value.str {
-  @apply text-tok-str;
+.params-string-label {
+  @apply flex-none pt-[2px] text-[11px] font-semibold uppercase tracking-[0.07em] text-text-tertiary;
+}
+
+.params-string-text {
+  @apply flex-1 min-w-0 text-[12.5px] break-all;
+  line-height: 1.6;
+  color: var(--text-secondary);
 }
 
 /* Names .btn to outrank the colour the primitive sets on its own root. */
 .btn.open-in-request {
   @apply text-accent;
+}
+
+/* The pane's toggle carries a key like the search beside it, so it stands the same way. It is the
+   row's only button that answers for a state: an open pane fills it with the accent, which is what
+   the handoff draws. `.btn` is written twice there because the primitive's own hover paints the
+   background as well, and an open pane must not grey out under the pointer — the drawing lightens
+   it instead. */
+.toolbar .btn.inspector-toggle {
+  gap: 8px;
+}
+
+.toolbar .btn.btn.inspector-open,
+.toolbar .btn.btn.inspector-open:hover {
+  @apply text-accent bg-accent-soft border-accent-soft;
+}
+
+.toolbar .btn.btn.inspector-open:hover {
+  filter: brightness(1.03);
+}
+
+/* The chevron of a menu button says the label has more behind it, so it stays behind the label —
+   a step fainter than the word it points away from. */
+.caret {
+  @apply flex-none text-text-tertiary;
 }
 </style>

@@ -8,6 +8,7 @@ import { useWorkspacesStore } from './stores/workspaces'
 import { useCaptureEvents } from './composables/useCaptureEvents'
 import { useRecordEvents } from './composables/useRecordEvents'
 import { useGlobalShortcuts } from './composables/useGlobalShortcuts'
+import { useCollectionKeys } from './composables/useCollectionKeys'
 import { useSessionPersistence } from './composables/useSessionPersistence'
 import { useWorkspaceEvents } from './composables/useWorkspaceEvents'
 import { useWorkspaceTint } from './composables/useWorkspaceTint'
@@ -89,6 +90,9 @@ useWorkspaceTint()
 useCaptureEvents(store)
 useRecordEvents(store, collections)
 useGlobalShortcuts(envStore)
+// The tree's own keys live apart from the window's: they act on the collections panel, and
+// only while it is the view on screen.
+useCollectionKeys()
 
 // The sheet overlays the window with the command line still mounted underneath,
 // so closing hands the caret back to it.

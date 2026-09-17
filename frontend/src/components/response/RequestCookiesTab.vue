@@ -3,6 +3,7 @@ import Icon from '../ui/Icon.vue'
 import { IconButton } from '../ui/button'
 import VarToken from '../ui/VarToken.vue'
 import { useRequestsStore } from '../../stores/requests'
+import { Translation as I18nT } from 'vue-i18n'
 import { parseTokens, tokenSegments } from '../../lib/vars'
 import { RowKind, type CookieRow } from '../../../bindings/json-inspector/internal/domain'
 import { useMessages } from '../../i18n'
@@ -31,76 +32,90 @@ function syncCellScroll(e: Event) {
   const display = input.parentElement?.querySelector<HTMLElement>('.row-display')
   if (display) display.scrollLeft = input.scrollLeft
 }
+
+// A cookie's value is coloured the way every other value the window shows is coloured: numbers take the
+// number token, everything else the string one. Its name is left plain — a cookie name is a literal.
+function valueClass(v: string): string {
+  return /^-?\d+(\.\d+)?$/.test(v.trim()) ? 'num' : 'str'
+}
 </script>
 
 <template>
   <div class="req-cookies">
-    <div class="req-cookies-head">
-      <div>{{ t('response.cookies.name') }}</div><div>{{ t('response.cookies.value') }}</div><div>{{ t('response.cookies.domain') }}</div><div>{{ t('response.cookies.expires') }}</div><div>{{ t('response.cookies.flags') }}</div><div></div>
-    </div>
-    <div v-for="c in store.cookies" :key="c.id" class="req-cookies-row">
-      <input
-        :value="c.name"
-        class="cell-input mono"
-        :placeholder="t('request.placeholderName')"
-        spellcheck="false"
-        @input="patch(c, { name: ($event.target as HTMLInputElement).value })"
-      />
-      <div class="cell">
+    <!-- What the table is a table of. The word the cookies travel under is drawn as the chip the
+         window draws every other literal in. -->
+    <I18nT keypath="response.cookies.intro" tag="p" class="intro">
+      <template #word><span class="code">{{ t('response.cookies.header') }}</span></template>
+    </I18nT>
+
+    <div class="card">
+      <div class="req-cookies-head">
+        <div>{{ t('response.cookies.name') }}</div><div>{{ t('response.cookies.value') }}</div><div>{{ t('response.cookies.domain') }}</div><div>{{ t('response.cookies.expires') }}</div><div>{{ t('response.cookies.flags') }}</div><div></div>
+      </div>
+      <div v-for="c in store.cookies" :key="c.id" class="req-cookies-row">
         <input
-          :value="c.value"
+          :value="c.name"
           class="cell-input mono"
-          :class="{ 'cell-input-veiled': hasTokens(c.value) }"
-          :placeholder="t('request.placeholderValue')"
+          :placeholder="t('request.placeholderName')"
           spellcheck="false"
-          @input="patch(c, { value: ($event.target as HTMLInputElement).value }); syncCellScroll($event)"
-          @scroll="syncCellScroll"
+          @input="patch(c, { name: ($event.target as HTMLInputElement).value })"
         />
-        <span v-if="hasTokens(c.value)" class="cell-input row-display mono" aria-hidden="true">
-          <template v-for="(seg, si) in tokenSegments(c.value)" :key="si">
-            <VarToken v-if="seg.tokenName" :name="seg.tokenName" :offset="seg.start" />
-            <span v-else>{{ seg.text }}</span>
-          </template>
-        </span>
+        <div class="cell">
+          <input
+            :value="c.value"
+            class="cell-input mono"
+            :class="[valueClass(c.value), { 'cell-input-veiled': hasTokens(c.value) }]"
+            :placeholder="t('request.placeholderValue')"
+            spellcheck="false"
+            @input="patch(c, { value: ($event.target as HTMLInputElement).value }); syncCellScroll($event)"
+            @scroll="syncCellScroll"
+          />
+          <span v-if="hasTokens(c.value)" class="cell-input row-display mono" aria-hidden="true">
+            <template v-for="(seg, si) in tokenSegments(c.value)" :key="si">
+              <VarToken v-if="seg.tokenName" :name="seg.tokenName" :offset="seg.start" />
+              <span v-else>{{ seg.text }}</span>
+            </template>
+          </span>
+        </div>
+        <input
+          :value="c.domain"
+          class="cell-input domain"
+          :placeholder="t('response.cookies.domain')"
+          spellcheck="false"
+          @input="patch(c, { domain: ($event.target as HTMLInputElement).value })"
+        />
+        <input
+          :value="c.expires"
+          class="cell-input expires"
+          placeholder="Session"
+          spellcheck="false"
+          @input="patch(c, { expires: ($event.target as HTMLInputElement).value })"
+        />
+        <div class="req-cookies-flags">
+          <button
+            class="flag-btn"
+            :class="{ active: c.secure }"
+            @click="toggleFlag(c, 'secure')"
+          >
+            Secure
+          </button>
+          <button
+            class="flag-btn"
+            :class="{ active: c.httpOnly }"
+            @click="toggleFlag(c, 'httpOnly')"
+          >
+            HttpOnly
+          </button>
+        </div>
+        <IconButton variant="danger" size="xl" :hint="t('common.delete')" @click="store.removeRow(RowKind.RowCookies, c.id ?? '')">
+          <Icon name="trash" :size="13" />
+        </IconButton>
       </div>
-      <input
-        :value="c.domain"
-        class="cell-input"
-        :placeholder="t('response.cookies.domain')"
-        spellcheck="false"
-        @input="patch(c, { domain: ($event.target as HTMLInputElement).value })"
-      />
-      <input
-        :value="c.expires"
-        class="cell-input expires"
-        placeholder="Session"
-        spellcheck="false"
-        @input="patch(c, { expires: ($event.target as HTMLInputElement).value })"
-      />
-      <div class="req-cookies-flags">
-        <button
-          class="flag-btn"
-          :class="{ active: c.secure }"
-          @click="toggleFlag(c, 'secure')"
-        >
-          Secure
-        </button>
-        <button
-          class="flag-btn"
-          :class="{ active: c.httpOnly }"
-          @click="toggleFlag(c, 'httpOnly')"
-        >
-          HttpOnly
-        </button>
-      </div>
-      <IconButton variant="danger" size="sm" :hint="t('common.delete')" @click="store.removeRow(RowKind.RowCookies, c.id ?? '')">
-        <Icon name="trash" :size="13" />
-      </IconButton>
+      <button class="req-cookies-add" @click="store.addRow(RowKind.RowCookies)">
+        <Icon name="plus" :size="15" />
+        <span>{{ t('response.cookies.add') }}</span>
+      </button>
     </div>
-    <button class="req-cookies-add" @click="store.addRow(RowKind.RowCookies)">
-      <Icon name="plus" :size="16" />
-      <span>{{ t('response.cookies.add') }}</span>
-    </button>
   </div>
 </template>
 
@@ -108,26 +123,45 @@ function syncCellScroll(e: Event) {
 @reference "../../style.css";
 
 .req-cookies {
-  @apply min-h-full flex flex-col bg-bg-panel;
+  @apply min-h-full flex flex-col gap-3 bg-bg-panel;
+  padding: 18px 20px;
 }
 
+.intro {
+  @apply text-[13px] text-text-secondary;
+}
+
+/* The word the jar travels under, in the fill the window gives every literal it quotes. */
 .code {
-  @apply rounded-sm py-px px-1.5;
-  background: var(--bg-inset);
+  @apply rounded-[5px] py-0.5 px-1.5 text-[12.5px];
+  font-family: var(--mono);
+  background: var(--bg-hover);
 }
 
+/* The table is a card of its own on the tab's surface, and it clips the header's fill and the rows'
+   hover to its own corners. */
+.card {
+  @apply flex flex-col overflow-hidden border border-border rounded-xl;
+}
+
+/* The design's five columns, and a sixth for the one control a jar has that a printed table does not:
+   every row is editable and every row can go. */
 .req-cookies-head,
 .req-cookies-row {
-  @apply grid items-center px-5 py-3 gap-3;
-  grid-template-columns: 150px minmax(0, 1fr) 140px 100px 120px 24px;
+  @apply grid items-center;
+  grid-template-columns: 170px minmax(0, 1fr) 160px 130px 170px 28px;
 }
 
 .req-cookies-head {
-  @apply flex-none border-b border-border text-[10px] uppercase tracking-wider text-text-tertiary;
+  @apply flex-none bg-bg-inset border-b border-border text-[11px] font-semibold uppercase tracking-[0.06em] text-text-tertiary;
+}
+
+.req-cookies-head > div {
+  padding: 10px 16px;
 }
 
 .req-cookies-row {
-  @apply py-2 flex-none border-b border-border;
+  @apply flex-none min-h-12 border-b border-border;
   transition: background-color 0.12s ease;
 }
 
@@ -137,19 +171,38 @@ function syncCellScroll(e: Event) {
 
 .cell {
   @apply relative flex min-w-0;
+  padding: 0 16px;
 }
 
 .cell-input {
-  @apply min-w-0 bg-transparent border-0 outline-none text-[12.5px] py-0 px-0 rounded-md;
+  @apply min-w-0 bg-transparent border-0 outline-none text-[13.5px] py-0 rounded-md;
   color: var(--text);
+  padding: 0 16px;
+}
+
+.cell .cell-input {
+  padding: 0;
 }
 
 .cell-input:focus {
   background: var(--bg-inset);
 }
 
+/* The two columns the request never sends: they are what the jar says about the cookie, not the
+   cookie, so they are drawn as text rather than as mono fare. */
+.cell-input.domain,
 .cell-input.expires {
-  @apply text-xs text-text-secondary;
+  @apply text-[13px] text-text-secondary;
+}
+
+/* Written before the veiled rule below, which paints the input's own text out: on a tie the later one
+   has to be the transparent one, or a value holding a variable would show twice. */
+.cell-input.str {
+  color: var(--tok-str);
+}
+
+.cell-input.num {
+  color: var(--tok-num);
 }
 
 .cell-input.cell-input-veiled {
@@ -163,24 +216,29 @@ function syncCellScroll(e: Event) {
 }
 
 .req-cookies-flags {
-  @apply flex gap-1;
+  @apply flex gap-1.5;
+  padding: 0 16px;
 }
 
+/* A flag is a state, not a control with a colour of its own: on is the window's "yes", off is the
+   chip the row would otherwise be written on. */
 .flag-btn {
-  @apply text-xs font-semibold py-0.5 px-2 rounded-md border-none cursor-pointer text-text-tertiary;
-  background: var(--bg-inset);
+  @apply text-[11.5px] font-semibold py-[3px] px-2 rounded-md border-none cursor-pointer text-text-tertiary;
+  background: var(--bg-hover);
   transition: background-color 0.12s ease, color 0.12s ease;
 }
 
 .flag-btn.active {
-  @apply text-accent;
-  background: var(--accent-soft);
+  @apply bg-green-soft;
+  color: var(--green-text);
 }
 
+/* The last row of the card rather than a button under it: a jar is a list you add to, and the row that
+   adds is the list's own end. */
 .req-cookies-add {
-  @apply flex-none flex items-center gap-1.5 h-[38px] px-4 border-none bg-transparent text-left cursor-pointer text-text-tertiary;
+  @apply flex-none flex items-center gap-2.5 h-[46px] px-4 border-none bg-transparent text-left cursor-pointer text-text-tertiary;
   font: inherit;
-  font-size: 12.5px;
+  font-size: 13.5px;
   --wails-draggable: no-drag;
 }
 

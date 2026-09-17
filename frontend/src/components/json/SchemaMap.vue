@@ -219,7 +219,9 @@ async function copyExport(format: ExportId) {
 
 <template>
   <div class="schema">
-    <div class="schema-head">
+    <!-- The tab's own row, and the handoff gives every tab's row the same one: the buttons in it are
+         the size of the response header's, and a row of its own would draw them a size smaller. -->
+    <div class="toolbar">
       <template v-if="searchVisible">
         <Input
           ref="searchInputRef"
@@ -231,21 +233,21 @@ async function copyExport(format: ExportId) {
           @keydown.esc="closeSearch"
         />
         <span v-if="query.trim()" class="search-count">{{ t('response.searchFound', { n: filteredTypes.length }) }}</span>
-        <IconButton :hint="t('common.close')" @click="closeSearch"><Icon name="xmark" :size="14" /></IconButton>
+        <IconButton variant="outline" :hint="t('common.close')" @click="closeSearch"><Icon name="xmark" :size="14" /></IconButton>
       </template>
       <template v-else>
         <span v-if="types.length" class="summary">{{ t('json.types', types.length) }} · {{ t('counts.resources', all.length) }}</span>
 
         <span class="head-spacer"></span>
 
-        <Button size="sm" @click="openSearch"><span>{{ t('common.search') }}</span><kbd class="keycap">{{ searchShortcut }}</kbd></Button>
+        <Button size="sm" class="with-key" @click="openSearch"><span>{{ t('common.search') }}</span><kbd class="keycap">{{ searchShortcut }}</kbd></Button>
 
         <DropdownMenu>
           <DropdownMenuTrigger as-child>
             <Button size="sm" :disabled="!types.length">
               <Icon v-if="copied" name="check" :size="12" />
               <span>{{ copied ? t('common.copied') : t('collections.export') }}</span>
-              <svg viewBox="0 0 10 6" width="10" height="6" fill="none" aria-hidden="true"><path d="M1.5 1.5L5 5L8.5 1.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              <svg class="caret" viewBox="0 0 24 24" width="11" height="11" fill="none" aria-hidden="true"><path d="m6 9 6 6 6-6" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent class="export-menu" :side-offset="4">
@@ -341,10 +343,6 @@ async function copyExport(format: ExportId) {
 /* Fills the tab's column and scrolls its body only, so the head stays put. */
 .schema {
   @apply flex flex-col h-full min-h-0;
-}
-
-.schema-head {
-  @apply flex-none flex items-center gap-2 py-2 px-5 border-b border-border bg-bg-panel;
 }
 
 .schema-body {

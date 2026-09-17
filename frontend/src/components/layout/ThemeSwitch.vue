@@ -60,7 +60,7 @@ onBeforeUnmount(() => document.removeEventListener('pointerdown', onHijackedPoin
       :title="t(o.label)"
       @click="pick(o.value)"
     >
-      <Icon :name="o.icon" :size="13" :stroke-width="1.8" />
+      <Icon :name="o.icon" :size="17" :stroke-width="1.8" />
     </button>
   </div>
 </template>
@@ -69,20 +69,20 @@ onBeforeUnmount(() => document.removeEventListener('pointerdown', onHijackedPoin
 @reference "../../style.css";
 
 .theme-switch {
-  @apply relative flex flex-none items-center gap-0.5 h-[26px] p-0.5 rounded-[7px] bg-bg-active;
+  @apply relative flex flex-none items-center gap-0.5 h-[30px] p-0.5 rounded-lg bg-bg-hover;
 }
 
 /* One element that holds the active segment, as in the auth panel. It carries no transition of its
    own on purpose: the window is snapshotted a frame after the click, and a pill still travelling
    would be caught in that snapshot and would jump the rest of the way once the fade is over. */
 .theme-indicator {
-  @apply absolute top-0.5 bottom-0.5 left-0.5 inline-flex items-center justify-center bg-bg-panel rounded-[5px];
-  width: 24px;
+  @apply absolute top-0.5 bottom-0.5 left-0.5 inline-flex items-center justify-center bg-bg-panel rounded-md;
+  width: 34px;
   box-shadow: var(--shadow-btn);
 }
 
 .theme-option {
-  @apply relative w-6 h-[22px] flex-none inline-flex items-center justify-center border-none bg-transparent rounded-[5px] text-text-tertiary cursor-pointer;
+  @apply relative w-[34px] h-[26px] flex-none inline-flex items-center justify-center border-none bg-transparent rounded-md text-text-tertiary cursor-pointer;
   transition: color 0.18s ease, transform 0.1s ease;
   --wails-draggable: no-drag;
 }

@@ -45,46 +45,65 @@ func (u *UseCase) SaveAuth(
 }
 
 // AuthFor is what a request inherits: the answer of the nearest level above it that gave one, or
-// nothing when none did. The command line's draft is in no tree, and a node that has been deleted
-// is in none either — neither is a failure, because "there is nothing above this request" is what
-// the answer is, not that the question was wrong.
+// nothing when none did.
 func (u *UseCase) AuthFor(ctx context.Context, id domain.DraftID) (*domain.Auth, error) {
-	workspace, err := u.scope.ActiveWorkspace(ctx)
+	above, err := u.Above(ctx, id)
 	if err != nil {
 		return nil, err
+	}
+	return above.Auth, nil
+}
+
+// Above is everything the levels over a request answer for it, read in one walk because both are
+// read at the same moment by the same caller: the authorization the nearest level that gave one
+// answered with, and the `{{tokens}}` they answer for, outermost first.
+//
+// The command line's draft is in no tree, and a node that has been deleted is in none either —
+// neither is a failure, because "there is nothing above this request" is what the answer is, not
+// that the question was wrong.
+func (u *UseCase) Above(ctx context.Context, id domain.DraftID) (Above, error) {
+	workspace, err := u.scope.ActiveWorkspace(ctx)
+	if err != nil {
+		return Above{}, err
 	}
 	tree, err := u.store.Collections(ctx, workspace)
 	if err != nil {
-		return nil, err
+		return Above{}, err
 	}
 	for _, collection := range tree {
-		if inherited, ok := inheritUnder([]domain.Collection{collection}, string(id), nil); ok {
-			return actionable(inherited).Stored(), nil
+		if found, ok := aboveUnder([]domain.Collection{collection}, string(id), nil, nil); ok {
+			found.Auth = actionable(found.Auth).Stored()
+			return found, nil
 		}
 	}
-	return nil, nil
+	return Above{}, nil
 }
 
-// A collection is a level like any other, which is why the walk descends into the collections
-// inside one and not only into its requests.
-func inheritUnder(
+// aboveUnder descends one level at a time, carrying what the levels over the request answered. Each
+// level copies the variables rather than appending to what it was handed: the walk branches, and
+// two branches appending to one slice would give the second one the first one's answers.
+func aboveUnder(
 	collections []domain.Collection,
 	id string,
 	inherited *domain.Auth,
-) (*domain.Auth, bool) {
+	above []domain.Variable,
+) (Above, bool) {
 	for _, collection := range collections {
 		at := answerOf(collection.Auth, inherited)
+		variables := make([]domain.Variable, 0, len(above)+len(collection.Variables))
+		variables = append(variables, above...)
+		variables = append(variables, collection.Variables...)
+
 		for _, node := range collection.Items {
-			nodeAt := answerOf(node.Auth, at)
 			if node.ID == id {
-				return nodeAt, true
+				return Above{Auth: answerOf(node.Auth, at), Variables: variables}, true
 			}
 		}
-		if found, ok := inheritUnder(collection.Children, id, at); ok {
+		if found, ok := aboveUnder(collection.Children, id, at, variables); ok {
 			return found, true
 		}
 	}
-	return nil, false
+	return Above{}, false
 }
 
 // Both walks over the tree go through here, so «None» means the same thing in a run as in a card.

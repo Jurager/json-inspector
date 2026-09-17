@@ -28,12 +28,12 @@ const style = computed(() => ({ background: tintOf(props.workspace.color) }))
 }
 
 .avatar--sm {
-  @apply w-4 h-4 rounded-[5px];
-  font-size: 9px;
+  @apply w-[18px] h-[18px] rounded-[5px];
+  font-size: 11px;
 }
 
 .avatar--md {
-  @apply w-5 h-5 rounded-md;
-  font-size: 10px;
+  @apply w-6 h-6 rounded-[7px];
+  font-size: 11px;
 }
 </style>

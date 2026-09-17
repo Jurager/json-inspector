@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import {
   RecordsService,
   SystemService,
@@ -12,7 +11,6 @@ import { buildSampleRecord } from '../../lib/sample'
 import { useMessages } from '../../i18n'
 import { usePlatform } from '../../composables/usePlatform'
 import Icon from '../ui/Icon.vue'
-import { IconButton } from '../ui/button'
 import {
   DropdownMenu,
   DropdownMenuTrigger,
@@ -36,37 +34,6 @@ const RAIL_ITEMS = [
 ] as const
 
 type RailView = (typeof RAIL_ITEMS)[number]['view']
-
-const railEl = ref<HTMLElement | null>(null)
-const tiles = ref<HTMLElement[]>([])
-
-const activeIndex = computed(() => RAIL_ITEMS.findIndex((item) => item.view === store.activeView))
-
-const MARKER_INSET = 5
-
-const marker = reactive({ y: 0, height: 0, visible: false })
-
-function syncMarker() {
-  const tile = tiles.value[activeIndex.value]
-  if (!tile) return
-  marker.y = tile.offsetTop + MARKER_INSET
-  marker.height = tile.offsetHeight - MARKER_INSET * 2
-  marker.visible = true
-}
-
-let railObserver: ResizeObserver | undefined
-
-onMounted(() => {
-  syncMarker()
-  if (railEl.value) {
-    railObserver = new ResizeObserver(syncMarker)
-    railObserver.observe(railEl.value)
-  }
-})
-
-onBeforeUnmount(() => railObserver?.disconnect())
-
-watch(activeIndex, syncMarker, { flush: 'post' })
 
 async function loadSample() {
   const record = await RecordsService.Ingest(buildSampleRecord())
@@ -103,21 +70,16 @@ async function selectSource(view: RailView) {
 </script>
 
 <template>
-  <aside ref="railEl" class="sidebar">
-    <span
-      v-if="marker.visible"
-      class="rail-marker"
-      :style="{ transform: `translateY(${marker.y}px)`, height: `${marker.height}px` }"
-    ></span>
-
-    <!-- The hamburger is the rail's header, as the gear is its footer: the same 40px strip, and its
-         hairline carries on the panel's header line the way the footer's carries on the filter's. -->
+  <aside class="sidebar">
+    <!-- The hamburger opens the rail, the gear closes it. Neither sits in a strip with a hairline any
+         more: the rail is one column of buttons now, and the lines it used to carry across the window
+         are gone with them. -->
     <div class="rail-head">
       <DropdownMenu>
         <DropdownMenuTrigger as-child>
-          <IconButton variant="bare" size="lg" :title="t('rail.menu')">
-            <Icon name="menu" :size="17" :stroke-width="1.6" />
-          </IconButton>
+          <button class="rail-btn" :title="t('rail.menu')">
+            <Icon name="menu" :size="21" :stroke-width="1.8" />
+          </button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="start">
           <DropdownMenuItem @select="loadSample">
@@ -138,12 +100,11 @@ async function selectSource(view: RailView) {
       <button
         v-for="item in RAIL_ITEMS"
         :key="item.view"
-        ref="tiles"
         class="rail-item"
         :class="{ active: store.activeView === item.view }"
         @click="selectSource(item.view)"
       >
-        <span class="rail-icon"><Icon :name="item.icon" :size="18" /></span>
+        <span class="rail-icon"><Icon :name="item.icon" :size="23" :stroke-width="1.7" /></span>
         <span class="rail-label">{{ t(item.label) }}</span>
         <span v-if="item.view === 'browser' && store.unreadCount > 0" class="rail-badge">
           {{ store.unreadCount }}
@@ -154,11 +115,11 @@ async function selectSource(view: RailView) {
     </div>
 
     <!-- Settings has a footer of its own: it is not the last thing in the rail's list of sources but
-         the door out of it, and the strip puts it on the same line as the list panel's filter. -->
+         the door out of it. -->
     <div class="rail-footer">
-      <IconButton variant="subtle" size="lg" :hint="t('rail.settings')" @click="openSettings()">
-        <Icon name="settings-2" :size="16" :stroke-width="1.6" />
-      </IconButton>
+      <button class="rail-btn" :title="t('rail.settings')" @click="openSettings()">
+        <Icon name="settings-2" :size="21" :stroke-width="1.8" />
+      </button>
     </div>
   </aside>
 </template>

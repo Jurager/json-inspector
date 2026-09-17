@@ -56,12 +56,12 @@ function menuNameOf(scheme: Scheme): string {
         <button type="button" class="seg more" :class="{ active: menuInUse }">
           <span>{{ menuInUse && active ? t(active.label) : t('request.auth.more') }}</span>
           <svg
-            width="9"
-            height="9"
+            width="10"
+            height="10"
             viewBox="0 0 24 24"
             fill="none"
             stroke="currentColor"
-            stroke-width="2.5"
+            stroke-width="2.6"
             stroke-linecap="round"
             stroke-linejoin="round"
           >
@@ -91,12 +91,14 @@ function menuNameOf(scheme: Scheme): string {
 }
 
 .switch.compact {
-  border-radius: 8px;
+  border-radius: 9px;
 }
 
+/* The sheet's scale: the control is as wide as the sheet's column, because a scheme is chosen once
+   for a level and the words in it are worth the room. */
 .switch.roomy {
-  border-radius: 9px;
-  width: 320px;
+  @apply flex-1 w-full;
+  border-radius: 8px;
 }
 
 .seg {
@@ -110,15 +112,19 @@ function menuNameOf(scheme: Scheme): string {
 }
 
 .switch.compact .seg {
-  font-size: 11.5px;
-  padding: 5px 0;
-  border-radius: 6px;
+  font-size: 12.5px;
+  height: 30px;
+  padding: 0;
+  border-radius: 7px;
 }
 
+/* The sheet's segments are the height of the code sheet's switch: the two controls are one shape in
+   the drawing, whichever sheet they are in. */
 .switch.roomy .seg {
   font-size: 12.5px;
-  padding: 7px 0;
-  border-radius: 7px;
+  height: 28px;
+  padding: 0;
+  border-radius: 6px;
 }
 
 /* The active segment is the panel's own colour lifted off the inset it sits on, which is what the
@@ -131,7 +137,7 @@ function menuNameOf(scheme: Scheme): string {
 
 .seg.more {
   @apply flex items-center justify-center;
-  gap: 2px;
+  gap: 5px;
 }
 
 .switch.roomy .seg.more {

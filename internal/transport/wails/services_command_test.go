@@ -28,7 +28,12 @@ func (f fakeRecords) Body(context.Context, string, domain.BodySide) (string, err
 // becomes the mask. Which is which is the environments' business, and this is only the answer.
 type fakeVars struct{}
 
-func (fakeVars) SubstituteTexts(_ context.Context, texts []string, mask bool) ([]string, error) {
+func (fakeVars) SubstituteTexts(
+	_ context.Context,
+	_ []domain.Variable,
+	texts []string,
+	mask bool,
+) ([]string, error) {
 	out := make([]string, len(texts))
 	for i, text := range texts {
 		text = strings.ReplaceAll(text, "{{host}}", "api.example.com")

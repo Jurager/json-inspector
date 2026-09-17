@@ -150,7 +150,7 @@ function valueClass(v: string): string {
   >
     <div class="popover-head">
       <span class="popover-title">{{ title }}</span>
-      <IconButton :hint="t('common.close')" size="sm" @click="dismiss"><Icon name="xmark" :size="13" /></IconButton>
+      <IconButton :hint="t('common.close')" size="xl" @click="dismiss"><Icon name="xmark" :size="14" /></IconButton>
     </div>
 
     <template v-if="props.chip === 'params' || props.chip === 'headers'">
@@ -181,7 +181,7 @@ function valueClass(v: string): string {
                 </template>
               </span>
             </div>
-            <IconButton variant="danger" size="sm" :hint="t('common.delete')" @click.stop="remove(RowKind.RowParams, p.id)"><Icon name="trash" :size="13" /></IconButton>
+            <IconButton variant="danger" size="xl" :hint="t('common.delete')" @click.stop="remove(RowKind.RowParams, p.id)"><Icon name="trash" :size="13" /></IconButton>
           </div>
         </TransitionGroup>
         <DerivedRow
@@ -192,8 +192,8 @@ function valueClass(v: string): string {
           @remove="removeDerived"
         />
         <div class="popover-foot">
-          <Button variant="ghost" size="sm" @click="store.addRow(RowKind.RowParams)">
-            <Icon name="plus" :size="16" />
+          <Button variant="ghost" size="panel" @click="store.addRow(RowKind.RowParams)">
+            <Icon name="plus" :size="15" />
             <span>{{ t('request.addParameter') }}</span>
           </Button>
           <span class="foot-hint">{{ t('request.paramsFoot') }}</span>
@@ -227,7 +227,7 @@ function valueClass(v: string): string {
                 </template>
               </span>
             </div>
-            <IconButton variant="danger" size="sm" :hint="t('common.delete')" @click.stop="remove(RowKind.RowHeaders, h.id)"><Icon name="trash" :size="13" /></IconButton>
+            <IconButton variant="danger" size="xl" :hint="t('common.delete')" @click.stop="remove(RowKind.RowHeaders, h.id)"><Icon name="trash" :size="13" /></IconButton>
           </div>
         </TransitionGroup>
         <DerivedRow
@@ -238,8 +238,8 @@ function valueClass(v: string): string {
           @remove="removeDerived"
         />
         <div class="popover-foot">
-          <Button variant="ghost" size="sm" @click="store.addRow(RowKind.RowHeaders)">
-            <Icon name="plus" :size="16" />
+          <Button variant="ghost" size="panel" @click="store.addRow(RowKind.RowHeaders)">
+            <Icon name="plus" :size="15" />
             <span>{{ t('request.addHeader') }}</span>
           </Button>
           <span class="foot-hint">{{ t('request.headersFoot') }}</span>
@@ -300,20 +300,26 @@ function valueClass(v: string): string {
   padding-bottom: 0;
 }
 
+/* The popover is 14px of padding all round with 4px between what it holds, and its head is a row of
+   its own above that rhythm — the design's own numbers for the chip popovers. The head carries no
+   padding of its own but the 10px under it, so its title and its close button stand at the popover's
+   edge with the rows below. */
 .popover-head {
-  @apply flex items-center justify-between px-1 pt-0.5 pb-2;
+  @apply flex items-center justify-between pb-2.5;
 }
 
 .popover-title {
-  @apply text-xs font-semibold;
+  @apply text-[14px] font-semibold;
+}
+
+/* The rows are one block inside the popover, and the 4px between them is the popover's own rhythm
+   carried in: the design stacks them on the same gap it stacks the head and the foot on. */
+.rows {
+  @apply flex flex-col gap-1;
 }
 
 .row {
-  @apply grid grid-cols-[20px_150px_1fr_22px] gap-1.5 items-center py-[3px] px-1;
-}
-
-.row + .row {
-  @apply mt-px;
+  @apply grid grid-cols-[24px_160px_minmax(0,1fr)_28px] gap-2 items-center h-[38px] px-1.5 rounded-lg;
 }
 
 .row.off {
@@ -341,7 +347,7 @@ function valueClass(v: string): string {
 }
 
 .row-input {
-  @apply min-w-0 bg-transparent border-0 outline-none text-xs p-0 rounded-sm;
+  @apply min-w-0 bg-transparent border-0 outline-none text-[13.5px] p-0 rounded-sm;
   font-family: var(--mono);
   color: var(--text);
 }
@@ -372,11 +378,12 @@ function valueClass(v: string): string {
   color: var(--tok-num);
 }
 
+/* The sentence a scheme says about itself. It stands at the popover's own edge with the fields under
+   it, which is where the design puts it. */
 .hint {
-  color: var(--text-tertiary);
-  font-size: 11.5px;
+  color: var(--text-secondary);
+  font-size: 13px;
   line-height: 1.5;
-  padding: 0 4px 2px;
 }
 
 /* The part of an authorization that is not a field. It is a block of its own rather than a row of

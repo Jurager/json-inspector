@@ -17,6 +17,7 @@ type runFixture struct {
 	store        *fakeStore
 	sender       *fakeSender
 	notifier     *fakeNotifier
+	assertions   *fakeAssertions
 	collectionID string
 	nestedID     string
 	requests     map[string]string // name → url
@@ -24,10 +25,10 @@ type runFixture struct {
 
 func setupRunnable(t *testing.T) *runFixture {
 	t.Helper()
-	uc, store, sender, notifier := newTestRun()
+	uc, store, sender, notifier, asserted := newTestRun()
 	ctx := context.Background()
 
-	tree, err := uc.CreateCollection(ctx, "Коллекция", "")
+	tree, err := uc.CreateCollection(ctx, "Коллекция", "", "")
 	if err != nil {
 		t.Fatalf("CreateCollection: %v", err)
 	}
@@ -66,7 +67,7 @@ func setupRunnable(t *testing.T) *runFixture {
 	add(collectionID, "Четвёртый", "https://api.example.com/fourth")
 
 	return &runFixture{
-		uc: uc, store: store, sender: sender, notifier: notifier,
+		uc: uc, store: store, sender: sender, notifier: notifier, assertions: asserted,
 		collectionID: collectionID, nestedID: nestedID, requests: requests,
 	}
 }
@@ -315,6 +316,42 @@ func TestARunRowNamesTheRecordItProduced(t *testing.T) {
 	}
 }
 
+// What the scripts around each request asserted, on the row of that request: the table draws «3 of
+// 4» out of the row itself, and a report per row would be a call per request to draw one. A request
+// nothing was written for is 0 of 0 — nothing was asserted, which is not the same as a failure.
+func TestRunCarriesTheAssertionsOfEachRow(t *testing.T) {
+	r := setupRunnable(t)
+	r.assertions.asserts("rec-"+r.requests["Второй"], 3, 4)
+
+	if _, err := r.uc.Run(context.Background(), r.collectionID, ""); err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+	run := r.notifier.runFinished(t)
+
+	byRecord := map[string]domain.CollectionRunResult{}
+	for _, result := range run.Results {
+		byRecord[result.RecordID] = result
+	}
+	written := byRecord["rec-"+r.requests["Второй"]]
+	if written.AssertionsPassed != 3 || written.AssertionsTotal != 4 {
+		t.Errorf("row = %+v, want the three of the four its report holds", written)
+	}
+	quiet := byRecord["rec-"+r.requests["Первый"]]
+	if quiet.AssertionsPassed != 0 || quiet.AssertionsTotal != 0 {
+		t.Errorf("row = %+v, want nothing asserted about it", quiet)
+	}
+	// The counts are written, not only published: the page reads the last run back when it opens.
+	last, err := r.uc.LastRun(context.Background(), r.collectionID, "")
+	if err != nil || last == nil {
+		t.Fatalf("LastRun = %+v, %v", last, err)
+	}
+	for _, result := range last.Results {
+		if result.RecordID == written.RecordID && result.AssertionsTotal != 4 {
+			t.Errorf("run read back = %+v, want the assertions on the row", result)
+		}
+	}
+}
+
 func TestRunStopWaitsForTheRequestInFlight(t *testing.T) {
 	r := setupRunnable(t)
 
@@ -384,10 +421,10 @@ func TestRunRefusesASecondOne(t *testing.T) {
 }
 
 func TestRunRefusesAnEmptySubtree(t *testing.T) {
-	uc, store, _, _ := newTestRun()
+	uc, store, _, _, _ := newTestRun()
 	ctx := context.Background()
 
-	tree, err := uc.CreateCollection(ctx, "Пустая", "")
+	tree, err := uc.CreateCollection(ctx, "Пустая", "", "")
 	if err != nil {
 		t.Fatalf("CreateCollection: %v", err)
 	}
@@ -406,7 +443,7 @@ func TestRunRefusesAnEmptySubtree(t *testing.T) {
 
 	// A request of another collection is a stale selection, not an empty run: the two are told apart
 	// because the window shows them differently.
-	other, err := uc.CreateCollection(ctx, "Другая", "")
+	other, err := uc.CreateCollection(ctx, "Другая", "", "")
 	if err != nil {
 		t.Fatalf("CreateCollection: %v", err)
 	}
@@ -531,10 +568,11 @@ func TestEveryRequestOfARunCarriesTheSpaceTheRunStartedIn(t *testing.T) {
 	sender := newFakeSender()
 	notifier := newFakeNotifier()
 	scope := &switchingScope{}
-	uc := NewUseCase(store, scope, sender, notifier, platform.NewIDGen())
+	uc := NewUseCase(store, scope, sender, newFakeAssertions(), newFakeEnvironment(), notifier,
+		platform.NewIDGen())
 	ctx := context.Background()
 
-	tree, err := uc.CreateCollection(ctx, "Коллекция", "")
+	tree, err := uc.CreateCollection(ctx, "Коллекция", "", "")
 	if err != nil {
 		t.Fatalf("CreateCollection: %v", err)
 	}
@@ -581,10 +619,11 @@ func TestARunsRequestCarriesWhatItsBodyWasMadeOf(t *testing.T) {
 	store := newFakeStore()
 	sender := newFakeSender()
 	notifier := newFakeNotifier()
-	uc := NewUseCase(store, fakeScope{}, sender, notifier, platform.NewIDGen())
+	uc := NewUseCase(store, fakeScope{}, sender, newFakeAssertions(), newFakeEnvironment(),
+		notifier, platform.NewIDGen())
 	ctx := context.Background()
 
-	tree, err := uc.CreateCollection(ctx, "Коллекция", "")
+	tree, err := uc.CreateCollection(ctx, "Коллекция", "", "")
 	if err != nil {
 		t.Fatalf("CreateCollection: %v", err)
 	}
@@ -624,5 +663,58 @@ func TestARunsRequestCarriesWhatItsBodyWasMadeOf(t *testing.T) {
 	}
 	if got.BodyFile != "/tmp/report.pdf" {
 		t.Errorf("body file = %q, want the node's path", got.BodyFile)
+	}
+}
+
+// What a run went out under is kept with the run. The page that reports on it is read later, under
+// whatever environment happens to be on screen then, and drawing that name on an older run would be
+// saying it ran under something it never saw.
+func TestARunKeepsTheEnvironmentItRanUnder(t *testing.T) {
+	store := newFakeStore()
+	sender := newFakeSender()
+	notifier := newFakeNotifier()
+	environment := newFakeEnvironment().named("Local · dev")
+	uc := NewUseCase(store, fakeScope{}, sender, newFakeAssertions(), environment, notifier,
+		platform.NewIDGen())
+	ctx := context.Background()
+
+	tree, err := uc.CreateCollection(ctx, "Коллекция", "", "")
+	if err != nil {
+		t.Fatalf("CreateCollection: %v", err)
+	}
+	collectionID := only(t, tree).ID
+	url := "https://api.example.com/articles"
+	if _, tree, err = uc.CreateNode(ctx, NodeDraft{
+		CollectionID: collectionID, Name: "Статьи", Method: "GET",
+	}); err != nil {
+		t.Fatalf("CreateNode: %v", err)
+	}
+	node := findInTree(t, tree, "Статьи")
+	if _, err := uc.SaveNode(ctx, domain.CollectionNode{
+		ID: node.ID, Name: "Статьи", Method: "GET", URL: url,
+	}); err != nil {
+		t.Fatalf("SaveNode: %v", err)
+	}
+	sender.reply(url, 200, 1000)
+
+	if _, err := uc.Run(ctx, collectionID, ""); err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+	notifier.runFinished(t)
+
+	if len(store.runs) != 1 {
+		t.Fatalf("runs = %d, want the one that was started", len(store.runs))
+	}
+	if got := store.runs[0].Environment; got != "Local · dev" {
+		t.Errorf("environment = %q, want the one the run went out under", got)
+	}
+
+	// And it survives being read back: the overview reads the run, not the window.
+	last, err := uc.LastRun(ctx, collectionID, "")
+	if err != nil || last == nil {
+		t.Fatalf("LastRun = %v, %v", last, err)
+	}
+	if last.Environment != "Local · dev" {
+		t.Errorf("last run environment = %q, want what was kept", last.Environment)
 	}
 }

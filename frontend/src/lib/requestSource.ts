@@ -65,7 +65,9 @@ export interface RequestSource {
   scriptsFor: string | null
   inheritedScript(scope: 'pre' | 'post'): { text: string; name: string } | null
   loadScripts(): Promise<void>
-  saveScripts(pre: string, post: string): Promise<void>
+  // The two halves of code, and whether each is switched off. Code that is off still travels: it is
+  // the level's own answer about itself, and throwing it away would be deleting it.
+  saveScripts(pre: string, post: string, off: { pre: boolean; post: boolean }): Promise<void>
 
   setUrl(text: string): void
   setBody(text: string): void

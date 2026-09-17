@@ -90,10 +90,17 @@ function nearestInput(from: HTMLElement | null): HTMLInputElement | null {
 <style scoped>
 @reference "../../style.css";
 
+/* The chip of the design, painted *over* the characters of a real field: the padding is what makes
+   it a chip, and the negative margin is what keeps it standing on the token rather than beside it —
+   without them the pill's own box pushes its text off the characters (the caret, which stays with
+   the field, shows the difference at once) and everything after the token slides along with it.
+   The face and the size are the field's, inherited. */
 .var-token {
-  @apply rounded-sm cursor-text select-text;
+  @apply cursor-text select-text;
   pointer-events: auto;
-  padding: 1px 4px;
+  padding: 3px 4px;
+  margin: 0 -4px;
+  border-radius: 6px;
   background: var(--accent-soft);
   color: var(--accent);
 }

@@ -46,7 +46,7 @@ func TestTheAuthFieldsReachTheSchemeResolved(t *testing.T) {
 	}
 	authWith(t, uc, domain.NewAuth(domain.AuthBearer).With("token", "{{token}}"))
 
-	prepared, err := uc.Prepared(ctx, domain.DraftCommandLine, nil)
+	prepared, err := uc.Prepared(ctx, domain.DraftCommandLine, nil, nil)
 	if err != nil {
 		t.Fatalf("Prepared: %v", err)
 	}
@@ -86,7 +86,7 @@ func TestAWrittenAuthorizationHeaderWins(t *testing.T) {
 	}
 	authWith(t, uc, domain.NewAuth(domain.AuthBearer).With("token", "abc123"))
 
-	prepared, err := uc.Prepared(ctx, domain.DraftCommandLine, nil)
+	prepared, err := uc.Prepared(ctx, domain.DraftCommandLine, nil, nil)
 	if err != nil {
 		t.Fatalf("Prepared: %v", err)
 	}
@@ -117,7 +117,7 @@ func TestAQueryParameterGoesOnTheAddressAndNotInTheRows(t *testing.T) {
 	}
 	authWith(t, uc, domain.NewAuth(domain.AuthAPIKey).With("key", "X-API-Key"))
 
-	prepared, err := uc.Prepared(ctx, domain.DraftCommandLine, nil)
+	prepared, err := uc.Prepared(ctx, domain.DraftCommandLine, nil, nil)
 	if err != nil {
 		t.Fatalf("Prepared: %v", err)
 	}
@@ -155,7 +155,7 @@ func TestAWrittenParameterWins(t *testing.T) {
 	}
 	authWith(t, uc, domain.NewAuth(domain.AuthAPIKey).With("key", "X-API-Key"))
 
-	prepared, err := uc.Prepared(ctx, domain.DraftCommandLine, nil)
+	prepared, err := uc.Prepared(ctx, domain.DraftCommandLine, nil, nil)
 	if err != nil {
 		t.Fatalf("Prepared: %v", err)
 	}
@@ -173,7 +173,7 @@ func TestACredentialTheRequestCannotCarryGoesToTheEngine(t *testing.T) {
 		Digest: &domain.DigestCredentials{Username: "user", Password: "pass"},
 	}
 
-	prepared, err := line.uc.Prepared(ctx, domain.DraftCommandLine, nil)
+	prepared, err := line.uc.Prepared(ctx, domain.DraftCommandLine, nil, nil)
 	if err != nil {
 		t.Fatalf("Prepared: %v", err)
 	}
@@ -201,7 +201,7 @@ func TestAWrittenAuthorizationHeaderTakesTheChallengeAway(t *testing.T) {
 		t.Fatalf("Replace: %v", err)
 	}
 
-	prepared, err := line.uc.Prepared(ctx, domain.DraftCommandLine, nil)
+	prepared, err := line.uc.Prepared(ctx, domain.DraftCommandLine, nil, nil)
 	if err != nil {
 		t.Fatalf("Prepared: %v", err)
 	}
@@ -231,7 +231,7 @@ func TestInheritedAuthIsWhatTheCallerResolved(t *testing.T) {
 	authWith(t, uc, domain.NewAuth(domain.AuthInherit))
 
 	inherited := domain.NewAuth(domain.AuthBearer).With("token", "from-the-collection")
-	prepared, err := uc.Prepared(ctx, domain.DraftCommandLine, &inherited)
+	prepared, err := uc.Prepared(ctx, domain.DraftCommandLine, &inherited, nil)
 	if err != nil {
 		t.Fatalf("Prepared: %v", err)
 	}
@@ -245,7 +245,7 @@ func TestInheritedAuthIsWhatTheCallerResolved(t *testing.T) {
 
 	// Nothing above is not «None» written down somewhere: the request simply goes out with nothing.
 	auth.answer = domain.AuthOutput{}
-	prepared, err = uc.Prepared(ctx, domain.DraftCommandLine, nil)
+	prepared, err = uc.Prepared(ctx, domain.DraftCommandLine, nil, nil)
 	if err != nil {
 		t.Fatalf("Prepared: %v", err)
 	}

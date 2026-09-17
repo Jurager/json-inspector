@@ -15,7 +15,8 @@ import (
 // this table keeps, and a tree assembled in two places is a tree that can disagree with itself.
 func (s *Store) Collections(ctx context.Context, workspaceID string) ([]domain.Collection, error) {
 	rows, err := s.db.QueryContext(ctx,
-		`SELECT id, name, description, position, created_at, updated_at, auth_json, ifnull(parent_id, '')
+		`SELECT id, name, description, position, created_at, updated_at, auth_json, ifnull(parent_id, ''),
+		        variables_json
 		   FROM collections WHERE workspace_id = ? ORDER BY position, created_at`, workspaceID)
 	if err != nil {
 		return nil, fmt.Errorf("listing collections: %w", err)
@@ -25,11 +26,12 @@ func (s *Store) Collections(ctx context.Context, workspaceID string) ([]domain.C
 	flat := []domain.Collection{}
 	for rows.Next() {
 		var (
-			c    domain.Collection
-			auth sql.NullString
+			c         domain.Collection
+			auth      sql.NullString
+			variables sql.NullString
 		)
 		if err := rows.Scan(&c.ID, &c.Name, &c.Description, &c.Position, &c.CreatedAt, &c.UpdatedAt,
-			&auth, &c.ParentID); err != nil {
+			&auth, &c.ParentID, &variables); err != nil {
 			return nil, fmt.Errorf("listing collections: %w", err)
 		}
 		if auth.Valid {
@@ -38,6 +40,11 @@ func (s *Store) Collections(ctx context.Context, workspaceID string) ([]domain.C
 				return nil, fmt.Errorf("reading the auth of collection %s: %w", c.ID, err)
 			}
 			c.Auth = &value
+		}
+		// The variables travel with the tree: every request inside asks for them on the way out, and
+		// a second query per send would be a query per keystroke of a preview.
+		if c.Variables, err = decodeVariables(variables, "collection "+c.ID); err != nil {
+			return nil, err
 		}
 		// Empty rather than nil: a level with nothing in it is drawn as nothing, and the window
 		// would have to guard every walk otherwise.
@@ -206,6 +213,37 @@ func (s *Store) nodes(ctx context.Context, workspaceID string) ([]domain.Collect
 	return out, rows.Err()
 }
 
+// LevelRows is the collection page's read: the address each request of one level goes to, and
+// nothing else. It is deliberately not the tree's query — that one carries what the panel draws and
+// no request payload at all — and it is deliberately not one node at a time, which is what an
+// export does, because an export needs the bodies.
+func (s *Store) LevelRows(ctx context.Context, collectionID string) ([]domain.LevelRow, error) {
+	rows, err := s.db.QueryContext(ctx,
+		`SELECT id, name, method, url FROM collection_nodes
+		  WHERE collection_id = ?
+		  ORDER BY position, created_at`, collectionID)
+	if err != nil {
+		return nil, fmt.Errorf("listing the requests of %s: %w", collectionID, err)
+	}
+	defer rows.Close()
+
+	out := []domain.LevelRow{}
+	for rows.Next() {
+		var (
+			row    domain.LevelRow
+			method sql.NullString
+			url    sql.NullString
+		)
+		if err := rows.Scan(&row.ID, &row.Name, &method, &url); err != nil {
+			return nil, fmt.Errorf("listing the requests of %s: %w", collectionID, err)
+		}
+		row.Method = method.String
+		row.URL = url.String
+		out = append(out, row)
+	}
+	return out, rows.Err()
+}
+
 // The upsert writes parent_id on the insert and leaves it alone on the update, the way a node's
 // collection is: a rename saves the row it read, and moving is a gesture of its own.
 func (s *Store) SaveCollection(ctx context.Context, workspaceID string, c domain.Collection) error {
@@ -213,18 +251,23 @@ func (s *Store) SaveCollection(ctx context.Context, workspaceID string, c domain
 	if err != nil {
 		return fmt.Errorf("saving collection %s: %w", c.ID, err)
 	}
+	variables, err := encodeVariables(c.Variables)
+	if err != nil {
+		return fmt.Errorf("saving collection %s: %w", c.ID, err)
+	}
 
 	now := time.Now().UnixMilli()
 	if _, err := s.db.ExecContext(ctx,
 		`INSERT INTO collections (id, workspace_id, name, description, position, parent_id, auth_json,
-		                          created_at, updated_at)
-		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+		                          variables_json, created_at, updated_at)
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 		 ON CONFLICT(id) DO UPDATE SET
 		   name = excluded.name, description = excluded.description,
 		   position = excluded.position, auth_json = excluded.auth_json,
+		   variables_json = excluded.variables_json,
 		   updated_at = excluded.updated_at`,
-		c.ID, workspaceID, c.Name, c.Description, c.Position, nullIfEmpty(c.ParentID), auth, now,
-		now); err != nil {
+		c.ID, workspaceID, c.Name, c.Description, c.Position, nullIfEmpty(c.ParentID), auth, variables,
+		now, now); err != nil {
 		return fmt.Errorf("saving collection %s: %w", c.ID, err)
 	}
 	return nil
@@ -239,6 +282,30 @@ func encodeAuth(auth *domain.Auth) (sql.NullString, error) {
 	encoded, err := json.Marshal(auth)
 	if err != nil {
 		return sql.NullString{}, fmt.Errorf("encoding auth: %w", err)
+	}
+	return sql.NullString{String: string(encoded), Valid: true}, nil
+}
+
+// A collection's variables are stored as a blob for the reason auth is: they are read and
+// written as a whole set, and nothing queries one of them. NULL is a level that set none.
+func decodeVariables(raw sql.NullString, what string) ([]domain.Variable, error) {
+	if !raw.Valid {
+		return nil, nil
+	}
+	var value []domain.Variable
+	if err := json.Unmarshal([]byte(raw.String), &value); err != nil {
+		return nil, fmt.Errorf("reading the variables of %s: %w", what, err)
+	}
+	return value, nil
+}
+
+func encodeVariables(variables []domain.Variable) (sql.NullString, error) {
+	if len(variables) == 0 {
+		return sql.NullString{}, nil
+	}
+	encoded, err := json.Marshal(variables)
+	if err != nil {
+		return sql.NullString{}, fmt.Errorf("encoding variables: %w", err)
 	}
 	return sql.NullString{String: string(encoded), Valid: true}, nil
 }
@@ -317,13 +384,13 @@ func (s *Store) DeleteNode(ctx context.Context, id string) error {
 // with the counters and the total time.
 func (s *Store) SaveRun(ctx context.Context, run domain.CollectionRun) error {
 	_, err := s.db.ExecContext(ctx,
-		`INSERT INTO collection_runs (id, collection_id, node_id, started_at, finished_at,
+		`INSERT INTO collection_runs (id, collection_id, node_id, environment, started_at, finished_at,
 		                              passed, failed, duration_us)
-		 VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
 		 ON CONFLICT(id) DO UPDATE SET
 		   finished_at = excluded.finished_at, passed = excluded.passed,
 		   failed = excluded.failed, duration_us = excluded.duration_us`,
-		run.ID, run.CollectionID, run.NodeID, run.StartedAt, run.FinishedAt,
+		run.ID, run.CollectionID, run.NodeID, run.Environment, run.StartedAt, run.FinishedAt,
 		run.Passed, run.Failed, run.DurationUs)
 	if err != nil {
 		return fmt.Errorf("saving run %s: %w", run.ID, err)
@@ -340,14 +407,16 @@ func (s *Store) AppendRunResult(
 ) error {
 	_, err := s.db.ExecContext(ctx,
 		`INSERT INTO collection_run_results (run_id, node_id, position, status, ok, duration_us, error,
-		                                     record_id)
-		 VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+		                                     record_id, assertions_passed, assertions_total)
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 		 ON CONFLICT(run_id, position) DO UPDATE SET
 		   status = excluded.status, ok = excluded.ok,
 		   duration_us = excluded.duration_us, error = excluded.error,
-		   record_id = excluded.record_id`,
+		   record_id = excluded.record_id,
+		   assertions_passed = excluded.assertions_passed,
+		   assertions_total = excluded.assertions_total`,
 		runID, result.NodeID, result.Position, result.Status, result.OK, result.DurationUs, result.Error,
-		nullIfEmpty(result.RecordID))
+		nullIfEmpty(result.RecordID), result.AssertionsPassed, result.AssertionsTotal)
 	if err != nil {
 		return fmt.Errorf("saving a result of run %s: %w", runID, err)
 	}
@@ -364,13 +433,14 @@ func (s *Store) LastRun(
 ) (domain.CollectionRun, bool, error) {
 	var run domain.CollectionRun
 	err := s.db.QueryRowContext(ctx,
-		`SELECT id, collection_id, node_id, started_at, finished_at, passed, failed, duration_us
+		`SELECT id, collection_id, node_id, environment, started_at, finished_at, passed, failed,
+		        duration_us
 		   FROM collection_runs
 		  WHERE collection_id = ? AND node_id = ?
 		  ORDER BY started_at DESC, rowid DESC LIMIT 1`,
 		collectionID, nodeID).
-		Scan(&run.ID, &run.CollectionID, &run.NodeID, &run.StartedAt, &run.FinishedAt,
-			&run.Passed, &run.Failed, &run.DurationUs)
+		Scan(&run.ID, &run.CollectionID, &run.NodeID, &run.Environment, &run.StartedAt,
+			&run.FinishedAt, &run.Passed, &run.Failed, &run.DurationUs)
 	if errors.Is(err, sql.ErrNoRows) {
 		return domain.CollectionRun{}, false, nil
 	}
@@ -380,7 +450,8 @@ func (s *Store) LastRun(
 	}
 
 	rows, err := s.db.QueryContext(ctx,
-		`SELECT node_id, position, status, ok, duration_us, error, ifnull(record_id, '')
+		`SELECT node_id, position, status, ok, duration_us, error, ifnull(record_id, ''),
+		        assertions_passed, assertions_total
 		   FROM collection_run_results WHERE run_id = ? ORDER BY position`, run.ID)
 	if err != nil {
 		return domain.CollectionRun{}, false, fmt.Errorf("reading the run %s: %w", run.ID, err)
@@ -394,7 +465,8 @@ func (s *Store) LastRun(
 			status sql.NullInt64
 		)
 		if err := rows.Scan(&result.NodeID, &result.Position, &status, &result.OK,
-			&result.DurationUs, &result.Error, &result.RecordID); err != nil {
+			&result.DurationUs, &result.Error, &result.RecordID, &result.AssertionsPassed,
+			&result.AssertionsTotal); err != nil {
 			return domain.CollectionRun{}, false, fmt.Errorf("reading the run %s: %w", run.ID, err)
 		}
 		if status.Valid {

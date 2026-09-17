@@ -2,7 +2,7 @@
 import { CheckboxIndicator, CheckboxRoot, type CheckboxRootProps } from 'reka-ui'
 import Icon from '../Icon.vue'
 
-// The handoff's row checkbox: 13x13, 3px radius. `tone` is ours, so it is kept out of
+// The handoff's row checkbox: 18x18, 5px radius, a 12px tick. `tone` is ours, so it is kept out of
 // the forwarded props — spread in, it would land on the button as an attribute.
 const { tone = 'accent', ...rootProps } = defineProps<CheckboxRootProps & { tone?: 'accent' | 'secret' }>()
 
@@ -14,7 +14,7 @@ defineOptions({ inheritAttrs: false })
     <!-- Mounted only while checked, so the mark needs no v-if of its own. -->
 
     <CheckboxIndicator>
-      <Icon name="check" :size="9" />
+      <Icon name="check" :size="12" />
     </CheckboxIndicator>
   </CheckboxRoot>
 </template>
@@ -24,9 +24,9 @@ defineOptions({ inheritAttrs: false })
 
 .check {
   @apply flex-none flex items-center justify-center cursor-pointer text-white;
-  width: 13px;
-  height: 13px;
-  border-radius: 3px;
+  width: 18px;
+  height: 18px;
+  border-radius: 5px;
   border: 1px solid var(--border-strong);
   background: var(--bg-panel);
   transition: background-color 0.15s ease, border-color 0.15s ease;

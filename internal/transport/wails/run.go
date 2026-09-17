@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"json-inspector/internal/domain"
+	"json-inspector/internal/infra/sqlite"
 	"json-inspector/internal/usecase/collection"
 	"json-inspector/internal/usecase/draft"
 	"json-inspector/internal/usecase/record"
@@ -33,7 +34,7 @@ func (s collectionSender) Send(
 		Headers:  req.Headers,
 		Cookies:  req.Cookies,
 		Auth:     req.Auth,
-	})
+	}, req.Variables)
 	if err != nil {
 		return domain.Record{}, err
 	}
@@ -45,4 +46,29 @@ func (s collectionSender) Send(
 	// The space the run resolved travels with each request rather than being read again here: a run
 	// of fifty requests must not scatter them across two spaces.
 	return s.records.SendAndWait(ctx, req.Workspace, input)
+}
+
+// assertions answers a run's row with what the scripts around its request asserted. The reports are
+// the scripting feature's rows, and reading them through the store is what keeps the two features
+// from having to know each other — the same store that answers both is the composition layer's to
+// bind.
+type assertions struct{ store *sqlite.Store }
+
+var _ collection.Assertions = assertions{}
+
+func (a assertions) Assertions(ctx context.Context, recordID string) (int, int, error) {
+	runs, err := a.store.ScriptRuns(ctx, recordID)
+	if err != nil {
+		return 0, 0, err
+	}
+	passed, total := 0, 0
+	for _, run := range runs {
+		for _, test := range run.Tests {
+			total++
+			if test.Passed {
+				passed++
+			}
+		}
+	}
+	return passed, total, nil
 }

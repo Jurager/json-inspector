@@ -17,3 +17,18 @@ export function drawsOwnTitlebar(platform: Platform): boolean {
 export function shortcutFor(key: string, platform: Platform): string {
   return platform === 'darwin' ? `⌘${key}` : `Ctrl+${key}`
 }
+
+// Not every chord is the app's on every platform. WebView2 answers Ctrl+R itself, and a reload tears
+// the window's runtime context down — the app has been broken that way once already — so running the
+// selected level is a macOS chord until the other one can be shown to be interceptable. The menu asks
+// this same question before it prints a key beside an item, so a hint cannot outlive its binding.
+export function chordAvailable(key: 'N' | 'D' | 'R', platform: Platform): boolean {
+  return key !== 'R' || platform === 'darwin'
+}
+
+// A key that stands on its own — Enter, Delete — names no modifier, and the two platforms spell it
+// differently: a Mac keyboard carries ↩ and ⌫ on the key itself, a PC one says Enter and Delete.
+export function keyName(key: 'enter' | 'delete', platform: Platform): string {
+  if (platform === 'darwin') return key === 'enter' ? '↩' : '⌫'
+  return key === 'enter' ? 'Enter' : 'Delete'
+}

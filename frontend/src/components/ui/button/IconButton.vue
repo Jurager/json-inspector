@@ -8,7 +8,7 @@ import { useHoverArrival } from '../../../composables/useHoverArrival'
 withDefaults(
   defineProps<{
     variant?: 'outline' | 'bare' | 'subtle' | 'danger'
-    size?: 'sm' | 'md' | 'lg'
+    size?: 'sm' | 'md' | 'lg' | 'xl'
     hint?: string
     disabled?: boolean
   }>(),
@@ -85,6 +85,14 @@ const hintArmed = useHoverArrival(hintEl)
   width: 32px;
   height: 32px;
   border-radius: 8px;
+}
+
+/* The size a control takes where it shares a line with a field: the chip popovers' close and row
+   buttons and the body grid's paperclip, all of them the design's own 26px with a 14px icon. */
+.icon-btn--xl {
+  width: 26px;
+  height: 26px;
+  border-radius: 6px;
 }
 
 .icon-btn--outline {

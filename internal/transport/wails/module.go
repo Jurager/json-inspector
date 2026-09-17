@@ -67,12 +67,20 @@ var Module = fx.Module("wails",
 		func(drafts *draft.UseCase, records *record.UseCase) collection.Sender {
 			return collectionSender{drafts: drafts, records: records}
 		},
+		// A run's rows say what the scripts asserted about each answer, and those reports are rows of
+		// the scripting feature: the store is what both features are allowed to know.
+		func(store *sqlite.Store) collection.Assertions { return assertions{store} },
 		func(engine *httpx.Engine) record.Executor { return engineExecutor{engine: engine} },
 		func(host *Host) record.Notifier { return newBus(host) },
 		func(uc *settings.UseCase) record.RetentionSource { return settingsRetention(uc) },
-		func(uc *environment.UseCase) draft.VariableSource { return environmentVariables{uc} },
 		// The same adapter twice, as two ports: an export asks the environments what a text's
-		// `{{tokens}}` come to, exactly as the draft does, and neither feature knows the other.
+		// `{{tokens}}` come to, exactly as the draft does, and neither feature knows the other. What
+		// the collections around a request answer travels as an argument, so this layer — the only one
+		// that knows both features — is where it is read and handed over.
+		func(uc *environment.UseCase) draft.VariableSource { return environmentVariables{uc} },
+		// A run keeps the environment it went out under, and this is the only layer that knows both
+		// the feature that runs and the feature that keeps environments.
+		func(uc *environment.UseCase) collection.Environment { return activeEnvironment{uc} },
 		func(uc *environment.UseCase) variableSource { return environmentVariables{uc} },
 		func(uc *record.UseCase) recordSource { return uc },
 		func(r *files.Reader) draft.FileSource { return r },

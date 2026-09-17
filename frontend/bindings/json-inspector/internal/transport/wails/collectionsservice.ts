@@ -23,8 +23,8 @@ import * as collection$0 from "../../usecase/collection/models.js";
 // @ts-ignore: Unused imports
 import * as $models from "./models.js";
 
-export function CreateCollection(name: string, description: string): $CancellablePromise<domain$0.Collection[] | null> {
-    return $Call.ByID(2119561358, name, description);
+export function CreateCollection(name: string, description: string, parentID: string): $CancellablePromise<domain$0.Collection[] | null> {
+    return $Call.ByID(2119561358, name, description, parentID);
 }
 
 export function CreateNode($in: collection$0.NodeDraft): $CancellablePromise<$models.CreatedNode> {
@@ -73,6 +73,15 @@ export function ImportFile(title: string): $CancellablePromise<domain$0.Collecti
  */
 export function LastRun(collectionID: string, nodeID: string): $CancellablePromise<domain$0.CollectionRun | null> {
     return $Call.ByID(1189953743, collectionID, nodeID);
+}
+
+/**
+ * LevelRows is what the collection page's table draws: the requests of the level that is open, with
+ * the address each of them goes to. The tree carries no request payload, so the page asks for its
+ * own rows rather than making every tree read heavier for one screen.
+ */
+export function LevelRows(id: string): $CancellablePromise<domain$0.LevelRow[] | null> {
+    return $Call.ByID(1025302373, id);
 }
 
 export function MoveCollection(id: string, parentID: string, position: number): $CancellablePromise<domain$0.Collection[] | null> {
@@ -142,6 +151,14 @@ export function SaveDraft(collectionID: string, name: string): $CancellablePromi
  */
 export function SaveNode(id: string): $CancellablePromise<$models.NodeEditor> {
     return $Call.ByID(867729327, id);
+}
+
+/**
+ * SaveVariables writes the `{{tokens}}` a collection answers for the requests inside it. The set
+ * arrives whole, as the editor holds it; the tree comes back because the panel draws these levels.
+ */
+export function SaveVariables(id: string, variables: domain$0.Variable[] | null): $CancellablePromise<domain$0.Collection[] | null> {
+    return $Call.ByID(2342343120, id, variables);
 }
 
 /**

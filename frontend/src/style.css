@@ -94,9 +94,9 @@
   --tint-far: transparent;
   /* What the chrome measures, in one place: a strip that changed size would otherwise leave its
      neighbours measuring against the wrong surface. */
-  --rail-width: 89px;
+  --rail-width: 84px;
   --titlebar-height: 52px;
-  --statusbar-height: 28px;
+  --statusbar-height: 34px;
   --glass-chrome-border: rgba(0, 0, 0, 0.05);
   --glass-overlay: rgba(255, 255, 255, 0.8);
   --glass-overlay-border: rgba(0, 0, 0, 0.07);
@@ -314,7 +314,7 @@ html.window-translucent body {
 
 
 .titlebar-title {
-  @apply text-[13px] font-semibold text-text-secondary tracking-wide;
+  @apply text-[14px] font-semibold text-text tracking-wide;
 }
 
 .titlebar-custom {
@@ -322,7 +322,7 @@ html.window-translucent body {
 }
 
 .titlebar-appicon {
-  @apply flex items-center gap-2 h-full px-3 border-none bg-transparent cursor-default;
+  @apply flex items-center gap-2 h-full px-[18px] border-none bg-transparent cursor-default;
   --wails-draggable: no-drag;
 }
 
@@ -331,7 +331,7 @@ html.window-translucent body {
 }
 
 .titlebar-logo {
-  @apply w-4 h-4;
+  @apply w-[22px] h-[22px];
   -webkit-user-drag: none;
   user-drag: none;
 }
@@ -355,7 +355,34 @@ html.window-translucent body {
 }
 
 .titlebar-actions-flush {
-  @apply static translate-y-0 mr-7;
+  @apply static translate-y-0 mr-4;
+}
+
+/* The bar's own buttons are chips, not buttons: no frame and no shadow, one fill that deepens while
+   the panel they open is open — the recipe the chips in the command line already follow. They are
+   also a step larger than a dialog's: 30px tall and 13.5px, which is what the latest handoff
+   measures for the workspace and the environment. */
+.titlebar .btn {
+  height: 30px;
+  padding: 0 10px;
+  border-radius: 7px;
+  border: 0;
+  background: var(--bg-hover);
+  box-shadow: none;
+  color: var(--text);
+  font-size: 13.5px;
+  font-weight: 500;
+}
+
+.titlebar .btn:hover:not(:disabled),
+.titlebar .btn[data-state='open'] {
+  background: var(--bg-active);
+}
+
+/* The environment asks for 12px of inset: its dot starts where the workspace's avatar does not, and
+   the two read as a pair only if neither is tighter than the other. */
+.titlebar .btn.env-btn {
+  padding: 0 12px;
 }
 
 .env-wrap {
@@ -363,7 +390,7 @@ html.window-translucent body {
 }
 
 .env-dot {
-  @apply w-[7px] h-[7px] rounded-full flex-none;
+  @apply w-2 h-2 rounded-full flex-none;
   background: var(--green);
 }
 
@@ -427,7 +454,7 @@ html.window-translucent body {
 }
 
 .sidebar {
-  @apply relative w-[var(--rail-width)] flex-none border-r flex flex-col items-center;
+  @apply relative w-[var(--rail-width)] flex-none border-r flex flex-col items-center py-3;
   /* The rail carries the colour across its whole width in one even band — the handoff draws it that
      way, and the band simply ends where the strip does, against the hairline the content starts
      behind. The stops are proportions rather than the handoff's 76px: that is its rail's width, and
@@ -443,28 +470,39 @@ html.window-translucent body {
 /* The rail's own inset belongs to its body, not to the rail: the header and the footer are strips of
    the rail itself, flush with its edges, and their hairlines are drawn on the same lines as the
    panel's header and the panel's filter — one line across the window, not three at three heights. */
+/* The run of tiles starts 16px below the hamburger: the handoff's own rhythm is the column's 4px
+   gap, an 8px spacer and 4 more — a hair more air under the menu than between the tiles. */
 .rail-body {
-  @apply flex-1 min-h-0 w-full flex flex-col items-center gap-0.5 p-1.5;
+  @apply flex-1 min-h-0 w-full flex flex-col items-center gap-1 pt-4;
 }
 
+/* No strip and no hairline on either end: the rail is one column, and the lines that would have run
+   across the window at the panel's header and filter are not drawn there any more (the design's
+   «меньше линий» pass). What is left is the two buttons the strips used to hold. */
 .rail-head {
-  @apply flex-none h-10 w-full flex items-center justify-center border-b border-border;
+  @apply flex-none w-full flex items-center justify-center;
 }
 
 .rail-footer {
-  @apply flex-none h-10 w-full flex items-center justify-center border-t border-border;
+  @apply flex-none w-full flex flex-col items-center gap-1;
 }
 
-.rail-marker {
-  @apply absolute top-0 pointer-events-none w-[3px];
-  left: 0;
-  border-radius: 0 3px 3px 0;
-  background: var(--accent);
-  transition: transform 0.18s cubic-bezier(0.16, 1, 0.3, 1), height 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+/* The rail's own button — the hamburger, the gear, an account — wider than a square icon button
+   because the rail is 84px and these are its three full-width targets. */
+.rail-btn {
+  @apply inline-flex flex-none items-center justify-center border-none rounded-lg bg-transparent cursor-pointer text-text-secondary;
+  width: 60px;
+  height: 38px;
+  --wails-draggable: no-drag;
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.rail-btn:hover {
+  @apply bg-bg-hover text-text;
 }
 
 .rail-item {
-  @apply relative flex flex-col items-center gap-1 w-full pt-2 pb-1.5 border-none rounded-[9px] bg-transparent text-text-secondary cursor-pointer;
+  @apply relative flex flex-col items-center gap-1.5 w-16 pt-2.5 pb-2 mb-1 border-none rounded-[10px] bg-transparent text-text-secondary cursor-pointer;
   --wails-draggable: no-drag;
   transition: background-color 0.15s ease, color 0.15s ease;
 }
@@ -482,19 +520,19 @@ html.window-translucent body {
 }
 
 .rail-label {
-  @apply font-semibold leading-none;
-  font-size: 10px;
+  @apply font-medium leading-none;
+  font-size: 11.5px;
   letter-spacing: 0.01em;
 }
 
 .rail-badge {
   @apply absolute flex-none rounded-full bg-red text-white font-bold inline-flex items-center justify-center;
-  top: 3px;
-  right: 10px;
-  min-width: 15px;
-  height: 15px;
+  top: 6px;
+  right: 8px;
+  min-width: 17px;
+  height: 17px;
   padding: 0 4px;
-  font-size: 9.5px;
+  font-size: 10.5px;
   box-shadow: 0 0 0 2px var(--bg-sidebar);
 }
 
@@ -502,8 +540,11 @@ html.window-translucent body {
   @apply flex-1;
 }
 
+/* A menu is drawn in a portal at the root, where the sheets and the dialogs stand at 1500 — and a menu
+   inside one is opened by something already on top, so it must outrank it. At 200 a collection's
+   authorization menu was drawn behind the sheet holding it and its items could not be clicked. */
 .menu {
-  @apply z-200 rounded-lg p-1 min-w-[200px];
+  @apply z-[1600] rounded-lg p-1 min-w-[200px];
   background: var(--glass-overlay);
   backdrop-filter: var(--blur-overlay);
   border: 1px solid var(--glass-overlay-border);
@@ -516,15 +557,33 @@ html.window-translucent body {
    lands on an element reka builds in its portal, where no component scope reaches: the same reason
    `.tooltip` and `.popover` are in this file. */
 .menu.ws-menu {
-  min-width: 280px;
-  padding: 8px;
+  width: 320px;
+  padding: 4px;
+}
+
+/* The titlebar's two panels are the chip popovers' own shape — 320 wide, a 4px inset, 38px rows —
+   because the latest handoff draws them as one family with the chips. Their rows carry their own
+   classes, so nothing here reaches the menus of the rest of the window. */
+.menu.env-menu {
+  width: 320px;
+  padding: 4px;
 }
 
 /* The schemes behind «Ещё»: four short names, which the menu's own width would leave swimming in
    room. Sized here rather than in the component for the reason above — the class lands on an
    element reka builds in its portal. */
 .menu.auth-menu {
-  min-width: 150px;
+  width: 180px;
+  min-width: 0;
+  padding: 5px;
+  border-radius: 10px;
+}
+
+/* The schemes are read one at a time in a list, so the row is taller here than in a context menu:
+   the design's own item for this menu, 13.5px with 8px of air above and below the name. */
+.auth-menu .menu-item {
+  @apply gap-1 px-2.5 py-2 text-[13.5px];
+  border-radius: 7px;
 }
 
 .menu[data-state='closed'] {
@@ -533,7 +592,7 @@ html.window-translucent body {
 
 .popover {
   @apply z-200;
-  border-radius: 10px;
+  border-radius: 12px;
   background: var(--glass-overlay);
   backdrop-filter: var(--blur-overlay);
   border: 1px solid var(--glass-overlay-border);
@@ -593,39 +652,47 @@ html.window-translucent body {
 }
 
 .chip-popover {
-  @apply p-2.5 flex flex-col gap-[2px];
-  width: 460px;
+  @apply p-3.5 flex flex-col gap-1;
+  width: 500px;
 }
 
 /* The auth popover is the widest of the chips and the only one that scrolls: a scheme asks for a
    dozen fields and a request does not get taller for it. The control and the header stay put and the
    fields move under them, which is why the height is capped here and the scrolling is the body's. */
 .chip-popover.auth {
-  width: 500px;
+  width: 540px;
   max-height: 520px;
-  gap: 10px;
+  gap: 14px;
 }
 
+/* Everything between the scheme control and the closing line stands on the popover's own 14px
+   rhythm: the wrapper is a column of one child, so its gap is what keeps that true inside. */
 .auth-body {
-  @apply flex flex-col gap-2.5 px-1 pb-0.5 overflow-y-auto;
+  @apply flex flex-col gap-3.5 overflow-y-auto;
 }
 
 /* The line every scheme shares: values can come from the environment, and the popover is where a
    person finds that out. */
 .auth-foot {
-  @apply px-1 pt-1.5 border-t border-border text-[10.5px] text-text-tertiary;
-  line-height: 1.4;
+  @apply pt-2.5 border-t border-border text-[12.5px] text-text-tertiary;
+  line-height: 1.45;
   flex: none;
 }
 
 /* The body popover is the one the handoff draws wider than the rest: it holds five formats and, for
    a form, a grid with a key and a value in it. */
 .chip-popover.wide {
-  width: 500px;
+  width: 540px;
 }
 
+/* The three popovers whose blocks are separated by the popover's own gap rather than by the head's
+   10px: auth and body stand their blocks 14px and 12px apart. */
 .chip-popover.spaced {
-  gap: 8px;
+  gap: 12px;
+}
+
+.chip-popover.auth.spaced {
+  gap: 14px;
 }
 
 /* The foot of a chip popover: the accent button that adds a row, and the line of explanation beside
@@ -633,11 +700,11 @@ html.window-translucent body {
    contents — the body's lists come from BodyFields.vue — and a scoped rule would reach only the one
    that happens to own the popover wrapper. */
 .popover-foot {
-  @apply flex items-center justify-between pt-2 pb-0.5 mt-1 border-t border-border px-1;
+  @apply flex items-center justify-between pt-2.5 mt-1.5 border-t border-border;
 }
 
 .foot-hint {
-  @apply text-[11px] text-text-tertiary;
+  @apply text-[12.5px] text-text-tertiary;
 }
 
 .env-menu {
@@ -656,8 +723,12 @@ html.window-translucent body {
   flex-direction: column;
 }
 
+/* The handoff's own 620 is the box the *rows* are drawn in; this one is a border box, so it is that
+   plus the 14px of padding and the two borders. Its lines are the drawing's `normal` rather than the
+   window's 1.5: a table of names and values is read by its rows, and 1.5 leaves them looser. */
 .params-menu {
-  @apply w-[560px] max-h-[420px] p-2.5 overflow-auto;
+  @apply w-[650px] max-h-[420px] p-3.5 overflow-auto;
+  line-height: normal;
 }
 
 .export-menu {
@@ -684,7 +755,46 @@ html.window-translucent body {
 
 /* The one item that cannot be undone, in the colour the app uses for that everywhere. */
 .menu-item.danger {
-  @apply text-red;
+  color: var(--red-text);
+}
+
+.menu-item.danger:hover,
+.menu-item.danger[data-highlighted] {
+  @apply bg-red-soft;
+}
+
+/* The tree's menu is the one the design draws row by row, with what it acts on named above it: the
+   name makes a menu opened on the wrong row visible before anything is clicked, and the keys beside
+   the labels are the keys the panel answers to. */
+.menu.tree-menu {
+  width: 232px;
+  min-width: 0;
+  padding: 6px;
+  border-radius: 11px;
+}
+
+.tree-menu .menu-title {
+  @apply px-2.5 pt-[7px] pb-2 text-[11.5px] text-text-tertiary;
+  @apply overflow-hidden text-ellipsis whitespace-nowrap;
+}
+
+.tree-menu .menu-item {
+  @apply gap-2.5 h-[34px] px-2.5 text-[13.5px];
+  border-radius: 7px;
+}
+
+/* The key is a hint, not a column: right-aligned and quiet, so the labels line up and the menu reads
+   as a list of actions first. */
+.tree-menu .menu-key {
+  @apply flex-none text-[12px] text-text-tertiary;
+}
+
+.tree-menu .menu-label-text {
+  @apply flex-1 min-w-0 overflow-hidden text-ellipsis whitespace-nowrap;
+}
+
+.tree-menu .menu-separator {
+  @apply my-[5px] mx-2;
 }
 
 .menu-separator {
@@ -697,7 +807,25 @@ html.window-translucent body {
 }
 
 .toolbar {
-  @apply flex items-center justify-end gap-1.5 py-3 px-5 border-b border-border bg-bg-panel;
+  @apply flex items-center justify-end gap-2 h-11 px-5 border-b border-border bg-bg-panel;
+}
+
+/* The row's own buttons, at the size the latest handoff gives a toolbar: taller than the small
+   button and shorter than the command line's send. */
+.toolbar .btn {
+  height: 30px;
+  padding: 0 12px;
+  border-radius: 7px;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+/* A toolbar button that carries its shortcut stands a step back from one that acts: the word is
+   what the eye should find first, and the key beside it is read only by whoever wants it. The
+   handoff gives these two a little more room between the two than the rest of the row. */
+.toolbar .btn.with-key {
+  gap: 8px;
+  color: var(--text-secondary);
 }
 
 .search-count {
@@ -1016,11 +1144,11 @@ mark.search-match.current {
 }
 
 .tabs {
-  @apply flex items-stretch gap-0.5 h-11 border-b border-border px-2 bg-bg-panel;
+  @apply flex items-stretch gap-0.5 h-[46px] border-b border-border px-4 bg-bg-panel;
 }
 
 .tab {
-  @apply flex items-center px-3.5 text-[13px] text-text-secondary cursor-pointer bg-transparent border-0 border-b-2 border-b-transparent;
+  @apply flex items-center px-3.5 text-[14px] text-text-secondary cursor-pointer bg-transparent border-0 border-b-2 border-b-transparent;
   --wails-draggable: no-drag;
   transition: color 0.15s ease, border-color 0.15s ease;
 }

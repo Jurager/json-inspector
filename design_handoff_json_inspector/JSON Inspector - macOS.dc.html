@@ -109,10 +109,10 @@
             </button>
           </sc-for>
           <div style="display: flex; align-items: center; justify-content: space-between; padding-top: 8px; margin-top: 6px; border-top: 1px solid var(--line);">
-            <button type="button" style="appearance: none; cursor: pointer; font-family: inherit; font-size: 13.5px; color: var(--accent); background: transparent; border: 0; border-radius: 7px; height: 30px; padding: 0 10px; display: flex; align-items: center; gap: 7px;" style-hover="background: var(--accent-soft);">
+            <button type="button" onClick="{{ openWsManager }}" style="appearance: none; cursor: pointer; font-family: inherit; font-size: 13.5px; color: var(--accent); background: transparent; border: 0; border-radius: 7px; height: 30px; padding: 0 10px; display: flex; align-items: center; gap: 7px;" style-hover="background: var(--accent-soft);">
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 5v14M5 12h14"></path></svg>New workspace
             </button>
-            <button type="button" style="appearance: none; cursor: pointer; font-family: inherit; font-size: 13px; color: var(--ink2); background: transparent; border: 0; border-radius: 7px; height: 30px; padding: 0 10px; display: flex; align-items: center; gap: 7px;" style-hover="background: var(--sel); color: var(--ink);">
+            <button type="button" onClick="{{ openWsManager }}" style="appearance: none; cursor: pointer; font-family: inherit; font-size: 13px; color: var(--ink2); background: transparent; border: 0; border-radius: 7px; height: 30px; padding: 0 10px; display: flex; align-items: center; gap: 7px;" style-hover="background: var(--sel); color: var(--ink);">
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M20 7.5h-8M12 16.5H4"></path><circle cx="16.5" cy="16.5" r="2.6"></circle><circle cx="7.5" cy="7.5" r="2.6"></circle></svg>Manage
             </button>
           </div>
@@ -133,7 +133,7 @@
             </button>
           </sc-for>
           <div style="height: 1px; background: var(--line); margin: 6px 8px;"></div>
-          <button type="button" style="appearance: none; cursor: pointer; font-family: inherit; text-align: left; border: 0; border-radius: 9px; background: transparent; height: 38px; padding: 0 10px; display: flex; align-items: center; gap: 10px; color: var(--ink);" style-hover="background: var(--sel);">
+          <button type="button" onClick="{{ openEnvEditor }}" style="appearance: none; cursor: pointer; font-family: inherit; text-align: left; border: 0; border-radius: 9px; background: transparent; height: 38px; padding: 0 10px; display: flex; align-items: center; gap: 10px; color: var(--ink);" style-hover="background: var(--sel);">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" style="color: var(--ink2); flex: none;"><path d="M4 7h16M4 12h16M4 17h10"></path></svg>
             <span style="flex: 1; font-size: 13.5px;">Edit variables…</span>
             <span style="font-size: 12px; color: var(--ink3);">⌘E</span>
@@ -170,7 +170,9 @@
       <div style="width: 306px; flex: none; background: var(--side); backdrop-filter: blur(24px) saturate(180%); -webkit-backdrop-filter: blur(24px) saturate(180%); border-right: 1px solid var(--line); display: flex; flex-direction: column;">
         <div style="height: 52px; flex: none; display: flex; align-items: center; justify-content: space-between; padding: 0 16px;">
           <span style="font-size: 14px; font-weight: 600;">History</span>
-          <button type="button" style="appearance: none; cursor: pointer; font-family: inherit; font-size: 13px; color: var(--accent); background: transparent; border: 0; border-radius: 6px; padding: 5px 8px;" style-hover="background: var(--accent-soft);">Clear</button>
+          <button type="button" title="Clear history" style="appearance: none; cursor: pointer; color: var(--ink2); background: transparent; border: 0; border-radius: 7px; width: 30px; height: 30px; display: flex; align-items: center; justify-content: center;" style-hover="background: var(--bad-soft); color: var(--bad);">
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 7h14M10 7V5h4v2M7 7v12h10V7"></path></svg>
+          </button>
         </div>
         <div style="padding: 4px 16px 8px; font-size: 11px; font-weight: 600; letter-spacing: 0.07em; text-transform: uppercase; color: var(--ink3);">Today</div>
         <div style="padding: 0 10px; display: flex; flex-direction: column; gap: 4px;">
@@ -197,11 +199,17 @@
       <div style="width: 306px; flex: none; background: var(--side); backdrop-filter: blur(24px) saturate(180%); -webkit-backdrop-filter: blur(24px) saturate(180%); border-right: 1px solid var(--line); display: flex; flex-direction: column;">
         <div style="height: 52px; flex: none; display: flex; align-items: center; justify-content: space-between; padding: 0 16px;">
           <span style="font-size: 14px; font-weight: 600;">Captured</span>
-          <button type="button" style="appearance: none; cursor: pointer; font-family: inherit; font-size: 13px; color: var(--accent); background: transparent; border: 0; border-radius: 6px; padding: 5px 8px;" style-hover="background: var(--accent-soft);">Clear</button>
+          <div style="flex: 1;"></div>
+          <button type="button" title="Clear captured traffic" style="appearance: none; cursor: pointer; color: var(--ink2); background: transparent; border: 0; border-radius: 7px; width: 30px; height: 30px; display: flex; align-items: center; justify-content: center;" style-hover="background: var(--bad-soft); color: var(--bad);">
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 7h14M10 7V5h4v2M7 7v12h10V7"></path></svg>
+          </button>
         </div>
-        <div style="padding: 0 10px; display: flex; flex-direction: column; gap: 2px;">
+        <sc-if value="{{ isBrowserHome }}" hint-placeholder-val="{{ false }}">
+          <div style="padding: 18px 20px; font-size: 13px; line-height: 1.55; color: var(--ink3);">Nothing captured yet. Connect the browser extension to see requests here.</div>
+        </sc-if>
+        <div style="padding: 0 10px; display: {{ capTreeDisplay }}; flex-direction: column; gap: 2px;">
           <sc-for list="{{ capturedTree }}" as="n" hint-placeholder-count="6">
-            <button type="button" onClick="{{ n.on }}" style="appearance: none; cursor: pointer; font-family: inherit; text-align: left; border: 0; border-radius: 9px; background: {{ n.bg }}; min-height: 38px; padding: 0 10px 0 {{ n.pad }}; display: flex; align-items: center; gap: 9px; color: {{ n.ink }};" style-hover="background: {{ n.hoverBg }};">
+            <button type="button" onClick="{{ n.on }}" style="appearance: none; cursor: pointer; font-family: inherit; text-align: left; border: 0; border-radius: 9px; background: {{ n.bg }}; min-height: 38px; padding: 0 10px 0 {{ n.pad }}; display: flex; align-items: center; gap: 9px; color: {{ n.ink }}; opacity: {{ n.rowOpacity }};" style-hover="background: {{ n.hoverBg }};">
               <sc-if value="{{ n.isSite }}" hint-placeholder-val="{{ true }}">
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="color: var(--ink3); flex: none; transform: rotate({{ n.rot }});"><path d="m9 6 6 6-6 6"></path></svg>
                 <span style="width: 20px; height: 20px; flex: none; border-radius: 6px; background: {{ n.tint }}; color: #fff; font-size: 10.5px; font-weight: 600; display: inline-flex; align-items: center; justify-content: center;">{{ n.initial }}</span>
@@ -232,13 +240,17 @@
       <div style="width: 306px; flex: none; background: var(--side); backdrop-filter: blur(24px) saturate(180%); -webkit-backdrop-filter: blur(24px) saturate(180%); border-right: 1px solid var(--line); display: flex; flex-direction: column;">
         <div style="height: 52px; flex: none; display: flex; align-items: center; justify-content: space-between; padding: 0 12px 0 16px;">
           <span style="font-size: 14px; font-weight: 600;">Collections</span>
+          <div style="flex: 1;"></div>
           <button type="button" title="New request" style="appearance: none; cursor: pointer; color: var(--accent); background: transparent; border: 0; border-radius: 7px; width: 30px; height: 30px; display: flex; align-items: center; justify-content: center;" style-hover="background: var(--accent-soft);">
             <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 5v14M5 12h14"></path></svg>
           </button>
         </div>
-        <div style="padding: 0 10px; display: flex; flex-direction: column; gap: 2px;">
+        <sc-if value="{{ collEmpty }}" hint-placeholder-val="{{ false }}">
+          <div style="padding: 18px 20px; font-size: 13px; line-height: 1.55; color: var(--ink3);">No collections yet. Create one or import a file to get started.</div>
+        </sc-if>
+        <div style="padding: 0 10px; display: {{ collTreeDisplay }}; flex-direction: column; gap: 2px; position: relative;">
           <sc-for list="{{ collectionTree }}" as="n" hint-placeholder-count="8">
-            <button type="button" onClick="{{ n.on }}" style="appearance: none; cursor: pointer; font-family: inherit; text-align: left; border: 0; border-radius: 9px; background: {{ n.bg }}; min-height: 36px; padding: 0 10px 0 {{ n.pad }}; display: flex; align-items: center; gap: 9px; color: {{ n.ink }};" style-hover="background: {{ n.hoverBg }};">
+            <button type="button" onClick="{{ n.on }}" onContextMenu="{{ n.onCtx }}" style="appearance: none; cursor: pointer; font-family: inherit; text-align: left; border: 0; border-radius: 9px; background: {{ n.bg }}; min-height: 36px; padding: 0 10px 0 {{ n.pad }}; display: flex; align-items: center; gap: 9px; color: {{ n.ink }};" style-hover="background: {{ n.hoverBg }};">
               <sc-if value="{{ n.isFolder }}" hint-placeholder-val="{{ true }}">
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="color: var(--ink3); flex: none; transform: rotate({{ n.rot }});"><path d="m9 6 6 6-6 6"></path></svg>
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" style="color: {{ n.folderInk }}; flex: none;"><path d="M4 20h16a1 1 0 0 0 1-1V8a1 1 0 0 0-1-1h-7l-2-3H4a1 1 0 0 0-1 1v14a1 1 0 0 0 1 1Z"></path></svg>
@@ -251,6 +263,18 @@
               </sc-if>
             </button>
           </sc-for>
+          <sc-if value="{{ ctxOpen }}" hint-placeholder-val="{{ false }}">
+            <div style="position: absolute; top: {{ ctxTop }}; left: 34px; width: 232px; background: var(--pop); backdrop-filter: blur(30px) saturate(180%); -webkit-backdrop-filter: blur(30px) saturate(180%); border: 1px solid var(--line); border-radius: 11px; box-shadow: var(--popshadow); padding: 6px; display: flex; flex-direction: column; gap: 1px; z-index: 60;">
+              <div style="padding: 7px 10px 8px; font-size: 11.5px; color: var(--ink3); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{{ ctxTitle }}</div>
+              <sc-for list="{{ ctxItems }}" as="m" hint-placeholder-count="6">
+                <button type="button" onClick="{{ closeCtx }}" style="appearance: none; cursor: pointer; font-family: inherit; text-align: left; border: 0; border-radius: 7px; background: transparent; color: {{ m.ink }}; height: 34px; padding: 0 10px; display: flex; align-items: center; gap: 10px; font-size: 13.5px;" style-hover="background: {{ m.hoverBg }};">
+                  <span style="flex: 1;">{{ m.label }}</span>
+                  <span style="font-size: 12px; color: var(--ink3);">{{ m.key }}</span>
+                </button>
+                <sc-if value="{{ m.divider }}" hint-placeholder-val="{{ false }}"><div style="height: 1px; background: var(--line); margin: 5px 8px;"></div></sc-if>
+              </sc-for>
+            </div>
+          </sc-if>
         </div>
         <div style="flex: 1;"></div>
         <div style="height: 54px; flex: none; border-top: 1px solid var(--line2); display: flex; align-items: center; gap: 9px; padding: 0 16px; color: var(--ink3); font-size: 13px;">
@@ -260,9 +284,9 @@
       </div>
       </sc-if>
 
-      <div style="flex: 1; min-width: 0; display: flex; flex-direction: column; background: var(--content);">
+      <div style="flex: 1; min-width: 0; display: flex; flex-direction: column; background: var(--content); position: relative;">
 
-        <sc-if value="{{ isCollectionsMode }}" hint-placeholder-val="{{ false }}">
+        <sc-if value="{{ isCollRequest }}" hint-placeholder-val="{{ false }}">
           <div style="flex: none; height: 44px; display: flex; align-items: center; gap: 8px; padding: 0 20px; border-bottom: 1px solid var(--line2); font-size: 13px; color: var(--ink3);">
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" style="color: var(--accent);"><path d="M4 20h16a1 1 0 0 0 1-1V8a1 1 0 0 0-1-1h-7l-2-3H4a1 1 0 0 0-1 1v14a1 1 0 0 0 1 1Z"></path></svg>
             <span>Example API</span>
@@ -275,20 +299,18 @@
           </div>
         </sc-if>
 
-        <sc-if value="{{ isBrowserMode }}" hint-placeholder-val="{{ false }}">
+        <sc-if value="{{ isBrowserRequest }}" hint-placeholder-val="{{ false }}">
           <div style="flex: none; height: 66px; display: flex; align-items: center; gap: 12px; padding: 0 20px; border-bottom: 1px solid var(--line); position: relative; z-index: 30;">
             <button type="button" title="Back" style="appearance: none; cursor: pointer; color: var(--ink2); background: var(--raise); border: 1px solid var(--line); border-radius: 8px; width: 34px; height: 34px; display: flex; align-items: center; justify-content: center;" style-hover="background: var(--sel); color: var(--ink);">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"></path></svg>
             </button>
-            <span style="font-family: ui-monospace, 'SF Mono', 'Cascadia Code', Menlo, monospace; font-size: 13px; font-weight: 600; padding: 5px 9px; border-radius: 7px; background: var(--ok-soft); color: var(--ok); flex: none;">GET</span>
-            <span style="font-size: 12px; font-weight: 600; padding: 4px 9px; border-radius: 6px; background: var(--ok-soft); color: var(--ok); flex: none;">200</span>
-            <span style="flex: 1; min-width: 0; font-family: ui-monospace, 'SF Mono', 'Cascadia Code', Menlo, monospace; font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">api.example.com/articles<span style="color: var(--ink3);">?include=</span><span style="color: var(--accent);">author,comments</span></span>
+            <span style="font-family: ui-monospace, 'SF Mono', 'Cascadia Code', Menlo, monospace; font-size: 13px; font-weight: 600; padding: 5px 9px; border-radius: 7px; background: {{ capMethodBg }}; color: {{ capMethodInk }}; flex: none;">{{ capMethod }}</span>
+            <span style="font-size: 12px; font-weight: 600; padding: 4px 9px; border-radius: 6px; background: {{ capStatusBg }}; color: {{ capStatusInk }}; flex: none;">{{ capStatus }}</span>
+            <span style="flex: 1; min-width: 0; font-family: ui-monospace, 'SF Mono', 'Cascadia Code', Menlo, monospace; font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">api.example.com{{ capPath }}</span>
             <button type="button" onClick="{{ toggleBParams }}" style="appearance: none; cursor: pointer; font-family: inherit; font-size: 12.5px; font-weight: 500; height: 30px; padding: 0 10px; border: 1px solid {{ bParamsLine }}; border-radius: 7px; background: {{ bParamsBg }}; color: {{ bParamsInk }}; flex: none; display: flex; align-items: center; gap: 7px;" style-hover="filter: brightness(1.04);">Params
               <span style="min-width: 17px; height: 17px; padding: 0 5px; border-radius: 9px; background: {{ bParamsCountBg }}; color: {{ bParamsCountInk }}; font-size: 10.5px; font-weight: 700; display: inline-flex; align-items: center; justify-content: center;">2</span>
             </button>
-            <span style="font-family: ui-monospace, 'SF Mono', 'Cascadia Code', Menlo, monospace; font-size: 13px; color: var(--ink3); flex: none;">128 ms · 1.6 KB · application/vnd.api+json</span>
             <span style="font-size: 12px; font-weight: 500; padding: 4px 9px; border-radius: 6px; background: var(--chip); color: var(--ink3); flex: none;">read-only</span>
-            <button type="button" onClick="{{ toggleInspector }}" style="appearance: none; cursor: pointer; font-family: inherit; font-size: 13px; font-weight: 500; color: {{ inspInk }}; background: {{ inspBg }}; border: 1px solid {{ inspLine }}; border-radius: 7px; height: 30px; padding: 0 12px; flex: none; display: flex; align-items: center; gap: 8px;" style-hover="filter: brightness(1.03);">Inspector<span style="font-size: 11.5px; opacity: 0.7;">⌥I</span></button>
 
             <sc-if value="{{ popBParams }}" hint-placeholder-val="{{ false }}">
               <div style="position: absolute; top: 60px; right: 20px; width: 620px; background: var(--pop); backdrop-filter: blur(30px) saturate(180%); -webkit-backdrop-filter: blur(30px) saturate(180%); border: 1px solid var(--line); border-radius: 12px; box-shadow: var(--popshadow); padding: 14px; display: flex; flex-direction: column; gap: 4px; z-index: 50;">
@@ -315,7 +337,7 @@
                 </sc-for>
                 <div style="display: flex; gap: 12px; margin-top: 10px; padding: 12px; border-radius: 9px; background: var(--raise);">
                   <span style="flex: none; font-size: 11px; font-weight: 600; letter-spacing: 0.07em; text-transform: uppercase; color: var(--ink3); padding-top: 2px;">String</span>
-                  <span style="flex: 1; min-width: 0; font-family: ui-monospace, 'SF Mono', 'Cascadia Code', Menlo, monospace; font-size: 12.5px; line-height: 1.6; color: var(--ink2); word-break: break-all;">?include=attributes,prices,media,category,brand&amp;fields[product]=id,title,price,thumbnail&amp;filter[category]=3&amp;sort=-created_at&amp;page[size]=25&amp;page[number]=1</span>
+                  <span style="flex: 1; min-width: 0; font-family: ui-monospace, 'SF Mono', 'Cascadia Code', Menlo, monospace; font-size: 12.5px; line-height: 1.6; color: var(--ink2); word-break: break-all;">?include=author,comments&amp;page[size]=25</span>
                 </div>
               </div>
             </sc-if>
@@ -540,12 +562,12 @@
         </div>
         </sc-if>
 
-        <sc-if value="{{ isEditable }}" hint-placeholder-val="{{ true }}">
+        <sc-if value="{{ showResponse }}" hint-placeholder-val="{{ true }}">
         <div style="height: 48px; flex: none; display: flex; align-items: center; gap: 14px; padding: 0 20px; border-bottom: 1px solid var(--line2);">
-          <span style="font-size: 12px; font-weight: 700; padding: 4px 9px; border-radius: 6px; background: var(--ok-soft); color: var(--ok); flex: none;">200 OK</span>
-          <span style="font-family: ui-monospace, 'SF Mono', 'Cascadia Code', Menlo, monospace; font-size: 13.5px; color: var(--ink2); flex: none; white-space: nowrap;">128 ms</span>
+          <span style="font-size: 12px; font-weight: 700; padding: 4px 9px; border-radius: 6px; background: {{ metaStatusBg }}; color: {{ metaStatusInk }}; flex: none;">{{ metaStatus }}</span>
+          <span style="font-family: ui-monospace, 'SF Mono', 'Cascadia Code', Menlo, monospace; font-size: 13.5px; color: var(--ink2); flex: none; white-space: nowrap;">{{ metaMs }}</span>
           <span style="width: 1px; height: 14px; background: var(--line); flex: none;"></span>
-          <span style="font-family: ui-monospace, 'SF Mono', 'Cascadia Code', Menlo, monospace; font-size: 13.5px; color: var(--ink2); flex: none; white-space: nowrap;">1.6 KB</span>
+          <span style="font-family: ui-monospace, 'SF Mono', 'Cascadia Code', Menlo, monospace; font-size: 13.5px; color: var(--ink2); flex: none; white-space: nowrap;">{{ metaSize }}</span>
           <span style="width: 1px; height: 14px; background: var(--line); flex: none;"></span>
           <span style="font-family: ui-monospace, 'SF Mono', 'Cascadia Code', Menlo, monospace; font-size: 13.5px; color: var(--ink3); flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">application/vnd.api+json</span>
           <div style="flex: 1; min-width: 8px;"></div>
@@ -557,6 +579,7 @@
         </div>
         </sc-if>
 
+        <sc-if value="{{ showResponse }}" hint-placeholder-val="{{ true }}">
         <div style="height: 46px; flex: none; display: flex; align-items: stretch; gap: 2px; padding: 0 16px; border-bottom: 1px solid var(--line);">
           <sc-for list="{{ tabs }}" as="tab" hint-placeholder-count="7">
             <button type="button" onClick="{{ tab.on }}" style="appearance: none; cursor: pointer; font-family: inherit; background: transparent; border: 0; border-bottom: 2px solid {{ tab.line }}; color: {{ tab.ink }}; font-size: 14px; font-weight: {{ tab.weight }}; padding: 0 14px;" style-hover="color: var(--ink);">{{ tab.label }}</button>
@@ -814,6 +837,530 @@
             </div>
           </sc-if>
         </div>
+        </sc-if>
+
+        <sc-if value="{{ isBrowserHome }}" hint-placeholder-val="{{ false }}">
+          <div style="flex: 1; min-height: 0; overflow-y: auto; padding: 40px 44px; display: flex; flex-direction: column; gap: 28px;">
+            <div style="display: flex; flex-direction: column; gap: 10px; max-width: 620px;">
+              <span style="display: inline-flex; align-items: center; gap: 9px; align-self: flex-start; font-size: 12px; font-weight: 600; padding: 5px 10px; border-radius: 7px; background: {{ homeBadgeBg }}; color: {{ homeBadgeInk }};">
+                <span style="width: 8px; height: 8px; border-radius: 999px; background: currentColor;"></span>{{ homeBadge }}
+              </span>
+              <span style="font-size: 26px; font-weight: 600; letter-spacing: -0.02em;">{{ homeTitle }}</span>
+              <span style="font-size: 14.5px; line-height: 1.55; color: var(--ink2);">The extension forwards the traffic of the tabs you choose into this window. Nothing is sent anywhere else — the app listens on your machine only.</span>
+            </div>
+
+            <div style="display: flex; gap: 12px;">
+              <button type="button" onClick="{{ homeCtaOn }}" style="appearance: none; cursor: pointer; font-family: inherit; font-size: 14px; font-weight: 600; height: 38px; padding: 0 18px; background: var(--accent); color: #fff; border: 0; border-radius: 9px; display: flex; align-items: center; gap: 9px;" style-hover="background: var(--accent-press);">{{ homeCta }}</button>
+              <button type="button" onClick="{{ openExtSheet }}" style="appearance: none; cursor: pointer; font-family: inherit; font-size: 13.5px; font-weight: 500; height: 38px; padding: 0 16px; background: var(--raise); color: var(--ink); border: 1px solid var(--line); border-radius: 9px;" style-hover="background: var(--sel);">Show the popup</button>
+              <button type="button" style="appearance: none; cursor: pointer; font-family: inherit; font-size: 13.5px; font-weight: 500; height: 38px; padding: 0 16px; background: transparent; color: var(--ink2); border: 0; border-radius: 9px;" style-hover="background: var(--sel); color: var(--ink);">Read the guide</button>
+            </div>
+
+            <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; max-width: 1000px;">
+              <sc-for list="{{ browserSteps }}" as="s" hint-placeholder-count="3">
+                <div style="border: 1px solid var(--line); border-radius: 12px; padding: 18px; display: flex; flex-direction: column; gap: 10px;">
+                  <span style="width: 26px; height: 26px; border-radius: 999px; background: var(--accent-soft); color: var(--accent); font-size: 12.5px; font-weight: 700; display: inline-flex; align-items: center; justify-content: center;">{{ s.n }}</span>
+                  <span style="font-size: 14px; font-weight: 600;">{{ s.title }}</span>
+                  <span style="font-size: 13px; line-height: 1.5; color: var(--ink2);">{{ s.body }}</span>
+                </div>
+              </sc-for>
+            </div>
+
+            <div style="display: flex; align-items: center; gap: 14px; padding: 16px 18px; border: 1px solid var(--line); border-radius: 12px; background: var(--raise); max-width: 1000px;">
+              <span style="width: 34px; height: 34px; flex: none; border-radius: 9px; background: var(--chip); color: var(--ink2); display: inline-flex; align-items: center; justify-content: center;">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 8v5M12 16.5h.01"></path><circle cx="12" cy="12" r="9"></circle></svg>
+              </span>
+              <span style="flex: 1; min-width: 0; font-size: 13.5px; line-height: 1.5; color: var(--ink2);">The app is listening on port 7999. Once the extension is installed and a tab is allowed, captured requests appear in the list on the left.</span>
+              <button type="button" onClick="{{ openExtSheet }}" style="appearance: none; cursor: pointer; font-family: inherit; font-size: 13.5px; font-weight: 500; height: 34px; padding: 0 14px; background: var(--field); color: var(--ink); border: 1px solid var(--fieldline); border-radius: 8px; flex: none;" style-hover="background: var(--sel);">Connection details</button>
+            </div>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{ isBrowserIndex }}" hint-placeholder-val="{{ false }}">
+          <div style="flex: 1; min-height: 0; overflow-y: auto; padding: 28px 32px; display: flex; flex-direction: column; gap: 26px;">
+            <div style="display: flex; align-items: flex-start; gap: 16px;">
+              <span style="width: 44px; height: 44px; flex: none; border-radius: 12px; background: var(--chip); color: var(--ink2); display: inline-flex; align-items: center; justify-content: center;">
+                <svg width="23" height="23" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"></circle><path d="M3 12h18M12 3c2.4 2.4 2.4 15.6 0 18M12 3c-2.4 2.4-2.4 15.6 0 18"></path></svg>
+              </span>
+              <div style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px;">
+                <span style="font-size: 22px; font-weight: 600; letter-spacing: -0.01em;">{{ browserIndexTitle }}</span>
+                <span style="font-size: 13.5px; color: var(--ink2);">{{ browserIndexMeta }}</span>
+              </div>
+              <button type="button" onClick="{{ toggleCapture }}" style="appearance: none; cursor: pointer; font-family: inherit; font-size: 13.5px; font-weight: 500; height: 36px; padding: 0 14px; background: {{ capBg }}; color: {{ capInk }}; border: 1px solid {{ capLine }}; border-radius: 9px; flex: none; display: flex; align-items: center; gap: 9px;" style-hover="filter: brightness(1.04);">
+                <span style="width: 8px; height: 8px; border-radius: 999px; background: currentColor;"></span>{{ capLabel }}
+              </button>
+              <button type="button" style="appearance: none; cursor: pointer; font-family: inherit; font-size: 13.5px; font-weight: 500; height: 36px; padding: 0 14px; background: var(--raise); color: var(--ink); border: 1px solid var(--line); border-radius: 9px; flex: none;" style-hover="background: var(--sel);">Export HAR</button>
+            </div>
+
+            <div style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px;">
+              <sc-for list="{{ browserStats }}" as="s" hint-placeholder-count="4">
+                <div style="border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; display: flex; flex-direction: column; gap: 6px;">
+                  <span style="font-size: 11px; font-weight: 600; letter-spacing: 0.07em; text-transform: uppercase; color: var(--ink3);">{{ s.label }}</span>
+                  <span style="font-size: 20px; font-weight: 600; letter-spacing: -0.01em; color: {{ s.ink }};">{{ s.value }}</span>
+                  <span style="font-size: 12.5px; color: var(--ink3);">{{ s.note }}</span>
+                </div>
+              </sc-for>
+            </div>
+
+            <div style="display: flex; flex-direction: column; gap: 10px;">
+              <span style="font-size: 11px; font-weight: 600; letter-spacing: 0.07em; text-transform: uppercase; color: var(--ink3);">Captured requests</span>
+              <div style="border: 1px solid var(--line); border-radius: 12px; overflow: hidden;">
+                <div style="display: grid; grid-template-columns: 90px minmax(0, 1fr) 110px 110px 110px; background: var(--raise); border-bottom: 1px solid var(--line); font-size: 11px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink3);">
+                  <div style="padding: 10px 16px;">Method</div><div style="padding: 10px 16px;">Path</div><div style="padding: 10px 16px;">Status</div><div style="padding: 10px 16px;">Time</div><div style="padding: 10px 16px;">Size</div>
+                </div>
+                <sc-for list="{{ browserIndexRows }}" as="r" hint-placeholder-count="4">
+                  <button type="button" onClick="{{ r.on }}" title="{{ r.rowHint }}" style="appearance: none; cursor: pointer; width: 100%; font-family: inherit; text-align: left; background: transparent; border: 0; border-bottom: 1px solid var(--line2); display: grid; grid-template-columns: 90px minmax(0, 1fr) 110px 110px 110px; align-items: center; min-height: 46px; color: var(--ink); opacity: {{ r.rowOpacity }};" style-hover="background: var(--sel);">
+                    <span style="padding: 0 16px; font-family: ui-monospace, 'SF Mono', 'Cascadia Code', Menlo, monospace; font-size: 11.5px; color: {{ r.methodInk }};">{{ r.method }}</span>
+                    <span style="padding: 0 16px; font-family: ui-monospace, 'SF Mono', 'Cascadia Code', Menlo, monospace; font-size: 12.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{{ r.path }}</span>
+                    <span style="padding: 0 16px;"><span style="font-size: 11.5px; font-weight: 600; padding: 3px 8px; border-radius: 6px; background: {{ r.statusBg }}; color: {{ r.statusInk }};">{{ r.status }}</span></span>
+                    <span style="padding: 0 16px; font-family: ui-monospace, 'SF Mono', 'Cascadia Code', Menlo, monospace; font-size: 12.5px; color: var(--ink2);">{{ r.ms }}</span>
+                    <span style="padding: 0 16px; font-family: ui-monospace, 'SF Mono', 'Cascadia Code', Menlo, monospace; font-size: 12.5px; color: var(--ink2);">{{ r.size }}</span>
+                  </button>
+                </sc-for>
+              </div>
+            </div>
+
+            <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px;">
+              <sc-for list="{{ browserCards }}" as="c" hint-placeholder-count="3">
+                <div style="border: 1px solid var(--line); border-radius: 12px; padding: 16px; display: flex; flex-direction: column; gap: 8px;">
+                  <span style="font-size: 13.5px; font-weight: 600;">{{ c.title }}</span>
+                  <span style="font-size: 13px; line-height: 1.5; color: var(--ink2);">{{ c.body }}</span>
+                  <button type="button" onClick="{{ c.on }}" style="appearance: none; cursor: pointer; align-self: start; font-family: inherit; font-size: 13px; font-weight: 500; color: var(--accent); background: transparent; border: 0; border-radius: 7px; height: 30px; padding: 0 8px; margin-left: -8px;" style-hover="background: var(--accent-soft);">{{ c.action }}</button>
+                </div>
+              </sc-for>
+            </div>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{ sheetOpen }}" hint-placeholder-val="{{ false }}">
+          <div style="position: absolute; inset: 0; background: rgba(0,0,0,0.22); display: flex; align-items: center; justify-content: center; z-index: 95;">
+            <div style="width: 440px; background: var(--pop); backdrop-filter: blur(30px) saturate(180%); -webkit-backdrop-filter: blur(30px) saturate(180%); border: 1px solid var(--line); border-radius: 14px; box-shadow: var(--popshadow); padding: 18px; display: flex; flex-direction: column; gap: 16px;">
+              <div style="display: flex; align-items: flex-start; gap: 12px;">
+                <div style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 5px;">
+                  <span style="font-size: 16px; font-weight: 600;">{{ sheetTitle }}</span>
+                  <span style="font-size: 13px; line-height: 1.5; color: var(--ink2);">{{ sheetSub }}</span>
+                </div>
+                <button type="button" onClick="{{ closeSheet }}" style="appearance: none; cursor: pointer; border: 0; border-radius: 7px; background: transparent; color: var(--ink3); width: 28px; height: 28px; flex: none; display: flex; align-items: center; justify-content: center;" style-hover="background: var(--sel); color: var(--ink);">
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"></path></svg>
+                </button>
+              </div>
+              <sc-if value="{{ sheetIsList }}" hint-placeholder-val="{{ true }}">
+              <div style="display: flex; flex-direction: column; gap: 2px;">
+                <sc-for list="{{ sheetRows }}" as="r" hint-placeholder-count="3">
+                  <div style="display: flex; align-items: center; gap: 12px; min-height: 44px; padding: 0 10px; border-radius: 9px;" style-hover="background: var(--sel);">
+                    <span style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px;">
+                      <span style="font-size: 13.5px;">{{ r.label }}</span>
+                      <span style="font-size: 12px; color: var(--ink3);">{{ r.note }}</span>
+                    </span>
+                    <span style="flex: none; font-size: 12.5px; font-weight: 600; padding: 4px 9px; border-radius: 6px; background: {{ r.tagBg }}; color: {{ r.tagInk }};">{{ r.tag }}</span>
+                  </div>
+                </sc-for>
+              </div>
+              </sc-if>
+
+              <sc-if value="{{ sheetIsAuth }}" hint-placeholder-val="{{ false }}">
+                <div style="display: flex; flex-direction: column; gap: 14px;">
+                  <div style="display: flex; flex-direction: column; gap: 7px;">
+                    <span style="font-size: 11px; font-weight: 600; letter-spacing: 0.07em; text-transform: uppercase; color: var(--ink3);">Type</span>
+                    <div style="display: flex; padding: 2px; border-radius: 8px; background: var(--chip);">
+                      <sc-for list="{{ folderAuthTypes }}" as="t" hint-placeholder-count="4">
+                        <button type="button" onClick="{{ t.on }}" style="appearance: none; cursor: pointer; flex: 1; font-family: inherit; font-size: 12.5px; font-weight: 500; height: 28px; border: 0; border-radius: 6px; background: {{ t.bg }}; color: {{ t.ink }}; box-shadow: {{ t.sh }};">{{ t.label }}</button>
+                      </sc-for>
+                    </div>
+                  </div>
+                  <div style="display: flex; flex-direction: column; gap: 7px;">
+                    <span style="font-size: 11px; font-weight: 600; letter-spacing: 0.07em; text-transform: uppercase; color: var(--ink3);">Token</span>
+                    <div style="display: flex; align-items: center; gap: 8px; height: 36px; padding: 0 10px; border: 1px solid var(--fieldline); border-radius: 8px; background: var(--field);">
+                      <span style="font-family: ui-monospace, 'SF Mono', 'Cascadia Code', Menlo, monospace; font-size: 12.5px; padding: 3px 7px; border-radius: 6px; background: var(--accent-soft); color: var(--accent);">{{ tokenRef }}</span>
+                      <span style="flex: 1; min-width: 0; font-family: ui-monospace, 'SF Mono', 'Cascadia Code', Menlo, monospace; font-size: 12.5px; color: var(--ink3);">resolves to eyJhbGciOi…</span>
+                    </div>
+                    <span style="font-size: 12.5px; line-height: 1.5; color: var(--ink3);">The value comes from the workspace environment. This dialog only chooses how the folder sends it.</span>
+                  </div>
+                  <button type="button" onClick="{{ openEnvSettings }}" style="appearance: none; cursor: pointer; align-self: flex-start; font-family: inherit; font-size: 13px; font-weight: 500; color: var(--accent); background: transparent; border: 0; border-radius: 7px; height: 30px; padding: 0 8px; margin-left: -8px;" style-hover="background: var(--accent-soft);">Open environment variables…</button>
+                </div>
+              </sc-if>
+
+              <sc-if value="{{ sheetIsVars }}" hint-placeholder-val="{{ false }}">
+                <div style="display: flex; flex-direction: column; gap: 12px;">
+                  <div style="display: flex; flex-direction: column; gap: 6px;">
+                    <div style="display: grid; grid-template-columns: 130px minmax(0, 1fr) 76px 28px; gap: 8px; font-size: 11px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink3);">
+                      <span>Key</span><span>Value</span><span>Scope</span><span></span>
+                    </div>
+                    <sc-for list="{{ varRows }}" as="v" hint-placeholder-count="4">
+                      <div style="display: grid; grid-template-columns: 130px minmax(0, 1fr) 76px 28px; gap: 8px; align-items: center;">
+                        <span style="height: 32px; padding: 0 9px; display: flex; align-items: center; border: 1px solid var(--fieldline); border-radius: 7px; background: {{ v.fieldBg }}; font-family: ui-monospace, 'SF Mono', 'Cascadia Code', Menlo, monospace; font-size: 12.5px; color: {{ v.keyInk }}; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{{ v.k }}</span>
+                        <span style="height: 32px; padding: 0 9px; display: flex; align-items: center; border: 1px solid var(--fieldline); border-radius: 7px; background: {{ v.fieldBg }}; font-family: ui-monospace, 'SF Mono', 'Cascadia Code', Menlo, monospace; font-size: 12.5px; color: {{ v.valueInk }}; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{{ v.v }}</span>
+                        <span style="font-size: 11.5px; font-weight: 600; text-align: center; padding: 4px 0; border-radius: 6px; background: {{ v.tagBg }}; color: {{ v.tagInk }};">{{ v.scope }}</span>
+                        <button type="button" title="{{ v.removeHint }}" style="appearance: none; cursor: pointer; border: 0; border-radius: 6px; background: transparent; color: var(--ink3); width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; opacity: {{ v.removeOpacity }};" style-hover="background: var(--bad-soft); color: var(--bad);">
+                          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"></path></svg>
+                        </button>
+                      </div>
+                    </sc-for>
+                  </div>
+                  <button type="button" style="appearance: none; cursor: pointer; align-self: flex-start; font-family: inherit; font-size: 13px; font-weight: 500; color: var(--accent); background: transparent; border: 0; border-radius: 7px; height: 30px; padding: 0 8px; margin-left: -8px; display: flex; align-items: center; gap: 7px;" style-hover="background: var(--accent-soft);">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 5v14M5 12h14"></path></svg>Add folder variable
+                  </button>
+                  <div style="display: flex; align-items: center; gap: 10px; padding: 11px 12px; border-radius: 9px; background: var(--raise);">
+                    <span style="flex: 1; min-width: 0; font-size: 12.5px; line-height: 1.5; color: var(--ink2);">Rows marked <span style="font-weight: 600;">Env</span> come from the workspace environment and are edited there — here they are shown read-only so you can see what the folder resolves to.</span>
+                    <button type="button" onClick="{{ openEnvSettings }}" style="appearance: none; cursor: pointer; flex: none; font-family: inherit; font-size: 12.5px; font-weight: 500; height: 30px; padding: 0 11px; background: var(--field); color: var(--ink); border: 1px solid var(--fieldline); border-radius: 7px;" style-hover="background: var(--sel);">Environment…</button>
+                  </div>
+                </div>
+              </sc-if>
+
+              <sc-if value="{{ sheetIsScripts }}" hint-placeholder-val="{{ false }}">
+                <div style="display: flex; flex-direction: column; gap: 12px;">
+                  <div style="display: flex; padding: 2px; border-radius: 8px; background: var(--chip);">
+                    <sc-for list="{{ scriptTabs }}" as="t" hint-placeholder-count="2">
+                      <button type="button" onClick="{{ t.on }}" style="appearance: none; cursor: pointer; flex: 1; font-family: inherit; font-size: 12.5px; font-weight: 500; height: 28px; border: 0; border-radius: 6px; background: {{ t.bg }}; color: {{ t.ink }}; box-shadow: {{ t.sh }};">{{ t.label }}</button>
+                    </sc-for>
+                  </div>
+                  <div style="border: 1px solid var(--fieldline); border-radius: 9px; background: var(--field); padding: 12px 14px; display: flex; flex-direction: column; gap: 4px; min-height: 148px;">
+                    <sc-for list="{{ scriptLines }}" as="l" hint-placeholder-count="5">
+                      <span style="font-family: ui-monospace, 'SF Mono', 'Cascadia Code', Menlo, monospace; font-size: 12.5px; line-height: 1.6; color: {{ l.ink }}; white-space: pre;">{{ l.t }}</span>
+                    </sc-for>
+                  </div>
+                  <div style="display: flex; align-items: center; gap: 10px;">
+                    <button type="button" onClick="{{ toggleScript }}" style="appearance: none; cursor: pointer; font-family: inherit; font-size: 12.5px; font-weight: 500; height: 30px; padding: 0 11px; background: {{ scriptToggleBg }}; color: {{ scriptToggleInk }}; border: 1px solid {{ scriptToggleLine }}; border-radius: 7px;" style-hover="filter: brightness(1.04);">{{ scriptToggleLabel }}</button>
+                    <span style="font-size: 12.5px; color: var(--ink3);">{{ scriptMeta }}</span>
+                  </div>
+                </div>
+              </sc-if>
+              <div style="display: flex; gap: 10px; justify-content: flex-end; padding-top: 4px; border-top: 1px solid var(--line);">
+                <button type="button" onClick="{{ closeSheet }}" style="appearance: none; cursor: pointer; font-family: inherit; font-size: 13.5px; font-weight: 500; height: 34px; padding: 0 14px; background: var(--field); color: var(--ink); border: 1px solid var(--fieldline); border-radius: 8px;" style-hover="background: var(--sel);">Cancel</button>
+                <button type="button" onClick="{{ closeSheet }}" style="appearance: none; cursor: pointer; font-family: inherit; font-size: 13.5px; font-weight: 600; height: 34px; padding: 0 16px; background: var(--accent); color: #fff; border: 0; border-radius: 8px;" style-hover="background: var(--accent-press);">{{ sheetAction }}</button>
+              </div>
+            </div>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{ envEditorOpen }}" hint-placeholder-val="{{ false }}">
+          <div style="position: absolute; inset: 0; background: rgba(0,0,0,0.22); display: flex; align-items: center; justify-content: center; padding: 28px; z-index: 80;">
+            <div style="width: 100%; max-width: 1040px; height: 100%; max-height: 620px; background: var(--pop); backdrop-filter: blur(30px) saturate(180%); -webkit-backdrop-filter: blur(30px) saturate(180%); border: 1px solid var(--line); border-radius: 14px; box-shadow: var(--popshadow); overflow: hidden; display: flex; flex-direction: column;">
+              <div style="height: 50px; flex: none; display: flex; align-items: center; gap: 12px; padding: 0 16px; border-bottom: 1px solid var(--line);">
+                <span style="flex: 1; font-size: 14px; font-weight: 600;">Environment variables</span>
+                <span style="font-size: 12.5px; color: var(--ink3);">Workspace {{ wsName }}</span>
+                <button type="button" onClick="{{ closeEnvEditor }}" style="appearance: none; cursor: pointer; font-family: inherit; font-size: 13px; font-weight: 500; height: 30px; padding: 0 14px; background: var(--field); color: var(--ink); border: 1px solid var(--fieldline); border-radius: 8px;" style-hover="background: var(--sel);">Done</button>
+              </div>
+              <div style="flex: 1; min-height: 0; display: flex;">
+                <div style="width: 236px; flex: none; border-right: 1px solid var(--line); display: flex; flex-direction: column; padding: 8px 8px 0;">
+                  <div style="padding: 6px 8px; font-size: 11px; font-weight: 600; letter-spacing: 0.07em; text-transform: uppercase; color: var(--ink3);">Environments</div>
+                  <sc-for list="{{ envList }}" as="e" hint-placeholder-count="4">
+                    <button type="button" onClick="{{ e.on }}" style="appearance: none; cursor: pointer; font-family: inherit; text-align: left; border: 0; border-radius: 7px; background: {{ e.bg }}; height: 34px; padding: 0 9px; display: flex; align-items: center; gap: 9px; color: var(--ink);" style-hover="background: var(--sel);">
+                      <span style="width: 7px; height: 7px; flex: none; border-radius: 999px; background: {{ e.dot }};"></span>
+                      <span style="flex: 1; min-width: 0; font-size: 13px; font-weight: {{ e.weight }}; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{{ e.name }}</span>
+                      <sc-if value="{{ e.locked }}" hint-placeholder-val="{{ false }}">
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" style="color: var(--ink3); flex: none;"><rect x="5" y="11" width="14" height="9" rx="2"></rect><path d="M8 11V8a4 4 0 0 1 8 0v3"></path></svg>
+                      </sc-if>
+                      <span style="flex: none; font-family: ui-monospace, 'SF Mono', 'Cascadia Code', Menlo, monospace; font-size: 11px; color: var(--ink3);">{{ e.count }}</span>
+                    </button>
+                  </sc-for>
+                  <div style="flex: 1;"></div>
+                  <div style="flex: none; display: flex; align-items: center; gap: 2px; padding: 6px 2px; border-top: 1px solid var(--line2);">
+                    <button type="button" title="New environment" style="appearance: none; cursor: pointer; width: 28px; height: 28px; border: 0; border-radius: 6px; background: transparent; color: var(--ink2); display: flex; align-items: center; justify-content: center;" style-hover="background: var(--sel); color: var(--ink);">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"></path></svg>
+                    </button>
+                    <button type="button" title="Remove environment" style="appearance: none; cursor: pointer; width: 28px; height: 28px; border: 0; border-radius: 6px; background: transparent; color: var(--ink2); display: flex; align-items: center; justify-content: center;" style-hover="background: var(--sel); color: var(--ink);">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M5 12h14"></path></svg>
+                    </button>
+                    <div style="flex: 1;"></div>
+                    <button type="button" onClick="{{ openImportEnv }}" style="appearance: none; cursor: pointer; font-family: inherit; font-size: 12px; height: 28px; padding: 0 8px; border: 0; border-radius: 6px; background: transparent; color: var(--ink2);" style-hover="background: var(--sel); color: var(--ink);">Import .env</button>
+                  </div>
+                </div>
+                <div style="flex: 1; min-width: 0; display: flex; flex-direction: column;">
+                  <div style="height: 42px; flex: none; display: flex; align-items: center; gap: 10px; padding: 0 14px; border-bottom: 1px solid var(--line2);">
+                    <div style="display: flex; align-items: center; gap: 7px; height: 28px; padding: 0 10px; border-radius: 7px; background: var(--chip); color: var(--ink3); max-width: 280px; flex: 1;">
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="11" cy="11" r="7"></circle><path d="m20 20-4.4-4.4"></path></svg>
+                      <span style="font-size: 12.5px;">Filter by name</span>
+                    </div>
+                    <div style="flex: 1;"></div>
+                    <sc-if value="{{ envLocked }}" hint-placeholder-val="{{ false }}">
+                      <span style="font-size: 11.5px; font-weight: 600; padding: 4px 9px; border-radius: 6px; background: var(--bad-soft); color: var(--bad);">read-only · unlock to edit</span>
+                    </sc-if>
+                  </div>
+                  <div style="flex: none; display: grid; grid-template-columns: 210px minmax(0, 1fr) 110px 58px; height: 32px; align-items: center; padding: 0 14px; border-bottom: 1px solid var(--line2); font-size: 11px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink3);">
+                    <span>Variable</span><span>Value</span><span>Type</span><span></span>
+                  </div>
+                  <div style="flex: 1; min-height: 0; overflow-y: auto;">
+                    <sc-for list="{{ envOwnVars }}" as="v" hint-placeholder-count="5">
+                      <div style="display: grid; grid-template-columns: 210px minmax(0, 1fr) 110px 58px; align-items: center; height: 40px; padding: 0 14px; border-bottom: 1px solid var(--line2);" style-hover="background: var(--sel);">
+                        <span style="font-family: ui-monospace, 'SF Mono', 'Cascadia Code', Menlo, monospace; font-size: 12.5px; padding-right: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{{ v.k }}</span>
+                        <span style="display: flex; align-items: center; gap: 6px; min-width: 0; padding-right: 12px;">
+                          <span style="font-family: ui-monospace, 'SF Mono', 'Cascadia Code', Menlo, monospace; font-size: 12.5px; color: {{ v.valueInk }}; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{{ v.v }}</span>
+                          <sc-if value="{{ v.secret }}" hint-placeholder-val="{{ false }}">
+                            <button type="button" title="Reveal value" style="appearance: none; cursor: pointer; flex: none; width: 26px; height: 26px; border: 0; border-radius: 6px; background: transparent; color: var(--ink3); display: flex; align-items: center; justify-content: center;" style-hover="background: var(--sel); color: var(--ink);">
+                              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12Z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+                            </button>
+                          </sc-if>
+                        </span>
+                        <span><span style="font-size: 11px; font-weight: 600; padding: 3px 7px; border-radius: 5px; background: {{ v.tagBg }}; color: {{ v.tagInk }};">{{ v.tag }}</span></span>
+                        <span style="display: flex; justify-content: flex-end;">
+                          <button type="button" title="Delete variable" style="appearance: none; cursor: pointer; width: 26px; height: 26px; border: 0; border-radius: 6px; background: transparent; color: var(--ink3); display: flex; align-items: center; justify-content: center;" style-hover="background: var(--bad-soft); color: var(--bad);">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 7h14M10 7V5h4v2M7 7v12h10V7"></path></svg>
+                          </button>
+                        </span>
+                      </div>
+                    </sc-for>
+                    <button type="button" onClick="{{ openNewVariable }}" style="appearance: none; cursor: pointer; width: 100%; font-family: inherit; text-align: left; display: flex; align-items: center; gap: 7px; height: 40px; padding: 0 14px; border: 0; border-bottom: 1px solid var(--line2); background: transparent; color: var(--ink3); font-size: 12.5px;" style-hover="background: var(--sel); color: var(--accent);">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"></path></svg>New variable
+                    </button>
+                    <div style="display: flex; align-items: center; gap: 9px; height: 32px; padding: 0 14px; background: var(--raise); border-bottom: 1px solid var(--line2);">
+                      <span style="font-size: 11px; font-weight: 600; letter-spacing: 0.07em; text-transform: uppercase; color: var(--ink3);">Inherited from globals</span>
+                      <span style="font-family: ui-monospace, 'SF Mono', 'Cascadia Code', Menlo, monospace; font-size: 11px; color: var(--ink3);">{{ envGlobalCount }}</span>
+                      <div style="flex: 1;"></div>
+                      <span style="font-size: 11.5px; color: var(--ink3);">apply in every environment</span>
+                    </div>
+                    <sc-for list="{{ envGlobalVars }}" as="v" hint-placeholder-count="3">
+                      <div style="display: grid; grid-template-columns: 210px minmax(0, 1fr) 110px 58px; align-items: center; height: 40px; padding: 0 14px; border-bottom: 1px solid var(--line2);" style-hover="background: var(--sel);">
+                        <span style="display: flex; align-items: center; gap: 7px; min-width: 0; padding-right: 12px;">
+                          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="color: var(--type); flex: none;"><path d="M4 6v6a4 4 0 0 0 4 4h11"></path><path d="m15 12 4 4-4 4"></path></svg>
+                          <span style="font-family: ui-monospace, 'SF Mono', 'Cascadia Code', Menlo, monospace; font-size: 12.5px; color: var(--ink3); text-decoration: {{ v.strike }}; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{{ v.k }}</span>
+                        </span>
+                        <span style="font-family: ui-monospace, 'SF Mono', 'Cascadia Code', Menlo, monospace; font-size: 12.5px; color: var(--ink3); text-decoration: {{ v.strike }}; padding-right: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{{ v.v }}</span>
+                        <span><span style="font-size: 11px; font-weight: 600; padding: 3px 7px; border-radius: 5px; background: {{ v.tagBg }}; color: {{ v.tagInk }};">{{ v.tag }}</span></span>
+                        <span style="display: flex; justify-content: flex-end; color: var(--ink3);">
+                          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h4L19 9a2.8 2.8 0 0 0-4-4L4 16Z"></path></svg>
+                        </span>
+                      </div>
+                    </sc-for>
+                  </div>
+                  <div style="height: 36px; flex: none; display: flex; align-items: center; padding: 0 14px; border-top: 1px solid var(--line2); font-size: 11.5px; color: var(--ink3);">Secrets are kept in the system keychain and never leave in a collection export.</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{ wsManagerOpen }}" hint-placeholder-val="{{ false }}">
+          <div style="position: absolute; inset: 0; background: rgba(0,0,0,0.22); display: flex; align-items: center; justify-content: center; padding: 28px; z-index: 80;">
+            <div style="width: 100%; max-width: 900px; height: 100%; max-height: 580px; background: var(--pop); backdrop-filter: blur(30px) saturate(180%); -webkit-backdrop-filter: blur(30px) saturate(180%); border: 1px solid var(--line); border-radius: 14px; box-shadow: var(--popshadow); overflow: hidden; display: flex; flex-direction: column;">
+              <div style="height: 50px; flex: none; display: flex; align-items: center; gap: 12px; padding: 0 16px; border-bottom: 1px solid var(--line);">
+                <span style="flex: 1; font-size: 14px; font-weight: 600;">Workspaces</span>
+                <button type="button" onClick="{{ closeWsManager }}" style="appearance: none; cursor: pointer; font-family: inherit; font-size: 13px; font-weight: 500; height: 30px; padding: 0 14px; background: var(--field); color: var(--ink); border: 1px solid var(--fieldline); border-radius: 8px;" style-hover="background: var(--sel);">Done</button>
+              </div>
+              <div style="flex: 1; min-height: 0; display: flex;">
+                <div style="width: 236px; flex: none; border-right: 1px solid var(--line); display: flex; flex-direction: column; padding: 8px 8px 0;">
+                  <sc-for list="{{ wsManageList }}" as="w" hint-placeholder-count="3">
+                    <button type="button" onClick="{{ w.on }}" style="appearance: none; cursor: pointer; font-family: inherit; text-align: left; border: 0; border-radius: 8px; background: {{ w.bg }}; padding: 8px 9px; display: flex; align-items: center; gap: 10px; color: var(--ink);" style-hover="background: var(--sel);">
+                      <span style="width: 22px; height: 22px; flex: none; border-radius: 6px; background: {{ w.tint }}; color: #fff; font-size: 10.5px; font-weight: 700; display: inline-flex; align-items: center; justify-content: center;">{{ w.initial }}</span>
+                      <span style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px;">
+                        <span style="font-size: 13px; font-weight: {{ w.weight }}; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{{ w.name }}</span>
+                        <span style="font-size: 11px; color: var(--ink3);">{{ w.meta }}</span>
+                      </span>
+                    </button>
+                  </sc-for>
+                  <div style="flex: 1;"></div>
+                  <div style="flex: none; padding: 6px 2px; border-top: 1px solid var(--line2);">
+                    <button type="button" onClick="{{ startWsCreate }}" style="appearance: none; cursor: pointer; font-family: inherit; font-size: 12.5px; font-weight: 500; color: var(--accent); background: {{ wsCreateBg }}; border: 0; border-radius: 6px; height: 28px; padding: 0 8px; display: flex; align-items: center; gap: 7px;" style-hover="background: var(--accent-soft);">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 5v14M5 12h14"></path></svg>New workspace
+                    </button>
+                  </div>
+                </div>
+
+                <sc-if value="{{ wsCreating }}" hint-placeholder-val="{{ false }}">
+                  <div style="flex: 1; min-width: 0; overflow-y: auto; padding: 18px 20px; display: flex; flex-direction: column; gap: 18px;">
+                    <span style="font-size: 15px; font-weight: 600;">New workspace</span>
+                    <div style="display: flex; gap: 14px; align-items: flex-end;">
+                      <div style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px;">
+                        <span style="font-size: 11px; font-weight: 600; letter-spacing: 0.07em; text-transform: uppercase; color: var(--ink3);">Name</span>
+                        <span style="height: 34px; padding: 0 11px; display: flex; align-items: center; border: 1px solid var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); border-radius: 8px; background: var(--field); font-size: 13.5px; color: var(--ink3);">e.g. Mobile team</span>
+                      </div>
+                      <div style="flex: none; display: flex; flex-direction: column; gap: 6px;">
+                        <span style="font-size: 11px; font-weight: 600; letter-spacing: 0.07em; text-transform: uppercase; color: var(--ink3);">Color</span>
+                        <div style="display: flex; gap: 7px; height: 34px; align-items: center;">
+                          <sc-for list="{{ wsColors }}" as="c" hint-placeholder-count="4">
+                            <button type="button" onClick="{{ c.on }}" style="appearance: none; cursor: pointer; width: 20px; height: 20px; padding: 0; border: 0; border-radius: 999px; background: {{ c.hex }}; box-shadow: {{ c.ring }};"></button>
+                          </sc-for>
+                        </div>
+                      </div>
+                    </div>
+                    <div style="display: flex; flex-direction: column; gap: 6px;">
+                      <span style="font-size: 11px; font-weight: 600; letter-spacing: 0.07em; text-transform: uppercase; color: var(--ink3);">Type</span>
+                      <div style="display: flex; padding: 2px; border-radius: 8px; background: var(--chip); max-width: 260px;">
+                        <sc-for list="{{ wsNewTypes }}" as="t" hint-placeholder-count="2">
+                          <button type="button" onClick="{{ t.on }}" style="appearance: none; cursor: pointer; flex: 1; font-family: inherit; font-size: 12.5px; font-weight: 500; height: 28px; border: 0; border-radius: 6px; background: {{ t.bg }}; color: {{ t.ink }}; box-shadow: {{ t.sh }};">{{ t.label }}</button>
+                        </sc-for>
+                      </div>
+                    </div>
+                    <sc-if value="{{ wsNewIsTeam }}" hint-placeholder-val="{{ false }}">
+                      <div style="display: flex; flex-direction: column; gap: 8px;">
+                        <span style="font-size: 11px; font-weight: 600; letter-spacing: 0.07em; text-transform: uppercase; color: var(--ink3);">Invite members</span>
+                        <div style="border: 1px solid var(--line); border-radius: 10px; overflow: hidden;">
+                          <div style="display: grid; grid-template-columns: minmax(0, 1fr) 120px; align-items: center; gap: 10px; height: 42px; padding: 0 12px; border-bottom: 1px solid var(--line2);">
+                            <span style="font-size: 13px;">ucell.dev@itl.digital<span style="color: var(--ink3);"> · you</span></span>
+                            <span style="font-size: 12.5px; color: var(--ink2);">Owner</span>
+                          </div>
+                          <div style="display: flex; align-items: center; gap: 10px; height: 44px; padding: 0 12px;">
+                            <span style="flex: 1; min-width: 0; font-size: 13px; color: var(--ink3);">name@company.com</span>
+                            <button type="button" onClick="{{ openInvite }}" style="appearance: none; cursor: pointer; font-family: inherit; font-size: 12.5px; font-weight: 500; height: 30px; padding: 0 12px; background: var(--field); color: var(--ink); border: 1px solid var(--fieldline); border-radius: 7px;" style-hover="background: var(--sel);">Add</button>
+                          </div>
+                        </div>
+                      </div>
+                    </sc-if>
+                    <div style="display: flex; gap: 10px; padding-top: 4px; border-top: 1px solid var(--line);">
+                      <div style="flex: 1;"></div>
+                      <button type="button" onClick="{{ cancelWsCreate }}" style="appearance: none; cursor: pointer; font-family: inherit; font-size: 13.5px; font-weight: 500; height: 34px; padding: 0 14px; background: var(--field); color: var(--ink); border: 1px solid var(--fieldline); border-radius: 8px;" style-hover="background: var(--sel);">Cancel</button>
+                      <button type="button" onClick="{{ cancelWsCreate }}" style="appearance: none; cursor: pointer; font-family: inherit; font-size: 13.5px; font-weight: 600; height: 34px; padding: 0 16px; background: var(--accent); color: #fff; border: 0; border-radius: 8px;" style-hover="background: var(--accent-press);">Create workspace</button>
+                    </div>
+                  </div>
+                </sc-if>
+
+                <sc-if value="{{ wsDetailOpen }}" hint-placeholder-val="{{ true }}">
+                <div style="flex: 1; min-width: 0; overflow-y: auto; padding: 18px 20px; display: flex; flex-direction: column; gap: 18px;">
+                  <div style="display: flex; gap: 14px; align-items: flex-end;">
+                    <div style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px;">
+                      <span style="font-size: 11px; font-weight: 600; letter-spacing: 0.07em; text-transform: uppercase; color: var(--ink3);">Name</span>
+                      <span style="height: 34px; padding: 0 11px; display: flex; align-items: center; border: 1px solid var(--fieldline); border-radius: 8px; background: var(--field); font-size: 13.5px;">{{ wsDetailName }}</span>
+                    </div>
+                    <div style="flex: none; display: flex; flex-direction: column; gap: 6px;">
+                      <span style="font-size: 11px; font-weight: 600; letter-spacing: 0.07em; text-transform: uppercase; color: var(--ink3);">Color</span>
+                      <div style="display: flex; gap: 7px; height: 34px; align-items: center;">
+                        <sc-for list="{{ wsColors }}" as="c" hint-placeholder-count="4">
+                          <button type="button" onClick="{{ c.on }}" style="appearance: none; cursor: pointer; width: 20px; height: 20px; padding: 0; border: 0; border-radius: 999px; background: {{ c.hex }}; box-shadow: {{ c.ring }};"></button>
+                        </sc-for>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div style="display: flex; flex-direction: column; gap: 6px;">
+                    <span style="font-size: 11px; font-weight: 600; letter-spacing: 0.07em; text-transform: uppercase; color: var(--ink3);">Type</span>
+                    <div style="display: flex; padding: 2px; border-radius: 8px; background: var(--chip); max-width: 260px;">
+                      <sc-for list="{{ wsTypes }}" as="t" hint-placeholder-count="2">
+                        <button type="button" onClick="{{ t.on }}" style="appearance: none; cursor: pointer; flex: 1; font-family: inherit; font-size: 12.5px; font-weight: 500; height: 28px; border: 0; border-radius: 6px; background: {{ t.bg }}; color: {{ t.ink }}; box-shadow: {{ t.sh }};">{{ t.label }}</button>
+                      </sc-for>
+                    </div>
+                  </div>
+
+                  <sc-if value="{{ wsIsTeam }}" hint-placeholder-val="{{ true }}">
+                    <div style="display: flex; flex-direction: column; gap: 8px;">
+                      <span style="font-size: 11px; font-weight: 600; letter-spacing: 0.07em; text-transform: uppercase; color: var(--ink3);">Members</span>
+                      <div style="border: 1px solid var(--line); border-radius: 10px; overflow: hidden;">
+                        <sc-for list="{{ wsMembers }}" as="m" hint-placeholder-count="4">
+                          <div style="display: grid; grid-template-columns: minmax(0, 1fr) 120px 30px; align-items: center; gap: 10px; height: 42px; padding: 0 12px; border-bottom: 1px solid var(--line2);" style-hover="background: var(--sel);">
+                            <span style="display: flex; align-items: center; gap: 9px; min-width: 0;">
+                              <span style="width: 22px; height: 22px; flex: none; border-radius: 999px; background: var(--chip); color: var(--ink2); font-size: 10.5px; font-weight: 600; display: inline-flex; align-items: center; justify-content: center;">{{ m.initials }}</span>
+                              <span style="font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{{ m.email }}<span style="color: var(--ink3);">{{ m.you }}</span></span>
+                            </span>
+                            <span style="font-size: 12.5px; color: var(--ink2);">{{ m.role }}</span>
+                            <button type="button" title="{{ m.removeHint }}" style="appearance: none; cursor: pointer; width: 26px; height: 26px; border: 0; border-radius: 6px; background: transparent; color: var(--ink3); display: flex; align-items: center; justify-content: center; opacity: {{ m.removeOpacity }};" style-hover="background: var(--bad-soft); color: var(--bad);">
+                              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"></path></svg>
+                            </button>
+                          </div>
+                        </sc-for>
+                        <div style="display: flex; align-items: center; gap: 10px; height: 44px; padding: 0 12px;">
+                          <span style="flex: 1; min-width: 0; font-size: 13px; color: var(--ink3);">name@company.com</span>
+                          <button type="button" onClick="{{ openInvite }}" style="appearance: none; cursor: pointer; font-family: inherit; font-size: 12.5px; font-weight: 600; height: 30px; padding: 0 13px; background: var(--accent); color: #fff; border: 0; border-radius: 7px;" style-hover="background: var(--accent-press);">Invite</button>
+                        </div>
+                      </div>
+                    </div>
+                  </sc-if>
+
+                  <div style="display: flex; flex-direction: column; gap: 8px;">
+                    <span style="font-size: 11px; font-weight: 600; letter-spacing: 0.07em; text-transform: uppercase; color: var(--ink3);">Contents</span>
+                    <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px;">
+                      <sc-for list="{{ wsContents }}" as="c" hint-placeholder-count="3">
+                        <div style="border: 1px solid var(--line); border-radius: 10px; padding: 12px; display: flex; flex-direction: column; gap: 4px;">
+                          <span style="font-size: 18px; font-weight: 600; letter-spacing: -0.01em;">{{ c.value }}</span>
+                          <span style="font-size: 12.5px; color: var(--ink3);">{{ c.label }}</span>
+                        </div>
+                      </sc-for>
+                    </div>
+                  </div>
+
+                  <div style="display: flex; align-items: center; gap: 12px; padding-top: 4px; border-top: 1px solid var(--line);">
+                    <span style="flex: 1; min-width: 0; font-size: 12.5px; color: var(--ink3);">{{ wsDangerNote }}</span>
+                    <button type="button" onClick="{{ openWsDanger }}" style="appearance: none; cursor: pointer; font-family: inherit; font-size: 12.5px; font-weight: 500; height: 30px; padding: 0 12px; background: transparent; color: var(--bad); border: 1px solid var(--bad-soft); border-radius: 7px;" style-hover="background: var(--bad-soft);">{{ wsDangerAction }}</button>
+                  </div>
+                </div>
+                </sc-if>
+              </div>
+            </div>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{ isCollEmptyPage }}" hint-placeholder-val="{{ false }}">
+          <div style="flex: 1; min-height: 0; display: flex; align-items: center; justify-content: center; padding: 40px;">
+            <div style="max-width: 460px; display: flex; flex-direction: column; align-items: flex-start; gap: 16px;">
+              <span style="width: 52px; height: 52px; border-radius: 14px; background: var(--chip); color: var(--ink3); display: inline-flex; align-items: center; justify-content: center;">
+                <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h16a1 1 0 0 0 1-1V8a1 1 0 0 0-1-1h-7l-2-3H4a1 1 0 0 0-1 1v14a1 1 0 0 0 1 1Z"></path></svg>
+              </span>
+              <div style="display: flex; flex-direction: column; gap: 8px;">
+                <span style="font-size: 22px; font-weight: 600; letter-spacing: -0.01em;">No collections in Personal</span>
+                <span style="font-size: 14px; line-height: 1.55; color: var(--ink2);">Collections keep related requests together with their own variables, authorization and scripts. Start from scratch or bring an existing file.</span>
+              </div>
+              <div style="display: flex; gap: 10px;">
+                <button type="button" onClick="{{ openNewCollection }}" style="appearance: none; cursor: pointer; font-family: inherit; font-size: 14px; font-weight: 600; height: 38px; padding: 0 18px; background: var(--accent); color: #fff; border: 0; border-radius: 9px; display: flex; align-items: center; gap: 9px;" style-hover="background: var(--accent-press);">
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 5v14M5 12h14"></path></svg>New collection
+                </button>
+                <button type="button" onClick="{{ openImport }}" style="appearance: none; cursor: pointer; font-family: inherit; font-size: 13.5px; font-weight: 500; height: 38px; padding: 0 16px; background: var(--raise); color: var(--ink); border: 1px solid var(--line); border-radius: 9px; display: flex; align-items: center; gap: 9px;" style-hover="background: var(--sel);">
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 16V5M8 9l4-4 4 4M5 18.5h14"></path></svg>Import…
+                </button>
+              </div>
+              <span style="font-size: 12.5px; color: var(--ink3);">Import accepts OpenAPI, HAR, cURL and JSON Inspector files.</span>
+            </div>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{ isCollIndex }}" hint-placeholder-val="{{ false }}">
+          <div style="flex: 1; min-height: 0; overflow-y: auto; padding: 28px 32px; display: flex; flex-direction: column; gap: 26px;">
+            <div style="display: flex; align-items: flex-start; gap: 16px;">
+              <span style="width: 44px; height: 44px; flex: none; border-radius: 12px; background: var(--accent-soft); color: var(--accent); display: inline-flex; align-items: center; justify-content: center;">
+                <svg width="23" height="23" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h16a1 1 0 0 0 1-1V8a1 1 0 0 0-1-1h-7l-2-3H4a1 1 0 0 0-1 1v14a1 1 0 0 0 1 1Z"></path></svg>
+              </span>
+              <div style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px;">
+                <span style="font-size: 22px; font-weight: 600; letter-spacing: -0.01em;">{{ collIndexTitle }}</span>
+                <span style="font-size: 13.5px; color: var(--ink2);">{{ collIndexMeta }}</span>
+              </div>
+              <button type="button" onClick="{{ openRunFolder }}" style="appearance: none; cursor: pointer; font-family: inherit; font-size: 14px; font-weight: 600; height: 36px; padding: 0 16px; background: var(--accent); color: #fff; border: 0; border-radius: 9px; flex: none; display: flex; align-items: center; gap: 9px;" style-hover="background: var(--accent-press);">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 5l11 7-11 7z"></path></svg>Run folder
+              </button>
+              <button type="button" onClick="{{ openExport }}" style="appearance: none; cursor: pointer; font-family: inherit; font-size: 13.5px; font-weight: 500; height: 36px; padding: 0 14px; background: var(--raise); color: var(--ink); border: 1px solid var(--line); border-radius: 9px; flex: none;" style-hover="background: var(--sel);">Export</button>
+            </div>
+
+            <div style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px;">
+              <sc-for list="{{ collStats }}" as="s" hint-placeholder-count="4">
+                <div style="border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; display: flex; flex-direction: column; gap: 6px;">
+                  <span style="font-size: 11px; font-weight: 600; letter-spacing: 0.07em; text-transform: uppercase; color: var(--ink3);">{{ s.label }}</span>
+                  <span style="font-size: 20px; font-weight: 600; letter-spacing: -0.01em;">{{ s.value }}</span>
+                  <span style="font-size: 12.5px; color: var(--ink3);">{{ s.note }}</span>
+                </div>
+              </sc-for>
+            </div>
+
+            <div style="display: flex; flex-direction: column; gap: 10px;">
+              <div style="display: flex; align-items: baseline; gap: 10px;">
+                <span style="font-size: 11px; font-weight: 600; letter-spacing: 0.07em; text-transform: uppercase; color: var(--ink3);">Run results</span>
+                <span style="font-size: 12.5px; color: var(--ink3);">{{ collRowsNote }}</span>
+                <div style="flex: 1;"></div>
+                <button type="button" onClick="{{ openRunReport }}" style="appearance: none; cursor: pointer; font-family: inherit; font-size: 12.5px; font-weight: 500; color: var(--accent); background: transparent; border: 0; border-radius: 7px; height: 28px; padding: 0 8px;" style-hover="background: var(--accent-soft);">Open full report</button>
+              </div>
+              <div style="border: 1px solid var(--line); border-radius: 12px; overflow: hidden; display: flex; flex-direction: column; max-height: 320px;">
+                <div style="flex: none; display: grid; grid-template-columns: 90px minmax(0, 1fr) 200px 120px 110px; background: var(--raise); border-bottom: 1px solid var(--line); font-size: 11px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink3);">
+                  <div style="padding: 10px 16px;">Method</div><div style="padding: 10px 16px;">Name</div><div style="padding: 10px 16px;">Assertions</div><div style="padding: 10px 16px;">Time</div><div style="padding: 10px 16px;">Status</div>
+                </div>
+                <div style="flex: 1; min-height: 0; overflow-y: auto;">
+                <sc-for list="{{ collIndexRows }}" as="r" hint-placeholder-count="4">
+                  <button type="button" style="appearance: none; cursor: pointer; width: 100%; font-family: inherit; text-align: left; background: transparent; border: 0; border-bottom: 1px solid var(--line2); display: grid; grid-template-columns: 90px minmax(0, 1fr) 200px 120px 110px; align-items: center; min-height: 46px; color: var(--ink);" style-hover="background: var(--sel);">
+                    <span style="padding: 0 16px; font-family: ui-monospace, 'SF Mono', 'Cascadia Code', Menlo, monospace; font-size: 11.5px; color: {{ r.methodInk }};">{{ r.method }}</span>
+                    <span style="padding: 0 16px; font-size: 13.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{{ r.name }}</span>
+                    <span style="padding: 0 16px; font-family: ui-monospace, 'SF Mono', 'Cascadia Code', Menlo, monospace; font-size: 12.5px; color: {{ r.assertInk }};">{{ r.asserts }}</span>
+                    <span style="padding: 0 16px; font-family: ui-monospace, 'SF Mono', 'Cascadia Code', Menlo, monospace; font-size: 12.5px; color: var(--ink2);">{{ r.ms }}</span>
+                    <span style="padding: 0 16px;"><span style="font-size: 11.5px; font-weight: 600; padding: 3px 8px; border-radius: 6px; background: {{ r.statusBg }}; color: {{ r.statusInk }};">{{ r.status }}</span></span>
+                  </button>
+                </sc-for>
+                </div>
+              </div>
+            </div>
+
+            <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px;">
+              <sc-for list="{{ collCards }}" as="c" hint-placeholder-count="3">
+                <div style="border: 1px solid var(--line); border-radius: 12px; padding: 16px; display: flex; flex-direction: column; gap: 8px;">
+                  <span style="font-size: 13.5px; font-weight: 600;">{{ c.title }}</span>
+                  <span style="font-size: 13px; line-height: 1.5; color: var(--ink2);">{{ c.body }}</span>
+                  <button type="button" onClick="{{ c.on }}" style="appearance: none; cursor: pointer; align-self: flex-start; font-family: inherit; font-size: 13px; font-weight: 500; color: var(--accent); background: transparent; border: 0; border-radius: 7px; height: 30px; padding: 0 8px; margin-left: -8px;" style-hover="background: var(--accent-soft);">{{ c.action }}</button>
+                </div>
+              </sc-for>
+            </div>
+          </div>
+        </sc-if>
       </div>
     </div>
 
@@ -834,13 +1381,13 @@
 </section>
 
 </x-dc>
-<script type="text/x-dc" data-dc-script data-props="{&quot;theme&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;light&quot;,&quot;dark&quot;],&quot;default&quot;:&quot;light&quot;,&quot;tsType&quot;:&quot;'light' | 'dark'&quot;},&quot;platform&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;macos&quot;,&quot;windows&quot;],&quot;default&quot;:&quot;macos&quot;,&quot;tsType&quot;:&quot;'macos' | 'windows'&quot;}}">
+<script type="text/x-dc" data-dc-script data-props="{&quot;theme&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;light&quot;,&quot;dark&quot;],&quot;default&quot;:&quot;light&quot;,&quot;tsType&quot;:&quot;'light' | 'dark'&quot;},&quot;platform&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;macos&quot;,&quot;windows&quot;],&quot;default&quot;:&quot;macos&quot;,&quot;tsType&quot;:&quot;'macos' | 'windows'&quot;},&quot;emptyCollections&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Empty states&quot;},&quot;browserNotConnected&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Empty states&quot;}}">
 class Component extends DCLogic {
   state = {
     mode: null, platform: null, src: 'Request', tab: 'Body', mainOpen: true,
     pop: null, hist: 0, incOpen: {}, authType: 'Bearer', authMore: false,
     bodyType: 'JSON', inspector: false,
-    workspace: 'Personal', env: 'Local · dev', captured: 1, coll: 2
+    workspace: 'Personal', env: 'Local · dev', captured: 1, coll: 2, ctx: null, capturing: true, sheet: null, modal: null, envEdit: null, wsEdit: null, wsColor: 0, wsCreate: false, wsNewType: 'Team', collEmpty: false, folderAuth: 'Bearer', scriptTab: 'Pre-request', scriptOff: false
   };
 
   set(k, v) { return () => this.setState({ [k]: v }); }
@@ -1089,7 +1636,7 @@ class Component extends DCLogic {
         : { statusBg: 'var(--chip)', statusInk: 'var(--ink2)' };
     const capturedDefs = [
       { kind: 'site', title: 'Blog demo — example.com', initial: 'B', tint: '#2e8b57', count: '4', recording: true, open: true },
-      { kind: 'req', method: 'GET', status: '200', path: '/articles?include=author,comments', ms: '128 ms' },
+      { kind: 'req', method: 'GET', status: '200', path: '/articles?include=author,comments', ms: '128 ms', openable: true },
       { kind: 'req', method: 'GET', status: '200', path: '/people/9', ms: '64 ms' },
       { kind: 'req', method: 'POST', status: '201', path: '/comments', ms: '311 ms' },
       { kind: 'req', method: 'GET', status: '404', path: '/articles/91', ms: '96 ms' },
@@ -1097,9 +1644,11 @@ class Component extends DCLogic {
     ];
     const capturedTree = capturedDefs.map((n, i) => {
       const isSite = n.kind === 'site';
-      const sel = !isSite && this.state.captured === i;
+      const sel = this.state.captured === i;
       return {
-        ...n, isSite, isRequest: !isSite, on: this.set('captured', i),
+        ...n, isSite, isRequest: !isSite,
+        on: (isSite || n.openable) ? this.set('captured', i) : (() => {}),
+        rowOpacity: (isSite || n.openable) ? '1' : '0.6',
         pad: isSite ? '10px' : '30px',
         rot: n.open ? '90deg' : '0deg',
         bg: sel ? 'var(--accent)' : 'transparent',
@@ -1127,9 +1676,11 @@ class Component extends DCLogic {
     ];
     const collectionTree = collDefs.map((n, i) => {
       const isFolder = n.kind === 'folder';
-      const sel = !isFolder && this.state.coll === i;
+      const sel = this.state.coll === i;
       return {
-        ...n, isFolder, isRequest: !isFolder, on: this.set('coll', i),
+        ...n, isFolder, isRequest: !isFolder,
+        on: () => this.setState({ coll: i, ctx: null }),
+        onCtx: e => { e.preventDefault(); this.setState({ ctx: i }); },
         pad: (10 + n.depth * 16) + 'px',
         rot: n.open ? '90deg' : '0deg',
         weight: n.weight || 400,
@@ -1147,9 +1698,542 @@ class Component extends DCLogic {
     ];
     const bpOpen = pop === 'BParams';
 
+    const capNode = capturedDefs[this.state.captured === null ? 0 : this.state.captured] || capturedDefs[1];
+    const capIsSite = capNode.kind === 'site';
+    const atBrowserHome = src === 'Browser' && !!this.props.browserNotConnected;
+    const isBrowserIndex = src === 'Browser' && capIsSite && !atBrowserHome;
+    const capReqs = capturedDefs
+      .map((n, i) => ({ n, i }))
+      .filter(x => x.n.kind === 'req')
+      .map(x => ({
+        method: x.n.method, path: x.n.path, status: x.n.status, ms: x.n.ms,
+        size: x.n.status === '404' ? '0.4 KB' : (x.n.method === 'POST' ? '0.9 KB' : '1.6 KB'),
+        on: x.n.openable ? this.set('captured', x.i) : (() => {}),
+        rowOpacity: x.n.openable ? '1' : '0.55',
+        rowHint: x.n.openable ? 'Open response' : 'Body no longer in session',
+        methodInk: methodInk(x.n.method),
+        ...statusTint(x.n.status)
+      }));
+    const capturing = this.state.capturing !== false;
+    const capSel = capIsSite ? capturedDefs[1] : capNode;
+    const capSize = capSel.status === '404' ? '0.4 KB' : (capSel.method === 'POST' ? '0.9 KB' : '1.6 KB');
+    const statusWord = { '200': '200 OK', '201': '201 Created', '404': '404 Not Found', '422': '422 Unprocessable' };
+    const browserSel = src === 'Browser' && !capIsSite;
+
+    const sheet = this.state.sheet;
+    const envEditName = this.state.envEdit || this.state.env;
+    const wsEditName = this.state.wsEdit || this.state.workspace;
+    const envVarData = {
+      'Local · dev': [
+        { k: 'baseUrl', v: 'https://api.example.com' },
+        { k: 'apiVersion', v: 'v1' },
+        { k: 'token', v: '', secret: true },
+        { k: 'secret', v: '', secret: true },
+        { k: 'pageSize', v: '25', tag: 'number' },
+        { k: 'timeout', v: '8000', tag: 'number' },
+        { k: 'verbose', v: 'true', tag: 'boolean' }
+      ],
+      'Stage · qa': [
+        { k: 'baseUrl', v: 'https://stage.api.example.com' },
+        { k: 'apiVersion', v: 'v1' },
+        { k: 'token', v: '', secret: true },
+        { k: 'pageSize', v: '25', tag: 'number' }
+      ],
+      Prod: [
+        { k: 'baseUrl', v: 'https://api.example.com' },
+        { k: 'apiVersion', v: 'v1' },
+        { k: 'token', v: '', secret: true }
+      ],
+      Globals: [
+        { k: 'locale', v: 'en-US' },
+        { k: 'userAgent', v: 'JSON Inspector/2.4' },
+        { k: 'timeout', v: '15000', tag: 'number' }
+      ]
+    };
+    const tagOn = { tagBg: 'var(--ok-soft)', tagInk: 'var(--ok)' };
+    const tagOff = { tagBg: 'var(--chip)', tagInk: 'var(--ink3)' };
+    const sheetData = {
+      ext: {
+        title: 'Browser extension', action: 'Done',
+        sub: 'Chrome 141 · connected on port 7999. Pick which tabs forward their traffic here.',
+        rows: [
+          { label: 'Blog demo — example.com', note: 'Tab 1 · capturing since 13:02', tag: 'Capturing', ...tagOn },
+          { label: 'admin.retail.example.com', note: 'Tab 2 · idle', tag: 'Paused', ...tagOff },
+          { label: 'Other tabs', note: 'Not allowed to forward requests', tag: 'Off', ...tagOff }
+        ]
+      },
+      filters: {
+        title: 'Capture filters', action: 'Save filters',
+        sub: 'Requests that do not match are dropped before they reach the list.',
+        rows: [
+          { label: 'api.example.com', note: 'Allowed host', tag: 'Keep', ...tagOn },
+          { label: 'Static files · js, css, images, fonts', note: 'Dropped', tag: 'Skip', ...tagOff },
+          { label: 'Analytics and trackers', note: 'Dropped', tag: 'Skip', ...tagOff },
+          { label: 'JSON responses only', note: 'application/json, application/vnd.api+json', tag: 'On', ...tagOn }
+        ]
+      },
+      auth: {
+        kind: 'auth', title: 'Folder authorization', action: 'Save',
+        sub: 'How every request in this folder authorizes. The token itself lives in the workspace environment.'
+      },
+      vars: {
+        kind: 'vars', title: 'Folder variables', action: 'Save',
+        sub: 'Defined on the folder and resolved before the workspace environment.'
+      },
+      scripts: {
+        kind: 'scripts', title: 'Folder scripts', action: 'Save',
+        sub: 'Run around every request in the folder, before the request’s own scripts.'
+      },
+      invite: {
+        title: 'Invite to workspace', action: 'Send invite',
+        sub: 'The invite gives access to every collection and environment in this workspace.',
+        rows: [
+          { label: 'Can edit', note: 'Create and change requests, run collections', tag: 'Selected', ...tagOn },
+          { label: 'Read only', note: 'Open and run, but not change anything', tag: 'Off', ...tagOff },
+          { label: 'Share environment secrets', note: 'Values stay hidden unless this is on', tag: 'Off', ...tagOff }
+        ]
+      },
+      leaveWs: {
+        title: 'Leave workspace', action: 'Leave',
+        sub: 'You will lose access to its collections until someone invites you back.',
+        rows: [
+          { label: 'The workspace stays for the team', note: '3 other members keep their access', tag: 'Kept', ...tagOn },
+          { label: 'Your local runs and history', note: 'Removed from this machine', tag: 'Removed', ...tagOff }
+        ]
+      },
+      resetWs: {
+        title: 'Reset personal workspace', action: 'Reset',
+        sub: 'The personal workspace cannot be deleted, but it can be emptied.',
+        rows: [
+          { label: 'Collections and requests', note: '2 collections will be deleted', tag: 'Deleted', ...tagOff },
+          { label: 'Environments and variables', note: '3 environments will be deleted', tag: 'Deleted', ...tagOff },
+          { label: 'Secrets in the keychain', note: 'Removed together with their variables', tag: 'Deleted', ...tagOff }
+        ]
+      },
+      newVariable: {
+        title: 'New variable', action: 'Add',
+        sub: 'Added to the selected environment. Secrets are stored in the system keychain.',
+        rows: [
+          { label: 'Name', note: 'e.g. baseUrl', tag: 'Required', ...tagOn },
+          { label: 'Type', note: 'text · number · boolean · secret', tag: 'text', ...tagOff },
+          { label: 'Value', note: 'Empty for now', tag: 'Optional', ...tagOff }
+        ]
+      },
+      importEnv: {
+        title: 'Import .env', action: 'Choose file…',
+        sub: 'Keys become variables in the selected environment.',
+        rows: [
+          { label: 'Overwrite existing keys', note: 'Keeps values not present in the file', tag: 'On', ...tagOn },
+          { label: 'Treat KEY_SECRET as secret', note: 'Stored in the keychain, hidden in the table', tag: 'On', ...tagOn },
+          { label: 'Comments and blank lines', note: 'Skipped', tag: 'Skip', ...tagOff }
+        ]
+      },
+      runReport: {
+        title: 'Run report', action: 'Export report',
+        sub: 'Example API · 12 requests · 2 min ago · environment Local · dev',
+        rows: [
+          { label: 'Delete article · 409 Conflict', note: 'expect(status).toBe(204) failed · 204 ms', tag: 'Failed', ...tagOff },
+          { label: 'Edit comment · 422', note: 'expect(errors).toHaveLength(0) failed · 204 ms', tag: 'Failed', ...tagOff },
+          { label: '10 requests passed', note: '22 of 24 assertions · 2.7 s total', tag: 'Passed', ...tagOn },
+          { label: 'Slowest · Create article', note: '612 ms · POST /articles', tag: '612 ms', ...tagOff }
+        ]
+      },
+      runFolder: {
+        title: 'Run collection', action: 'Start run',
+        sub: 'Runs every request in order with the folder scripts applied.',
+        rows: [
+          { label: 'Environment', note: 'Local · dev · 7 variables', tag: 'Selected', ...tagOn },
+          { label: 'Iterations', note: '1 pass over 12 requests', tag: '1', ...tagOff },
+          { label: 'Delay between requests', note: 'No delay', tag: '0 ms', ...tagOff },
+          { label: 'Stop on first failure', note: 'Keeps going and reports at the end', tag: 'Off', ...tagOff }
+        ]
+      },
+      exportCollection: {
+        title: 'Export collection', action: 'Export…',
+        sub: 'Example API · 12 requests · 3 folders.',
+        rows: [
+          { label: 'JSON Inspector collection', note: 'Keeps scripts, variables and auth', tag: 'Selected', ...tagOn },
+          { label: 'OpenAPI 3', note: 'Paths and schemas only', tag: 'Off', ...tagOff },
+          { label: 'cURL commands', note: 'One command per request', tag: 'Off', ...tagOff },
+          { label: 'Include environment values', note: 'Secrets are replaced with variable names', tag: 'Off', ...tagOff }
+        ]
+      },
+      newCollection: {
+        title: 'New collection', action: 'Create',
+        sub: 'A collection groups requests with their own variables, authorization and scripts.',
+        rows: [
+          { label: 'Name', note: 'Example API', tag: 'Required', ...tagOn },
+          { label: 'Environment', note: 'Local · dev', tag: 'Workspace', ...tagOff },
+          { label: 'Authorization', note: 'Bearer from {{ env.token }}', tag: 'Optional', ...tagOff }
+        ]
+      },
+      import: {
+        title: 'Import', action: 'Choose file…',
+        sub: 'Drop a file or pick one — requests land in a new collection.',
+        rows: [
+          { label: 'OpenAPI 3 · Swagger', note: 'json, yaml', tag: 'Supported', ...tagOn },
+          { label: 'HAR', note: 'Captured browser traffic', tag: 'Supported', ...tagOn },
+          { label: 'cURL', note: 'Paste a command', tag: 'Supported', ...tagOn },
+          { label: 'JSON Inspector collection', note: 'Exported from another workspace', tag: 'Supported', ...tagOn }
+        ]
+      },
+      retention: {
+        title: 'Retention', action: 'Apply',
+        sub: 'How long captured traffic stays in this window.',
+        rows: [
+          { label: 'Until the window closes', note: 'Current setting', tag: 'Selected', ...tagOn },
+          { label: 'Keep last 500 requests', note: 'Older entries are discarded', tag: 'Off', ...tagOff },
+          { label: 'Keep across restarts', note: 'Writes captured bodies to disk', tag: 'Off', ...tagOff }
+        ]
+      }
+    };
+
+    const sheetKind = sheetData[sheet] ? sheetData[sheet].kind : null;
+    const collNode = collDefs[this.state.coll] || collDefs[0];
+    const collIsFolder = collNode.kind === 'folder';
+    const isCollIndex = src === 'Collections' && collIsFolder;
+    const collEmpty = !!this.props.emptyCollections;
+    const ctxIdx = this.state.ctx;
+    const ctxNode = ctxIdx === null || ctxIdx === undefined ? null : collDefs[ctxIdx];
+    const ctxIsFolder = ctxNode ? ctxNode.kind === 'folder' : false;
+    const ctxItems = (ctxIsFolder
+      ? [
+        { label: 'New request', key: '⌘N' },
+        { label: 'New folder', key: '' },
+        { label: 'Run folder', key: '⌘R', divider: true },
+        { label: 'Rename', key: '↩' },
+        { label: 'Duplicate', key: '⌘D' },
+        { label: 'Export…', key: '', divider: true },
+        { label: 'Delete', key: '⌫', danger: true }
+      ]
+      : [
+        { label: 'Open', key: '↩' },
+        { label: 'Rename', key: '' },
+        { label: 'Duplicate', key: '⌘D' },
+        { label: 'Copy as cURL', key: '', divider: true },
+        { label: 'Export request', key: '' },
+        { label: 'Delete', key: '⌫', danger: true }
+      ]).map(m => ({
+        label: m.label, key: m.key, divider: !!m.divider,
+        ink: m.danger ? 'var(--bad)' : 'var(--ink)',
+        hoverBg: m.danger ? 'var(--bad-soft)' : 'var(--sel)'
+      }));
+
+    const folderRowsMap = {
+      'Example API': [
+        { method: 'GET', name: 'List articles', path: '/articles', last: '2 min ago', status: '200' },
+        { method: 'GET', name: 'Article with author', path: '/articles/1?include=author', last: '2 min ago', status: '200' },
+        { method: 'POST', name: 'Create article', path: '/articles', last: '2 min ago', status: '201' },
+        { method: 'PATCH', name: 'Update article', path: '/articles/{id}', last: '2 min ago', status: '200' },
+        { method: 'DELETE', name: 'Delete article', path: '/articles/{id}', last: '2 min ago', status: '409' },
+        { method: 'GET', name: 'List comments', path: '/comments', last: '2 min ago', status: '200' },
+        { method: 'POST', name: 'Add comment', path: '/comments', last: '2 min ago', status: '201' },
+        { method: 'PATCH', name: 'Edit comment', path: '/comments/{id}', last: '2 min ago', status: '422' },
+        { method: 'DELETE', name: 'Delete comment', path: '/comments/{id}', last: '2 min ago', status: '204' },
+        { method: 'GET', name: 'List people', path: '/people', last: '2 min ago', status: '200' },
+        { method: 'POST', name: 'Sign in', path: '/auth/token', last: '2 min ago', status: '200' },
+        { method: 'POST', name: 'Refresh token', path: '/auth/refresh', last: '2 min ago', status: '200' }
+      ],
+      Articles: [
+        { method: 'GET', name: 'List articles', path: '/articles', last: '2 min ago', status: '200' },
+        { method: 'GET', name: 'Article with author', path: '/articles/1?include=author', last: '2 days ago', status: '200' },
+        { method: 'POST', name: 'Create article', path: '/articles', last: '2 days ago', status: '201' },
+        { method: 'DELETE', name: 'Delete article', path: '/articles/{id}', last: 'never', status: '—' }
+      ],
+      Comments: [
+        { method: 'GET', name: 'List comments', path: '/comments', last: '1 h ago', status: '200' },
+        { method: 'POST', name: 'Add comment', path: '/comments', last: '1 h ago', status: '201' },
+        { method: 'PATCH', name: 'Edit comment', path: '/comments/{id}', last: '3 days ago', status: '422' }
+      ],
+      Authorization: [
+        { method: 'POST', name: 'Sign in', path: '/auth/token', last: '5 min ago', status: '200' },
+        { method: 'POST', name: 'Refresh token', path: '/auth/refresh', last: '5 min ago', status: '200' }
+      ]
+    };
+    const runData = {
+      'List articles': { ms: '128 ms', asserts: '3 of 3', ok: true },
+      'Article with author': { ms: '196 ms', asserts: '4 of 4', ok: true },
+      'Create article': { ms: '612 ms', asserts: '3 of 3', ok: true },
+      'Delete article': { ms: '204 ms', asserts: '1 of 2', ok: false },
+      'Update article': { ms: '243 ms', asserts: '2 of 2', ok: true },
+      'Delete comment': { ms: '151 ms', asserts: '1 of 1', ok: true },
+      'List people': { ms: '96 ms', asserts: '2 of 2', ok: true },
+      'List comments': { ms: '142 ms', asserts: '2 of 2', ok: true },
+      'Add comment': { ms: '288 ms', asserts: '2 of 2', ok: true },
+      'Edit comment': { ms: '204 ms', asserts: '0 of 2', ok: false },
+      'Sign in': { ms: '331 ms', asserts: '2 of 2', ok: true },
+      'Refresh token': { ms: '118 ms', asserts: '1 of 1', ok: true }
+    };
+    const collIndexRows = (folderRowsMap[collNode.title] || folderRowsMap.Articles).map(r => ({
+      ...r, ...(runData[r.name] || { ms: '—', asserts: '—', ok: true }),
+      methodInk: methodInk(r.method),
+      assertInk: (runData[r.name] || {}).ok === false ? 'var(--bad)' : 'var(--ink2)',
+      ...((runData[r.name] || {}).ok === false
+        ? { status: 'failed', statusBg: 'var(--bad-soft)', statusInk: 'var(--bad)' }
+        : (r.status === '—'
+          ? { status: 'not run', statusBg: 'var(--chip)', statusInk: 'var(--ink3)' }
+          : statusTint(r.status)))
+    }));
+    const collPassCount = collIndexRows.filter(r => r.ok).length;
+    const collAssertTotal = collIndexRows.reduce((a, r) => a + (parseInt(String(r.asserts).split(' of ')[1], 10) || 0), 0);
+    const collAssertPassed = collIndexRows.reduce((a, r) => a + (parseInt(String(r.asserts).split(' of ')[0], 10) || 0), 0);
+    const collAsserts = collAssertPassed + ' of ' + collAssertTotal;
+    const collSlowest = collIndexRows.reduce((best, r) => {
+      const ms = parseInt(r.ms, 10);
+      return isNaN(ms) || (best && ms <= best.ms) ? best : { ms, name: r.name };
+    }, null) || { ms: 0, name: '—' };
+    const collTotalMs = collIndexRows.reduce((a, r) => a + (parseInt(r.ms, 10) || 0), 0);
+    const collTotal = (collTotalMs / 1000).toFixed(1) + ' s';
+    const collFailed = collIndexRows.filter(r => !r.ok);
+    sheetData.runReport.sub = collNode.title + ' · ' + collIndexRows.length + ' requests · 2 min ago · environment ' + this.state.env;
+    sheetData.runReport.rows = collFailed.map(r => ({
+      label: r.name + ' · ' + r.status, note: r.asserts + ' assertions passed · ' + r.ms,
+      tag: 'Failed', tagBg: 'var(--bad-soft)', tagInk: 'var(--bad)'
+    })).concat([
+      { label: collPassCount + ' requests passed', note: collAsserts + ' assertions · ' + collTotal + ' total', tag: 'Passed', ...tagOn },
+      { label: 'Slowest · ' + collSlowest.name, note: collSlowest.ms + ' ms', tag: collSlowest.ms + ' ms', ...tagOff }
+    ]);
+    const collStats = [
+      { label: 'Last run', value: '2 min ago', note: this.state.env + ' · ' + collTotal + ' total' },
+      { label: 'Passed', value: collPassCount + ' of ' + collIndexRows.length, note: 'requests without failures' },
+      { label: 'Assertions', value: collAsserts, note: collNode.depth === 0 ? '2 failed · Delete article, Edit comment' : '1 failed · Delete article' },
+      { label: 'Slowest', value: collSlowest.ms + ' ms', note: collSlowest.name }
+    ];
+    const collCards = [
+      { title: 'Authorization', body: 'Bearer token from {{ env.token }} — every request in the folder inherits it unless it sets its own.', action: 'Edit auth', on: this.set('sheet', 'auth') },
+      { title: 'Variables', body: 'baseUrl, apiVersion and 2 more are defined on the folder and override the environment.', action: 'Edit variables', on: this.set('sheet', 'vars') },
+      { title: 'Scripts', body: 'One pre-request script signs the payload; post-response asserts the JSON:API version.', action: 'Edit scripts', on: this.set('sheet', 'scripts') }
+    ];
+
     return {
       isRequestMode: src === 'Request', isBrowserMode: src === 'Browser', isCollectionsMode: src === 'Collections',
-      isEditable: src === 'Request' || src === 'Collections',
+      isEditable: src === 'Request' || (src === 'Collections' && !collIsFolder && !collEmpty),
+      isCollIndex: isCollIndex && !collEmpty, isBrowserIndex,
+      collEmpty, collTreeDisplay: collEmpty ? 'none' : 'flex',
+      isCollEmptyPage: src === 'Collections' && collEmpty,
+      openNewCollection: this.set('sheet', 'newCollection'),
+      openImport: this.set('sheet', 'import'),
+      showResponse: !isCollIndex && !isBrowserIndex && !atBrowserHome && !collEmpty,
+      isCollRequest: src === 'Collections' && !collIsFolder && !collEmpty,
+      isBrowserRequest: src === 'Browser' && !capIsSite && !atBrowserHome,
+      browserIndexTitle: capNode.title || 'Captured session',
+      browserIndexMeta: capturing
+        ? 'Chrome · capturing this tab since 13:02 · ' + (capNode.count || '4') + ' requests'
+        : 'Chrome · capture paused · ' + (capNode.count || '4') + ' requests kept',
+      browserIndexRows: capReqs,
+      capMethod: capSel.method, capPath: capSel.path, capStatus: capSel.status,
+      capMethodBg: capSel.method === 'GET' ? 'var(--ok-soft)' : 'var(--accent-soft)',
+      capMethodInk: capSel.method === 'GET' ? 'var(--ok)' : 'var(--accent)',
+      capStatusBg: statusTint(capSel.status).statusBg,
+      capStatusInk: statusTint(capSel.status).statusInk,
+      metaStatus: browserSel ? (statusWord[capSel.status] || capSel.status) : '200 OK',
+      metaMs: browserSel ? capSel.ms : '128 ms',
+      metaSize: browserSel ? capSize : '1.6 KB',
+      metaStatusBg: browserSel ? statusTint(capSel.status).statusBg : 'var(--ok-soft)',
+      metaStatusInk: browserSel ? statusTint(capSel.status).statusInk : 'var(--ok)',
+      browserStats: [
+        { label: 'Requests', value: capNode.count || '4', note: 'in this tab', ink: 'var(--ink)' },
+        { label: 'Failed', value: '1', note: '404 on /articles/91', ink: 'var(--bad)' },
+        { label: 'Transferred', value: '4.5 KB', note: 'response bodies', ink: 'var(--ink)' },
+        { label: 'Median time', value: '128 ms', note: 'fastest 64 ms', ink: 'var(--ink)' }
+      ],
+      browserCards: [
+        { title: 'Extension', body: 'Chrome 141 · 2 tabs under capture. The popup decides which tab is recorded.', action: 'Open popup', on: this.set('sheet', 'ext') },
+        { title: 'Filters', body: 'Only api.example.com is kept; static files and analytics are dropped before they reach the list.', action: 'Edit filters', on: this.set('sheet', 'filters') },
+        { title: 'Retention', body: 'Captured traffic is kept for the session and cleared when the window closes.', action: 'Change retention', on: this.set('sheet', 'retention') }
+      ],
+      browserSteps: [
+        { n: '1', title: 'Install the extension', body: 'Chrome, Edge or Firefox. One click from the store, no account needed.' },
+        { n: '2', title: 'Open the tab you are debugging', body: 'Any page of your app — the extension sees only the tabs you allow.' },
+        { n: '3', title: 'Turn on “Capture this tab”', body: 'The popup names the current page; requests start arriving here instantly.' }
+      ],
+      isBrowserHome: atBrowserHome, capTreeDisplay: atBrowserHome ? 'none' : 'flex',
+      homeBadge: 'Extension not connected · nothing captured',
+      homeBadgeBg: 'var(--chip)', homeBadgeInk: 'var(--ink2)',
+      homeTitle: 'Capture requests straight from your browser',
+      homeCta: 'Install the extension',
+      homeCtaOn: this.set('sheet', 'ext'),
+      openExtSheet: this.set('sheet', 'ext'),
+      wsName: this.state.workspace,
+      envEditorOpen: this.state.modal === 'env',
+      wsManagerOpen: this.state.modal === 'ws',
+      openEnvEditor: () => this.setState({ modal: 'env', pop: null, sheet: null }),
+      closeEnvEditor: this.set('modal', null),
+      openWsManager: () => this.setState({ modal: 'ws', pop: null, sheet: null }),
+      closeWsManager: this.set('modal', null),
+      envList: envDefs.filter(e => e.name !== 'No environment').concat([{ name: 'Globals', vars: '3', globals: true }]).map(e => {
+        const on = (this.state.envEdit || this.state.env) === e.name;
+        return {
+          name: e.name, locked: !!e.readonly, count: e.name === 'Globals' ? '3' : String(envVarData[e.name] ? envVarData[e.name].length : 0),
+          on: this.set('envEdit', e.name),
+          bg: on ? 'var(--accent-soft)' : 'transparent',
+          weight: on ? 600 : 400,
+          dot: e.name === this.state.env ? 'var(--ok)' : 'transparent'
+        };
+      }),
+      envLocked: envEditName === 'Prod',
+      envOwnVars: (envVarData[envEditName] || envVarData.Globals).map(v => ({
+        k: v.k, v: v.secret ? '••••••••••••' : v.v, secret: !!v.secret,
+        valueInk: v.secret ? 'var(--ink3)' : 'var(--str)',
+        tag: v.secret ? 'secret' : (v.tag || 'text'),
+        tagBg: v.secret ? 'var(--bad-soft)' : 'var(--chip)',
+        tagInk: v.secret ? 'var(--bad)' : 'var(--ink2)'
+      })),
+      envGlobalCount: '3',
+      envGlobalVars: [
+        { k: 'locale', v: 'en-US', overridden: false },
+        { k: 'userAgent', v: 'JSON Inspector/2.4', overridden: false },
+        { k: 'timeout', v: '15000', overridden: envEditName === 'Local · dev' }
+      ].map(v => ({
+        k: v.k, v: v.v,
+        strike: v.overridden ? 'line-through' : 'none',
+        tag: v.overridden ? 'overridden' : 'global',
+        tagBg: v.overridden ? 'var(--chip)' : 'var(--type-soft)',
+        tagInk: v.overridden ? 'var(--ink3)' : 'var(--type)'
+      })),
+      wsManageList: wsDefs.map(w => {
+        const on = (this.state.wsEdit || this.state.workspace) === w.name;
+        return {
+          ...w, on: this.set('wsEdit', w.name),
+          bg: on ? 'var(--accent-soft)' : 'transparent',
+          weight: on ? 600 : 400
+        };
+      }),
+      wsCreating: this.state.wsCreate === true,
+      wsDetailOpen: this.state.wsCreate !== true,
+      wsCreateBg: this.state.wsCreate === true ? 'var(--accent-soft)' : 'transparent',
+      startWsCreate: this.set('wsCreate', true),
+      cancelWsCreate: this.set('wsCreate', false),
+      wsNewIsTeam: (this.state.wsNewType || 'Team') === 'Team',
+      wsNewTypes: ['Personal', 'Team'].map(label => {
+        const on = (this.state.wsNewType || 'Team') === label;
+        return {
+          label, on: this.set('wsNewType', label),
+          bg: on ? '#ffffff' : 'transparent',
+          ink: on ? 'var(--ink)' : 'var(--ink2)',
+          sh: on ? '0 1px 2px rgba(0,0,0,0.12)' : 'none'
+        };
+      }),
+      openInvite: this.set('sheet', 'invite'),
+      openWsDanger: this.set('sheet', wsEditName === 'Personal' ? 'resetWs' : 'leaveWs'),
+      openNewVariable: this.set('sheet', 'newVariable'),
+      openImportEnv: this.set('sheet', 'importEnv'),
+      wsDetailName: wsEditName,
+      wsIsTeam: wsEditName !== 'Personal',
+      wsColors: ['var(--accent)', '#7a3fb8', '#2e8b57', '#b26a00'].map((hex, i) => ({
+        hex, on: this.set('wsColor', i),
+        ring: (this.state.wsColor || 0) === i ? '0 0 0 2px var(--pop), 0 0 0 3.5px ' + hex : 'none'
+      })),
+      wsTypes: ['Personal', 'Team'].map(label => {
+        const on = (wsEditName === 'Personal' ? 'Personal' : 'Team') === label;
+        return {
+          label, on: () => {},
+          bg: on ? '#ffffff' : 'transparent',
+          ink: on ? 'var(--ink)' : 'var(--ink2)',
+          sh: on ? '0 1px 2px rgba(0,0,0,0.12)' : 'none'
+        };
+      }),
+      wsMembers: (wsEditName === 'Personal'
+        ? [{ email: 'ucell.dev@itl.digital', initials: 'UD', role: 'Owner', you: ' · you' }]
+        : [
+          { email: 'ucell.dev@itl.digital', initials: 'UD', role: 'Owner', you: ' · you' },
+          { email: 'a.karimov@itl.digital', initials: 'AK', role: 'Can edit', you: '' },
+          { email: 'm.tashkentova@itl.digital', initials: 'MT', role: 'Can edit', you: '' },
+          { email: 'qa@itl.digital', initials: 'QA', role: 'Read only', you: '' }
+        ]).map(m => ({
+          ...m,
+          removeOpacity: m.role === 'Owner' ? '0.3' : '1',
+          removeHint: m.role === 'Owner' ? 'The owner cannot be removed' : 'Remove from workspace'
+        })),
+      wsContents: [
+        { value: wsEditName === 'Personal' ? '2' : '5', label: 'collections' },
+        { value: wsEditName === 'Personal' ? '3' : '4', label: 'environments' },
+        { value: wsEditName === 'Personal' ? '1' : '12', label: 'saved runs' }
+      ],
+      wsDangerNote: wsEditName === 'Personal'
+        ? 'The personal workspace cannot be deleted — it always exists on this machine.'
+        : 'Leaving keeps the workspace for the rest of the team.',
+      wsDangerAction: wsEditName === 'Personal' ? 'Reset workspace' : 'Leave workspace',
+      sheetOpen: !!sheet, closeSheet: this.set('sheet', null),
+      sheetTitle: sheetData[sheet] ? sheetData[sheet].title : '',
+      sheetSub: sheetData[sheet] ? sheetData[sheet].sub : '',
+      sheetAction: sheetData[sheet] ? sheetData[sheet].action : '',
+      sheetRows: sheetData[sheet] ? (sheetData[sheet].rows || []) : [],
+      sheetIsList: !!sheetData[sheet] && !sheetData[sheet].kind,
+      sheetIsAuth: sheetKind === 'auth', sheetIsVars: sheetKind === 'vars', sheetIsScripts: sheetKind === 'scripts',
+      openEnvSettings: () => this.setState({ sheet: null, pop: null, modal: 'env' }),
+      tokenRef: '{{ env.token }}',
+      folderAuthTypes: ['Bearer', 'Basic', 'API key', 'Inherit'].map(label => {
+        const on = (this.state.folderAuth || 'Bearer') === label;
+        return {
+          label, on: this.set('folderAuth', label),
+          bg: on ? '#ffffff' : 'transparent',
+          ink: on ? 'var(--ink)' : 'var(--ink2)',
+          sh: on ? '0 1px 2px rgba(0,0,0,0.12)' : 'none'
+        };
+      }),
+      varRows: [
+        { k: 'baseUrl', v: 'https://api.example.com', scope: 'Folder', env: false },
+        { k: 'apiVersion', v: 'v1', scope: 'Folder', env: false },
+        { k: 'pageSize', v: '25', scope: 'Folder', env: false },
+        { k: 'token', v: 'eyJhbGciOi… · from Local · dev', scope: 'Env', env: true }
+      ].map(v => ({
+        ...v,
+        fieldBg: v.env ? 'var(--raise)' : 'var(--field)',
+        keyInk: v.env ? 'var(--ink3)' : 'var(--ink)',
+        valueInk: v.env ? 'var(--ink3)' : 'var(--str)',
+        tagBg: v.env ? 'var(--chip)' : 'var(--accent-soft)',
+        tagInk: v.env ? 'var(--ink3)' : 'var(--accent)',
+        removeOpacity: v.env ? '0.35' : '1',
+        removeHint: v.env ? 'Edited in the environment' : 'Remove variable'
+      })),
+      scriptTabs: ['Pre-request', 'Post-response'].map(label => {
+        const on = (this.state.scriptTab || 'Pre-request') === label;
+        return {
+          label, on: this.set('scriptTab', label),
+          bg: on ? '#ffffff' : 'transparent',
+          ink: on ? 'var(--ink)' : 'var(--ink2)',
+          sh: on ? '0 1px 2px rgba(0,0,0,0.12)' : 'none'
+        };
+      }),
+      scriptLines: ((this.state.scriptTab || 'Pre-request') === 'Pre-request'
+        ? [
+          ['const ts = Date.now();', 'var(--ink)'],
+          ['ji.setHeader("X-Timestamp", ts);', 'var(--ink)'],
+          ['', 'var(--ink)'],
+          ['// sign the body with the folder secret', 'var(--ink3)'],
+          ['const sig = ji.hmac(ji.body, ji.env.secret);', 'var(--ink)'],
+          ['ji.setHeader("X-Signature", sig);', 'var(--ink)']
+        ]
+        : [
+          ['ji.expect(ji.status).toBe(200);', 'var(--ink)'],
+          ['', 'var(--ink)'],
+          ['const doc = ji.json();', 'var(--ink)'],
+          ['ji.expect(doc.jsonapi.version).toBe("1.1");', 'var(--ink)'],
+          ['ji.expect(doc.data.length).toBeGreaterThan(0);', 'var(--ink)']
+        ]).map(l => ({ t: l[0], ink: l[1] })),
+      toggleScript: () => this.setState(s => ({ scriptOff: !s.scriptOff })),
+      scriptToggleLabel: this.state.scriptOff ? 'Disabled — enable' : 'Enabled — disable',
+      scriptToggleBg: this.state.scriptOff ? 'var(--raise)' : 'var(--ok-soft)',
+      scriptToggleInk: this.state.scriptOff ? 'var(--ink2)' : 'var(--ok)',
+      scriptToggleLine: this.state.scriptOff ? 'var(--line)' : 'var(--ok-soft)',
+      scriptMeta: (this.state.scriptTab || 'Pre-request') === 'Pre-request' ? '6 lines · JavaScript' : '5 lines · JavaScript',
+      toggleCapture: () => this.setState(s => ({ capturing: s.capturing === false })),
+      capLabel: capturing ? 'Recording' : 'Paused',
+      capBg: capturing ? 'var(--bad-soft)' : 'var(--raise)',
+      capInk: capturing ? 'var(--bad)' : 'var(--ink2)',
+      capLine: capturing ? 'var(--bad-soft)' : 'var(--line)',
+      collIndexTitle: collNode.title,
+      collIndexMeta: collNode.depth === 0 ? 'Collection · 12 requests · 3 folders · shared with 4 people' : 'Folder in Example API · ' + (collNode.count || '4') + ' requests',
+      collIndexRows, collStats, collCards,
+      collRowsNote: 'run 2 min ago · ' + collIndexRows.length + ' requests',
+      openRunReport: this.set('sheet', 'runReport'),
+      openRunFolder: this.set('sheet', 'runFolder'),
+      openExport: this.set('sheet', 'exportCollection'),
+      ctxOpen: !!ctxNode,
+      ctxTop: (ctxIdx * 38 + 30) + 'px',
+      ctxTitle: ctxNode ? ctxNode.title : '',
+      ctxItems, closeCtx: this.set('ctx', null),
       workspaces, environments, capturedTree, collectionTree, browserParams,
       popWs: pop === 'Workspace', popEnv: pop === 'Env', popBParams: bpOpen,
       toggleWs: this.set('pop', pop === 'Workspace' ? null : 'Workspace'),

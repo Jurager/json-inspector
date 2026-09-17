@@ -15,6 +15,7 @@ func (u *UseCase) prepare(
 	ctx context.Context,
 	draft domain.Draft,
 	inherits *domain.Auth,
+	above []domain.Variable,
 ) (Prepared, error) {
 	auth := authToApply(draft.Auth, inherits)
 
@@ -25,11 +26,11 @@ func (u *UseCase) prepare(
 	raw.auth = auth
 	texts := raw.texts()
 
-	live, err := u.vars.SubstituteTexts(ctx, texts, false)
+	live, err := u.vars.SubstituteTexts(ctx, above, texts, false)
 	if err != nil {
 		return Prepared{}, err
 	}
-	hidden, err := u.vars.SubstituteTexts(ctx, texts, true)
+	hidden, err := u.vars.SubstituteTexts(ctx, above, texts, true)
 	if err != nil {
 		return Prepared{}, err
 	}

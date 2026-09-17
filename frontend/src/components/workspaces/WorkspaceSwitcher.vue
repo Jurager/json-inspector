@@ -31,10 +31,10 @@ const { t } = useMessages()
 <style scoped>
 @reference "../../style.css";
 
-/* The chip's own recipe, with the mockup's tighter left inset: the avatar sits in the corner the
-   circle of an environment would, and the text keeps the same room. */
+/* The pill keeps the bar's own recipe — 30px, 13.5px — and adds room for the avatar beside the
+   name. The name is capped so a long one cannot push the environment out of the middle. */
 .workspace-pill {
-  padding: 0 8px 0 6px;
+  padding: 0 10px;
 }
 
 .workspace-name {
