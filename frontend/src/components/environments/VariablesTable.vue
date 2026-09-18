@@ -433,14 +433,14 @@ defineExpose({ cancelTop })
 }
 
 .section-hint {
-  @apply text-[11.5px] text-text-tertiary;
+  @apply text-[12px] text-text-tertiary;
 }
 
 .section-action {
   @apply h-[26px] px-[9px] border-0 rounded-md cursor-pointer bg-transparent
          text-text-secondary;
   font-family: inherit;
-  font-size: 12.5px;
+  font-size: 13px;
   font-weight: 500;
 }
 
@@ -454,7 +454,7 @@ defineExpose({ cancelTop })
 
 /* The table is a card: the header is inside its frame and the rows end on its border. */
 .card {
-  @apply border border-border rounded-[10px] overflow-hidden;
+  @apply border border-border rounded-[12px] overflow-hidden;
 }
 
 .grid {
@@ -496,7 +496,7 @@ defineExpose({ cancelTop })
 }
 
 .cell-text {
-  @apply min-w-0 overflow-hidden text-ellipsis whitespace-nowrap text-[12.5px] text-text;
+  @apply min-w-0 overflow-hidden text-ellipsis whitespace-nowrap text-[13px] text-text;
 }
 
 .cell-text.masked {
@@ -504,7 +504,7 @@ defineExpose({ cancelTop })
 }
 
 .cell-input {
-  @apply w-full text-[12.5px] px-1 py-0.5 rounded-sm outline-none;
+  @apply w-full text-[13px] px-1 py-0.5 rounded-sm outline-none;
   background: var(--bg-inset);
   border: 1px solid var(--accent);
 }
@@ -553,7 +553,7 @@ defineExpose({ cancelTop })
   @apply flex items-center w-full h-10 gap-[7px] border-0 border-b bg-transparent text-left
          text-text-tertiary cursor-pointer;
   font-family: inherit;
-  font-size: 12.5px;
+  font-size: 13px;
   padding: 0 12px;
   border-color: color-mix(in srgb, var(--border) 60%, transparent);
 }
@@ -601,7 +601,7 @@ defineExpose({ cancelTop })
 }
 
 .note {
-  @apply text-[11.5px] text-text-tertiary;
+  @apply text-[12px] text-text-tertiary;
 }
 
 .note.bad {

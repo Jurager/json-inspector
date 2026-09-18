@@ -220,7 +220,7 @@ defineExpose({ cancelTop })
 }
 
 .input {
-  @apply w-full h-[34px] px-[11px] rounded-lg text-[13.5px] text-text outline-none;
+  @apply w-full h-[34px] px-[11px] rounded-lg text-[13px] text-text outline-none;
   font-family: inherit;
   background: var(--bg-panel);
   border: 1px solid var(--border-strong);
@@ -258,13 +258,13 @@ defineExpose({ cancelTop })
 
 
 .danger-note {
-  @apply flex-1 min-w-0 text-[12.5px] text-text-tertiary;
+  @apply flex-1 min-w-0 text-[13px] text-text-tertiary;
 }
 
 .danger {
   @apply flex-none h-[30px] px-3 rounded-[7px] cursor-pointer bg-transparent;
   font-family: inherit;
-  font-size: 12.5px;
+  font-size: 13px;
   font-weight: 500;
   color: var(--red-text);
   border: 1px solid var(--red-soft);

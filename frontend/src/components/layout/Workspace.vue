@@ -26,7 +26,7 @@ const { settings, loadSettings, setLayout } = useSettings()
 
 // Where the user last left the list. The window paints its own default first; Go's answer replaces
 // it as soon as it arrives, which keeps the panel from jumping on a slow start.
-const sideWidth = ref(settings.value?.sideWidth ?? 288)
+const sideWidth = ref(settings.value?.sideWidth ?? 262)
 
 // Which edge the list sits on, and whether it is drawn at all — see sidePanelShown below. The handle
 // reads it per drag, so a panel moved to the other edge drags the right way without being rebuilt.
@@ -150,6 +150,10 @@ const sidePanelShown = computed(() => {
   @apply min-w-0 border-r border-border;
   flex: 0 1 auto;
   min-width: 220px;
+  /* The panel wears the material rather than painting its own fill, so the blur has something to
+     work on: it is the sidebar's one glass surface, and the two lists inside it stand on it. */
+  background: var(--glass-side);
+  backdrop-filter: var(--blur-side);
 }
 
 .resize-handle {

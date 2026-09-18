@@ -123,7 +123,7 @@ function cancel() {
 }
 
 .pane-title {
-  @apply text-[15px] font-semibold;
+  @apply text-[14px] font-semibold;
 }
 
 .pair {
@@ -149,7 +149,7 @@ function cancel() {
 /* The one field a person is meant to type into first is drawn ready for it: the accent's own frame
    and the ring around it, which is what the drawing shows instead of a caret nobody can see. */
 .input {
-  @apply w-full h-[34px] px-[11px] rounded-lg text-[13.5px] text-text outline-none;
+  @apply w-full h-[34px] px-[11px] rounded-lg text-[13px] text-text outline-none;
   font-family: inherit;
   background: var(--bg-panel);
   border: 1px solid var(--accent);
@@ -166,7 +166,7 @@ function cancel() {
 }
 
 .notice {
-  @apply flex-1 min-w-0 text-[12.5px] text-text-tertiary;
+  @apply flex-1 min-w-0 text-[13px] text-text-tertiary;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -177,7 +177,7 @@ function cancel() {
 }
 
 .pane-cancel {
-  @apply flex-none h-[34px] px-3.5 rounded-lg cursor-pointer text-[13.5px] font-medium text-text;
+  @apply flex-none h-[34px] px-3.5 rounded-lg cursor-pointer text-[13px] font-medium text-text;
   font-family: inherit;
   background: var(--bg-panel);
   border: 1px solid var(--border-strong);
@@ -189,7 +189,7 @@ function cancel() {
 
 .pane-action {
   @apply flex-none h-[34px] px-4 rounded-lg border-0 cursor-pointer text-accent-text
-         text-[13.5px] font-semibold;
+         text-[13px] font-semibold;
   font-family: inherit;
   background: var(--accent);
 }

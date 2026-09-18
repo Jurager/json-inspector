@@ -49,10 +49,10 @@ function pick(e: Event) {
 }
 
 select {
-  @apply h-7 rounded-[7px] text-[12.5px] text-text cursor-pointer appearance-none;
+  @apply h-7 rounded-[7px] text-[13px] text-text cursor-pointer appearance-none;
   /* The app's own field: a panel fill under a heavier hairline than the row around it. */
   font: inherit;
-  font-size: 12.5px;
+  font-size: 13px;
   min-width: 140px;
   padding: 0 30px 0 10px;
   background: var(--bg-panel);

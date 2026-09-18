@@ -142,7 +142,7 @@ onMounted(async () => {
 }
 
 .foot-version {
-  @apply text-[11.5px] text-text-secondary;
+  @apply text-[12px] text-text-secondary;
 }
 
 .foot-meta {

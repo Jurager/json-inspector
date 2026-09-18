@@ -119,7 +119,7 @@ function metaOf(row: Row): string {
 .avatar {
   @apply flex-none inline-flex items-center justify-center w-[22px] h-[22px] rounded-md
          text-white font-bold;
-  font-size: 10.5px;
+  font-size: 11px;
   /* The line box keeps room for the descenders a capital never reaches, so a single letter sits
      about half of that below the middle of the square. Padding at the foot shrinks the box the line
      is centred in, which lifts it by half the padding — and in em, so every size is the same. */
@@ -159,7 +159,7 @@ function metaOf(row: Row): string {
   @apply flex items-center gap-[7px] h-7 px-2 border-0 rounded-md cursor-pointer
          bg-transparent text-accent;
   font-family: inherit;
-  font-size: 12.5px;
+  font-size: 13px;
   font-weight: 500;
 }
 

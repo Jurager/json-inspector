@@ -143,6 +143,6 @@ const emit = defineEmits<{ (e: 'update:open'): void }>()
 
 /* No margin: whatever follows decides its own spacing. */
 .dialog-title {
-  @apply text-[15px] font-semibold;
+  @apply text-[14px] font-semibold;
 }
 </style>

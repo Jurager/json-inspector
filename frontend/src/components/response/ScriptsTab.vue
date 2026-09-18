@@ -204,7 +204,7 @@ function caption(run: ScriptRun): string {
 }
 
 .test-error {
-  @apply text-[12.5px] break-words;
+  @apply text-[13px] break-words;
   color: var(--red-text);
 }
 
@@ -221,7 +221,7 @@ function caption(run: ScriptRun): string {
 }
 
 .console-box {
-  @apply flex flex-col border border-border rounded-xl bg-bg-inset py-3.5 px-4 text-[13.5px] leading-[1.7] text-text-secondary;
+  @apply flex flex-col border border-border rounded-xl bg-bg-inset py-3.5 px-4 text-[13px] leading-[1.7] text-text-secondary;
   font-family: var(--mono);
 }
 

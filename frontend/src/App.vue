@@ -183,17 +183,17 @@ function closeSheet() {
 }
 
 .startup-title {
-  @apply text-[15px] font-semibold text-text;
+  @apply text-[14px] font-semibold text-text;
 }
 
 .startup-hint {
-  @apply text-[12.5px] text-text-secondary text-center max-w-[420px];
+  @apply text-[13px] text-text-secondary text-center max-w-[420px];
 }
 
 /* Machine text, so it gets the mono face and a scroll of its own rather than wrapping the
    window into a wall of text. */
 .startup-detail {
-  @apply max-w-[520px] max-h-[160px] overflow-auto text-[11.5px] text-text-tertiary;
+  @apply max-w-[520px] max-h-[160px] overflow-auto text-[12px] text-text-tertiary;
   font-family: var(--mono);
   background: var(--bg-inset);
   border: 1px solid var(--border);

@@ -246,7 +246,7 @@ defineExpose({ cancelTop })
 }
 
 .input {
-  @apply w-full h-[34px] px-[11px] rounded-lg text-[13.5px] text-text outline-none;
+  @apply w-full h-[34px] px-[11px] rounded-lg text-[13px] text-text outline-none;
   font-family: inherit;
   background: var(--bg-panel);
   border: 1px solid var(--border-strong);
@@ -273,7 +273,7 @@ defineExpose({ cancelTop })
 }
 
 .card {
-  @apply flex flex-col gap-px rounded-[10px] border border-border p-1;
+  @apply flex flex-col gap-px rounded-[12px] border border-border p-1;
 }
 
 .member {
@@ -298,7 +298,7 @@ defineExpose({ cancelTop })
 }
 
 .member-role {
-  @apply flex-none text-[10.5px] text-text-tertiary;
+  @apply flex-none text-[11px] text-text-tertiary;
 }
 
 .contents {
@@ -309,16 +309,16 @@ defineExpose({ cancelTop })
 /* A number and the thing it counts, in one card: the drawing gives the figure the weight and lets the
    word agree with it — which is why the label is a counted word and not a fixed one. */
 .count-card {
-  @apply border border-border rounded-[10px] p-3 flex flex-col gap-1;
+  @apply border border-border rounded-[12px] p-3 flex flex-col gap-1;
 }
 
 .count-value {
-  @apply text-[18px] font-semibold;
+  @apply text-[19px] font-semibold;
   letter-spacing: -0.01em;
 }
 
 .count-label {
-  @apply text-[12.5px] text-text-tertiary;
+  @apply text-[13px] text-text-tertiary;
 }
 
 .foot {
@@ -327,11 +327,11 @@ defineExpose({ cancelTop })
 }
 
 .danger-note {
-  @apply flex-1 min-w-0 text-[12.5px] text-text-tertiary;
+  @apply flex-1 min-w-0 text-[13px] text-text-tertiary;
 }
 
 .danger {
-  @apply flex-none h-[30px] px-3 rounded-[7px] cursor-pointer text-[12.5px] font-medium;
+  @apply flex-none h-[30px] px-3 rounded-[7px] cursor-pointer text-[13px] font-medium;
   font-family: inherit;
   color: var(--red-text);
   background: transparent;

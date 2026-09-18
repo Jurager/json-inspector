@@ -87,7 +87,7 @@ defineProps<{
 }
 
 .body {
-  @apply text-[14.5px] text-text-secondary;
+  @apply text-[14px] text-text-secondary;
   line-height: 1.55;
 }
 
@@ -105,7 +105,7 @@ defineProps<{
 
 .step-num {
   @apply inline-flex items-center justify-center flex-none w-[26px] h-[26px] rounded-full
-         text-[12.5px] font-bold text-accent bg-accent-soft;
+         text-[13px] font-bold text-accent bg-accent-soft;
 }
 
 .step-title {
@@ -125,12 +125,12 @@ defineProps<{
 }
 
 .note-icon {
-  @apply inline-flex items-center justify-center flex-none w-[34px] h-[34px] rounded-[9px]
+  @apply inline-flex items-center justify-center flex-none w-[34px] h-[34px] rounded-[8px]
          bg-bg-hover text-text-secondary;
 }
 
 .note-text {
-  @apply flex-1 min-w-0 text-[13.5px] text-text-secondary;
+  @apply flex-1 min-w-0 text-[13px] text-text-secondary;
   line-height: 1.5;
 }
 </style>

@@ -244,7 +244,7 @@ function valueClass(v: string): string {
    thing that moved, and a control with five segments is where that reads. */
 .kinds {
   @apply relative flex gap-0.5 p-0.5 bg-bg-inset;
-  border-radius: 9px;
+  border-radius: 8px;
 }
 
 .kind-indicator {
@@ -257,7 +257,7 @@ function valueClass(v: string): string {
 }
 
 .kind {
-  @apply relative flex-1 h-[30px] text-center text-[12.5px] font-medium border-none bg-transparent text-text-secondary cursor-pointer;
+  @apply relative flex-1 h-[30px] text-center text-[13px] font-medium border-none bg-transparent text-text-secondary cursor-pointer;
   border-radius: 7px;
   transition: color 0.18s ease;
 }
@@ -271,10 +271,10 @@ function valueClass(v: string): string {
   @apply flex items-center gap-2;
 }
 
-/* The toolbar's one button stands a size below the popovers' own: the design draws it at 12.5px where
-   the «add» row is 13.5, both of them 30 tall. */
+/* The toolbar's one button reads at 13px, the size the «add» row beside it is drawn in, and the two
+   stand 30 tall together: the handoff draws a row and its button as one control. */
 .tools :deep(.btn) {
-  font-size: 12.5px;
+  font-size: 13px;
 }
 
 .tools-spacer {
@@ -294,7 +294,7 @@ function valueClass(v: string): string {
 
 .find-input {
   @apply flex-1 min-w-0 border-none outline-none bg-transparent;
-  font-size: 12.5px;
+  font-size: 13px;
   color: var(--text);
 }
 
@@ -305,13 +305,13 @@ function valueClass(v: string): string {
 .editor {
   @apply w-full outline-none select-text resize-y;
   font-family: var(--mono);
-  border-radius: 9px;
+  border-radius: 8px;
   padding: 12px 14px;
   background: var(--bg-inset);
   border: 1px solid var(--border-strong);
   color: var(--text);
   height: 132px;
-  font-size: 13.5px;
+  font-size: 13px;
   line-height: 1.7;
 }
 
@@ -344,7 +344,7 @@ function valueClass(v: string): string {
    centring, and the 6px under it is what separates it from the first row. */
 .grid-head {
   padding-bottom: 6px;
-  font-size: 11.5px;
+  font-size: 12px;
   font-weight: 600;
   color: var(--text-secondary);
 }
@@ -361,7 +361,7 @@ function valueClass(v: string): string {
 .cell {
   @apply min-w-0 w-full bg-transparent border-0 outline-none p-0 rounded-sm;
   font-family: var(--mono);
-  font-size: 13.5px;
+  font-size: 13px;
   color: var(--text);
 }
 
@@ -395,7 +395,7 @@ function valueClass(v: string): string {
   border: 1px dashed var(--border-strong);
   background: transparent;
   color: var(--text-tertiary);
-  font-size: 12.5px;
+  font-size: 13px;
 }
 
 .file:hover {
@@ -445,7 +445,7 @@ function valueClass(v: string): string {
 .drop {
   @apply flex flex-col items-center justify-center gap-2.5;
   height: 150px;
-  border-radius: 9px;
+  border-radius: 8px;
   border: 1px dashed var(--border-strong);
   background: var(--bg-inset);
   color: var(--text-tertiary);
@@ -456,7 +456,7 @@ function valueClass(v: string): string {
 }
 
 .drop-name {
-  font-size: 13.5px;
+  font-size: 13px;
   color: var(--text-secondary);
   max-width: 90%;
   overflow: hidden;

@@ -154,7 +154,7 @@ function onKeydown(e: KeyboardEvent) {
 }
 
 .search-field {
-  @apply flex-1 min-w-0 text-[15px];
+  @apply flex-1 min-w-0 text-[14px];
 }
 
 .search-esc {
@@ -193,7 +193,7 @@ function onKeydown(e: KeyboardEvent) {
 }
 
 .search-group {
-  @apply px-4 pt-2.5 pb-1 text-[10.5px] text-text-tertiary uppercase;
+  @apply px-4 pt-2.5 pb-1 text-[11px] text-text-tertiary uppercase;
   font-family: var(--mono);
   letter-spacing: 0.08em;
 }

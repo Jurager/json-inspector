@@ -144,8 +144,8 @@ function valueClass(v: string): string {
       spaced: props.chip === 'auth' || props.chip === 'body' || props.chip === 'scripts',
       wide: props.chip === 'body',
     }"
-    align="end"
-    :side-offset="6"
+    align="start"
+    :side-offset="9"
     @interact-outside="onInteractOutside"
   >
     <div class="popover-head">
@@ -329,7 +329,7 @@ function valueClass(v: string): string {
 }
 
 .row {
-  @apply grid grid-cols-[24px_160px_minmax(0,1fr)_28px] gap-2 items-center h-[38px] px-1.5 rounded-lg;
+  @apply grid grid-cols-[24px_160px_minmax(0,1fr)_28px] gap-2 items-center h-[34px] px-1.5 rounded-lg;
 }
 
 .row.off {
@@ -357,7 +357,7 @@ function valueClass(v: string): string {
 }
 
 .row-input {
-  @apply min-w-0 bg-transparent border-0 outline-none text-[13.5px] p-0 rounded-sm;
+  @apply min-w-0 bg-transparent border-0 outline-none text-[13px] p-0 rounded-sm;
   font-family: var(--mono);
   color: var(--text);
 }
@@ -403,7 +403,7 @@ function valueClass(v: string): string {
 }
 
 .token-state {
-  @apply flex items-center gap-1.5 text-[11.5px] text-text-secondary;
+  @apply flex items-center gap-1.5 text-[12px] text-text-secondary;
 }
 
 .token-state svg {

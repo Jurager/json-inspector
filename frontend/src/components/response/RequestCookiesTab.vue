@@ -138,7 +138,7 @@ function valueClass(v: string): string {
 
 /* The word the jar travels under, in the fill the window gives every literal it quotes. */
 .code {
-  @apply rounded-[5px] py-0.5 px-1.5 text-[12.5px];
+  @apply rounded-[5px] py-0.5 px-1.5 text-[13px];
   font-family: var(--mono);
   background: var(--bg-hover);
 }
@@ -180,7 +180,7 @@ function valueClass(v: string): string {
 }
 
 .cell-input {
-  @apply min-w-0 bg-transparent border-0 outline-none text-[13.5px] py-0 rounded-md;
+  @apply min-w-0 bg-transparent border-0 outline-none text-[13px] py-0 rounded-md;
   color: var(--text);
   padding: 0 16px;
 }
@@ -228,7 +228,7 @@ function valueClass(v: string): string {
 /* A flag is a state, not a control with a colour of its own: on is the window's "yes", off is the
    chip the row would otherwise be written on. */
 .flag-btn {
-  @apply text-[11.5px] font-semibold py-[3px] px-2 rounded-md border-none cursor-pointer text-text-tertiary;
+  @apply text-[12px] font-semibold py-[3px] px-2 rounded-md border-none cursor-pointer text-text-tertiary;
   background: var(--bg-hover);
   transition: background-color 0.12s ease, color 0.12s ease;
 }
@@ -243,7 +243,7 @@ function valueClass(v: string): string {
 .req-cookies-add {
   @apply flex-none flex items-center gap-2.5 h-[46px] px-4 border-none bg-transparent text-left cursor-pointer text-text-tertiary;
   font: inherit;
-  font-size: 13.5px;
+  font-size: 13px;
   --wails-draggable: no-drag;
 }
 

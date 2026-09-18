@@ -78,7 +78,7 @@ async function choose(id: string) {
 }
 
 .ws-row {
-  @apply flex items-center gap-[11px] w-full py-[9px] px-2.5 border-none rounded-[9px] bg-transparent text-text text-left cursor-pointer;
+  @apply flex items-center gap-[11px] w-full py-[9px] px-2.5 border-none rounded-[8px] bg-transparent text-text text-left cursor-pointer;
   font: inherit;
   --wails-draggable: no-drag;
 }
@@ -98,7 +98,7 @@ async function choose(id: string) {
 }
 
 .ws-name {
-  @apply overflow-hidden text-ellipsis whitespace-nowrap text-[13.5px];
+  @apply overflow-hidden text-ellipsis whitespace-nowrap text-[13px];
 }
 
 .ws-name.strong {
@@ -108,7 +108,7 @@ async function choose(id: string) {
 /* What the space holds, where the drawing puts the line about a shared one: eleven and a half pixels,
    in the tertiary ink, because it is a reading and not a name. */
 .ws-meta {
-  @apply text-[11.5px] text-text-tertiary overflow-hidden text-ellipsis whitespace-nowrap;
+  @apply text-[12px] text-text-tertiary overflow-hidden text-ellipsis whitespace-nowrap;
 }
 
 .ws-check {
@@ -126,7 +126,7 @@ async function choose(id: string) {
 }
 
 .ws-link {
-  @apply inline-flex items-center gap-[7px] border-none bg-transparent text-accent text-[13.5px] cursor-pointer h-[30px] px-2.5 rounded-[7px];
+  @apply inline-flex items-center gap-[7px] border-none bg-transparent text-accent text-[13px] cursor-pointer h-[30px] px-2.5 rounded-[7px];
   font: inherit;
 }
 

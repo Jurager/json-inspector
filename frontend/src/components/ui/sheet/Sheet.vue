@@ -77,7 +77,7 @@ const { t } = useMessages()
    once — what stands inside brings no padding of its own, and the body is the only thing that
    scrolls. */
 .sheet {
-  @apply flex flex-col w-[440px] max-w-[92vw] rounded-[14px];
+  @apply flex flex-col w-[440px] max-w-[92vw] rounded-[12px];
   max-height: calc(100vh - 96px);
   padding: 18px;
   gap: 16px;
@@ -124,7 +124,7 @@ const { t } = useMessages()
 
 .sheet-cancel {
   @apply h-[34px] px-3.5 rounded-lg border border-border-strong bg-bg-inset text-text
-         text-[13.5px] font-medium cursor-pointer;
+         text-[13px] font-medium cursor-pointer;
   font-family: inherit;
 }
 
@@ -133,7 +133,7 @@ const { t } = useMessages()
 }
 
 .sheet-action {
-  @apply h-[34px] px-4 rounded-lg border-0 bg-accent text-accent-text text-[13.5px] font-semibold
+  @apply h-[34px] px-4 rounded-lg border-0 bg-accent text-accent-text text-[13px] font-semibold
          cursor-pointer;
   font-family: inherit;
 }

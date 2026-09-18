@@ -232,7 +232,7 @@ onBeforeUnmount(() => void commit())
 }
 
 .fields.compact .code {
-  @apply h-[84px] rounded-[9px] px-3 py-2.5 text-[13px] leading-[1.6];
+  @apply h-[84px] rounded-[8px] px-3 py-2.5 text-[13px] leading-[1.6];
 }
 
 .code::placeholder {
@@ -249,7 +249,7 @@ onBeforeUnmount(() => void commit())
 
 /* The chip's note is a line under the boxes, not a callout: it is the same sentence in less room. */
 .note.plain {
-  @apply bg-transparent p-0 text-[12.5px] text-text-tertiary;
+  @apply bg-transparent p-0 text-[13px] text-text-tertiary;
 }
 
 .note-icon {
@@ -261,7 +261,7 @@ onBeforeUnmount(() => void commit())
 }
 
 .note.plain .note-text {
-  @apply text-[12.5px];
+  @apply text-[13px];
 }
 
 /* ---- the sheet's half of this component ---- */
@@ -278,7 +278,7 @@ onBeforeUnmount(() => void commit())
 
 .seg {
   @apply flex-1 min-w-0 h-7 border-0 rounded-md bg-transparent cursor-pointer
-         text-[12.5px] font-medium text-text-secondary;
+         text-[13px] font-medium text-text-secondary;
   font-family: inherit;
   transition: background 0.15s ease, color 0.15s ease;
 }
@@ -289,8 +289,8 @@ onBeforeUnmount(() => void commit())
 }
 
 .editor {
-  @apply min-h-[148px] resize-y rounded-[9px] border border-border-strong bg-bg-inset
-         px-3.5 py-3 font-mono text-[12.5px] text-text;
+  @apply min-h-[148px] resize-y rounded-[8px] border border-border-strong bg-bg-inset
+         px-3.5 py-3 font-mono text-[13px] text-text;
   line-height: 1.6;
 }
 
@@ -309,7 +309,7 @@ onBeforeUnmount(() => void commit())
 /* The switch is the drawing's own: a small framed button that reads as a state rather than as an
    action — green while the half runs, and the plain surface when it does not. */
 .toggle {
-  @apply flex-none h-[30px] px-[11px] rounded-[7px] border text-[12.5px] font-medium cursor-pointer
+  @apply flex-none h-[30px] px-[11px] rounded-[7px] border text-[13px] font-medium cursor-pointer
          bg-green-soft border-green-soft;
   font-family: inherit;
   color: var(--green-text);
@@ -328,6 +328,6 @@ onBeforeUnmount(() => void commit())
 }
 
 .meta-text {
-  @apply text-[12.5px] text-text-tertiary;
+  @apply text-[13px] text-text-tertiary;
 }
 </style>

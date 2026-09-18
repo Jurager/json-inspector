@@ -3,7 +3,7 @@
 // small button for tight rows. ghost and quiet size by padding, not by height.
 //
 // xl is the command line's send button as the latest handoff draws it: the strip is built around a
-// 38px field, and the button that stands at its end is that tall too. It is a size of its own rather
+// 40px field, and the button that stands at its end is that tall too. It is a size of its own rather
 // than a bigger lg because the rest of the window — the dialogs, the settings, the collection
 // overview — still measures by the sizes above.
 withDefaults(
@@ -65,7 +65,7 @@ withDefaults(
   height: 24px;
   padding: 0 9px;
   border-radius: 6px;
-  font-size: 11.5px;
+  font-size: 12px;
 }
 
 .btn--lg {
@@ -73,30 +73,30 @@ withDefaults(
   height: 32px;
   padding: 0 14px;
   border-radius: 8px;
-  font-size: 12.5px;
+  font-size: 13px;
   font-weight: 500;
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.18);
 }
 
 .btn--xl {
   gap: 8px;
-  height: 38px;
+  height: 40px;
   padding: 0 18px;
-  border-radius: 9px;
+  border-radius: 8px;
   font-size: 14px;
   font-weight: 600;
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.18);
 }
 
 /* The button that stands beside the accent one at the same height, which is how the handoff draws a
-   page's pair: the action and the quieter one next to it. The same 38px and radius as xl, read at
-   13.5 rather than 14 and with a little less room around the label. */
+   page's pair: the action and the quieter one next to it. The same 40px and radius as xl, read at
+   13 rather than 14 and with a little less room around the label. */
 .btn.btn--xl-quiet {
   gap: 9px;
-  height: 38px;
+  height: 40px;
   padding: 0 16px;
-  border-radius: 9px;
-  font-size: 13.5px;
+  border-radius: 8px;
+  font-size: 13px;
   font-weight: 500;
 }
 
@@ -104,14 +104,14 @@ withDefaults(
   @apply bg-accent border-accent text-accent-text;
 }
 
-/* The page head's button: 36px, between lg and xl, standing beside a page's title rather than in a bar
+/* The page head's button: 34px, between lg and xl, standing beside a page's title rather than in a bar
    of controls. */
 .btn.btn--page {
   gap: 7px;
-  height: 36px;
+  height: 34px;
   padding: 0 14px;
-  border-radius: 9px;
-  font-size: 13.5px;
+  border-radius: 8px;
+  font-size: 13px;
   font-weight: 500;
 }
 
@@ -178,21 +178,21 @@ withDefaults(
   height: 30px;
   padding: 0 10px;
   border-radius: 7px;
-  font-size: 13.5px;
+  font-size: 13px;
   font-weight: 500;
 }
 
 /* The response header's button, and the handoff draws it a shade apart from the one above: the same
-   30px and the same radius, but 13px rather than 13.5 and two more pixels of room around the label.
+   13px, but 28px tall and at the tighter radius, because it lies on the bar rather than in a panel.
    Compare, Copy, Inspector and Search are all this one control, wherever the window puts them, so
    the fill is the handoff's too: `--raise` under a `--line` hairline and no shadow, which is what
    makes the row read as controls standing on the bar rather than as cards in it. */
 .btn.btn--bar {
   gap: 7px;
-  height: 30px;
-  padding: 0 12px;
-  border-radius: 7px;
-  font-size: 13px;
+  height: 28px;
+  padding: 0 10px;
+  border-radius: 6px;
+  font-size: 12px;
   font-weight: 500;
   background: var(--bg-inset);
   border-color: var(--border);
@@ -209,7 +209,7 @@ withDefaults(
   height: 30px;
   padding: 0 12px;
   border-radius: 7px;
-  font-size: 12.5px;
+  font-size: 13px;
   font-weight: 500;
   box-shadow: none;
 }

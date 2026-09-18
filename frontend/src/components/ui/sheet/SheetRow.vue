@@ -32,7 +32,7 @@ const props = withDefaults(
 /* A row of a sheet is a line of a list and not a table row: 44px, its own radius, and a fill that
    appears only under the pointer. */
 .sheet-row {
-  @apply flex items-center gap-3 min-h-11 px-2.5 rounded-[9px];
+  @apply flex items-center gap-3 min-h-11 px-2.5 rounded-[8px];
 }
 
 .sheet-row:hover {
@@ -44,7 +44,7 @@ const props = withDefaults(
 }
 
 .row-label {
-  @apply text-[13.5px];
+  @apply text-[13px];
 }
 
 .row-note {
@@ -52,7 +52,7 @@ const props = withDefaults(
 }
 
 .row-tag {
-  @apply flex-none text-[12.5px] font-semibold px-[9px] py-1 rounded-md
+  @apply flex-none text-[13px] font-semibold px-[9px] py-1 rounded-md
          bg-bg-hover text-text-tertiary;
 }
 

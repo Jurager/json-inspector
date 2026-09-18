@@ -165,7 +165,7 @@ function cancel() {
 }
 
 .pane-title {
-  @apply text-[15px] font-semibold;
+  @apply text-[14px] font-semibold;
 }
 
 .pair {
@@ -193,7 +193,7 @@ function cancel() {
 /* The field the form opens on, drawn focused: the drawing shows it with the accent and the ring, and
    a name is what the form is waiting for. */
 .input {
-  @apply w-full h-[34px] px-[11px] rounded-lg text-[13.5px] text-text outline-none;
+  @apply w-full h-[34px] px-[11px] rounded-lg text-[13px] text-text outline-none;
   font-family: inherit;
   background: var(--bg-panel);
   border: 1px solid var(--accent);
@@ -209,11 +209,11 @@ function cancel() {
 }
 
 .card {
-  @apply border border-border rounded-[10px] overflow-hidden;
+  @apply border border-border rounded-[12px] overflow-hidden;
 }
 
 .card-note {
-  @apply flex items-center h-[42px] px-3 text-[13px] text-text-secondary;
+  @apply flex items-center h-[40px] px-3 text-[13px] text-text-secondary;
   border-bottom: 1px solid color-mix(in srgb, var(--border) 60%, transparent);
 }
 
@@ -226,7 +226,7 @@ function cancel() {
 }
 
 .card-button {
-  @apply flex-none h-[30px] px-3 rounded-[7px] cursor-pointer text-[12.5px] font-medium text-text;
+  @apply flex-none h-[30px] px-3 rounded-[7px] cursor-pointer text-[13px] font-medium text-text;
   font-family: inherit;
   background: var(--bg-panel);
   border: 1px solid var(--border-strong);
@@ -237,7 +237,7 @@ function cancel() {
 }
 
 .foot .notice {
-  @apply text-[12.5px] text-text-tertiary;
+  @apply text-[13px] text-text-tertiary;
 }
 
 .notice.bad {
@@ -257,7 +257,7 @@ function cancel() {
 
 
 .pane-cancel {
-  @apply h-[34px] px-3.5 rounded-lg cursor-pointer text-[13.5px] font-medium text-text;
+  @apply h-[34px] px-3.5 rounded-lg cursor-pointer text-[13px] font-medium text-text;
   font-family: inherit;
   background: var(--bg-panel);
   border: 1px solid var(--border-strong);
@@ -268,7 +268,7 @@ function cancel() {
 }
 
 .pane-action {
-  @apply h-[34px] px-4 rounded-lg border-0 cursor-pointer text-accent-text text-[13.5px] font-semibold;
+  @apply h-[34px] px-4 rounded-lg border-0 cursor-pointer text-accent-text text-[13px] font-semibold;
   font-family: inherit;
   background: var(--accent);
 }

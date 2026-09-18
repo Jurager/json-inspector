@@ -302,7 +302,7 @@ async function exportHar() {
 }
 
 .head-meta {
-  @apply text-[13.5px] text-text-secondary;
+  @apply text-[13px] text-text-secondary;
 }
 
 /* The switch that holds capture down. It is the extension's state and not this tab's — the drawing
@@ -311,8 +311,8 @@ async function exportHar() {
    the same name inherits what it does not override — the 46px width the titlebar draws its
    minimise button at, which is what squashed this one. */
 .capture-btn {
-  @apply flex-none inline-flex items-center gap-[9px] h-9 px-3.5 rounded-[9px] cursor-pointer
-         text-[13.5px] font-medium border bg-red-soft border-red-soft;
+  @apply flex-none inline-flex items-center gap-[9px] h-9 px-3.5 rounded-[8px] cursor-pointer
+         text-[13px] font-medium border bg-red-soft border-red-soft;
   font-family: inherit;
   color: var(--red-text);
 }
@@ -350,7 +350,7 @@ async function exportHar() {
 }
 
 .stat-value {
-  @apply text-[20px] font-semibold tracking-[-0.01em];
+  @apply text-[19px] font-semibold tracking-[-0.01em];
 }
 
 .stat-value.bad {
@@ -358,7 +358,7 @@ async function exportHar() {
 }
 
 .stat-note {
-  @apply text-[12.5px] text-text-tertiary overflow-hidden text-ellipsis whitespace-nowrap;
+  @apply text-[13px] text-text-tertiary overflow-hidden text-ellipsis whitespace-nowrap;
 }
 
 .captured {
@@ -396,7 +396,7 @@ async function exportHar() {
 }
 
 .row {
-  @apply w-full min-h-[46px] border-0 border-b border-border bg-transparent text-left text-text
+  @apply w-full min-h-[44px] border-0 border-b border-border bg-transparent text-left text-text
          cursor-pointer;
   border-color: color-mix(in srgb, var(--border) 60%, transparent);
   font-family: inherit;
@@ -414,11 +414,11 @@ async function exportHar() {
 }
 
 .cell-method {
-  @apply text-[11.5px];
+  @apply text-[12px];
 }
 
 .cell-path {
-  @apply text-[12.5px];
+  @apply text-[13px];
 }
 
 .cell-status {
@@ -427,13 +427,13 @@ async function exportHar() {
 }
 
 .status {
-  @apply text-[11.5px] font-semibold rounded-md;
+  @apply text-[12px] font-semibold rounded-md;
   padding: 3px 8px;
 }
 
 .cell-time,
 .cell-size {
-  @apply text-[12.5px] text-text-secondary;
+  @apply text-[13px] text-text-secondary;
 }
 
 .cards {
@@ -446,7 +446,7 @@ async function exportHar() {
 }
 
 .card-title {
-  @apply text-[13.5px] font-semibold;
+  @apply text-[13px] font-semibold;
 }
 
 .card-body {
@@ -473,7 +473,7 @@ async function exportHar() {
 /* The state of the bridge is the one line in these sheets that is a word rather than a number, and
    the pair of fills is what says which word it is. */
 .row-tag {
-  @apply flex-none text-[12.5px] font-semibold px-[9px] py-1 rounded-md
+  @apply flex-none text-[13px] font-semibold px-[9px] py-1 rounded-md
          bg-bg-hover text-text-tertiary;
 }
 
@@ -483,7 +483,7 @@ async function exportHar() {
 }
 
 .row-value {
-  @apply flex-none text-[12.5px] text-text-secondary;
+  @apply flex-none text-[13px] text-text-secondary;
 }
 
 .rows :deep(input) {

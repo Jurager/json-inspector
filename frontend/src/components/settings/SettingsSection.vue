@@ -26,7 +26,7 @@ withDefaults(defineProps<{ label: string; note?: string }>(), { note: '' })
 }
 
 .card {
-  @apply border border-border rounded-[10px] overflow-hidden;
+  @apply border border-border rounded-[12px] overflow-hidden;
 }
 
 /* The hairline between two rows is the second one's own: the slot's content is written by the pane,
@@ -36,7 +36,7 @@ withDefaults(defineProps<{ label: string; note?: string }>(), { note: '' })
 }
 
 .note {
-  @apply text-[11.5px] text-text-tertiary;
+  @apply text-[12px] text-text-tertiary;
   line-height: 1.5;
 }
 </style>

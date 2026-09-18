@@ -104,7 +104,7 @@ const { metaOf } = useWorkspaceCounts()
   @apply flex items-center gap-[7px] h-7 px-2 border-0 rounded-md cursor-pointer
          bg-transparent text-accent;
   font-family: inherit;
-  font-size: 12.5px;
+  font-size: 13px;
   font-weight: 500;
 }
 

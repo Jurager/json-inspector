@@ -91,7 +91,7 @@ function menuNameOf(scheme: Scheme): string {
 }
 
 .switch.compact {
-  border-radius: 9px;
+  border-radius: 8px;
 }
 
 /* The sheet's scale: the control is as wide as the sheet's column, because a scheme is chosen once
@@ -112,7 +112,7 @@ function menuNameOf(scheme: Scheme): string {
 }
 
 .switch.compact .seg {
-  font-size: 12.5px;
+  font-size: 13px;
   height: 30px;
   padding: 0;
   border-radius: 7px;
@@ -121,7 +121,7 @@ function menuNameOf(scheme: Scheme): string {
 /* The sheet's segments are the height of the code sheet's switch: the two controls are one shape in
    the drawing, whichever sheet they are in. */
 .switch.roomy .seg {
-  font-size: 12.5px;
+  font-size: 13px;
   height: 28px;
   padding: 0;
   border-radius: 6px;

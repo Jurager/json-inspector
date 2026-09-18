@@ -33,7 +33,7 @@ const { t } = useMessages()
 <style scoped>
 @reference "../../style.css";
 
-/* The pill keeps the bar's own recipe — 30px, 13.5px — and adds room for the avatar beside the
+/* The pill keeps the bar's own recipe — 30px, 13px — and adds room for the avatar beside the
    name. The name is capped so a long one cannot push the environment out of the middle. */
 .workspace-pill {
   padding: 0 10px;

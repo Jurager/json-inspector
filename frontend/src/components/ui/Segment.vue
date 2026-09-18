@@ -54,7 +54,7 @@ const emit = defineEmits<{ (e: 'pick', value: string): void }>()
   @apply min-w-0 text-center border-none rounded-md cursor-pointer
          bg-transparent text-text-secondary;
   font: inherit;
-  font-size: 12.5px;
+  font-size: 13px;
   font-weight: 500;
   padding: 0 11px;
   /* A segment is one line by construction: a name that wrapped would make the row two rows tall and

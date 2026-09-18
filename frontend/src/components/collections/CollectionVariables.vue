@@ -191,7 +191,7 @@ defineExpose({ commit, discard })
 
 .cell {
   @apply min-w-0 w-full h-8 bg-bg-inset border border-border-strong rounded-[7px] px-[9px]
-         text-[12.5px] text-text outline-none;
+         text-[13px] text-text outline-none;
   font-family: var(--mono);
 }
 
@@ -208,12 +208,12 @@ defineExpose({ commit, discard })
    itself says reads first and what it inherits reads as context. */
 .cell-static {
   @apply min-w-0 h-8 flex items-center overflow-hidden text-ellipsis whitespace-nowrap
-         rounded-[7px] px-[9px] text-[12.5px] border border-border-strong bg-bg-hover
+         rounded-[7px] px-[9px] text-[13px] border border-border-strong bg-bg-hover
          text-text-tertiary;
 }
 
 .tag {
-  @apply text-[11.5px] font-semibold text-center py-1 rounded-md;
+  @apply text-[12px] font-semibold text-center py-1 rounded-md;
 }
 
 .tag.own {
@@ -251,11 +251,11 @@ defineExpose({ commit, discard })
 }
 
 .hint {
-  @apply flex items-center gap-2.5 py-[11px] px-3 rounded-[9px] bg-bg-inset;
+  @apply flex items-center gap-2.5 py-[11px] px-3 rounded-[8px] bg-bg-inset;
 }
 
 .hint-text {
-  @apply flex-1 min-w-0 text-[12.5px] text-text-secondary;
+  @apply flex-1 min-w-0 text-[13px] text-text-secondary;
   line-height: 1.5;
 }
 
@@ -265,7 +265,7 @@ defineExpose({ commit, discard })
 
 .hint-action {
   @apply flex-none h-[30px] px-[11px] rounded-[7px] border border-border-strong bg-bg-inset
-         text-[12.5px] font-medium text-text cursor-pointer;
+         text-[13px] font-medium text-text cursor-pointer;
   font-family: inherit;
 }
 

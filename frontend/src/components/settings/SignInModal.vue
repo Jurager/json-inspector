@@ -172,7 +172,7 @@ function giveUp() {
 <style scoped>
 @reference "../../style.css";
 
-/* The drawing's modal: 400px, a 42px head with the name in it, and a body that is one column centred
+/* The drawing's modal: 400px, a 40px head with the name in it, and a body that is one column centred
    on what it holds. It is narrower than a sheet because it asks one thing. */
 .modal-overlay {
   @apply fixed inset-0 z-1600 flex items-center justify-center p-7;
@@ -180,18 +180,18 @@ function giveUp() {
 }
 
 .modal {
-  @apply flex flex-col w-[400px] max-w-[92vw] rounded-[14px] overflow-hidden;
+  @apply flex flex-col w-[400px] max-w-[92vw] rounded-[12px] overflow-hidden;
   background: var(--glass-sheet);
   backdrop-filter: var(--blur-sheet);
   box-shadow: var(--glass-sheet-shadow), 0 0 0 1px var(--glass-overlay-border);
 }
 
 .modal-head {
-  @apply relative flex-none h-[42px] flex items-center justify-center border-b border-border;
+  @apply relative flex-none h-[40px] flex items-center justify-center border-b border-border;
 }
 
 .modal-title {
-  @apply text-[12.5px] font-semibold text-text-secondary;
+  @apply text-[13px] font-semibold text-text-secondary;
 }
 
 .modal-close {
@@ -229,11 +229,11 @@ function giveUp() {
 }
 
 .title {
-  @apply text-[17px] font-semibold tracking-[-0.01em];
+  @apply text-[16px] font-semibold tracking-[-0.01em];
 }
 
 .wait-title {
-  @apply text-[15px] font-semibold;
+  @apply text-[14px] font-semibold;
 }
 
 .text {
@@ -243,7 +243,7 @@ function giveUp() {
 
 .wide {
   @apply w-full h-9 inline-flex items-center justify-center gap-[9px] rounded-lg border-0
-         bg-accent text-accent-text text-[13.5px] font-semibold cursor-pointer;
+         bg-accent text-accent-text text-[13px] font-semibold cursor-pointer;
   font-family: inherit;
 }
 
@@ -254,7 +254,7 @@ function giveUp() {
 }
 
 .links {
-  @apply flex items-center gap-2.5 text-[12.5px];
+  @apply flex items-center gap-2.5 text-[13px];
 }
 
 .dot {
@@ -262,7 +262,7 @@ function giveUp() {
 }
 
 .link {
-  @apply inline-flex items-center gap-[5px] border-0 bg-transparent p-0.5 text-[12.5px]
+  @apply inline-flex items-center gap-[5px] border-0 bg-transparent p-0.5 text-[13px]
          text-text-tertiary cursor-pointer;
   font-family: inherit;
 }
@@ -280,7 +280,7 @@ function giveUp() {
 }
 
 .server {
-  @apply w-full flex flex-col gap-[7px] border border-border rounded-[10px] bg-bg-inset
+  @apply w-full flex flex-col gap-[7px] border border-border rounded-[12px] bg-bg-inset
          px-3 py-[11px] text-left;
 }
 
@@ -294,13 +294,13 @@ function giveUp() {
 
 .server-field {
   @apply flex-1 min-w-0 h-[30px] px-2.5 border border-border-strong rounded-[7px] bg-bg-panel
-         text-[11.5px] text-text-secondary;
+         text-[12px] text-text-secondary;
   font-family: ui-monospace, 'SF Mono', 'Cascadia Code', Menlo, monospace;
 }
 
 .server-apply {
   @apply flex-none h-[30px] px-[11px] border border-border-strong rounded-[7px] bg-bg-panel
-         text-text text-[12.5px] cursor-pointer;
+         text-text text-[13px] cursor-pointer;
   font-family: inherit;
 }
 
@@ -336,11 +336,11 @@ function giveUp() {
 }
 
 .device-code-label {
-  @apply text-[10.5px] font-semibold tracking-[0.09em] uppercase text-text-tertiary;
+  @apply text-[11px] font-semibold tracking-[0.09em] uppercase text-text-tertiary;
 }
 
 .device-code-value {
-  @apply text-[21px] font-bold tracking-[0.05em];
+  @apply text-[22px] font-bold tracking-[0.05em];
   font-variant-numeric: tabular-nums;
 }
 
@@ -352,6 +352,6 @@ function giveUp() {
 }
 
 .failure {
-  @apply m-0 text-[12.5px] text-red;
+  @apply m-0 text-[13px] text-red;
 }
 </style>

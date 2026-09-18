@@ -146,11 +146,11 @@ func DefaultSettings() Settings {
 	}
 }
 
-// Panel widths in pixels. The design names 288 for the list and 300 for the inspector; these are
+// Panel widths in pixels. The design names 262 for the list and 300 for the inspector; these are
 // the values a window that has never been resized uses.
 const (
 	DefaultInspectorWidth = 300
-	DefaultSideWidth      = 288
+	DefaultSideWidth      = 262
 	// Widths are clamped on the way in: a window narrower than the sidebar plus a panel is not a
 	// layout, and a stored value can come from a build with different limits.
 	MinPanelWidth = 220

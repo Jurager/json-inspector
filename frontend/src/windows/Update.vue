@@ -154,11 +154,11 @@ async function onSkip() {
 }
 
 .update-title {
-  @apply text-[18px] font-bold tracking-[-0.01em];
+  @apply text-[19px] font-bold tracking-[-0.01em];
 }
 
 .update-subtitle {
-  @apply text-[12.5px] text-text-secondary;
+  @apply text-[13px] text-text-secondary;
 }
 
 .update-whats-new {
@@ -166,13 +166,13 @@ async function onSkip() {
 }
 
 .update-label {
-  @apply text-[11.5px] font-semibold uppercase tracking-[0.06em] text-text-tertiary flex-none;
+  @apply text-[12px] font-semibold uppercase tracking-[0.06em] text-text-tertiary flex-none;
 }
 
 /* The list scrolls inside its own box rather than growing the window: the release notes are as long
    as somebody wrote them, and the window is a fixed size. */
 .update-notes {
-  @apply flex-1 min-h-[120px] overflow-y-auto rounded-[9px] border border-border bg-bg-inset px-3.5 py-3;
+  @apply flex-1 min-h-[120px] overflow-y-auto rounded-[8px] border border-border bg-bg-inset px-3.5 py-3;
 }
 
 .update-note {
@@ -193,9 +193,9 @@ async function onSkip() {
 }
 
 .update-skip {
-  @apply bg-transparent border-none p-0 mt-1.5 text-[12.5px] text-text-tertiary cursor-pointer;
+  @apply bg-transparent border-none p-0 mt-1.5 text-[13px] text-text-tertiary cursor-pointer;
   font: inherit;
-  font-size: 12.5px;
+  font-size: 13px;
 }
 
 .update-skip:hover:not(:disabled) {
@@ -212,6 +212,6 @@ async function onSkip() {
 }
 
 .update-error {
-  @apply m-0 text-[12.5px] text-red flex-none;
+  @apply m-0 text-[13px] text-red flex-none;
 }
 </style>

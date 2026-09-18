@@ -19,7 +19,7 @@ defineProps<{
 @reference "../../style.css";
 
 .chip {
-  @apply inline-flex flex-none items-center h-7 px-2.5 rounded-[7px] text-[12.5px]
+  @apply inline-flex flex-none items-center h-7 px-2.5 rounded-[7px] text-[13px]
          text-text-secondary;
   max-width: 240px;
   background: var(--bg-panel);

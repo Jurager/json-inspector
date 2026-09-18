@@ -35,12 +35,12 @@ async function exportNode(row: Row) {
   if (written) toast.show(t('collections.savedToFileNamed', { name: row.name }))
 }
 
-// The indent the design gives the three levels, as the row's own left padding: a collection at the top
-// of the tree starts at 10px, and each level below adds 16. A collection may hold a collection, and one
-// of those may hold another, so past the third step the ladder keeps climbing rather than piling the
+// The indent the design gives a level, as the row's own left padding: the first starts where the panel
+// does — 16px, the same edge the head's title stands on — and each level below adds 14. A collection
+// may hold a collection, and one of those another, so the ladder keeps climbing rather than piling the
 // deepest rows on one column.
-const INDENT = [10, 26, 42]
-const STEP = 16
+const INDENT = 16
+const STEP = 14
 
 // A row of the tree, flattened: the drawing walks a list, and the nesting is what the indent says.
 // Expansion is applied here rather than by the tree, so the filter can open a path to a match
@@ -141,11 +141,9 @@ function level(collection: Collection, holderId: string, depth: number, allOpen:
   return rows
 }
 
-// The indent a row is drawn at: the three steps the design gives, and a fixed step past them so that a
-// collection inside a collection inside a collection is still a level the eye can follow.
+// The indent a row is drawn at: one step per level, from the edge the panel's own content starts on.
 function indentDepth(depth: number): string {
-  if (depth < INDENT.length) return `${INDENT[depth]}px`
-  return `${INDENT[INDENT.length - 1] + (depth - INDENT.length + 1) * STEP}px`
+  return `${INDENT + depth * STEP}px`
 }
 
 // A click selects and opens: a request as a card, a collection as its overview. What is inside a
@@ -262,7 +260,7 @@ useListKeys({
     reveal(row)
     void pick(row)
   },
-  selected: '.tree-panel .row.active',
+  selected: '.tree-panel .panel-row.active',
   onSideKey: (key, id) => {
     const rows = visible.value
     const at = rows.findIndex((row) => row.id === id)
@@ -569,7 +567,7 @@ function cancelTop(): boolean {
     <div class="panel-head">
       <span class="panel-title">{{ t('collections.title') }}</span>
       <IconButton variant="bare" class="panel-add" :hint="t('collections.newCollection')" @click="addCollection()">
-        <Icon name="plus" :size="17" />
+        <Icon name="plus" :size="16" />
       </IconButton>
     </div>
 
@@ -578,7 +576,7 @@ function cancelTop(): boolean {
         <ContextMenu>
           <ContextMenuTrigger as-child>
             <div
-              class="row"
+              class="panel-row"
               :data-id="row.id"
               :class="{
                 'row-collection': row.kind === 'collection',
@@ -602,7 +600,7 @@ function cancelTop(): boolean {
                 @pointerdown.stop
                 @click.stop="store.toggleExpand(row.id)"
               >
-                <Icon name="chevron-right" :size="13" />
+                <Icon name="chevron-right" :size="11" />
               </span>
               <!-- Only a collection holds a level, so only a collection keeps room for the chevron: a
                    request starts at its own indent, which is what the design draws and what keeps the
@@ -614,7 +612,7 @@ function cancelTop(): boolean {
                 class="row-icon"
                 :class="{ 'row-icon-top': row.depth === 0 }"
               >
-                <Icon name="folder" :size="16" />
+                <Icon name="folder" :size="14" />
               </span>
 
               <span
@@ -687,7 +685,7 @@ function cancelTop(): boolean {
 
         <div
           v-if="creatingAt && creatingAt.after === row.id"
-          class="row row-creating"
+          class="panel-row row-creating"
           :style="{ paddingLeft: indentDepth(creatingAt.depth) }"
         >
           <!-- The verb's own room: the name being typed stands where the name will stand. -->
@@ -733,47 +731,33 @@ function cancelTop(): boolean {
 @reference "../../style.css";
 
 .tree-panel {
-  /* The seam against the content belongs to the panel's frame, which knows which edge it is on. */
-  @apply relative flex flex-col h-full min-h-0 bg-bg-panel;
-}
-
-/* The header carries no hairline any more: the panel is one surface with its tree, and the lines the
-   window used to run across it are gone (the design's «меньше линий» pass). */
-.panel-head {
-  @apply flex items-center justify-between h-[52px] pl-4 pr-3;
-}
-
-.panel-title {
-  @apply text-[14px] font-semibold text-text;
+  /* The seam against the content belongs to the panel's frame, which knows which edge it is on, and
+     so does the fill: the panel stands on the sidebar's glass. The head, the rows and the foot are
+     the shared panel shapes in style.css; what is here is only what a tree adds to them. */
+  @apply relative flex flex-col h-full min-h-0;
 }
 
 /* Against the shared icon button's own size, which is the size the rest of the window uses. Deep
    because a hinted icon button is drawn inside a tooltip: the element is the tooltip's, and the
    panel's own scope never reaches it. */
 .panel-head :deep(.panel-add) {
-  @apply w-[30px] h-[30px] rounded-[7px] text-accent;
+  @apply w-[28px] h-[28px] rounded-[7px] text-accent;
 }
 
 .panel-head :deep(.panel-add:hover:not(:disabled)) {
   @apply bg-accent-soft text-accent;
 }
 
-/* The rows are a column with a 2px gap and no padding of their own: the tree's inset is the container's,
-   so a row's hover fill reaches the same 10px from the panel's edge at every level. */
+/* No gap and no inset of the container's: the row carries its own padding, and every level is that
+   padding plus its own indent, so a row's hover fill reaches the edge the panel starts from. */
 .tree-scroll {
-  @apply flex-1 min-h-0 overflow-y-auto flex flex-col gap-0.5 px-2.5;
+  @apply flex-1 min-h-0 overflow-y-auto flex flex-col;
 }
 
-.row {
-  @apply relative flex items-center gap-[9px] min-h-9 pr-2.5 rounded-[9px] text-text text-[13px] cursor-pointer;
-}
-
-.row:hover {
-  @apply bg-bg-hover;
-}
-
-.row.active {
-  @apply bg-accent-soft text-accent;
+/* The tree is the one panel whose open row inks the whole label with the accent: a name is what a row
+   of a tree is, and the tint alone would leave the name reading like any other. */
+.panel-row.active {
+  color: var(--accent);
 }
 
 .row-collection {
@@ -781,15 +765,12 @@ function cancelTop(): boolean {
 }
 
 /* A collection after the first is a new tree, and the line above it says so. The line is drawn rather
-   than bordered: a border on a rounded row bends around the corners, and that curve shows as a smudge
-   above the fill of a row that is hovered or selected.
-
-   It sits in the middle of the 2px the rows stand apart, so the line has the same room above and below
-   it: on the row's own edge it read as belonging to the collection underneath. */
+   than bordered: a border on a row would bend around its own edges, and that curve shows as a smudge
+   above the fill of a row that is hovered or selected. */
 .row-divider::before {
   content: '';
   @apply absolute left-0 right-0 h-px;
-  top: -1px;
+  top: 0;
   background: var(--border);
 }
 
@@ -804,12 +785,12 @@ function cancelTop(): boolean {
   @apply text-accent;
 }
 
-.row.active .row-icon {
+.panel-row.active .row-icon {
   @apply text-accent;
 }
 
 .caret {
-  @apply flex-none inline-flex items-center justify-center w-[13px] text-text-tertiary transition-transform duration-150;
+  @apply flex-none inline-flex items-center justify-center w-[11px] text-text-tertiary transition-transform duration-150;
 }
 
 .caret.open {
@@ -817,20 +798,22 @@ function cancelTop(): boolean {
 }
 
 .caret-space {
-  @apply flex-none w-[13px];
+  @apply flex-none w-[11px];
 }
 
+/* The verb keeps the column the names line up in: 44px is the width the design gives it, and it is
+   what starts every name of a level at the same place whatever stands in front of it. A row being
+   created leaves the same room before its name. */
 .row-method-space {
   @apply flex-none;
-  min-width: 48px;
+  min-width: 44px;
 }
 
 /* The method is the row's own ink rather than a badge here: the tree is read by name, and a badge at
-   every request would make the column of names ragged. The shared 48px is what lines the names of a
-   level up whatever verb stands in front of them. */
+   every request would make the column of names ragged. */
 .row-method {
-  @apply flex-none text-[10.5px] text-text-secondary;
-  min-width: 23px;
+  @apply flex-none text-[11px] text-text-secondary;
+  min-width: 44px;
 }
 
 /* The verb's own colour, from `methodInkClass`. Written after the grey above so that the same
@@ -847,7 +830,7 @@ function cancelTop(): boolean {
   @apply text-accent;
 }
 
-.row.active .row-method {
+.panel-row.active .row-method {
   @apply text-accent;
 }
 
@@ -856,11 +839,11 @@ function cancelTop(): boolean {
 }
 
 .row-count {
-  @apply flex-none text-[11.5px] text-text-tertiary tabular-nums;
+  @apply flex-none text-[11px] text-text-tertiary tabular-nums;
 }
 
 .row-rename {
-  @apply flex-1 min-w-0 h-[22px] box-border text-[13px] outline-none;
+  @apply flex-1 min-w-0 h-[24px] box-border text-[13px] outline-none;
   padding: 0 6px;
   border-radius: 5px;
   border: 1px solid var(--accent);
@@ -913,7 +896,7 @@ function cancelTop(): boolean {
 }
 
 .drag-ghost {
-  @apply fixed z-50 flex items-center gap-[9px] py-1.5 px-2.5 rounded-[9px] text-text text-[13px] pointer-events-none;
+  @apply fixed z-50 flex items-center gap-2 py-1.5 px-2.5 rounded-lg text-text text-[13px] pointer-events-none;
   background: var(--glass-overlay);
   backdrop-filter: var(--blur-overlay);
   box-shadow: 0 8px 24px rgb(0 0 0 / 0.18);

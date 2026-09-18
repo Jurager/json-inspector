@@ -81,7 +81,7 @@ const note = computed(() => {
 /* An address is machine text, and the design draws it in the mono face the rest of the app writes
    addresses in. */
 .search-title-mono {
-  @apply flex-1 min-w-0 text-[12.5px];
+  @apply flex-1 min-w-0 text-[13px];
   font-family: var(--mono);
 }
 
@@ -90,6 +90,6 @@ const note = computed(() => {
 }
 
 .search-note {
-  @apply flex-none ml-auto text-[10.5px] text-text-tertiary whitespace-nowrap;
+  @apply flex-none ml-auto text-[11px] text-text-tertiary whitespace-nowrap;
 }
 </style>

@@ -47,6 +47,6 @@ const style = computed(() => ({ background: tintOf(props.workspace.color) }))
    two windows are one measure. */
 .avatar--rail {
   @apply w-[22px] h-[22px] rounded-md;
-  font-size: 10.5px;
+  font-size: 11px;
 }
 </style>

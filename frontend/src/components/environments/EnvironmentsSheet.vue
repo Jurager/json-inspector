@@ -250,14 +250,14 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
    lines between them are the window's own hairline rather than the leaf's: the drawing draws the
    head and the rail with `--line`, and a sheet's inner edges are a touch lighter than its outer. */
 .sheet {
-  @apply flex flex-col w-full h-full max-w-[900px] max-h-[580px] rounded-[14px] overflow-hidden;
+  @apply flex flex-col w-full h-full max-w-[900px] max-h-[580px] rounded-[12px] overflow-hidden;
   background: var(--glass-sheet);
   backdrop-filter: var(--blur-sheet);
   box-shadow: var(--glass-sheet-shadow), 0 0 0 1px var(--glass-overlay-border);
 }
 
 .sheet-head {
-  @apply flex-none flex items-center gap-3 h-[50px] px-4 border-b;
+  @apply flex-none flex items-center gap-3 h-[52px] px-4 border-b;
   background: var(--glass-sheet-head);
   border-color: var(--border);
 }

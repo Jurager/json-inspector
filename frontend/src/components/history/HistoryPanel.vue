@@ -6,8 +6,7 @@ import PanelFilter from '../ui/PanelFilter.vue'
 import { useListKeys } from '../../composables/useListKeys'
 import { useRequestsStore } from '../../stores/requests'
 import { RecordSource, type Record } from '../../../bindings/json-inspector/internal/domain'
-import { statusBadgeClass } from '../../lib/format'
-import { addressOf } from '../../lib/address'
+import { splitAddress } from '../../lib/address'
 import { effectiveTab, groupHue, groupLabel, tabGroups, type TabGroup } from '../../lib/recordTabs'
 import { formatDate, formatMicros, useMessages } from '../../i18n'
 
@@ -43,10 +42,24 @@ function clearAll() {
   void store.clearRecords(records.value.map((r) => r.id))
 }
 
-function timeLabel(startedAt: number): string {
-  const d = new Date(startedAt)
-  return formatDate(d, { hour: '2-digit', minute: '2-digit', second: '2-digit' })
+// What the row no longer says out loud. The list keeps three marks — the method, the address and the
+// outcome — and the code and the time it took move into the tooltip, where whoever needs the number
+// finds it without every row carrying it.
+function rowTitle(r: Record): string {
+  const parts = [`${r.method} ${r.status}`]
+  if (r.durationUs > 0) parts.push(formatMicros(r.durationUs))
+  return parts.join(' · ')
 }
+
+// The strip at the end of a row, in the colour of the outcome. A captured redirect is a request that
+// went where it was meant to and counts as one; a request that never got an answer is red.
+function statusTone(status: number, redirectIsFine = false): string {
+  const fine = status >= 200 && status < (redirectIsFine ? 400 : 300)
+  return fine ? 'is-ok' : 'is-bad'
+}
+
+const hostOf = (url: string): string => splitAddress(url).host
+const pathOf = (url: string): string => splitAddress(url).path
 
 const query = ref('')
 
@@ -135,7 +148,7 @@ useListKeys({
   ids: () => rowIds.value,
   current: () => activeId.value,
   move: (id) => void select(id),
-  selected: '.history-panel .item.active, .history-panel .group-head.active',
+  selected: '.history-panel .panel-row.active',
 })
 
 // The tab the pane is about. It is the effective one and not the chosen one, so the highlight and
@@ -194,12 +207,12 @@ watch(
            both panels are one sidebar, and each bin has to name its own pile. -->
       <button
         type="button"
-        class="panel-clear"
+        class="panel-icon danger"
         :title="clearHint"
         :disabled="records.length === 0"
         @click="clearAll"
       >
-        <Icon name="trash" :size="17" :stroke-width="1.8" />
+        <Icon name="trash" :size="15" :stroke-width="1.8" />
       </button>
     </div>
 
@@ -214,11 +227,11 @@ watch(
 
     <ul v-else-if="!browser" class="list">
       <template v-for="g in manualGroups" :key="g.label">
-        <li class="date-sep">{{ g.label }}</li>
+        <li class="panel-group">{{ g.label }}</li>
         <li
           v-for="r in g.items"
           :key="r.id"
-          class="item"
+          class="panel-row"
           :class="{ active: r.id === activeId }"
           role="button"
           tabindex="0"
@@ -226,12 +239,11 @@ watch(
           @keydown.enter="select(r.id)"
           @keydown.space.prevent="select(r.id)"
         >
-          <span class="item-head">
-            <span class="item-method">{{ r.method }}</span>
-            <span class="item-status" :class="statusBadgeClass(r.status)">{{ r.status }}</span>
-            <span class="item-time">{{ timeLabel(r.startedAt) }}</span>
+          <span class="panel-method">{{ r.method }}</span>
+          <span class="panel-address" :title="rowTitle(r)">
+            <span class="panel-host">{{ hostOf(r.url) }}</span>{{ pathOf(r.url) }}
           </span>
-          <span class="item-path mono" :title="r.url">{{ addressOf(r.url) }}</span>
+          <span class="panel-strip" :class="statusTone(r.status)"></span>
         </li>
       </template>
     </ul>
@@ -239,7 +251,7 @@ watch(
     <div v-else class="list list-browser">
       <section v-for="g in filteredGroups" :key="g.key" class="group">
         <div
-          class="group-head"
+          class="panel-row row-site"
           :class="{ active: g.key === activeTabKey }"
           role="button"
           tabindex="0"
@@ -252,7 +264,7 @@ watch(
             :class="{ open: !collapsed.has(g.key) }"
             @click.stop="toggleGroup(g.key)"
           >
-            <Icon name="chevron-right" :size="13" />
+            <Icon name="chevron-right" :size="11" />
           </span>
           <img
             v-if="g.favIconUrl && !brokenFavicons.has(g.key)"
@@ -264,11 +276,11 @@ watch(
           <span v-else class="avatar" :style="{ background: `hsl(${groupHue(g.key)}, 58%, 45%)` }">
             {{ groupLabel(g).charAt(0).toUpperCase() }}
           </span>
-          <span class="group-title">{{ groupLabel(g) }}</span>
-          <span v-if="isRecording(g)" class="recording-label">
-            <span class="recording-dot"></span>{{ t('history.rec') }}
-          </span>
-          <span class="group-count">{{ g.items.length }}</span>
+          <span class="row-title">{{ groupLabel(g) }}</span>
+          <!-- The marker is the dot and nothing else: the word that used to stand beside it took the
+               width a site's own name needs, and the colour says the same thing faster. -->
+          <span v-if="isRecording(g)" class="recording-dot"></span>
+          <span class="panel-count">{{ g.items.length }}</span>
           <IconButton variant="danger" size="sm" :hint="t('history.clearTab')" @click.stop="clearGroup(g)"><Icon name="trash" :size="14" :stroke-width="1.8" /></IconButton>
         </div>
 
@@ -276,7 +288,7 @@ watch(
           <li
             v-for="r in g.items"
             :key="r.id"
-            class="item"
+            class="panel-row"
             :class="{ active: r.id === activeId }"
             role="button"
             tabindex="0"
@@ -284,10 +296,11 @@ watch(
             @keydown.enter="select(r.id)"
             @keydown.space.prevent="select(r.id)"
           >
-            <span class="item-method mono">{{ r.method }}</span>
-            <span class="item-status" :class="statusBadgeClass(r.status)">{{ r.status }}</span>
-            <span class="item-path mono" :title="r.url">{{ addressOf(r.url) }}</span>
-            <span v-if="r.durationUs > 0" class="item-duration">{{ formatMicros(r.durationUs) }}</span>
+            <span class="panel-method">{{ r.method }}</span>
+            <span class="panel-address" :title="rowTitle(r)">
+              <span class="panel-host">{{ hostOf(r.url) }}</span>{{ pathOf(r.url) }}
+            </span>
+            <span class="panel-strip" :class="statusTone(r.status, true)"></span>
           </li>
         </ul>
       </section>
@@ -305,41 +318,11 @@ watch(
 @reference "../../style.css";
 
 .history-panel {
-  /* The seam against the content belongs to the panel's frame, which knows which edge it is on. */
-  @apply relative flex flex-col h-full min-h-0 bg-bg-panel;
-}
-
-/* The header carries no hairline any more: the panel is one surface with its list, and the lines the
-   window used to run across it are gone (the design's «меньше линий» pass). */
-.panel-head {
-  @apply flex items-center justify-between h-[52px] px-4;
-}
-
-.panel-title {
-  @apply text-[14px] font-semibold text-text;
-}
-
-/* The head's bin, at the handoff's own numbers for it: 30px square, radius 7, ink on nothing until
-   the pointer arrives, and red then — it is the one control on this bar that destroys something. */
-.panel-clear {
-  @apply flex-none inline-flex items-center justify-center w-[30px] h-[30px] rounded-[7px]
-         border-0 bg-transparent cursor-pointer text-text-secondary;
-  --wails-draggable: no-drag;
-}
-
-.panel-clear:hover:not(:disabled) {
-  @apply bg-red-soft;
-  color: var(--red-text);
-}
-
-.panel-clear:disabled {
-  @apply opacity-50 cursor-default;
-}
-
-/* The separator is the panel's own line, so it breaks out of the list's inset rather than sitting
-   inside it: the label starts where the header's title does. */
-.date-sep {
-  @apply -mx-2.5 text-[11px] font-semibold uppercase leading-[15px] tracking-[0.07em] text-text-tertiary pt-1 px-4 pb-2;
+  /* The seam against the content belongs to the panel's frame, which knows which edge it is on, and
+     the fill belongs to that frame too: the panel wears the sidebar's glass and draws nothing under
+     it, so the blur has the tint behind it to work on. The head, the row and the foot are the shared
+     class in style.css. */
+  @apply relative flex flex-col h-full min-h-0;
 }
 
 .no-results {
@@ -356,42 +339,37 @@ watch(
   @apply max-w-[220px];
 }
 
-/* Both lists are a column of rows with a gap, and the two rails differ only in that gap: the sent rows
-   are their own paragraph each and stand 4px apart, while the captured ones read as one stack of 2px. */
+/* Both lists are a stack of rows with no gap and no inset of their own: the row carries its own
+   padding, and a second rhythm between the rows would fight the one the design set. */
 .list {
-  @apply flex-1 min-h-0 overflow-auto flex flex-col gap-1 px-2.5;
-}
-
-.list-browser {
-  @apply gap-0.5;
+  @apply flex-1 min-h-0 overflow-auto flex flex-col;
 }
 
 .group {
-  @apply flex flex-col gap-0.5;
+  @apply flex flex-col;
 }
 
-.group-head {
-  @apply flex items-center gap-[9px] w-full h-[38px] px-2.5 border-none rounded-[9px] bg-transparent text-text text-[13px] text-left cursor-pointer select-none;
-  --wails-draggable: no-drag;
+.group-items {
+  @apply list-none m-0 p-0 flex flex-col;
 }
 
-.group-head:hover {
-  @apply bg-bg-hover;
+/* A captured request stands under the site it belongs to and is indented under it, so the two read
+   as a heading and its list rather than as one flat column. */
+.group-items .panel-row {
+  padding-left: 28px;
 }
 
-/* The tab the pane is about. The same paint the records below it get when one of them is open: the
-   two are one choice, drawn one at a time. */
-.group-head.active {
-  @apply bg-accent-soft text-accent;
+/* The site a group belongs to is that group's heading: its own name in the weight a heading has. */
+.row-site {
+  padding-right: 6px;
 }
 
-.group-head.active .caret,
-.group-head.active .group-count {
-  @apply text-accent;
+.row-site .row-title {
+  @apply flex-1 min-w-0 overflow-hidden text-ellipsis whitespace-nowrap font-semibold;
 }
 
 .caret {
-  @apply inline-flex items-center justify-center flex-none w-[13px] h-[13px] text-text-secondary;
+  @apply inline-flex items-center justify-center flex-none w-[11px] h-[11px] text-text-tertiary;
   transition: transform 0.12s ease;
 }
 
@@ -400,128 +378,31 @@ watch(
 }
 
 .favicon {
-  @apply flex-none w-5 h-5 rounded-md object-contain;
+  @apply flex-none w-4 h-4 rounded-sm object-contain;
   border: 1px solid var(--border);
-  background: var(--card);
+  background: var(--bg-panel);
 }
 
 .avatar {
-  @apply flex-none w-5 h-5 rounded-md text-white text-[10.5px] font-semibold inline-flex items-center justify-center leading-none uppercase;
+  @apply flex-none w-4 h-4 rounded-sm text-white text-[10px] font-semibold inline-flex items-center justify-center leading-none uppercase;
   /* The line box keeps room for the descenders a capital never reaches, so a single letter sits
      about half of that below the middle of the square. Padding at the foot shrinks the box the line
      is centred in, which lifts it by half the padding — and in em, so every size is the same. */
   padding-bottom: 0.09em;
 }
 
-.group-title {
-  @apply flex-1 min-w-0 overflow-hidden text-ellipsis whitespace-nowrap;
-}
-
-.recording-label {
-  @apply flex-none inline-flex items-center gap-[5px] text-[11px] text-red;
-}
-
+/* The dot is the whole marker: the word that used to stand beside it took the width the site's own
+   name needs, and the colour says the same thing faster. */
 .recording-dot {
-  @apply w-[7px] h-[7px] rounded-full flex-none;
-  background: var(--green);
+  @apply flex-none w-[6px] h-[6px] rounded-full;
+  background: var(--red);
 }
 
-.group-count {
-  @apply flex-none text-[11.5px] leading-[15px] text-text-tertiary;
-  font-variant-numeric: tabular-nums;
-}
-
-.group-head :deep(.icon-btn) {
+.group .panel-row :deep(.icon-btn) {
   opacity: 0.55;
 }
 
-.group-head:hover :deep(.icon-btn) {
+.group .panel-row:hover :deep(.icon-btn) {
   opacity: 1;
-}
-
-.group-items {
-  @apply list-none m-0 p-0 flex flex-col gap-0.5;
-}
-
-/* Two lines: what the attempt was — method, status, when — and under it the address it went to. The
-   row that is open is filled with the accent rather than tinted by it, so the one being looked at is
-   the one the eye lands on. */
-.item {
-  @apply flex flex-col gap-1.5 py-[11px] px-3 rounded-[9px] cursor-pointer;
-}
-
-.item-head {
-  @apply flex items-center gap-2;
-}
-
-/* A captured row is one line instead — method, status, address, how long — and it is the height of the
-   tab above it: a tab of thirty requests has to stay a column the eye can run down. The address takes
-   the slack, so a row without a duration (the extension could not time it) lays out the same. */
-.group-items .item {
-  @apply flex-row items-center gap-[9px] h-[38px] py-0 pl-[30px] pr-2.5;
-}
-
-.group-items .item-method {
-  @apply tracking-normal;
-}
-
-.group-items .item-path {
-  @apply flex-1 text-[12.5px] leading-[15px];
-}
-
-.group-items .item-duration {
-  @apply flex-none text-[11.5px] leading-[15px] text-text-tertiary;
-  font-variant-numeric: tabular-nums;
-}
-
-.group-items .item.active .item-duration {
-  color: rgba(255, 255, 255, 0.75);
-}
-
-.item:hover {
-  @apply bg-bg-hover;
-}
-
-.item.active {
-  background: var(--accent);
-}
-
-.item.active .item-path {
-  color: var(--accent-text);
-}
-
-.item.active .item-time {
-  color: rgba(255, 255, 255, 0.75);
-}
-
-.item.active .item-method,
-.item.active .item-status {
-  background: rgba(255, 255, 255, 0.22);
-  color: #fff;
-}
-
-/* The method and the status are told apart by their fill alone, and neither shifts the row. The line
-   box is set rather than left to the window's own 1.5, which is a paragraph's leading and not a badge's:
-   without it the badge is 22 tall inside a 20-tall header. */
-.item-method {
-  @apply flex-none inline-flex items-center px-1.5 py-[3px] rounded-[5px] text-[10.5px] leading-[14px] font-medium tracking-[0.04em];
-  font-variant-numeric: tabular-nums;
-  background: var(--bg-hover);
-  color: var(--text-secondary);
-}
-
-.item-status {
-  @apply flex-none inline-flex items-center px-1.5 py-[3px] rounded-[5px] text-[10.5px] leading-[14px] font-medium;
-  font-variant-numeric: tabular-nums;
-}
-
-.item-path {
-  @apply min-w-0 text-[13px] leading-[15px] text-text overflow-hidden text-ellipsis whitespace-nowrap;
-  font-family: var(--mono);
-}
-
-.item-time {
-  @apply ml-auto flex-none text-[11.5px] leading-[15px] text-text-tertiary;
-  font-variant-numeric: tabular-nums;
 }
 </style>

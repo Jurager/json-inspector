@@ -720,7 +720,7 @@ async function run() {
 }
 
 .meta {
-  @apply text-[13.5px] text-text-secondary;
+  @apply text-[13px] text-text-secondary;
 }
 
 .description {
@@ -753,12 +753,12 @@ async function run() {
 }
 
 .stat-value {
-  @apply text-[20px] font-semibold;
+  @apply text-[19px] font-semibold;
   letter-spacing: -0.01em;
 }
 
 .stat-note {
-  @apply text-[12.5px] text-text-tertiary;
+  @apply text-[13px] text-text-tertiary;
 }
 
 .requests {
@@ -776,12 +776,12 @@ async function run() {
 }
 
 .section-note {
-  @apply text-[12.5px] text-text-tertiary;
+  @apply text-[13px] text-text-tertiary;
 }
 
 .report-link {
   @apply h-7 px-2 -my-1 rounded-[7px] border-0 bg-transparent cursor-pointer
-         text-[12.5px] font-medium text-accent;
+         text-[13px] font-medium text-accent;
   font-family: inherit;
 }
 
@@ -816,7 +816,7 @@ async function run() {
 
 .table-row {
   @apply w-full text-left border-0 border-b border-border bg-transparent cursor-pointer
-         min-h-[46px] text-text;
+         min-h-[44px] text-text;
 }
 
 .table-row:hover {
@@ -833,11 +833,11 @@ async function run() {
 }
 
 .cell-method {
-  @apply text-[11.5px];
+  @apply text-[12px];
 }
 
 .cell-name {
-  @apply text-[13.5px] overflow-hidden text-ellipsis whitespace-nowrap;
+  @apply text-[13px] overflow-hidden text-ellipsis whitespace-nowrap;
 }
 
 /* The folder is where the row came from and not what it is called: it stands before the name in the
@@ -851,7 +851,7 @@ async function run() {
 }
 
 .cell-asserts {
-  @apply text-[12.5px] text-text-secondary;
+  @apply text-[13px] text-text-secondary;
 }
 
 .cell-asserts.bad {
@@ -859,11 +859,11 @@ async function run() {
 }
 
 .cell-time {
-  @apply text-[12.5px] text-text-secondary;
+  @apply text-[13px] text-text-secondary;
 }
 
 .status-pill {
-  @apply inline-flex items-center text-[11.5px] font-semibold py-[3px] px-2 rounded-md;
+  @apply inline-flex items-center text-[12px] font-semibold py-[3px] px-2 rounded-md;
 }
 
 .status-pill.none {
@@ -891,7 +891,7 @@ async function run() {
 }
 
 .card-title {
-  @apply text-[13.5px] font-semibold;
+  @apply text-[13px] font-semibold;
 }
 
 .card-body {
@@ -922,7 +922,7 @@ async function run() {
 /* A line of the report is a button where it names a request — a failure and the slowest one are both
    ways into what they are about — and a plain line where it does not. */
 .report-row {
-  @apply flex items-center w-full gap-3 min-h-11 px-2.5 rounded-[9px] border-0 bg-transparent
+  @apply flex items-center w-full gap-3 min-h-11 px-2.5 rounded-[8px] border-0 bg-transparent
          text-left text-text;
   font-family: inherit;
 }
@@ -940,7 +940,7 @@ async function run() {
 }
 
 .report-label {
-  @apply text-[13.5px] overflow-hidden text-ellipsis whitespace-nowrap;
+  @apply text-[13px] overflow-hidden text-ellipsis whitespace-nowrap;
 }
 
 .report-note {
@@ -948,7 +948,7 @@ async function run() {
 }
 
 .report-tag {
-  @apply flex-none text-[12.5px] font-semibold py-1 px-[9px] rounded-md text-text-tertiary;
+  @apply flex-none text-[13px] font-semibold py-1 px-[9px] rounded-md text-text-tertiary;
   background: var(--bg-hover);
 }
 

@@ -20,7 +20,7 @@ withDefaults(defineProps<{ title: string; note?: string }>(), { note: '' })
 
 .row {
   @apply flex items-center gap-3.5;
-  min-height: 48px;
+  min-height: 44px;
   padding: 9px 12px;
 }
 
@@ -34,7 +34,7 @@ withDefaults(defineProps<{ title: string; note?: string }>(), { note: '' })
 }
 
 .note {
-  @apply text-[11.5px] text-text-tertiary;
+  @apply text-[12px] text-text-tertiary;
   line-height: 1.45;
 }
 

@@ -114,7 +114,7 @@ defineExpose({ commit, discard })
    the fields are for is read after they are, not before. */
 .hint,
 .note {
-  @apply text-[12.5px] text-text-tertiary;
+  @apply text-[13px] text-text-tertiary;
   line-height: 1.5;
 }
 

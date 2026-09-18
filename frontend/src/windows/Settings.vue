@@ -166,7 +166,7 @@ onMounted(() => {
 }
 
 .pane-notice {
-  @apply flex-none text-[12.5px];
+  @apply flex-none text-[13px];
   padding: 10px 20px;
   border-top: 1px solid var(--border);
   color: var(--red-text);
