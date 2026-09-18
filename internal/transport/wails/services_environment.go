@@ -27,9 +27,14 @@ func (s *EnvironmentsService) Snapshot(ctx context.Context) (domain.EnvState, er
 
 func (s *EnvironmentsService) CreateEnvironment(
 	ctx context.Context,
-	name string,
+	draft environment.EnvironmentDraft,
 ) (domain.EnvState, error) {
-	return s.environments.Create(ctx, name)
+	return s.environments.Create(ctx, draft)
+}
+
+// ClearGlobals empties the globals: they are one scope and cannot be deleted, only emptied.
+func (s *EnvironmentsService) ClearGlobals(ctx context.Context) (domain.EnvState, error) {
+	return s.environments.ClearGlobals(ctx)
 }
 
 func (s *EnvironmentsService) UpdateEnvironment(

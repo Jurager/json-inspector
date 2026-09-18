@@ -13,10 +13,9 @@ export function useWorkspaceTint() {
   const workspaces = useWorkspacesStore()
 
   watch(
-    // What the window wears: the colour being tried on in the settings card if there is one, and
-    // otherwise what the workspace actually is. Closing the card drops the try-on, and the tint
-    // returns to the saved colour by itself — which is what "not saved" has to mean for the eyes.
-    () => workspaces.preview ?? workspaces.active?.color ?? '',
+    // What the window wears: what the workspace on screen is. A colour picked in the manager window is
+    // written the moment it is picked, so the tint follows the row and not a copy of it.
+    () => workspaces.active?.color ?? '',
     (color) => {
       const root = document.documentElement
       if (hasTint(color)) root.dataset.tint = color

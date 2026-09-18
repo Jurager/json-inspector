@@ -1,16 +1,14 @@
 <script setup lang="ts">
-import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
+import { nextTick, ref } from 'vue'
 import Icon from '../ui/Icon.vue'
 import { Button, IconButton } from '../ui/button'
 import { Input } from '../ui/input'
 import RawViewer from './RawViewer.vue'
 import { copyToClipboard } from '../../lib/clipboard'
-import { usePlatform } from '../../composables/usePlatform'
 import { useMessages } from '../../i18n'
 
 // Shared by the "Raw" tab and the body of a non-JSON:API response, so a plain
 // response reads the same wherever it is shown.
-const { shortcut } = usePlatform()
 const { t } = useMessages()
 
 const props = defineProps<{
@@ -26,7 +24,6 @@ const searchInput = ref<InstanceType<typeof Input> | null>(null)
 const viewer = ref<{ next: () => void; prev: () => void } | null>(null)
 const stats = ref({ count: 0, index: 0 })
 const copied = ref(false)
-const searchShortcut = computed(() => shortcut('F'))
 
 function openSearch() {
   searchVisible.value = true
@@ -51,17 +48,10 @@ async function copy() {
   }
 }
 
-function onKeydown(e: KeyboardEvent) {
-  if ((e.metaKey || e.ctrlKey) && e.code === 'KeyF') {
-    e.preventDefault()
-    openSearch()
-  } else if (e.key === 'Escape' && searchVisible.value) {
-    closeSearch()
-  }
-}
-
-onMounted(() => window.addEventListener('keydown', onKeydown))
-onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
+// The search itself and not the key that opens it: the row above the tabs owns that, because a tab
+// which has no search must not answer the key. What is here is what only this viewer can do — open
+// its own input, and say whether it is open, so that Escape closes the one on screen.
+defineExpose({ openSearch, closeSearch, isSearching: searchVisible })
 </script>
 
 <template>
@@ -91,14 +81,13 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
       </IconButton>
     </template>
     <template v-else>
-      <Button v-if="showOpenInRequest" size="sm" class="open-in-request" @click="emit('open-in-request')">
+      <Button v-if="showOpenInRequest" size="bar" class="open-in-request" @click="emit('open-in-request')">
         {{ t('response.openInRequest') }}
       </Button>
-      <Button size="sm" @click="copy">
+      <Button size="bar" @click="copy">
         <Icon v-if="copied" name="check" :size="12" />
         <span>{{ copied ? t('common.copied') : t('common.copy') }}</span>
       </Button>
-      <Button size="sm" class="with-key" @click="openSearch"><span>{{ t('common.search') }}</span><kbd class="keycap">{{ searchShortcut }}</kbd></Button>
     </template>
   </div>
 

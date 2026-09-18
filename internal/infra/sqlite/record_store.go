@@ -307,6 +307,43 @@ func (s *Store) DeleteRecords(ctx context.Context, ids []string) error {
 	return nil
 }
 
+// DeleteAllRecords drops everything one workspace has captured or sent and reports how many rows
+// went. Bodies follow their records through the foreign key, and spilled files are not a case: a
+// body too large to keep inline is stored as a row of its own with its size, never on disk.
+func (s *Store) DeleteAllRecords(ctx context.Context, workspaceID string) (int, error) {
+	res, err := s.db.ExecContext(ctx, `DELETE FROM records WHERE workspace_id = ?`, workspaceID)
+	if err != nil {
+		return 0, fmt.Errorf("clearing the history of %s: %w", workspaceID, err)
+	}
+	count, err := res.RowsAffected()
+	if err != nil {
+		return 0, fmt.Errorf("counting the cleared records of %s: %w", workspaceID, err)
+	}
+	if count > 0 {
+		if _, err := s.db.ExecContext(ctx, `PRAGMA incremental_vacuum(256)`); err != nil {
+			return int(count), fmt.Errorf("reclaiming space: %w", err)
+		}
+	}
+	return int(count), nil
+}
+
+// HistoryStats weighs one workspace's history: how many records it holds and how many bytes of
+// bodies. The two are asked as subqueries rather than by joining, because a record has up to two
+// bodies and a join would count each of them as a record of its own.
+func (s *Store) HistoryStats(ctx context.Context, workspaceID string) (domain.HistoryStats, error) {
+	var stats domain.HistoryStats
+	err := s.db.QueryRowContext(ctx, `
+		SELECT (SELECT count(*) FROM records WHERE workspace_id = ?),
+		       (SELECT coalesce(sum(b.size), 0) FROM record_bodies b
+		          JOIN records r ON r.seq = b.record_seq
+		         WHERE r.workspace_id = ?)`, workspaceID, workspaceID).
+		Scan(&stats.Count, &stats.Bytes)
+	if err != nil {
+		return domain.HistoryStats{}, fmt.Errorf("weighing the history of %s: %w", workspaceID, err)
+	}
+	return stats, nil
+}
+
 // Prune drops what one workspace's retention rules no longer keep and reports how many rows went.
 // SQLite's `LIMIT -1 OFFSET n` is the way to say "everything after the newest n", and the count is
 // spent inside the workspace: a busy space must not eat the history of the quiet one beside it.

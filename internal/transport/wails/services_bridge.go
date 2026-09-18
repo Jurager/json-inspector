@@ -2,11 +2,13 @@ package wails
 
 import (
 	"context"
+	"encoding/json"
 	"log"
 	"time"
 
 	"github.com/wailsapp/wails/v3/pkg/application"
 
+	"json-inspector/internal/domain"
 	"json-inspector/internal/transport/bridge"
 )
 
@@ -35,6 +37,19 @@ func (s *BridgeService) PauseCapture() {
 
 func (s *BridgeService) ResumeCapture() {
 	s.server.Broadcast([]byte(`{"type":"resume"}`))
+}
+
+// ApplyCaptureFilters hands the extension the rules it filters by. The app stores them and this is
+// the delivery: a frame to whoever is connected now, and nothing to whoever is not — the window
+// sends this again on every state frame it receives, which is how an extension that has just
+// reconnected is told the rules it missed.
+func (s *BridgeService) ApplyCaptureFilters(filters domain.CaptureFilters) error {
+	frame, err := json.Marshal(bridge.FiltersFrame{Type: "filters", Filters: filters})
+	if err != nil {
+		return err
+	}
+	s.server.Broadcast(frame)
+	return nil
 }
 
 // ServiceStartup starts listening before the window appears: capture is a feature of the app, not

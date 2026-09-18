@@ -3,10 +3,48 @@ package draft
 import (
 	"context"
 	"mime"
+	"strconv"
 	"strings"
 
 	"json-inspector/internal/domain"
 )
+
+// partsOf is what a request says, with the authorization it will really go out with. An inherited
+// authorization did not come from the draft, and it is substituted like everything else: a
+// `{{token}}` in the collection's Bearer is filled in on the way out and left as a mask in the copy
+// that is written down. Asking the same function twice — once to refuse, once to fill in — is what
+// keeps the two answers about the same texts.
+func partsOf(draft domain.Draft, inherits *domain.Auth) parts {
+	raw := collect(draft)
+	raw.auth = authToApply(draft.Auth, inherits)
+	return raw
+}
+
+// refuseUnresolved is the rule a request that leaves obeys, and the run and the window's own button
+// are the same rule seen from two sides: a `{{token}}` that answers to nothing is a name the
+// address would carry to the server in braces. The window says so before the button is pressed and
+// offers to make the variable; this is what holds when nobody is looking at that button — a run of
+// fifty, a request a card sends while the environment changed under it.
+func (u *UseCase) refuseUnresolved(
+	ctx context.Context,
+	draft domain.Draft,
+	inherits *domain.Auth,
+	above []domain.Variable,
+) error {
+	missing, err := u.vars.Missing(ctx, above, partsOf(draft, inherits).texts())
+	if err != nil {
+		return err
+	}
+	if len(missing) == 0 {
+		return nil
+	}
+	// The count travels beside the names because the sentence about them is a plural one, and the
+	// window picks its form by the number, not by the list.
+	return domain.Refuse(domain.CodeVariableMissing, domain.ErrNotAllowed, domain.Args{
+		"n":     strconv.Itoa(len(missing)),
+		"names": strings.Join(missing, ", "),
+	})
+}
 
 // prepare fills the draft's variables in twice: once with their values, which is what goes out, and
 // once with a secret left as its mask, which is what everything that outlives the send gets to see.
@@ -17,13 +55,7 @@ func (u *UseCase) prepare(
 	inherits *domain.Auth,
 	above []domain.Variable,
 ) (Prepared, error) {
-	auth := authToApply(draft.Auth, inherits)
-
-	raw := collect(draft)
-	// An inherited authorization did not come from the draft, and it is substituted like everything
-	// else: a `{{token}}` in the collection's Bearer is filled in on the way out and left as a mask in
-	// the copy that is written down.
-	raw.auth = auth
+	raw := partsOf(draft, inherits)
 	texts := raw.texts()
 
 	live, err := u.vars.SubstituteTexts(ctx, above, texts, false)

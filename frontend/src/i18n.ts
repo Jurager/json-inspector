@@ -137,7 +137,18 @@ type Refusal = { code?: unknown; args?: Record<string, string | undefined> | nul
  */
 export function refusalText(refusal: Refusal | null | undefined): string | null {
   if (!isFailureCode(refusal?.code)) return null
-  return t(`errors.codes.${refusal.code}`, refusal.args ?? {})
+  return t(`errors.codes.${refusal.code}`, countable(refusal.args))
+}
+
+/**
+ * A count crosses as the string every value of a Go map does, and a plural form is chosen by a
+ * number: a sentence about one variable and many of them would otherwise always take its first form,
+ * whatever the count was. Only `n` is read this way, because `n` is what the rule is asked about.
+ */
+function countable(args: Record<string, string | undefined> | null | undefined) {
+  const count = args?.n
+  if (count === undefined || count === '' || Number.isNaN(Number(count))) return args ?? {}
+  return { ...args, n: Number(count) }
 }
 
 /**

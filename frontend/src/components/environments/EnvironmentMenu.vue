@@ -68,7 +68,7 @@ function edit() {
 }
 
 .env-row {
-  @apply flex items-center gap-2.5 w-full h-[38px] px-2.5 border-none rounded-[9px] bg-transparent text-text text-left cursor-pointer;
+  @apply flex items-center gap-2.5 w-full h-[34px] px-2.5 border-none rounded-[8px] bg-transparent text-text text-left cursor-pointer;
   font: inherit;
   --wails-draggable: no-drag;
 }
@@ -88,7 +88,7 @@ function edit() {
 }
 
 .env-row-name {
-  @apply flex-1 min-w-0 overflow-hidden text-ellipsis whitespace-nowrap text-[13.5px];
+  @apply flex-1 min-w-0 overflow-hidden text-ellipsis whitespace-nowrap text-[13px];
 }
 
 .env-row-name.none {
@@ -96,7 +96,7 @@ function edit() {
 }
 
 .env-count {
-  @apply flex-none text-[11.5px] text-text-tertiary;
+  @apply flex-none text-[12px] text-text-tertiary;
   font-family: var(--mono);
 }
 

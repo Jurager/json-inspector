@@ -4,20 +4,19 @@ import { DropdownMenuContent } from '../ui/dropdown-menu'
 import Icon from '../ui/Icon.vue'
 import WorkspaceAvatar from './WorkspaceAvatar.vue'
 import { useWorkspacesStore, workspaceName } from '../../stores/workspaces'
+import { useWorkspaceCounts } from '../../composables/useWorkspaceCounts'
 import { useMessages } from '../../i18n'
 import { switchWorkspace } from '../../composables/useWorkspaceSwitch'
-import { WorkspaceKind } from '../../../bindings/json-inspector/internal/domain'
 
+// The panel under the titlebar's chip: every space, in the order they were made, with what each of
+// them holds under its name. Choosing one moves the whole window; the two buttons at the foot are the
+// ways out of the panel — a new space, and the window that manages the ones there are.
 const store = useWorkspacesStore()
-
 const { t } = useMessages()
+const { metaOf } = useWorkspaceCounts()
 
 async function choose(id: string) {
   await switchWorkspace(id)
-}
-
-function configure(id: string) {
-  store.openSettings(id)
 }
 </script>
 
@@ -37,29 +36,36 @@ function configure(id: string) {
         <span class="ws-name" :class="{ strong: workspace.id === store.activeId }">
           {{ workspaceName(workspace) }}
         </span>
-        <!-- What the design draws under a team's name. Nothing makes one yet, so this line is what
-             will say a space is shared the day there is something to share it with. -->
-        <span v-if="workspace.kind === WorkspaceKind.WorkspaceTeam" class="ws-kind">
-          {{ t('workspaces.teamKind', { count: 0 }) }}
-        </span>
+        <span class="ws-meta">{{ metaOf(workspace) }}</span>
       </span>
       <Icon
         v-if="workspace.id === store.activeId"
         name="check"
-        :size="12"
-        :stroke-width="2.4"
+        :size="15"
+        :stroke-width="2.6"
         class="ws-check"
       />
     </DropdownMenuItem>
 
     <div class="ws-divider"></div>
 
+    <!-- The two ways out are menu items and not plain buttons: a panel that stayed open behind the
+         window it just opened would be a second thing on screen, and closing on the way out is what
+         an item does. `as-child` so the links keep the drawing's own look rather than the menu
+         item's. -->
     <div class="ws-foot">
-      <button class="ws-link" @click="store.openCreate()">{{ t('workspaces.create') }}</button>
-      <button class="ws-link quiet" @click="configure(store.activeId)">
-        <Icon name="settings-2" :size="12" :stroke-width="1.6" />
-        {{ t('workspaces.configure') }}
-      </button>
+      <DropdownMenuItem as-child @select="store.openCreate()">
+        <button type="button" class="ws-link">
+          <Icon name="plus" :size="15" :stroke-width="2.2" />
+          {{ t('workspaces.create') }}
+        </button>
+      </DropdownMenuItem>
+      <DropdownMenuItem as-child @select="store.openSheet()">
+        <button type="button" class="ws-link quiet">
+          <Icon name="settings-2" :size="15" :stroke-width="1.8" />
+          {{ t('workspaces.configure') }}
+        </button>
+      </DropdownMenuItem>
     </div>
   </DropdownMenuContent>
 </template>
@@ -72,7 +78,7 @@ function configure(id: string) {
 }
 
 .ws-row {
-  @apply flex items-center gap-[11px] w-full py-[9px] px-2.5 border-none rounded-[9px] bg-transparent text-text text-left cursor-pointer;
+  @apply flex items-center gap-[11px] w-full py-[9px] px-2.5 border-none rounded-[8px] bg-transparent text-text text-left cursor-pointer;
   font: inherit;
   --wails-draggable: no-drag;
 }
@@ -92,15 +98,17 @@ function configure(id: string) {
 }
 
 .ws-name {
-  @apply overflow-hidden text-ellipsis whitespace-nowrap text-[13.5px];
+  @apply overflow-hidden text-ellipsis whitespace-nowrap text-[13px];
 }
 
 .ws-name.strong {
   @apply font-semibold;
 }
 
-.ws-kind {
-  @apply text-[11.5px] text-text-tertiary;
+/* What the space holds, where the drawing puts the line about a shared one: eleven and a half pixels,
+   in the tertiary ink, because it is a reading and not a name. */
+.ws-meta {
+  @apply text-[12px] text-text-tertiary overflow-hidden text-ellipsis whitespace-nowrap;
 }
 
 .ws-check {
@@ -118,17 +126,13 @@ function configure(id: string) {
 }
 
 .ws-link {
-  @apply inline-flex items-center gap-1 border-none bg-transparent text-accent text-[13.5px] cursor-pointer h-[30px] px-2.5 rounded-[7px];
+  @apply inline-flex items-center gap-[7px] border-none bg-transparent text-accent text-[13px] cursor-pointer h-[30px] px-2.5 rounded-[7px];
   font: inherit;
 }
 
 /* The second door out of the panel: a plain one, and the same height as the first. */
-.ws-link-plain {
-  @apply text-[13px] text-text-secondary;
-}
-
 .ws-link.quiet {
-  @apply text-[11.5px] text-text-secondary gap-1.5;
+  @apply text-[13px] text-text-secondary;
 }
 
 .ws-link:hover {

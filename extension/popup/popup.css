@@ -647,3 +647,34 @@ input[type="number"] {
   font-size: 10.5px;
   color: var(--text-tertiary);
 }
+
+/* The capture rules, read-only: they belong to the app, and this is where somebody looks to find out
+   why a request they expected is not in the list. */
+.filters {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px 2px 12px;
+  border-bottom: 1px solid var(--border);
+}
+
+.filter-row {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  font-size: 12px;
+}
+
+.filter-name {
+  flex: none;
+  width: 118px;
+  color: var(--text-secondary);
+}
+
+.filter-value {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

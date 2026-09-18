@@ -14,7 +14,6 @@ export async function switchWorkspace(id: string): Promise<boolean> {
   const workspaces = useWorkspacesStore()
   const requests = useRequestsStore()
   const collections = useCollectionsStore()
-  const environments = useEnvironmentsStore()
 
   if (id === workspaces.activeId) return true
 
@@ -34,6 +33,19 @@ export async function switchWorkspace(id: string): Promise<boolean> {
     return false
   }
 
+  await enterWorkspace()
+  return true
+}
+
+// What every mirror below the switcher does to enter the space that is now on screen: each is emptied
+// and read again, because every one of them belonged to the space being left. A switch is not the only
+// caller — deleting the space on screen lands the window in another one just as surely, and the two
+// paths must not drift.
+export async function enterWorkspace(): Promise<void> {
+  const requests = useRequestsStore()
+  const collections = useCollectionsStore()
+  const environments = useEnvironmentsStore()
+
   requests.forget()
   collections.forget()
   environments.forget()
@@ -47,5 +59,4 @@ export async function switchWorkspace(id: string): Promise<boolean> {
   ])
   // A space nobody has been in has no environment yet, and the app has always started with one.
   await environments.ensureDefaults()
-  return true
 }

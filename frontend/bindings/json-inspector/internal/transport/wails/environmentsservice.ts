@@ -30,8 +30,15 @@ export function AddVariable(scope: domain$0.EnvScope, draft: environment$0.Varia
     return $Call.ByID(1119272004, scope, draft);
 }
 
-export function CreateEnvironment(name: string): $CancellablePromise<domain$0.EnvState> {
-    return $Call.ByID(586840570, name);
+/**
+ * ClearGlobals empties the globals: they are one scope and cannot be deleted, only emptied.
+ */
+export function ClearGlobals(): $CancellablePromise<domain$0.EnvState> {
+    return $Call.ByID(265145458);
+}
+
+export function CreateEnvironment(draft: environment$0.EnvironmentDraft): $CancellablePromise<domain$0.EnvState> {
+    return $Call.ByID(586840570, draft);
 }
 
 export function DeleteEnvironment(id: string): $CancellablePromise<domain$0.EnvState> {

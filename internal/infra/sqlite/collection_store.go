@@ -213,15 +213,33 @@ func (s *Store) nodes(ctx context.Context, workspaceID string) ([]domain.Collect
 	return out, rows.Err()
 }
 
-// LevelRows is the collection page's read: the address each request of one level goes to, and
-// nothing else. It is deliberately not the tree's query — that one carries what the panel draws and
-// no request payload at all — and it is deliberately not one node at a time, which is what an
-// export does, because an export needs the bodies.
-func (s *Store) LevelRows(ctx context.Context, collectionID string) ([]domain.LevelRow, error) {
-	rows, err := s.db.QueryContext(ctx,
-		`SELECT id, name, method, url FROM collection_nodes
-		  WHERE collection_id = ?
-		  ORDER BY position, created_at`, collectionID)
+// ContentRows is the collection page's read: every request inside one collection, the folders
+// inside it included, with the address each of them goes to and the folder it sits in. It is
+// deliberately not the tree's query — that one carries what the panel draws and no request payload
+// at all — and it is deliberately not one node at a time, which is what an export does, because an
+// export needs the bodies.
+//
+// The walk is the one a run makes: a level's requests and its folders are numbered in one sequence,
+// so the order is the tree's own and the rows come out in it. That order is built here as a sort
+// key rather than read from a column — each level appends its position to the key of the level
+// above — which is what makes the recursive read interleave a folder with the requests beside it
+// instead of listing every folder after every request.
+func (s *Store) ContentRows(ctx context.Context, collectionID string) ([]domain.LevelRow, error) {
+	rows, err := s.db.QueryContext(ctx, `
+		WITH RECURSIVE level(id, key, depth, folder) AS (
+		    SELECT id, printf('%08d', position), 0, ''
+		      FROM collections WHERE id = ?
+		    UNION ALL
+		    SELECT c.id,
+		           level.key || '/' || printf('%08d', c.position),
+		           level.depth + 1,
+		           CASE WHEN level.depth = 0 THEN c.name
+		                ELSE level.folder || ' / ' || c.name END
+		      FROM collections c JOIN level ON c.parent_id = level.id
+		)
+		SELECT n.id, n.name, n.method, n.url, level.folder
+		  FROM level JOIN collection_nodes n ON n.collection_id = level.id
+		 ORDER BY level.key || '/' || printf('%08d', n.position)`, collectionID)
 	if err != nil {
 		return nil, fmt.Errorf("listing the requests of %s: %w", collectionID, err)
 	}
@@ -234,7 +252,7 @@ func (s *Store) LevelRows(ctx context.Context, collectionID string) ([]domain.Le
 			method sql.NullString
 			url    sql.NullString
 		)
-		if err := rows.Scan(&row.ID, &row.Name, &method, &url); err != nil {
+		if err := rows.Scan(&row.ID, &row.Name, &method, &url, &row.Folder); err != nil {
 			return nil, fmt.Errorf("listing the requests of %s: %w", collectionID, err)
 		}
 		row.Method = method.String
@@ -405,22 +423,41 @@ func (s *Store) AppendRunResult(
 	runID string,
 	result domain.CollectionRunResult,
 ) error {
-	_, err := s.db.ExecContext(ctx,
+	failure, err := failureColumn(result.Failure)
+	if err != nil {
+		return err
+	}
+	_, err = s.db.ExecContext(ctx,
 		`INSERT INTO collection_run_results (run_id, node_id, position, status, ok, duration_us, error,
-		                                     record_id, assertions_passed, assertions_total)
-		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		                                     failure, record_id, assertions_passed, assertions_total)
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 		 ON CONFLICT(run_id, position) DO UPDATE SET
 		   status = excluded.status, ok = excluded.ok,
 		   duration_us = excluded.duration_us, error = excluded.error,
+		   failure = excluded.failure,
 		   record_id = excluded.record_id,
 		   assertions_passed = excluded.assertions_passed,
 		   assertions_total = excluded.assertions_total`,
 		runID, result.NodeID, result.Position, result.Status, result.OK, result.DurationUs, result.Error,
-		nullIfEmpty(result.RecordID), result.AssertionsPassed, result.AssertionsTotal)
+		failure, nullIfEmpty(result.RecordID), result.AssertionsPassed, result.AssertionsTotal)
 	if err != nil {
 		return fmt.Errorf("saving a result of run %s: %w", runID, err)
 	}
 	return nil
+}
+
+// failureColumn is a row's refusal the way the column holds it, and an empty string for a row the
+// app did not refuse: a failure nobody wrote a sentence for is the machine's, and the error column
+// is where that one already lives.
+func failureColumn(failure *domain.Failure) (string, error) {
+	if failure == nil {
+		return "", nil
+	}
+	encoded, err := json.Marshal(failure)
+	if err != nil {
+		return "", fmt.Errorf("encoding a failure: %w", err)
+	}
+	return string(encoded), nil
 }
 
 // LastRun reads the newest run of a node, or of the whole collection when the node is empty. The
@@ -450,8 +487,8 @@ func (s *Store) LastRun(
 	}
 
 	rows, err := s.db.QueryContext(ctx,
-		`SELECT node_id, position, status, ok, duration_us, error, ifnull(record_id, ''),
-		        assertions_passed, assertions_total
+		`SELECT node_id, position, status, ok, duration_us, error, ifnull(failure, ''),
+		        ifnull(record_id, ''), assertions_passed, assertions_total
 		   FROM collection_run_results WHERE run_id = ? ORDER BY position`, run.ID)
 	if err != nil {
 		return domain.CollectionRun{}, false, fmt.Errorf("reading the run %s: %w", run.ID, err)
@@ -461,17 +498,26 @@ func (s *Store) LastRun(
 	run.Results = []domain.CollectionRunResult{}
 	for rows.Next() {
 		var (
-			result domain.CollectionRunResult
-			status sql.NullInt64
+			result  domain.CollectionRunResult
+			status  sql.NullInt64
+			failure string
 		)
 		if err := rows.Scan(&result.NodeID, &result.Position, &status, &result.OK,
-			&result.DurationUs, &result.Error, &result.RecordID, &result.AssertionsPassed,
+			&result.DurationUs, &result.Error, &failure, &result.RecordID, &result.AssertionsPassed,
 			&result.AssertionsTotal); err != nil {
 			return domain.CollectionRun{}, false, fmt.Errorf("reading the run %s: %w", run.ID, err)
 		}
 		if status.Valid {
 			code := int(status.Int64)
 			result.Status = &code
+		}
+		if failure != "" {
+			var refusal domain.Failure
+			if err := json.Unmarshal([]byte(failure), &refusal); err != nil {
+				return domain.CollectionRun{}, false, fmt.Errorf("reading a failure of run %s: %w",
+					run.ID, err)
+			}
+			result.Failure = &refusal
 		}
 		run.Results = append(run.Results, result)
 	}

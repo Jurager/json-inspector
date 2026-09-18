@@ -9,6 +9,7 @@ import (
 	"go.uber.org/fx"
 
 	"json-inspector/internal/domain"
+	"json-inspector/internal/infra/accountclient"
 	"json-inspector/internal/infra/authflow"
 	"json-inspector/internal/infra/files"
 	"json-inspector/internal/infra/httpx"
@@ -16,6 +17,7 @@ import (
 	"json-inspector/internal/infra/sqlite"
 	"json-inspector/internal/infra/updater"
 	"json-inspector/internal/platform"
+	"json-inspector/internal/usecase/account"
 	"json-inspector/internal/usecase/collection"
 	"json-inspector/internal/usecase/draft"
 	"json-inspector/internal/usecase/environment"
@@ -40,6 +42,7 @@ type Assets struct {
 type ServicesIn struct {
 	fx.In
 	System       *SystemService
+	Account      *AccountService
 	Settings     *SettingsService
 	Update       *UpdateService
 	Records      *RecordsService
@@ -59,6 +62,15 @@ var Module = fx.Module("wails",
 		// case and the adapter that serves it. Everything above this line is a constructor.
 		func(store *sqlite.Store) environment.Store { return store },
 		func(store *sqlite.Store) settings.Store { return store },
+		// The account: its own row in the database, the client that speaks to the server, the window
+		// that opens the confirmation page, and the bus every window listens on.
+		func(store *sqlite.Store) account.Store { return store },
+		func(engine *httpx.Engine) *accountclient.Client {
+			return accountclient.New(engine.Client())
+		},
+		func(client *accountclient.Client) account.Server { return client },
+		func(host *Host) account.Browser { return host },
+		func(host *Host) account.Notifier { return newBus(host) },
 		func(host *Host) settings.Notifier { return newBus(host) },
 		func(store *sqlite.Store) record.Store { return store },
 		func(store *sqlite.Store) draft.Store { return store },
@@ -121,6 +133,10 @@ var Module = fx.Module("wails",
 		func(store *sqlite.Store) environment.Scope { return store },
 		func(store *sqlite.Store) draft.Scope { return store },
 		func(store *sqlite.Store) scripting.Scope { return store },
+		// Two features ask a different question — where this installation began, rather than where the
+		// window is — and it is the same store that answers it.
+		func(store *sqlite.Store) environment.Home { return store },
+		func(store *sqlite.Store) record.Home { return store },
 		// The scripts around a request are asked by the feature that sends it, and they are told what
 		// to run by the feature that keeps them. Neither knows the other; this is the pair.
 		func(scripts *scripting.UseCase) record.Screener { return scripts },
@@ -129,6 +145,7 @@ var Module = fx.Module("wails",
 		NewStatus,
 		openStorage,
 		NewSystemService,
+		NewAccountService,
 		NewSettingsService,
 		NewUpdateService,
 		NewRecordsService,
@@ -220,6 +237,9 @@ func setup(
 		// one there is nowhere to remember a release, and offering to install it would be a promise the
 		// app cannot keep across the restart it is about to perform.
 		app.RegisterService(updateService)
+		// The account is in this half because the row it keeps is in the database: with no database
+		// there is nowhere to be signed in, and offering to sign in would be offering to fail.
+		app.RegisterService(application.NewService(in.Account))
 		app.RegisterService(environmentsService)
 		app.RegisterService(collectionsService)
 		app.RegisterService(scriptingService)

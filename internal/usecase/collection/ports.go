@@ -14,7 +14,7 @@ type Store interface {
 	Node(ctx context.Context, id string) (domain.CollectionNode, error)
 	// The requests of one collection's own level, narrowed to what the collection page's table draws:
 	// the tree carries no request payload, and this is the one read that needs an address.
-	LevelRows(ctx context.Context, collectionID string) ([]domain.LevelRow, error)
+	ContentRows(ctx context.Context, collectionID string) ([]domain.LevelRow, error)
 
 	SaveCollection(ctx context.Context, workspaceID string, collection domain.Collection) error
 	SaveNode(ctx context.Context, node domain.CollectionNode) error

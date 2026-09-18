@@ -20,6 +20,7 @@ import { usePlatform } from '../../composables/usePlatform'
 import { registerUrlField } from '../../composables/urlFocus'
 import { tokenSegments } from '../../lib/vars'
 import { looksLikeCommand } from '../../lib/commandShape'
+import { AuthType } from '../../../bindings/json-inspector/internal/domain'
 import { CommandKind } from '../../../bindings/json-inspector/internal/usecase/draft'
 import { useToast } from '../../composables/useToast'
 import { describeFailure, useMessages } from '../../i18n'
@@ -68,8 +69,8 @@ const enabledHeadersCount = computed(() => store.enabledHeadersCount)
 // A body is text, a form with a row in it, or a file — the store knows which, and both stores know
 // it the same way.
 const hasBody = computed(() => store.hasBody)
-// The chip is dashed until the request has code of its own, the way the body chip is: a dashed chip is
-// a thing that is not there yet, and it is what the design draws in both places.
+// A section with nothing in it is a quiet label rather than a dashed box: the emptiness is the ink of
+// the word, and a frame around it would be a shape to read for something that is not there.
 const hasScripts = computed(() => Boolean(store.scripts?.pre?.trim() || store.scripts?.post?.trim()))
 
 function toggleChip(chip: ChipName) {
@@ -88,16 +89,55 @@ watch(
 const missingVarNames = computed(() => store.missingVars)
 const sendBlocked = computed(() => missingVarNames.value.length > 0)
 
+// Names stop missing when the environments change, and that happens in another window: the draft is
+// not edited, so nothing here would hear about it. Adding a variable, renaming one, switching the
+// active environment — each is a new snapshot, and each is a reason to ask again.
+watch(
+  () => envStore.envState,
+  () => void store.refreshPreview()
+)
+
 const sendBlockedReason = computed(() =>
   missingVarNames.value.length
     ? t('request.missingBlocked', { names: missingVarNames.value.join(', ') })
     : undefined
 )
 
+// A read-only environment is one this window does not write into — that is what its Access switch
+// is for — so a button that quietly put a variable inside it would be breaking the window's own
+// rule. Instead it opens that environment, where the switch is, and says what is in the way.
+const activeReadonly = computed(() => Boolean(envStore.activeEnvironment?.readonly))
+
+const createLabel = computed(() =>
+  missingVarNames.value.length === 1 ? t('request.createVar') : t('request.createVarAll')
+)
+
+// The line is one sentence and it truncates rather than wrapping, so the whole of it travels in the
+// tooltip — where it is plain text, and can say what the pieces of the sentence say in words.
+const missingTitle = computed(() => {
+  const names = missingVarNames.value.join(', ')
+  const env = envStore.activeEnvironment?.name
+  return env
+    ? t('request.missingTitle', { n: missingVarNames.value.length, names, env })
+    : t('request.missingNoEnvTitle', { n: missingVarNames.value.length, names })
+})
+
+const createTitle = computed(() => {
+  if (envStore.activeId === null) return t('request.chooseEnvFirst')
+  if (activeReadonly.value) return t('request.envReadOnly')
+  return undefined
+})
+
 function createMissing() {
   const envId = envStore.activeId
   if (envId === null) return
-  for (const name of missingVarNames.value) envStore.addVar(envId, { name })
+  if (!activeReadonly.value) {
+    for (const name of missingVarNames.value) {
+      void envStore.addVar(envId, { name }).catch((error) => {
+        toast.show(t('request.createFailed', { error: describeFailure(error) }), 'error')
+      })
+    }
+  }
   envStore.openSheet({ envId, varName: missingVarNames.value[0] ?? '' })
 }
 
@@ -147,6 +187,29 @@ const saveDefaultName = computed(() => {
   }
 })
 const showUrlDisplay = computed(() => urlSegments.value.length > 0)
+
+// Which environment the request will be sent with, named in the bar rather than only in the window's
+// own chrome: it is the last thing a person checks before pressing send, and it belongs beside the
+// request it applies to.
+const envName = computed(() => envStore.activeEnvironment?.name ?? '')
+
+// Whether a section holds anything, which is what tells a filled segment from an empty one. "None"
+// and "inherit" are answers about who authorizes the request rather than credentials, so they are the
+// two the authorization section is empty in.
+function chipFilled(chip: ChipName): boolean {
+  switch (chip) {
+    case 'params':
+      return enabledParamsCount.value > 0
+    case 'headers':
+      return enabledHeadersCount.value > 0
+    case 'auth':
+      return store.auth.type !== AuthType.AuthNone && store.auth.type !== AuthType.AuthInherit
+    case 'body':
+      return hasBody.value
+    case 'scripts':
+      return hasScripts.value
+  }
+}
 
 function syncUrlScroll() {
   const input = urlInputRef.value
@@ -206,13 +269,16 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onWindowKeydown))
 </script>
 
 <template>
-  <div class="builder">
+  <div class="request-block">
     <div ref="requestBarEl" class="request-bar">
-      <div class="url-field" :class="{ 'url-field-invalid': sendBlocked }">
-        <div class="method-wrap">
+      <div class="bar-row">
+        <div class="url-field" :class="{ 'url-field-invalid': sendBlocked }">
+          <!-- The verb is the field's own left segment rather than a control beside it: which method a
+               request is stands inside the address it is sent to, and a button outside the box would be
+               a second place to look for one thing. -->
           <DropdownMenu>
             <DropdownMenuTrigger as-child>
-              <button class="method-btn" :style="{ color: methodColor, background: methodBg }">
+              <button class="method-plate method-btn" :style="{ color: methodColor, background: methodBg }">
                 <span>{{ store.method }}</span>
                 <Icon name="chevron-down" :size="10" />
               </button>
@@ -228,58 +294,42 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onWindowKeydown))
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
-        </div>
 
-        <div class="url-text">
-          <input
-            ref="urlInputRef"
-            :value="store.url"
-            class="url-input mono"
-            :class="{ 'url-input-veiled': showUrlDisplay }"
-            placeholder="https://api.example.com/articles?include=author"
-            spellcheck="false"
-            @input="store.setUrl(($event.target as HTMLInputElement).value); syncUrlScroll()"
-            @keydown.enter="send"
-            @blur="store.flush()"
-            @paste="onUrlPaste"
-            @scroll="syncUrlScroll"
-          />
-          <div v-if="showUrlDisplay" ref="urlDisplayRef" class="url-display mono" aria-hidden="true">
-            <template v-for="(seg, i) in urlSegments" :key="i">
-              <VarToken v-if="seg.tokenName" :name="seg.tokenName" :offset="seg.start" />
-              <span v-else>{{ seg.text }}</span>
-            </template>
+          <!-- The address is one box drawn twice: the input a person types into, and the painted
+               copy under it that shows the tokens and the query in their own colours. Only the copy
+               is ever seen. -->
+          <div class="url-text">
+            <input
+              ref="urlInputRef"
+              :value="store.url"
+              class="url-input mono"
+              :class="{ 'url-input-veiled': showUrlDisplay }"
+              placeholder="https://api.example.com/articles?include=author"
+              spellcheck="false"
+              @input="store.setUrl(($event.target as HTMLInputElement).value); syncUrlScroll()"
+              @keydown.enter="send"
+              @blur="store.flush()"
+              @paste="onUrlPaste"
+              @scroll="syncUrlScroll"
+            />
+            <div
+              v-if="showUrlDisplay"
+              ref="urlDisplayRef"
+              class="url-display mono"
+              aria-hidden="true"
+            >
+              <template v-for="(seg, i) in urlSegments" :key="i">
+                <VarToken
+                  v-if="seg.tokenName"
+                  :name="seg.tokenName"
+                  :text="seg.text"
+                  :offset="seg.start"
+                />
+                <span v-else>{{ seg.text }}</span>
+              </template>
+            </div>
           </div>
         </div>
-
-        <Popover :open="store.openChip !== null" @update:open="(v) => !v && store.setOpenChip(null)">
-          <PopoverAnchor class="chips">
-            <button class="chip" :class="{ active: store.openChip === 'params' }" @click="toggleChip('params')">
-              {{ t('request.chips.params') }} <span v-if="enabledParamsCount" class="chip-count">{{ enabledParamsCount }}</span>
-            </button>
-            <button class="chip" :class="{ active: store.openChip === 'headers' }" @click="toggleChip('headers')">
-              {{ t('request.chips.headers') }} <span v-if="enabledHeadersCount" class="chip-count">{{ enabledHeadersCount }}</span>
-            </button>
-            <button class="chip" :class="{ active: store.openChip === 'auth' }" @click="toggleChip('auth')">{{ t('request.chips.auth') }}</button>
-            <button
-              class="chip chip-body"
-              :class="{ 'has-body': hasBody, active: store.openChip === 'body' }"
-              @click="toggleChip('body')"
-            >
-              {{ t('request.chips.body') }}
-            </button>
-            <button
-              class="chip chip-body chip-scripts"
-              :class="{ 'has-body': hasScripts, active: store.openChip === 'scripts' }"
-              @click="toggleChip('scripts')"
-            >
-              <Icon name="code-xml" :size="10" />
-              {{ t('request.chips.scripts') }}
-            </button>
-          </PopoverAnchor>
-          <RequestChipPopover v-if="displayedChip" :chip="displayedChip" :source="store" />
-        </Popover>
-      </div>
 
       <span v-if="canSave" ref="saveAnchor" class="save-anchor">
         <button
@@ -298,47 +348,100 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onWindowKeydown))
         />
       </span>
 
-      <Button
-        variant="primary"
-        size="xl"
-        :disabled="!store.url.trim() || sendBlocked"
-        :title="sendBlockedReason"
-        @click="store.loading ? cancel() : send()"
-      >
-        <template v-if="store.loading">
-          <Icon name="xmark" :size="14" />
-          <span>{{ t('common.cancel') }}</span>
-        </template>
-        <template v-else>
-          <span>{{ t('request.send') }}</span>
-          <kbd class="send-hint">{{ sendShortcut }}</kbd>
-        </template>
-      </Button>
+        <Button
+          variant="primary"
+          class="send-btn"
+          :disabled="!store.url.trim() || sendBlocked"
+          :title="sendBlockedReason"
+          @click="store.loading ? cancel() : send()"
+        >
+          <template v-if="store.loading">
+            <Icon name="xmark" :size="14" />
+            <span>{{ t('common.cancel') }}</span>
+          </template>
+          <template v-else>
+            <span>{{ t('request.send') }}</span>
+            <kbd class="send-hint">{{ sendShortcut }}</kbd>
+          </template>
+        </Button>
+      </div>
 
+      <!-- The sections of the request, as a segmented control rather than a row of pills: a filled
+           section and an empty one are told apart by the ink of the label and the number beside it,
+           not by a badge, and the open one is the raised pill inside the track. -->
+      <div class="bar-row segments-row">
+        <Popover :open="store.openChip !== null" @update:open="(v) => !v && store.setOpenChip(null)">
+          <PopoverAnchor class="segments">
+            <button
+              class="segment"
+              :class="{ active: store.openChip === 'params', filled: chipFilled('params') }"
+              @click="toggleChip('params')"
+            >
+              <span>{{ t('request.chips.params') }}</span>
+              <span v-if="enabledParamsCount" class="segment-count">{{ enabledParamsCount }}</span>
+            </button>
+            <button
+              class="segment"
+              :class="{ active: store.openChip === 'headers', filled: chipFilled('headers') }"
+              @click="toggleChip('headers')"
+            >
+              <span>{{ t('request.chips.headers') }}</span>
+              <span v-if="enabledHeadersCount" class="segment-count">{{ enabledHeadersCount }}</span>
+            </button>
+            <button
+              class="segment"
+              :class="{ active: store.openChip === 'auth', filled: chipFilled('auth') }"
+              @click="toggleChip('auth')"
+            >
+              <span>{{ t('request.chips.auth') }}</span>
+            </button>
+            <button
+              class="segment"
+              :class="{ active: store.openChip === 'body', filled: chipFilled('body') }"
+              @click="toggleChip('body')"
+            >
+              <span>{{ t('request.chips.body') }}</span>
+            </button>
+            <button
+              class="segment"
+              :class="{ active: store.openChip === 'scripts', filled: chipFilled('scripts') }"
+              @click="toggleChip('scripts')"
+            >
+              <span>{{ t('request.chips.scripts') }}</span>
+            </button>
+          </PopoverAnchor>
+          <RequestChipPopover v-if="displayedChip" :chip="displayedChip" :source="store" />
+        </Popover>
+
+        <div class="bar-spacer"></div>
+
+        <!-- The environment this request will be sent with: the bar is where a person looks before
+             pressing send, and the name belongs beside the thing it applies to. -->
+        <span v-if="envName" class="env-name">{{ envName }}</span>
+      </div>
     </div>
 
-    <div v-if="sendBlocked" class="missing-row">
-      <span class="missing-text">
-        <template v-if="envStore.activeId === null">
-          {{ t('request.missingNoEnvHead') }}
-          <span class="missing-name mono" v-for="n in missingVarNames" :key="n">{{ n }}</span>
-          {{ t('request.missingNoEnvTail') }}
-        </template>
-        <template v-else>
-          {{ t('request.missingInEnvHead', { name: envStore.activeEnvironment?.name }) }}
-          {{ t('request.missingInEnvCount', missingVarNames.length) }}:
-          <span class="missing-name mono" v-for="n in missingVarNames" :key="n">{{ n }}</span>
-          {{ t('request.missingInEnvTail') }}
-        </template>
-      </span>
-      <Button
-        variant="primary"
-        :disabled="envStore.activeId === null"
-        :title="envStore.activeId === null ? t('request.chooseEnvFirst') : undefined"
+    <!-- The bar is the window's own row rather than a card in the column: it says what is holding
+         the send back, and it stands where the request ends and the answer begins. The sentence
+         carries the names in place, so it is written on one line — the whitespace between the pieces
+         is part of it. -->
+    <div v-if="sendBlocked" class="var-error">
+
+      <span v-if="envStore.activeId === null" class="var-error-text" :title="missingTitle">{{ t('request.missingVariable', missingVarNames.length) }} <span v-for="(n, i) in missingVarNames" :key="n" class="var-name mono">{{ n }}<span v-if="i < missingVarNames.length - 1">, </span></span> {{ t('request.missingNoEnv') }}</span>
+      <span v-else class="var-error-text" :title="missingTitle">{{ t('request.missingVariable', missingVarNames.length) }} <span v-for="(n, i) in missingVarNames" :key="n" class="var-name mono">{{ n }}<span v-if="i < missingVarNames.length - 1">, </span></span> {{ t('request.missingNotIn', missingVarNames.length) }} <b>{{ envStore.activeEnvironment?.name }}</b> {{ t('request.missingSendingBlocked') }}</span>
+
+      <!-- One way out, as the drawing gives it. In an environment the user has closed the button is
+           shut and its tooltip says what opens it — the sentence already names the environment, so
+           the two read together. -->
+      <button
+        type="button"
+        class="var-error-action"
+        :disabled="envStore.activeId === null || activeReadonly"
+        :title="createTitle"
         @click="createMissing"
       >
-        {{ missingVarNames.length === 1 ? t('request.createVar') : t('request.createVarAll') }}
-      </Button>
+        {{ createLabel }}
+      </button>
     </div>
   </div>
 </template>
@@ -346,72 +449,68 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onWindowKeydown))
 <style scoped>
 @reference "../../style.css";
 
-.builder {
-  @apply flex-none border-b border-border bg-bg-panel;
+/* The drawing's own row: full width, the soft red of a warning, and a hairline under it that
+   separates the request from the answer rather than ringing the notice as a card. */
+.var-error {
+  @apply flex-none flex items-center gap-2.5 py-2.5 px-5 border-b;
+  background: var(--red-soft);
+  border-color: var(--border);
 }
 
-.request-bar {
-  /* No height of its own: the field inside it is what the strip is as tall as, plus its padding. */
-  @apply relative flex items-center gap-3 py-3.5 px-5;
+/* One sentence, and it gives way rather than wrapping: a long address in a tooltip is better than a
+   second line that pushes the answer down. */
+.var-error-text {
+  @apply flex-1 min-w-0 text-[13px] text-text;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.url-field {
-  /* The field is what gives way first when the window narrows, and its floor is where the URL stays
-     readable. Without a basis a flex item refuses to shrink past its own content, and the row pushes
-     the chips and the send button off the right edge — which is what a narrow window used to do. */
-  @apply flex items-stretch rounded-[9px] border border-border bg-bg-inset h-[38px] overflow-hidden;
-  flex: 1 1 260px;
-  min-width: 140px;
-  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+.var-error-text b {
+  @apply font-semibold;
 }
 
-.url-field:focus-within {
-  border-color: var(--accent);
-  box-shadow: 0 0 0 3px var(--accent-soft);
+/* The names are values in a sentence about them, so they are drawn as values: the mono face (the
+   `mono` class the markup wears) and the colour of the thing that is wrong, not a chip of their own. */
+.var-name {
+  @apply text-[13px] font-semibold;
+  color: var(--red-text);
 }
 
-.url-field.url-field-invalid,
-.url-field.url-field-invalid:focus-within {
-  border-color: color-mix(in srgb, var(--red) 45%, transparent);
+.var-error-action {
+  @apply flex-none h-[30px] px-3.5 border-0 rounded-[7px] cursor-pointer whitespace-nowrap
+         text-accent-text text-[13px] font-semibold;
+  font-family: inherit;
+  background: var(--accent);
 }
 
-.url-field.url-field-invalid:focus-within {
-  box-shadow: 0 0 0 3px var(--red-soft);
+.var-error-action:hover:not(:disabled) {
+  @apply brightness-110;
 }
 
-.missing-row {
-  @apply flex-none flex items-center gap-3 mx-4 mb-3 py-2 px-2.5 rounded-lg text-[12.5px];
-  background: color-mix(in srgb, var(--red) 7%, transparent);
+.var-error-action:disabled {
+  @apply opacity-50 cursor-default;
 }
 
-.missing-text {
-  @apply flex-1 min-w-0;
-}
-
-.missing-name {
-  @apply text-red mx-1;
-}
-
-.method-wrap {
-  @apply relative flex items-center flex-none p-[5px];
-}
-
+/* What makes the shared plate a control here: the pointer, and the room for the chevron beside the
+   verb. The plate's own box and ink live in style.css, where the browser's inert twin reads them. */
 .method-btn {
-  @apply flex items-center gap-1.5 rounded-[7px] border-0 font-bold text-[13px] cursor-pointer outline-none h-7;
-  padding: 0 9px;
-  font-family: var(--mono);
+  @apply border-0 cursor-pointer outline-none;
+  --wails-draggable: no-drag;
 }
 
 .url-text {
   /* The address keeps a floor of its own: it is the one thing in this row that cannot be guessed from
-     anything else, so when the window is too narrow the chip strip gives way before it does. */
-  @apply relative flex-1 flex items-stretch;
+     anything else, so when the window is too narrow the save button gives way before it does. */
+  @apply relative flex-1 flex items-center min-w-0;
   min-width: 120px;
 }
 
 .url-input {
-  @apply flex-1 min-w-0 bg-transparent border-0 outline-none px-2.5 text-[14px];
+  @apply flex-1 min-w-0 bg-transparent border-0 outline-none;
+  padding: 0;
   font-family: var(--mono);
+  font-size: 13px;
   color: var(--text);
 }
 
@@ -421,8 +520,10 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onWindowKeydown))
 }
 
 .url-display {
-  @apply absolute inset-0 flex items-center overflow-hidden px-2.5 text-[14px] pointer-events-none;
+  @apply absolute inset-0 flex items-center overflow-hidden pointer-events-none;
+  padding: 0;
   font-family: var(--mono);
+  font-size: 13px;
   white-space: pre;
   color: var(--text);
 }
@@ -433,83 +534,49 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onWindowKeydown))
   box-shadow: none;
 }
 
-.chips {
-  @apply flex-none flex items-center gap-[5px] pl-2.5 border-l border-border;
-}
-
-.chip {
-  @apply flex items-center gap-[7px] h-7 pl-2.5 pr-2 rounded-[7px] text-[12.5px] font-medium text-text-secondary border border-transparent cursor-pointer;
-  background: var(--bg-hover);
-  transition: border-color 0.12s ease, color 0.12s ease, background-color 0.12s ease;
-  --wails-draggable: no-drag;
-}
-
-/* A filled chip is told apart by its fill and nothing else — no outline — which is what the latest
-   handoff draws: the whole strip is one surface with the chips a shade off it. */
-.chip:hover {
-  background: var(--bg-active);
-  color: var(--text);
-}
-
-.chip.active {
-  border-color: var(--accent);
-  background: var(--accent);
-  color: var(--accent-text);
-}
-
-.chip-count {
-  @apply inline-flex items-center justify-center min-w-[17px] h-[17px] px-[5px] rounded-full font-bold text-[10.5px] text-accent;
-  font-family: var(--mono);
-  background: var(--accent-soft);
-}
-
-.chip.active .chip-count {
-  background: rgba(255, 255, 255, 0.28);
-  color: var(--accent-text);
-}
-
-.chip-body {
-  border: 1px dashed var(--border-strong);
-  color: var(--text-tertiary);
-  background: transparent;
-}
-
-.chip-body.has-body {
-  border-color: transparent;
-  color: var(--text-secondary);
-  background: var(--bg-hover);
-}
-
-/* The code icon is smaller than the text beside it and sits on its baseline. */
-.chip-scripts :deep(svg) {
-  flex: none;
-}
-
-.chip-body:disabled {
-  @apply opacity-50 cursor-default;
-}
-
 .save-anchor {
   @apply relative flex-none;
 }
 
+/* The save button is the field's own height and nothing else: no frame, no fill, and the accent only
+   when the pointer is on it — it is the quietest of the three things in this row. */
 .bookmark-btn {
-  @apply flex-none w-[38px] h-[38px] rounded-[9px] flex items-center justify-center text-accent bg-bg-panel cursor-pointer;
-  border: 1px solid var(--border-strong);
+  @apply flex-none flex items-center justify-center cursor-pointer;
+  width: 34px;
+  height: 34px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--text-secondary);
   --wails-draggable: no-drag;
 }
 
 .bookmark-btn:hover:not(:disabled) {
-  background: var(--accent-soft);
+  background: var(--bg-hover);
+  color: var(--accent);
 }
 
 .bookmark-btn:disabled {
   @apply opacity-50 cursor-default;
 }
 
+/* The send button is a size of this bar's own rather than of the shared control: the field beside it
+   is 34 tall, and the two are the same object seen twice. Named with the primitive's class as well,
+   because a scoped override and the primitive's own scoped rule have the same specificity. */
+.btn.send-btn {
+  @apply flex-none;
+  height: 34px;
+  padding: 0 15px;
+  border-radius: 7px;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
 .send-hint {
-  @apply text-[12px] font-medium leading-normal py-[2px] px-[5px] rounded-[5px] text-white;
-  font-family: inherit;
-  background: rgba(255, 255, 255, 0.22);
+  @apply font-medium;
+  font-family: var(--mono);
+  font-size: 11px;
+  opacity: 0.75;
 }
 </style>

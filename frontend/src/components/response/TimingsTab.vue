@@ -118,7 +118,7 @@ const reusedConnection = computed(
 }
 
 .timing-label {
-  @apply text-[13.5px] text-text-secondary;
+  @apply text-[13px] text-text-secondary;
 }
 
 /* The track is the chip's own fill and the phases are drawn in the grey of a caption: the design
@@ -138,7 +138,7 @@ const reusedConnection = computed(
 }
 
 .timing-value {
-  @apply text-[13.5px] text-text text-right;
+  @apply text-[13px] text-text text-right;
   font-variant-numeric: tabular-nums;
 }
 

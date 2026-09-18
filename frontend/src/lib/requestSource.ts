@@ -49,6 +49,10 @@ export interface RequestSource {
   // What those levels answered, for the chip to say what inheriting would mean here.
   inheritedAuth: Auth | null
   missingVars: string[]
+  // Asking the draft side about them again. A variable added in the environments window is not an
+  // edit of this request, so nothing here would otherwise hear that a name has stopped missing — and
+  // the block that holds the send would sit over the button after the variable it names exists.
+  refreshPreview(): Promise<void>
   enabledParamsCount: number
   enabledHeadersCount: number
   // Whether the body chip has anything behind it. Both stores answer it the same way, so the dashed

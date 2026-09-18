@@ -8,7 +8,7 @@ defineProps<{ placeholder: string }>()
 
 <template>
   <label class="strip">
-    <Icon name="search" :size="16" :stroke-width="1.8" />
+    <Icon name="search" :size="14" :stroke-width="1.8" />
     <input
       v-model="model"
       class="entry"
@@ -22,10 +22,14 @@ defineProps<{ placeholder: string }>()
 <style scoped>
 @reference "../../style.css";
 
-/* The last 54px of the panel, and a footer rather than a floating field: the list ends where it
-   begins, so no fade and no overlay — the row above the strip is a row like any other. */
+/* The last 44px of the panel, and a footer rather than a floating field: the list ends where it
+   begins, so no fade and no overlay — the row above the strip is a row like any other. Its line is
+   the fainter of the two the panel draws, the same one the head closes with. */
 .strip {
-  @apply flex-none h-[55px] flex items-center gap-[9px] px-4 bg-bg-panel border-t border-border cursor-text;
+  @apply flex-none flex items-center gap-[9px] cursor-text;
+  height: 44px;
+  padding: 0 16px;
+  border-top: 1px solid color-mix(in srgb, var(--border) 60%, transparent);
   color: var(--text-tertiary);
 }
 

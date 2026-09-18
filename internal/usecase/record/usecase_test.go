@@ -23,6 +23,17 @@ func (f fakeScope) ActiveWorkspace(context.Context) (string, error) {
 	return f.id, nil
 }
 
+// fakeHome answers with the workspace the installation began in, which every test here is: the
+// import it serves is about this installation's own data, not about the space on screen.
+type fakeHome struct{ id string }
+
+func (f fakeHome) FirstWorkspace(context.Context) (string, error) {
+	if f.id == "" {
+		return domain.WorkspacePersonalID, nil
+	}
+	return f.id, nil
+}
+
 type fakeStore struct {
 	saved    []domain.Record
 	bodies   map[string]string
@@ -115,6 +126,41 @@ func (f *fakeStore) Prune(
 	f.askedIn = append(f.askedIn, workspaceID)
 	f.pruned = append(f.pruned, opts)
 	return 0, nil
+}
+
+// DeleteAllRecords empties one space: the records made in it, and not the ones beside them.
+func (f *fakeStore) DeleteAllRecords(_ context.Context, workspaceID string) (int, error) {
+	f.askedIn = append(f.askedIn, workspaceID)
+	kept := f.saved[:0]
+	gone := 0
+	for _, rec := range f.saved {
+		if rec.WorkspaceID == workspaceID {
+			gone++
+			continue
+		}
+		kept = append(kept, rec)
+	}
+	f.saved = kept
+	return gone, nil
+}
+
+// HistoryStats weighs one space's records and the bodies kept for them.
+func (f *fakeStore) HistoryStats(
+	_ context.Context,
+	workspaceID string,
+) (domain.HistoryStats, error) {
+	f.askedIn = append(f.askedIn, workspaceID)
+	var stats domain.HistoryStats
+	for _, rec := range f.saved {
+		if rec.WorkspaceID != workspaceID {
+			continue
+		}
+		stats.Count++
+		if rec.ResponseBody != nil {
+			stats.Bytes += rec.ResponseBody.Size
+		}
+	}
+	return stats, nil
 }
 
 func (f *fakeStore) ClaimImport(_ context.Context, source string) (bool, error) {
@@ -275,8 +321,9 @@ func newScopedUseCase(
 	retention := RetentionSourceFunc(func(context.Context) (domain.Retention, error) {
 		return domain.RetainWeek, nil
 	})
-	return NewUseCase(store, scope, executor, notifier, retention, screen, mask,
-		platform.NewIDGen()), store, executor, notifier
+	return NewUseCase(store, scope, fakeHome{}, executor, notifier, retention, screen, mask,
+			platform.NewIDGen(), platform.BuildInfo{Name: "JSON Inspector", Version: "test"}), store,
+		executor, notifier
 }
 
 func input() SendInput {
@@ -690,6 +737,61 @@ func TestPruneRunsEverySoManySaves(t *testing.T) {
 	}
 	if len(store.pruned) != 1 {
 		t.Errorf("pruned %d times, want once at the end of the batch", len(store.pruned))
+	}
+}
+
+func TestClearAllEmptiesTheWorkspaceOnScreen(t *testing.T) {
+	uc, store, _, notifier := newUseCase()
+	store.saved = []domain.Record{
+		{RecordSummary: domain.RecordSummary{ID: "mine-1", WorkspaceID: domain.WorkspacePersonalID}},
+		{RecordSummary: domain.RecordSummary{ID: "mine-2", WorkspaceID: domain.WorkspacePersonalID}},
+		{RecordSummary: domain.RecordSummary{ID: "theirs", WorkspaceID: "elsewhere"}},
+	}
+
+	gone, err := uc.ClearAll(context.Background())
+	if err != nil {
+		t.Fatalf("ClearAll: %v", err)
+	}
+	if gone != 2 {
+		t.Errorf("cleared %d records, want the two of the space on screen", gone)
+	}
+	if len(store.saved) != 1 || store.saved[0].ID != "theirs" {
+		t.Errorf("left behind: %+v", store.saved)
+	}
+	if asked := store.askedIn[len(store.askedIn)-1]; asked != domain.WorkspacePersonalID {
+		t.Errorf("cleared in %q, want the space the scope named", asked)
+	}
+
+	// The windows are told which history went: the list in the main window is drawn from rows that
+	// are no longer in the database, and it has nothing else to go by.
+	cleared, ok := notifier.waitFor(t, TopicHistoryCleared).(HistoryCleared)
+	if !ok {
+		t.Fatalf("the event carried the wrong payload")
+	}
+	if cleared.WorkspaceID != domain.WorkspacePersonalID || cleared.Removed != 2 {
+		t.Errorf("the event said %+v, want the space and the two records", cleared)
+	}
+}
+
+func TestHistoryWeighsTheWorkspaceOnScreen(t *testing.T) {
+	uc, store, _, _ := newUseCase()
+	store.saved = []domain.Record{
+		{RecordSummary: domain.RecordSummary{ID: "with-body", WorkspaceID: domain.WorkspacePersonalID},
+			ResponseBody: &domain.BodyRef{Size: 2048}},
+		{RecordSummary: domain.RecordSummary{ID: "without", WorkspaceID: domain.WorkspacePersonalID}},
+		{RecordSummary: domain.RecordSummary{ID: "elsewhere", WorkspaceID: "elsewhere"},
+			ResponseBody: &domain.BodyRef{Size: 4096}},
+	}
+
+	stats, err := uc.History(context.Background())
+	if err != nil {
+		t.Fatalf("History: %v", err)
+	}
+	if stats.Count != 2 {
+		t.Errorf("count = %d, want the two of the space on screen", stats.Count)
+	}
+	if stats.Bytes != 2048 {
+		t.Errorf("bytes = %d, want only the bodies of that space", stats.Bytes)
 	}
 }
 

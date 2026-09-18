@@ -28,7 +28,6 @@ func (s *Store) Workspaces(ctx context.Context) ([]domain.Workspace, error) {
 		if err := rows.Scan(&w.ID, &w.Name, &w.Kind, &w.Color, &w.CreatedAt, &w.UpdatedAt); err != nil {
 			return nil, fmt.Errorf("reading workspaces: %w", err)
 		}
-		w.Personal = w.ID == domain.WorkspacePersonalID
 		out = append(out, w)
 	}
 	return out, rows.Err()
@@ -45,12 +44,12 @@ func (s *Store) Workspace(ctx context.Context, id string) (domain.Workspace, err
 	if err != nil {
 		return domain.Workspace{}, fmt.Errorf("reading workspace %s: %w", id, err)
 	}
-	w.Personal = w.ID == domain.WorkspacePersonalID
 	return w, nil
 }
 
-// SaveWorkspace writes a workspace's own row. Personal is not a column: it is read back out of the
-// id, and writing it down would be a second place for the same answer to live.
+// SaveWorkspace writes a workspace's own row. Neither the position nor the kind is in the update
+// list: the position is what keeps the switcher's order and a save never moves a row, and a kind a
+// workspace was made with is not something an edit of its name or colour can change.
 func (s *Store) SaveWorkspace(ctx context.Context, w domain.Workspace) error {
 	_, err := s.db.ExecContext(ctx,
 		`INSERT INTO workspaces (id, name, kind, color, position, created_at, updated_at)
@@ -78,9 +77,82 @@ func (s *Store) DeleteWorkspace(ctx context.Context, id string) error {
 	return nil
 }
 
-// ActiveWorkspace is the workspace the window is showing: the stored pointer, or the one the app
-// is born with when the pointer is empty, missing, or names a space that has since been deleted.
-// It never fails on a bad value — a window with no workspace to draw is not a state the app has.
+// FirstWorkspace names the workspace that has been there longest: the row the schema writes on a
+// fresh installation, and the one every fallback points at now that any row may be deleted. An
+// empty table is not a state the app has — the last workspace may not be deleted, which is what
+// this error says when it somehow happened.
+func (s *Store) FirstWorkspace(ctx context.Context) (string, error) {
+	var id string
+	err := s.db.QueryRowContext(ctx,
+		`SELECT id FROM workspaces ORDER BY position, created_at LIMIT 1`).Scan(&id)
+	if errors.Is(err, sql.ErrNoRows) {
+		return "", fmt.Errorf("no workspace at all: %w", domain.ErrNotFound)
+	}
+	if err != nil {
+		return "", fmt.Errorf("reading the first workspace: %w", err)
+	}
+	return id, nil
+}
+
+// WorkspaceCounts is what each space holds, counted for the two places the window draws it: the
+// switcher's rows and the manager's Contents. It is a query over tables this feature does not own,
+// which is why it is a reading beside the list and not a column on the row.
+//
+// Every row of `collections` counts, folders included: the model calls each one a collection, and a
+// folder is one that sits inside another. A run is counted through the collection it belongs to —
+// `collection_runs` carries no workspace of its own, and the cascade means a run of a deleted
+// collection cannot be left behind.
+func (s *Store) Counts(ctx context.Context) (map[string]domain.WorkspaceCounts, error) {
+	out := map[string]domain.WorkspaceCounts{}
+	// One grouped count per kind of thing, each written into its own field: a space with no rows of
+	// a kind has no group at all, and the zero it keeps is the right answer for it.
+	for _, counted := range []struct {
+		query string
+		into  func(*domain.WorkspaceCounts) *int
+	}{
+		{`SELECT workspace_id, count(*) FROM collections GROUP BY workspace_id`,
+			func(c *domain.WorkspaceCounts) *int { return &c.Collections }},
+		{`SELECT workspace_id, count(*) FROM environments GROUP BY workspace_id`,
+			func(c *domain.WorkspaceCounts) *int { return &c.Environments }},
+		{`SELECT c.workspace_id, count(*) FROM collection_runs r
+		   JOIN collections c ON c.id = r.collection_id
+		  GROUP BY c.workspace_id`,
+			func(c *domain.WorkspaceCounts) *int { return &c.Runs }},
+	} {
+		rows, err := s.db.QueryContext(ctx, counted.query)
+		if err != nil {
+			return nil, fmt.Errorf("counting what a workspace holds: %w", err)
+		}
+		for rows.Next() {
+			var (
+				id    string
+				count int
+			)
+			if err := rows.Scan(&id, &count); err != nil {
+				rows.Close()
+				return nil, fmt.Errorf("counting what a workspace holds: %w", err)
+			}
+			held := out[id]
+			*counted.into(&held) = count
+			out[id] = held
+		}
+		rows.Close()
+		if err := rows.Err(); err != nil {
+			return nil, fmt.Errorf("counting what a workspace holds: %w", err)
+		}
+	}
+	return out, nil
+}
+
+// ActiveWorkspace is the workspace the window is showing: the stored pointer, or the oldest one
+// when the pointer is empty, missing, or names a space that has since been deleted. A stale pointer
+// is not an error — the window has to land somewhere, and the space that has been there longest is
+// the one the app is most likely to still have.
+//
+// "Reopen the last workspace" is not read here. It decides where the app *starts*: the use case
+// settles it once at launch by pointing the pointer at the oldest space. A preference applied on
+// every read would answer for the rest of the session too, and the window would snap back to the
+// oldest space the moment anyone switched away from it.
 func (s *Store) ActiveWorkspace(ctx context.Context) (string, error) {
 	pointed, ok, err := s.Setting(ctx, domain.SettingActiveWorkspace)
 	if err != nil {
@@ -96,7 +168,18 @@ func (s *Store) ActiveWorkspace(ctx context.Context) (string, error) {
 			return "", fmt.Errorf("reading workspace %s: %w", pointed, err)
 		}
 	}
-	return domain.WorkspacePersonalID, nil
+	return s.FirstWorkspace(ctx)
+}
+
+// ReopenLast answers whether the app comes back to the space it was left in. A setting of the
+// installation rather than data of a workspace, which is why it is read here beside the pointer —
+// and absent means on, the way it does for every switch the app started with.
+func (s *Store) ReopenLast(ctx context.Context) (bool, error) {
+	raw, told, err := s.Setting(ctx, domain.SettingReopenWorkspace)
+	if err != nil {
+		return false, err
+	}
+	return !told || raw != "false", nil
 }
 
 func (s *Store) SetActiveWorkspace(ctx context.Context, id string) error {

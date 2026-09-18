@@ -12,6 +12,20 @@
 // @ts-ignore: Unused imports
 import { Call as $Call, CancellablePromise as $CancellablePromise } from "@wailsio/runtime";
 
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-ignore: Unused imports
+import * as domain$0 from "../../domain/models.js";
+
+/**
+ * ApplyCaptureFilters hands the extension the rules it filters by. The app stores them and this is
+ * the delivery: a frame to whoever is connected now, and nothing to whoever is not — the window
+ * sends this again on every state frame it receives, which is how an extension that has just
+ * reconnected is told the rules it missed.
+ */
+export function ApplyCaptureFilters(filters: domain$0.CaptureFilters): $CancellablePromise<void> {
+    return $Call.ByID(2309446651, filters);
+}
+
 export function PauseCapture(): $CancellablePromise<void> {
     return $Call.ByID(3364473398);
 }

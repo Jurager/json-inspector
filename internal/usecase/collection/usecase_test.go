@@ -146,24 +146,77 @@ func (f *fakeStore) Node(_ context.Context, id string) (domain.CollectionNode, e
 	return domain.CollectionNode{}, domain.ErrNotFound
 }
 
-// LevelRows is the page's read: the same requests the tree holds, narrowed to what the table draws.
-func (f *fakeStore) LevelRows(_ context.Context, collectionID string) ([]domain.LevelRow, error) {
+// ContentRows is the page's read: the requests inside a collection, folders and all, with the
+// address and the folder each of them is drawn with. It walks the way the SQL does — a level's own
+// requests and its folders are one numbered sequence, and the folders' rows carry the path —
+// because a fake that answered only the level would let a page that draws one level pass.
+func (f *fakeStore) ContentRows(_ context.Context, collectionID string) ([]domain.LevelRow, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 
-	out := []domain.LevelRow{}
-	for _, node := range f.nodes {
-		if node.CollectionID != collectionID || f.hidden(node.ID) {
-			continue
+	var walk func(level string, folder string) []domain.LevelRow
+	walk = func(level string, folder string) []domain.LevelRow {
+		type entry struct {
+			position int64
+			node     *domain.CollectionNode
+			child    *domain.Collection
 		}
-		out = append(out, domain.LevelRow{
-			ID:     node.ID,
-			Name:   node.Name,
-			Method: node.Method,
-			URL:    node.URL,
+		entries := []entry{}
+		for i := range f.nodes {
+			if f.nodes[i].CollectionID == level {
+				entries = append(entries, entry{position: f.nodes[i].Position, node: &f.nodes[i]})
+			}
+		}
+		for i := range f.collections {
+			if f.collections[i].ParentID == level {
+				entries = append(entries, entry{position: f.collections[i].Position,
+					child: &f.collections[i]})
+			}
+		}
+		sort.SliceStable(entries, func(i, j int) bool {
+			return entries[i].position < entries[j].position
 		})
+
+		out := []domain.LevelRow{}
+		for _, e := range entries {
+			if e.child != nil {
+				if f.hidden(e.child.ID) {
+					continue
+				}
+				// The level being read is the one that has no folder of its own; everything below it
+				// carries the names of the folders it is under.
+				below := e.child.Name
+				if folder != "" {
+					below = folder + " / " + e.child.Name
+				}
+				out = append(out, walk(e.child.ID, below)...)
+				continue
+			}
+			if f.hidden(e.node.ID) {
+				continue
+			}
+			out = append(out, domain.LevelRow{
+				ID:     e.node.ID,
+				Name:   e.node.Name,
+				Method: e.node.Method,
+				URL:    e.node.URL,
+				Folder: folder,
+			})
+		}
+		return out
 	}
-	return out, nil
+
+	// A collection the store has never heard of reads as nothing, the way a query for it would.
+	found := false
+	for _, collection := range f.collections {
+		if collection.ID == collectionID {
+			found = true
+		}
+	}
+	if !found {
+		return nil, nil
+	}
+	return walk(collectionID, ""), nil
 }
 
 func (f *fakeStore) SaveCollection(
@@ -471,6 +524,9 @@ type answer struct {
 	durationUs  int64
 	transportEr string
 	skipped     bool
+	// refusal is the app saying no rather than the network failing — a request whose `{{tokens}}`
+	// answered to nothing. It is an error, not a record: nothing went out.
+	refusal error
 }
 
 func newFakeSender() *fakeSender {
@@ -491,6 +547,13 @@ func (f *fakeSender) fail(url string) *fakeSender {
 // so rather than pretending the server said something.
 func (f *fakeSender) skip(url string) *fakeSender {
 	f.answers[url] = answer{skipped: true}
+	return f
+}
+
+// refuse is a request the app would not send at all: the sender answers with the refusal, the way
+// the real one does when a `{{token}}` in the request has nothing to answer it.
+func (f *fakeSender) refuse(url string, refusal error) *fakeSender {
+	f.answers[url] = answer{refusal: refusal}
 	return f
 }
 
@@ -520,6 +583,9 @@ func (f *fakeSender) Send(_ context.Context, req RunRequest) (domain.Record, err
 	}
 	if answer.skipped {
 		return domain.Record{Skipped: true}, nil
+	}
+	if answer.refusal != nil {
+		return domain.Record{}, answer.refusal
 	}
 	return domain.Record{RecordSummary: domain.RecordSummary{
 		ID:         "rec-" + req.URL,

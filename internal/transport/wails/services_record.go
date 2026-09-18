@@ -23,14 +23,18 @@ type RecordsService struct {
 	// cannot be asked it — a feature that owns a request must not know about the tree it sits in —
 	// and this layer is the one that knows both.
 	collections *collection.UseCase
+	// The host is here for the one thing this service writes to disk: a saved HAR session is a file
+	// the user names in a dialog, and the dialog is the window's.
+	host *Host
 }
 
 func NewRecordsService(
 	records *record.UseCase,
 	drafts *draft.UseCase,
 	collections *collection.UseCase,
+	host *Host,
 ) *RecordsService {
-	return &RecordsService{records: records, drafts: drafts, collections: collections}
+	return &RecordsService{records: records, drafts: drafts, collections: collections, host: host}
 }
 
 // Send starts the request a draft holds and answers with its id at once. The draft is read here
@@ -147,6 +151,18 @@ func (s *RecordsService) Ingest(ctx context.Context, in record.IngestInput) (dom
 
 func (s *RecordsService) Clear(ctx context.Context, ids []string) error {
 	return s.records.Clear(ctx, ids)
+}
+
+// ClearAll is the whole of the space on screen, which is what the settings screen's "clear history
+// now" does: what it clears is the history the panel beside it is showing.
+func (s *RecordsService) ClearAll(ctx context.Context) (int, error) {
+	return s.records.ClearAll(ctx)
+}
+
+// History is what the space on screen is holding — how many requests, how many bytes of bodies —
+// which is the line the settings screen puts beside that button.
+func (s *RecordsService) History(ctx context.Context) (domain.HistoryStats, error) {
+	return s.records.History(ctx)
 }
 
 // Prune applies the retention rules now, which is what the settings screen does when the window is

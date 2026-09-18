@@ -4,18 +4,11 @@ import { EnvironmentsService } from '../../bindings/json-inspector/internal/tran
 import { VariableKind } from '../../bindings/json-inspector/internal/domain'
 import { t as tr } from '../i18n'
 import type { EnvScope, EnvState, Environment, Variable } from '../../bindings/json-inspector/internal/domain'
-import type { ImportReport } from '../../bindings/json-inspector/internal/usecase/environment'
+import type { Entry } from '../../bindings/json-inspector/internal/dotenv'
+import type { EnvironmentDraft } from '../../bindings/json-inspector/internal/usecase/environment'
 
 // What the environments lived in before they moved into the database.
 const LEGACY_KEY = 'ji-env-v1'
-
-/** One row of the `.env` import dialog: what was found, and what to do with it. */
-export interface ImportChoice {
-  name: string
-  value: string
-  secret: boolean
-  mode: 'replace' | 'skip'
-}
 
 function scopeOf(envId: string | null): EnvScope {
   return envId === null ? {} : { environment: envId }
@@ -31,15 +24,12 @@ export type Env = Omit<Environment, 'vars'> & { vars: Variable[] }
 export const useEnvironmentsStore = defineStore('environments', {
   state: () => ({
     envState: null as EnvState | null,
-    // Session-only: an unlock must not outlive the sheet that made it.
-    unlockedEnvIds: [] as string[],
     sheetOpen: false,
     sheetFocus: null as { envId: string | null; varName: string } | null,
     editedEnvId: null as string | null,
     // Values the user asked to see, by variable id. Filled by reveal() alone, dropped when the
     // sheet closes: a secret is not carried around just because it exists.
     revealed: {} as Record<string, string>,
-    importReport: null as ImportReport | null,
   }),
 
   getters: {
@@ -68,15 +58,13 @@ export const useEnvironmentsStore = defineStore('environments', {
     },
 
     // What a workspace switch leaves behind: every environment on screen belongs to the space being
-    // left, and so does the unlock the user gave one of them for this session. A revealed secret is
-    // dropped for the same reason — it is a value of a variable that is no longer there.
+    // left. A revealed secret is dropped for the same reason — it is a value of a variable that is
+    // no longer there.
     forget() {
       this.envState = null
-      this.unlockedEnvIds = []
       this.revealed = {}
       this.editedEnvId = null
       this.sheetFocus = null
-      this.importReport = null
     },
 
     // The old build kept environments and their secrets in localStorage, apart from the secret
@@ -87,7 +75,7 @@ export const useEnvironmentsStore = defineStore('environments', {
       const raw = localStorage.getItem(LEGACY_KEY)
       if (raw === null) return
       try {
-        this.importReport = await EnvironmentsService.ImportLegacy(raw)
+        await EnvironmentsService.ImportLegacy(raw)
         localStorage.removeItem(LEGACY_KEY)
         this.envState = await EnvironmentsService.Snapshot()
       } catch {
@@ -108,18 +96,36 @@ export const useEnvironmentsStore = defineStore('environments', {
       this.envState = await EnvironmentsService.ActivateEnvironment(id ?? '')
     },
 
-    async addEnv(name = tr('environments.new')): Promise<string> {
-      this.envState = await EnvironmentsService.CreateEnvironment(name)
-      return this.activeId ?? ''
+    // The sheet's create form in one call: a name, a colour and what it starts from. It answers with
+    // the id of what it made — worked out from the two lists rather than read off `activeId`, which
+    // happens to hold it only because Create activates what it writes.
+    async createEnv(draft: EnvironmentDraft): Promise<string> {
+      const before = new Set(this.environments.map((e) => e.id))
+      this.envState = await EnvironmentsService.CreateEnvironment(draft)
+      const made = this.environments.find((e) => !before.has(e.id))
+      this.editedEnvId = made?.id ?? null
+      this.sheetFocus = null
+      return made?.id ?? ''
     },
 
     async removeEnv(id: string) {
       this.envState = await EnvironmentsService.DeleteEnvironment(id)
-      this.unlockedEnvIds = this.unlockedEnvIds.filter((x) => x !== id)
-      // Values revealed for a variable that no longer exists go with it.
-      const live = new Set(this.environments.flatMap((e) => e.vars.map((v) => v.id)))
+      this.forgetRevealed(this.environments)
+    },
+
+    // Values revealed for a variable that no longer exists go with it. `was` is the state before the
+    // call, because what is being dropped is what the call took away.
+    forgetRevealed(was: Env[]) {
+      const mine = new Set<string>()
+      for (const env of was) for (const v of env.vars) mine.add(v.id)
+      for (const v of this.globals) mine.add(v.id)
+
+      const live = new Set<string>()
+      for (const env of this.environments) for (const v of env.vars) live.add(v.id)
+      for (const v of this.globals) live.add(v.id)
+
       for (const key of Object.keys(this.revealed)) {
-        if (!live.has(key)) delete this.revealed[key]
+        if (mine.has(key) && !live.has(key)) delete this.revealed[key]
       }
     },
 
@@ -127,14 +133,28 @@ export const useEnvironmentsStore = defineStore('environments', {
       this.envState = await EnvironmentsService.UpdateEnvironment(id, { name })
     },
 
+    async setEnvColor(id: string, color: string) {
+      this.envState = await EnvironmentsService.UpdateEnvironment(id, { color })
+    },
+
+    // The Access switch. Unlocking a read-only environment is this write and nothing else: the flag
+    // is what the sheet reads to decide whether the cells are editable, and a session-only unlock
+    // beside it would be a second answer to the same question.
     async setEnvReadonly(id: string, readonly: boolean) {
       this.envState = await EnvironmentsService.UpdateEnvironment(id, { readonly })
     },
 
+    // The globals cannot be deleted, only emptied; what comes back is the state without them.
+    async clearGlobals() {
+      const before = this.environments
+      this.envState = await EnvironmentsService.ClearGlobals()
+      this.forgetRevealed(before)
+    },
+
     // ---- variables -------------------------------------------------------
 
-    // The sheet's "add row" leaves this empty; the .env dialog fills it in. The new row lands last
-    // in its scope, which is what addVar's caller gets back.
+    // The sheet's "add row" leaves this empty and starts editing it; an import writes values of its
+    // own. The new row lands last in its scope, which is what addVar's caller gets back.
     async addVar(envId: string | null, init: Partial<Variable> = {}): Promise<string> {
       this.envState = await EnvironmentsService.AddVariable(scopeOf(envId), {
         name: init.name ?? '',
@@ -168,11 +188,11 @@ export const useEnvironmentsStore = defineStore('environments', {
       delete this.revealed[varId]
     },
 
-    async importDotenv(envId: string | null, entries: ImportChoice[]) {
-      // The dialog decides what happens to a name that is already there; Go merges what it is given.
-      const kept = entries
-        .filter((e) => e.mode === 'replace' && e.name.trim() !== '')
-        .map((e) => ({ name: e.name.trim(), value: e.value, secret: e.secret }))
+    // What the file held, as Go parsed it: an existing name is replaced and the rest are kept, which
+    // is the rule the import sheet states. The decisions are Go's the moment the file is read, so
+    // there is nothing per key for the window to decide.
+    async importDotenv(envId: string | null, entries: Entry[]) {
+      const kept = entries.filter((e) => e.name.trim() !== '')
       if (kept.length === 0) return
       this.envState = await EnvironmentsService.ImportEntries(scopeOf(envId), kept)
     },
@@ -251,17 +271,17 @@ export const useEnvironmentsStore = defineStore('environments', {
     closeSheet() {
       this.sheetOpen = false
       this.sheetFocus = null
-      this.unlockedEnvIds = []
       // Everything the user revealed was revealed for that visit.
       this.revealed = {}
     },
 
-    isUnlocked(envId: string | null): boolean {
-      return envId !== null && this.unlockedEnvIds.includes(envId)
+    // What a `{{token}}` in the window asks the sheet to open on. The panel reads it once it has
+    // drawn the scope it names, and says so by clearing it.
+    takeFocus(): { envId: string | null; varName: string } | null {
+      const focus = this.sheetFocus
+      if (focus) this.sheetFocus = null
+      return focus
     },
 
-    unlock(envId: string) {
-      if (!this.unlockedEnvIds.includes(envId)) this.unlockedEnvIds.push(envId)
-    },
   },
 })

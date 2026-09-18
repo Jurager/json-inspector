@@ -158,6 +158,6 @@ onBeforeUnmount(() => {
 /* The shortcut is written in the bar's own face, not in the mono one: the handoff draws every key
    inside a button this way, and the mono face is kept for values. */
 .titlebar-key {
-  @apply text-[11.5px] leading-none text-text-tertiary;
+  @apply text-[12px] leading-none text-text-tertiary;
 }
 </style>

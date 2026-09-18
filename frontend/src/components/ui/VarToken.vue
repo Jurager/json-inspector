@@ -6,7 +6,7 @@ import { useHoverArrival } from '../../composables/useHoverArrival'
 import { Tooltip } from './tooltip'
 import { useMessages } from '../../i18n'
 
-const props = defineProps<{ name: string; offset?: number }>()
+const props = defineProps<{ name: string; text?: string; offset?: number }>()
 
 const store = useEnvironmentsStore()
 const { isMac } = usePlatform()
@@ -17,7 +17,9 @@ const resolvedVar = computed(() => store.resolveVariable(props.name))
 const isKnown = computed(() => resolvedVar.value !== null)
 const isSecret = computed(() => resolvedVar.value?.kind === 'secret')
 
-const label = computed(() => `{{${props.name}}}`)
+// The characters of the field, not a tidied spelling of the name: the pill is painted over the text
+// it stands for, so `{{ var3 }}` has to be drawn with its spaces or everything after it slides.
+const label = computed(() => props.text ?? `{{${props.name}}}`)
 
 const scopeLabel = computed(() => {
   const r = resolvedVar.value
@@ -31,38 +33,62 @@ const root = ref<HTMLElement | null>(null)
 
 const hintArmed = useHoverArrival(root)
 
-function onClick(e: MouseEvent) {
+// The pill takes the press because it has to — a hover over it is what shows the value — so it is
+// also the one that hands the press back: the field underneath gets the caret where it was aimed,
+// exactly as it would have without the layer. On mousedown rather than click, and with the default
+// suppressed: the browser would otherwise blur the field first and start a selection in a layer
+// that is not editable, which is a highlight with nothing behind it.
+function onMouseDown(e: MouseEvent) {
   if (e.altKey) {
     e.preventDefault()
     e.stopPropagation()
+    // The scope the name would be opened in: the one it answers in, and — for a name nothing answers,
+    // or a window with no environment chosen — the environment being worked in, which is where the
+    // bar's own «Создать переменную» would put it. The globals are the target only for a name that
+    // really resolves there, and for a window that has nowhere else to put one.
     const r = resolvedVar.value
-    store.openSheet({
-      envId: r?.source === 'env' ? store.activeId : null,
-      varName: props.name,
-    })
+    const envId = r?.source === 'global' || store.activeId === null ? null : store.activeId
+    store.openSheet({ envId, varName: props.name })
     return
   }
 
-  if (window.getSelection()?.toString()) return
-
-  const input = nearestInput(root.value?.parentElement ?? null)
-  if (!input) return
+  const layer = root.value?.parentElement ?? null
+  const field = nearestField(layer)
+  if (!field) return
 
   e.preventDefault()
-  input.focus()
-  const at = props.offset ?? input.value.length
-  input.setSelectionRange(at, at)
+  field.focus()
+  const at = offsetUnder(layer, e) ?? props.offset ?? field.value.length
+  field.setSelectionRange(at, at)
 }
 
-// Walks up: the field is an ancestor's descendant, not a sibling of the token.
-function nearestInput(from: HTMLElement | null): HTMLInputElement | null {
-  let node: HTMLElement | null = from
-  while (node) {
-    const found = node.querySelector('input')
-    if (found) return found
-    node = node.parentElement
-  }
-  return null
+// The layer covers a field of its own cell — a table cell, a covered box of a form — so the field
+// it belongs to is the one beside it, not whatever the next ancestor on the way up happens to hold.
+function nearestField(layer: HTMLElement | null): HTMLInputElement | HTMLTextAreaElement | null {
+  return layer?.parentElement?.querySelector('input, textarea') ?? null
+}
+
+// Which character of the layer was pressed. Nothing here measures a glyph: the layer carries the
+// field's own characters (see tokenSegments), so a range from the layer's start to the pressed
+// character counts out the index the field is waiting for.
+function offsetUnder(layer: HTMLElement | null, e: MouseEvent): number | null {
+  if (!layer) return null
+  const point = caretPoint(e.clientX, e.clientY)
+  if (!point || !layer.contains(point.node)) return null
+
+  const upTo = document.createRange()
+  upTo.setStart(layer, 0)
+  upTo.setEnd(point.node, point.offset)
+  return upTo.toString().length
+}
+
+// Chromium has the shorthand; it is the engine under the window, and the browser preview of the
+// window is a browser. Firefox named the same question differently, and answers it just as well.
+function caretPoint(x: number, y: number): { node: Node; offset: number } | null {
+  const range = document.caretRangeFromPoint?.(x, y)
+  if (range) return { node: range.startContainer, offset: range.startOffset }
+  const pos = document.caretPositionFromPoint?.(x, y)
+  return pos ? { node: pos.offsetNode, offset: pos.offset } : null
 }
 
 </script>
@@ -74,7 +100,7 @@ function nearestInput(from: HTMLElement | null): HTMLInputElement | null {
         ref="root"
         class="var-token"
         :class="{ unknown: !isKnown, secret: isSecret }"
-        @click="onClick"
+        @mousedown="onMouseDown"
         @pointerleave="hintArmed = true"
         >{{ label }}</span
       >

@@ -1,81 +1,72 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
-import { Window } from '@wailsio/runtime'
+import { Events, Window } from '@wailsio/runtime'
 import { useSettings } from '../composables/useSettings'
-import { useTheme } from '../composables/useTheme'
-import { useLocale } from '../composables/useLocale'
+import { useAccount } from '../composables/useAccount'
+import SignInModal from '../components/settings/SignInModal.vue'
+import SignOutSheet from '../components/settings/SignOutSheet.vue'
 import { usePlatform } from '../composables/usePlatform'
-import { useUpdateCheck } from '../composables/useUpdateCheck'
-import { formatCheckedAt, useMessages } from '../i18n'
-import Icon from '../components/ui/Icon.vue'
-import UpdateCheck from '../components/update/UpdateCheck.vue'
-import { Switch } from '../components/ui/switch'
-import { Language, Retention, Theme, UpdateChannel } from '../../bindings/json-inspector/internal/domain'
+import { useSheetNotice } from '../composables/useSheetNotice'
+import { useMessages } from '../i18n'
+import SettingsRail from '../components/settings/SettingsRail.vue'
+import AccountPane from '../components/settings/AccountPane.vue'
+import GeneralPane from '../components/settings/GeneralPane.vue'
+import AppearancePane from '../components/settings/AppearancePane.vue'
+import RequestsPane from '../components/settings/RequestsPane.vue'
+import UpdatesPane from '../components/settings/UpdatesPane.vue'
+import StubPane from '../components/settings/StubPane.vue'
+import { asCategory, CATEGORIES, type CategoryId } from '../components/settings/categories'
 
-// The handoff's categories, without the ones the app has nothing to put in yet: proxy, sync and the
-// account screen are not built, and a category that opens onto an empty pane is worse than a
-// category that is not there.
-const CATEGORIES = [
-  { id: 'general', icon: 'settings-2', label: 'settings.general' },
-  { id: 'appearance', icon: 'contrast', label: 'settings.appearance' },
-  { id: 'language', icon: 'globe', label: 'settings.language' },
-  { id: 'updates', icon: 'download', label: 'settings.updates' },
-] as const
-
-type CategoryId = (typeof CATEGORIES)[number]['id']
-
+// The window is the rail plus one category: the drawing's frame, drawn inside a window of its own. The
+// backdrop and the "Done" button the drawing puts around it belong to an overlay raised over another
+// window, and this one has a title bar of its own — the platform's on macOS, ours on Windows — which
+// is what closes it.
+//
+// The three categories the app has nothing for are drawn all the same: their rows are the design's,
+// every control is off, and each says in its first card why.
 const { t } = useMessages()
 const { customTitlebar } = usePlatform()
-const { theme, setTheme } = useTheme()
-const { language, setLanguage } = useLocale()
-const { settings, loadSettings, setRetention, setUpdateCheck, setUpdateChannel } = useSettings()
-const { checkedAt } = useUpdateCheck()
+const { loadSettings } = useSettings()
+const { notice, clearNotice } = useSheetNotice()
+const {
+  state: accountState,
+  signInOpen,
+  signOutOpen,
+  beginSignIn,
+  cancelSignIn,
+  closeSignIn,
+  closeSignOut,
+  signOut,
+} = useAccount()
+const account = computed(() => accountState.value?.account ?? null)
 
-const active = ref<CategoryId>('general')
+// The category is opened on the one asked for: Go puts it on the address of a window it is about to
+// create, and tells a window that is already on screen — a page reads no URL twice.
+const active = ref<CategoryId>(asCategory(new URLSearchParams(location.search).get('tab')))
 
-// The handoff's order: light, dark, system. The words are the title bar's own — one control, one set
-// of names, whichever window it is drawn in.
-const THEMES = [
-  { value: Theme.ThemeLight, label: 'theme.light' },
-  { value: Theme.ThemeDark, label: 'theme.dark' },
-  { value: Theme.ThemeSystem, label: 'theme.system' },
-] as const
-
-const LANGUAGES = [
-  { value: Language.LanguageSystem, label: 'settings.systemLanguage' },
-  { value: Language.LanguageRU, label: 'settings.russian' },
-  { value: Language.LanguageEN, label: 'settings.english' },
-] as const
-
-const RETENTIONS = [
-  { value: Retention.RetainWeek, label: 'settings.retentionWeek' },
-  { value: Retention.RetainMonth, label: 'settings.retentionMonth' },
-  { value: Retention.RetainForever, label: 'settings.retentionForever' },
-] as const
-
-const CHANNELS = [
-  { value: UpdateChannel.ChannelStable, label: 'settings.channelStable' },
-  { value: UpdateChannel.ChannelBeta, label: 'settings.channelBeta' },
-] as const
-
-// The stored choice until the window has read it: the same default Go answers with, so the select
-// shows something true rather than nothing.
-const retention = computed(() => settings.value?.historyRetention ?? Retention.RetainForever)
-const autoCheck = computed(() => settings.value?.updateCheckAuto ?? true)
-const channel = computed(() => settings.value?.updateChannel ?? UpdateChannel.ChannelStable)
-
-// The date of the last check, which the handoff puts under the switch rather than beside the button:
-// it describes how the app behaves on its own, and that is what the switch decides.
-const lastChecked = computed(() =>
-  checkedAt.value ? t('update.lastChecked', { at: formatCheckedAt(checkedAt.value) }) : ''
+const isLive = computed(() =>
+  CATEGORIES.some((category) => category.id === active.value && !category.soon)
 )
+
+function select(id: CategoryId) {
+  active.value = id
+  // A failure belongs to the row that caused it, and the row is gone with the category.
+  clearNotice()
+}
 
 onMounted(() => {
   void loadSettings()
-  // The window's own name is the one thing the catalogue has to give the OS: the title bar it draws
-  // is ours, but the taskbar reads the platform's. Go names the window by identity; the words are
-  // here, where the language is known.
+  // The window's own name is the one thing the catalogue has to give the OS: the title bar it draws is
+  // ours, but the taskbar reads the platform's. Go names the window by identity; the words are here,
+  // where the language is known.
   void Window.SetTitle(t('settings.title'))
+
+  // A window that is already open is asked to switch by an event: the account menu sends people to
+  // the account, and a page that has been painted reads no address again.
+  Events.On('settings-tab', (event) => {
+    const asked = event.data as string
+    if (asked) select(asCategory(asked))
+  })
 })
 </script>
 
@@ -92,123 +83,48 @@ onMounted(() => {
     </header>
 
     <div class="settings-body">
-      <nav class="settings-nav">
-        <button
-          v-for="category in CATEGORIES"
-          :key="category.id"
-          class="nav-item"
-          :class="{ active: active === category.id }"
-          @click="active = category.id"
-        >
-          <Icon :name="category.icon" :size="16" :stroke-width="1.6" />
-          <span>{{ t(category.label) }}</span>
-        </button>
-      </nav>
+      <SettingsRail :active="active" @select="select" />
 
       <section class="settings-pane">
-        <div class="pane-inner">
-          <template v-if="active === 'general'">
-            <h2 class="pane-title">{{ t('settings.general') }}</h2>
-            <div class="row">
-              <div class="row-text">
-                <div class="row-label">{{ t('settings.retention') }}</div>
-              </div>
-              <select
-                class="select"
-                :value="retention"
-                @change="setRetention(($event.target as HTMLSelectElement).value as Retention)"
-              >
-                <option v-for="option in RETENTIONS" :key="option.value" :value="option.value">
-                  {{ t(option.label) }}
-                </option>
-              </select>
-            </div>
-          </template>
-
-          <template v-else-if="active === 'appearance'">
-            <h2 class="pane-title">{{ t('settings.appearance') }}</h2>
-            <div class="row">
-              <div class="row-text">
-                <div class="row-label">{{ t('settings.theme') }}</div>
-              </div>
-              <div class="segment">
-                <button
-                  v-for="option in THEMES"
-                  :key="option.value"
-                  class="segment-item"
-                  :class="{ active: theme === option.value }"
-                  @click="setTheme(option.value)"
-                >
-                  {{ t(option.label) }}
-                </button>
-              </div>
-            </div>
-          </template>
-
-          <template v-else-if="active === 'language'">
-            <h2 class="pane-title">{{ t('settings.language') }}</h2>
-            <div class="row">
-              <div class="row-text">
-                <div class="row-label">{{ t('settings.interfaceLanguage') }}</div>
-                <div class="row-hint">{{ t('settings.interfaceLanguageHint') }}</div>
-              </div>
-              <select
-                class="select"
-                :value="language"
-                @change="setLanguage(($event.target as HTMLSelectElement).value as Language)"
-              >
-                <option v-for="option in LANGUAGES" :key="option.value" :value="option.value">
-                  {{ t(option.label) }}
-                </option>
-              </select>
-            </div>
-          </template>
-
-          <template v-else>
-            <h2 class="pane-title">{{ t('settings.updates') }}</h2>
-            <div class="row">
-              <div class="row-text">
-                <div class="row-label">{{ t('settings.checkAutomatically') }}</div>
-                <div v-if="lastChecked" class="row-hint">{{ lastChecked }}</div>
-              </div>
-              <Switch
-                :model-value="autoCheck"
-                :aria-label="t('settings.checkAutomatically')"
-                @update:model-value="setUpdateCheck(!!$event)"
-              />
-            </div>
-            <div class="row">
-              <div class="row-text">
-                <div class="row-label">{{ t('settings.channel') }}</div>
-              </div>
-              <select
-                class="select"
-                :value="channel"
-                @change="
-                  setUpdateChannel(($event.target as HTMLSelectElement).value as UpdateChannel)
-                "
-              >
-                <option v-for="option in CHANNELS" :key="option.value" :value="option.value">
-                  {{ t(option.label) }}
-                </option>
-              </select>
-            </div>
-            <div class="row row-plain">
-              <UpdateCheck inline />
-            </div>
-          </template>
+        <div class="pane-scroll">
+          <AccountPane v-if="active === 'account'" />
+          <GeneralPane v-else-if="active === 'general'" />
+          <AppearancePane v-else-if="active === 'appearance'" />
+          <RequestsPane v-else-if="active === 'requests'" />
+          <UpdatesPane v-else-if="active === 'updates'" />
+          <StubPane v-else-if="!isLive" :category="active" />
         </div>
+
+        <!-- A write that failed says so under the rows it was about, and stays there until the row is
+             tried again or another category is opened. -->
+        <div v-if="notice" class="pane-notice">{{ notice }}</div>
       </section>
     </div>
+
+    <!-- The account's two dialogs, raised from the rows on this page and from the rail's menu in the
+         other window. Each window draws its own: the flag travels with the window, not the account. -->
+    <SignInModal
+      v-if="signInOpen"
+      :server="account?.server ?? ''"
+      @begin="beginSignIn"
+      @cancel="cancelSignIn"
+      @close="closeSignIn()"
+    />
+    <SignOutSheet v-if="signOutOpen" @close="closeSignOut()" @confirm="signOut()" />
   </div>
 </template>
 
 <style scoped>
 @reference "../style.css";
 
-/* An opaque window: it shows no material behind it, so the page paints the whole ground. */
+/* An opaque window: it shows no material behind it, so the page paints the whole ground. The body is
+   the window's own base colour rather than a panel's, because the rows' controls are panels: a field
+   the same white as the page behind it is a field nobody can see.
+   The drawing is plain HTML and draws every line at `normal`, while the window's base is Tailwind's
+   1.5 — four pixels a row, which is a section taller than it is drawn. */
 .settings-window {
-  @apply h-full flex flex-col bg-bg-panel text-text select-none;
+  @apply h-full flex flex-col bg-bg text-text select-none;
+  line-height: normal;
 }
 
 /* macOS hides its title bar inside the window, so the content starts below it; the number matches
@@ -239,94 +155,20 @@ onMounted(() => {
   @apply flex-1 flex min-h-0;
 }
 
-.settings-nav {
-  @apply flex-none w-[208px] flex flex-col gap-0.5 p-[14px_10px];
-  background: var(--bg-sidebar);
-  border-right: 1px solid var(--border);
-}
-
-.nav-item {
-  @apply flex items-center gap-[9px] w-full py-2 px-2.5 border-none rounded-[7px] bg-transparent text-text text-[12.5px] text-left cursor-pointer;
-  font: inherit;
-  --wails-draggable: no-drag;
-}
-
-.nav-item:hover {
-  @apply text-text;
-  background: var(--bg-hover);
-}
-
-.nav-item.active {
-  @apply bg-accent-soft text-accent font-semibold;
-}
-
-.nav-item:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: -2px;
-}
-
 .settings-pane {
-  @apply flex-1 min-w-0 overflow-auto p-[28px_36px];
+  @apply flex-1 min-w-0 flex flex-col;
 }
 
-/* The handoff's measure: wide enough for a sentence of description beside its control, and no wider,
-   so a row stays one line of reading rather than a page. */
-.pane-inner {
-  @apply flex flex-col gap-0.5 max-w-[560px];
+/* The drawing's own measure around the sections: 18 down, 20 across. */
+.pane-scroll {
+  @apply flex-1 min-h-0 overflow-y-auto;
+  padding: 18px 20px;
 }
 
-.pane-title {
-  @apply m-0 mb-2.5 text-[20px] font-semibold tracking-[-0.01em];
-}
-
-.row {
-  @apply flex items-start justify-between gap-6 py-3.5;
-  border-bottom: 1px solid var(--border);
-}
-
-/* The check button and its answer are one row of controls, not a label with a control beside it:
-   they take the whole width and start at the left edge. */
-.row-plain {
-  @apply justify-start;
-}
-
-.row-text {
-  @apply flex flex-col gap-[3px];
-}
-
-.row-label {
-  @apply text-[13px] font-semibold;
-}
-
-.row-hint {
-  @apply text-xs leading-[1.5] text-text-secondary;
-}
-
-.select {
-  @apply flex-none h-[30px] px-2.5 rounded-[7px] text-[12.5px] text-text cursor-pointer;
-  font: inherit;
-  font-size: 12.5px;
-  border: 1px solid var(--border-strong);
-  background: var(--bg-panel);
-}
-
-/* One track with the chosen segment raised in it, exactly as the handoff draws it — a text segment,
-   not the title bar's icon one: the same three choices, read as words. */
-.segment {
-  @apply flex-none flex gap-0.5 p-0.5 rounded-lg;
-  width: 260px;
-  background: var(--bg-inset);
-}
-
-.segment-item {
-  @apply flex-1 text-center py-1.5 px-2 rounded-md border-none bg-transparent text-text-secondary text-xs cursor-pointer;
-  font: inherit;
-  font-size: 12px;
-  --wails-draggable: no-drag;
-}
-
-.segment-item.active {
-  @apply bg-bg-panel text-text font-semibold;
-  box-shadow: var(--shadow);
+.pane-notice {
+  @apply flex-none text-[13px];
+  padding: 10px 20px;
+  border-top: 1px solid var(--border);
+  color: var(--red-text);
 }
 </style>

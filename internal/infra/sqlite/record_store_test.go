@@ -343,3 +343,74 @@ func TestPruneTakesOnlyItsOwnWorkspace(t *testing.T) {
 		t.Errorf("the space beside it holds %d record(s), want all three untouched", len(theirs))
 	}
 }
+
+// What the settings screen weighs beside its "clear" button: the records of the space on screen and
+// the bodies kept for them. The size is the one the record carries — what a body too large to keep
+// inline is named by.
+func TestHistoryStatsWeighOneWorkspace(t *testing.T) {
+	store := newMigratedStore(t)
+	ctx := context.Background()
+	seedTeam(t, store)
+
+	for _, id := range []string{"rec-1", "rec-2"} {
+		if err := store.SaveRecord(ctx, ws, sampleRecord(id, domain.SourceManual)); err != nil {
+			t.Fatalf("SaveRecord: %v", err)
+		}
+	}
+	if err := store.SaveRecord(ctx, team, sampleRecord("rec-team", domain.SourceBrowser)); err != nil {
+		t.Fatalf("SaveRecord(%s): %v", team, err)
+	}
+
+	// Two bodies per record: 7 bytes of request and 11 of response.
+	stats, err := store.HistoryStats(ctx, ws)
+	if err != nil {
+		t.Fatalf("HistoryStats: %v", err)
+	}
+	if stats.Count != 2 || stats.Bytes != 36 {
+		t.Errorf("stats = %+v, want two records and 36 bytes", stats)
+	}
+
+	theirs, err := store.HistoryStats(ctx, team)
+	if err != nil {
+		t.Fatalf("HistoryStats(%s): %v", team, err)
+	}
+	if theirs.Count != 1 || theirs.Bytes != 18 {
+		t.Errorf("the space beside it = %+v, want its own record and its own bytes", theirs)
+	}
+}
+
+func TestDeleteAllRecordsTakesOnlyItsOwnWorkspace(t *testing.T) {
+	store := newMigratedStore(t)
+	ctx := context.Background()
+	seedTeam(t, store)
+
+	if err := store.SaveRecord(ctx, ws, sampleRecord("rec-mine", domain.SourceManual)); err != nil {
+		t.Fatalf("SaveRecord: %v", err)
+	}
+	other := sampleRecord("rec-theirs", domain.SourceBrowser)
+	if err := store.SaveRecord(ctx, team, other); err != nil {
+		t.Fatalf("SaveRecord(%s): %v", team, err)
+	}
+
+	gone, err := store.DeleteAllRecords(ctx, ws)
+	if err != nil {
+		t.Fatalf("DeleteAllRecords: %v", err)
+	}
+	if gone != 1 {
+		t.Errorf("cleared %d records, want the one of the space it named", gone)
+	}
+
+	mine, _ := store.Records(ctx, ws, "", 10)
+	if len(mine) != 0 {
+		t.Errorf("the cleared space holds %d record(s), want none", len(mine))
+	}
+	theirs, _ := store.Records(ctx, team, "", 10)
+	if len(theirs) != 1 || theirs[0].ID != "rec-theirs" {
+		t.Errorf("the space beside it = %v, want its own record untouched", ids(theirs))
+	}
+	// The bodies follow their records, or the file would keep every answer ever cleared.
+	if _, err := store.ReadBody(ctx, "rec-mine",
+		domain.SideResponse); !errors.Is(err, domain.ErrNotFound) {
+		t.Errorf("the body outlived its record: %v", err)
+	}
+}

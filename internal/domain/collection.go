@@ -40,6 +40,11 @@ type LevelRow struct {
 	Name   string `json:"name"`
 	Method string `json:"method,omitempty"`
 	URL    string `json:"url,omitempty"`
+	// Folder is the path of the collection the request sits in, from the level the rows are about:
+	// empty for that level's own requests, and the folders' names — outermost first — for everything
+	// below it. The page draws the table of what a run here would send, and a run reaches the whole
+	// subtree, so a row has to say which folder it came from.
+	Folder string `json:"folder,omitempty"`
 }
 
 // LevelEntry is one row of a collection's level: a request, or a collection inside it. Exactly one
@@ -137,6 +142,10 @@ type CollectionRunResult struct {
 	OK         bool   `json:"ok"`
 	DurationUs int64  `json:"durationUs"`
 	Error      string `json:"error,omitempty"`
+	// Failure is the refusal behind an error, when the app is the one that refused rather than the
+	// network: a code and the values its sentence needs, which is how a row says «Переменной var3
+	// нет» in the window's own language. Error stays the machine's account of the same thing.
+	Failure *Failure `json:"failure,omitempty"`
 	// Assertions is what the scripts around this request asserted and how many of those held. The
 	// status says the request went through; this says what came back was what it asked for. They are
 	// two counts rather than the reports themselves: the page draws one table of them, and a report

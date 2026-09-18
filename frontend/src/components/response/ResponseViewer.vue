@@ -88,6 +88,34 @@ const pagination = computed(() => {
 
 const hasPagination = computed(() => Boolean(pagination.value.prev || pagination.value.next))
 
+// Which page of the collection this answer is, and how many there are. Both halves are read from
+// addresses rather than guessed: the record's own address says which page it asked for, and only the
+// links say how many the server holds — an answer without `last` gets half a sentence rather than a
+// total nobody stated.
+function pageNumber(raw: string | undefined): number {
+  if (!raw) return 0
+  try {
+    const value = Number(new URL(raw, 'https://x').searchParams.get('page[number]'))
+    return Number.isFinite(value) && value > 0 ? value : 0
+  } catch {
+    return 0
+  }
+}
+
+const pageLabel = computed(() => {
+  const page = pageNumber(props.record.url)
+  if (!page) return ''
+  const total = pageNumber(pagination.value.last)
+  return total ? t('response.pageOf', { page, total }) : t('response.page', { page })
+})
+
+// The version the document declares about itself. The member is typed as unknown because a response
+// is whatever the server sent; a version that is not a string is a version this label has no word for.
+const jsonapiVersion = computed(() => {
+  const declared = (doc.value?.jsonapi ?? null) as { version?: unknown } | null
+  return typeof declared?.version === 'string' ? declared.version : ''
+})
+
 // Body search (Cmd/Ctrl+F) shares the pagination toolbar row rather than a container of its own.
 const bodyQuery = ref('')
 const bodySearchVisible = ref(false)
@@ -169,6 +197,14 @@ function hostPath(url: string): string {
     return url
   }
 }
+
+// The verb's plate in the captured request's field: the same object the editor draws, in the two
+// colours the drawing gives it — a read is green, and everything else is the accent.
+const methodPlate = computed(() =>
+  props.record.method === 'GET'
+    ? { color: 'var(--green-text)', background: 'var(--green-soft)' }
+    : { color: 'var(--accent)', background: 'var(--accent-soft)' }
+)
 
 // Values with commas are list-style JSON:API params (include, fields[type]) — chipped one
 // item at a time rather than read as one long string.
@@ -255,15 +291,6 @@ function openInRequest() {
 const prettyRaw = computed(() => (isJson.value ? prettyJson(jsonValue.value) : props.record.responseBody))
 const searchShortcut = computed(() => shortcut('F'))
 
-const bodyCopied = ref(false)
-
-async function copyBody() {
-  if (await copyToClipboard(prettyRaw.value)) {
-    bodyCopied.value = true
-    setTimeout(() => (bodyCopied.value = false), 1500)
-  }
-}
-
 const headersCopied = ref(false)
 
 async function copyHeaders() {
@@ -292,6 +319,47 @@ async function copyQuery() {
   }
 }
 
+// Search belongs to the tab on screen and to one owner: the button in the row above the tabs and the
+// key that names it open the same search, and a tab that has none — a headers table, a timings chart —
+// has neither. Three tabs read something long enough to look through, and each looks in its own way:
+// the body as resources, Raw as text, Map as types. The body's resource search is this component's
+// own and the other two are their viewers', which is why one of the three is answered here.
+type TabSearch = { openSearch: () => void; closeSearch: () => void; isSearching: boolean }
+
+const bodyTextViewer = ref<TabSearch | null>(null)
+const rawTextViewer = ref<TabSearch | null>(null)
+const schemaMap = ref<TabSearch | null>(null)
+
+const treeSearch = computed(() => activeTab.value === 'body' && !!doc.value)
+
+const tabSearch = computed<TabSearch | null>(() => {
+  switch (activeTab.value) {
+    case 'body':
+      return doc.value ? null : bodyTextViewer.value
+    case 'raw':
+      return rawTextViewer.value
+    case 'map':
+      return schemaMap.value
+    default:
+      return null
+  }
+})
+
+const searchable = computed(() => treeSearch.value || !!tabSearch.value)
+const searching = computed(() =>
+  treeSearch.value ? bodySearchVisible.value : !!tabSearch.value?.isSearching
+)
+
+function openSearch() {
+  if (treeSearch.value) openBodySearch()
+  else tabSearch.value?.openSearch()
+}
+
+function closeSearch() {
+  if (treeSearch.value) closeBodySearch()
+  else tabSearch.value?.closeSearch()
+}
+
 function onWindowKeydown(e: KeyboardEvent) {
   // The physical key rather than the letter: on a Russian layout this key carries «ш».
   if (e.altKey && e.code === 'KeyI') {
@@ -299,13 +367,11 @@ function onWindowKeydown(e: KeyboardEvent) {
     toggleInspector()
     return
   }
-  if (activeTab.value === 'body' && doc.value) {
-    if ((e.metaKey || e.ctrlKey) && e.code === 'KeyF') {
-      e.preventDefault()
-      openBodySearch()
-    } else if (e.key === 'Escape' && bodySearchVisible.value) {
-      closeBodySearch()
-    }
+  if ((e.metaKey || e.ctrlKey) && e.code === 'KeyF' && searchable.value) {
+    e.preventDefault()
+    openSearch()
+  } else if (e.key === 'Escape' && searching.value) {
+    closeSearch()
   }
 }
 
@@ -342,20 +408,26 @@ async function copyAs(format: CommandFormat) {
     <!-- The line a captured request gets, and the only one it can: it has no command line to be
          read in, so where it went and what it carried are said here. What the answer was is the
          strip below — a method and a status in this line would be the response said twice. -->
-    <div v-if="record.source === 'browser'" class="req-line">
-      <button v-if="hasPrev" class="req-back" :title="t('response.back')" @click="goBack">
-        <Icon name="chevron-left" :size="16" :stroke-width="2" />
-      </button>
-      <span class="req-url mono" :title="record.url">{{ hostPath(record.url) }}</span>
+    <div v-if="record.source === 'browser'" class="request-block">
+      <div class="bar-row">
+        <!-- The field is the editor's own object: the verb standing in its left end, the address after
+             it. A captured request has no command line to be read in, so what it was and where it went
+             are said here; what came back is the strip below. There is no way back from here — the
+             sidebar is where the records are chosen. -->
+        <div class="url-field">
+          <span class="method-plate" :style="methodPlate">{{ record.method }}</span>
+          <span class="req-url mono" :title="record.url">{{ hostPath(record.url) }}</span>
+        </div>
 
-      <Popover v-if="urlQueryParams.length">
-        <PopoverTrigger as-child>
-          <button class="req-params">
-            {{ t('request.chips.params') }}
-            <span class="req-params-count">{{ urlQueryParams.length }}</span>
-          </button>
-        </PopoverTrigger>
-        <PopoverContent class="params-menu" align="end">
+        <div v-if="urlQueryParams.length" class="segments">
+          <Popover>
+            <PopoverTrigger as-child>
+              <button class="segment filled">
+                <span>{{ t('request.chips.params') }}</span>
+                <span class="segment-count">{{ urlQueryParams.length }}</span>
+              </button>
+            </PopoverTrigger>
+            <PopoverContent class="params-menu" align="start" :side-offset="9">
           <div class="params-head">
             <span class="params-title">{{ t('response.paramsTitle') }}</span>
             <span class="params-count mono">{{ urlQueryParams.length }}</span>
@@ -391,24 +463,25 @@ async function copyAs(format: CommandFormat) {
             <span class="params-string-label">{{ t('response.queryString') }}</span>
             <span class="params-string-text mono">{{ queryString }}</span>
           </div>
-        </PopoverContent>
-      </Popover>
-
-      <span class="req-readonly">{{ t('common.readOnly') }}</span>
+          </PopoverContent>
+          </Popover>
+        </div>
+      </div>
     </div>
 
     <div class="resp-bar">
-      <IconButton v-if="hasPrev && record.source !== 'browser'" variant="outline" :hint="t('response.back')" @click="goBack"><Icon name="chevron-left" :size="14" /></IconButton>
-      <span class="badge badge-method">{{ record.method }}</span>
+      <IconButton v-if="hasPrev && record.source !== 'browser'" variant="bare" class="resp-back" :hint="t('response.back')" @click="goBack"><Icon name="chevron-left" :size="14" /></IconButton>
+      <!-- The status and the numbers, in the handoff's order: what came back, how long it took, how
+           big it was, what it was. The method is not among them — the tab above says whose answer this
+           is, and the request's own method is written on the request. -->
       <span class="badge resp-status" :class="statusBadgeClass(record.status)">{{ record.status }}</span>
-
-      <span class="divider"></span>
       <span class="resp-meta">{{ formatMicros(record.durationUs) }}</span>
+
       <span class="divider"></span>
       <span class="resp-meta">{{ formatBytes(bodySize) }}</span>
       <template v-if="record.contentType">
         <span class="divider"></span>
-        <span class="resp-meta truncate max-w-[240px]">{{ record.contentType }}</span>
+        <span class="resp-meta resp-type">{{ record.contentType }}</span>
       </template>
 
       <span class="resp-spacer"></span>
@@ -432,15 +505,31 @@ async function copyAs(format: CommandFormat) {
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
+
+      <Button
+        size="bar"
+        class="inspector-toggle"
+        :class="{ 'inspector-open': store.inspector.open }"
+        :title="t('response.inspector', { shortcut: '⌥I' })"
+        @click="toggleInspector"
+      >{{ t('response.inspectorShort') }}<kbd class="inspector-key">⌥I</kbd></Button>
     </div>
 
     <div v-if="record.cancelled" class="resp-error">{{ t('response.cancelled') }}</div>
     <div v-else-if="record.error" class="resp-error">{{ t('response.error', { error: record.error }) }}</div>
 
     <Tabs v-model="activeTab" class="resp-tabs">
-      <TabsList>
-        <TabsTrigger v-for="tab in availableTabs" :key="tab" :value="tab">{{ TAB_LABELS[tab] }}</TabsTrigger>
-      </TabsList>
+      <!-- The row every tab stands in, with the search that reads the tab on screen at its end: a
+           button here and not inside each tab's own bar, so the window has one search in one place
+           rather than one per tab that happens to have text. -->
+      <div class="tabs-row">
+        <TabsList>
+          <TabsTrigger v-for="tab in availableTabs" :key="tab" :value="tab">{{ TAB_LABELS[tab] }}</TabsTrigger>
+        </TabsList>
+        <Button v-if="searchable" size="bar" class="tabs-search" @click="openSearch()">
+          <span>{{ t('common.search') }}</span><span class="tabs-search-key">{{ searchShortcut }}</span>
+        </Button>
+      </div>
 
     <div class="resp-main">
       <!-- A tab's toolbar is a sibling of the scrolling body, not a child, so
@@ -461,36 +550,34 @@ async function copyAs(format: CommandFormat) {
             <IconButton variant="outline" :hint="t('common.close')" @click="closeBodySearch"><Icon name="xmark" :size="14" /></IconButton>
           </template>
           <template v-else>
-            <template v-if="hasPagination">
-              <IconButton variant="outline" :disabled="!pagination.first || !pagination.prev" :hint="t('response.first')" @click="follow(pagination.first)"><Icon name="chevrons-left" :size="14" /></IconButton>
-              <IconButton variant="outline" :disabled="!pagination.prev" :hint="t('response.previous')" @click="follow(pagination.prev)"><Icon name="chevron-left" :size="14" /></IconButton>
-              <IconButton variant="outline" :disabled="!pagination.next" :hint="t('response.next')" @click="follow(pagination.next)"><Icon name="chevron-right" :size="14" /></IconButton>
-              <IconButton variant="outline" :disabled="!pagination.last || !pagination.next" :hint="t('response.last')" @click="follow(pagination.last)"><Icon name="chevrons-right" :size="14" /></IconButton>
-            </template>
+            <!-- The four steps of the collection as one control, in a groove of its own: they are a
+                 single thing the reader moves through, and four separate buttons in a row would say
+                 they are four things to press. -->
+            <div v-if="hasPagination" class="pager">
+              <button type="button" class="pager-btn pager-edge" :disabled="!pagination.first || !pagination.prev" :title="t('response.first')" @click="follow(pagination.first)"><Icon name="chevrons-left" :size="16" :stroke-width="1.9" /></button>
+              <button type="button" class="pager-btn" :disabled="!pagination.prev" :title="t('response.previous')" @click="follow(pagination.prev)"><Icon name="chevron-left" :size="16" :stroke-width="1.9" /></button>
+              <button type="button" class="pager-btn" :disabled="!pagination.next" :title="t('response.next')" @click="follow(pagination.next)"><Icon name="chevron-right" :size="16" :stroke-width="1.9" /></button>
+              <button type="button" class="pager-btn pager-edge" :disabled="!pagination.last || !pagination.next" :title="t('response.last')" @click="follow(pagination.last)"><Icon name="chevrons-right" :size="16" :stroke-width="1.9" /></button>
+            </div>
+            <span v-if="jsonapiVersion" class="jsonapi-tag mono">jsonapi <span class="jsonapi-ver">v{{ jsonapiVersion }}</span></span>
             <span class="head-spacer"></span>
-            <Button v-if="hasHistory && record.source === 'browser'" size="sm" class="open-in-request" @click="openInRequest">{{ t('response.openInRequest') }}</Button>
-            <Button size="sm" @click="copyBody"><Icon v-if="bodyCopied" name="check" :size="12" /><span>{{ bodyCopied ? t('common.copied') : t('common.copy') }}</span></Button>
-            <Button
-              size="sm"
-              class="inspector-toggle"
-              :class="{ 'inspector-open': store.inspector.open }"
-              :title="t('response.inspector', { shortcut: '⌥I' })"
-              @click="toggleInspector"
-            >{{ t('response.inspectorShort') }} <kbd class="keycap">⌥I</kbd></Button>
-            <Button size="sm" class="with-key" @click="openBodySearch"><span>{{ t('common.search') }}</span><kbd class="keycap">{{ searchShortcut }}</kbd></Button>
+            <span v-if="pageLabel" class="page-label">{{ pageLabel }}</span>
+            <Button v-if="hasHistory && record.source === 'browser'" size="bar" class="open-in-request" @click="openInRequest">{{ t('response.openInRequest') }}</Button>
           </template>
         </div>
         <div v-else-if="record.source === 'browser'" class="toolbar">
           <span class="head-spacer"></span>
-          <Button v-if="hasHistory" size="sm" class="open-in-request" @click="openInRequest">{{ t('response.openInRequest') }}</Button>
+          <Button v-if="hasHistory" size="bar" class="open-in-request" @click="openInRequest">{{ t('response.openInRequest') }}</Button>
         </div>
         <div v-if="doc" class="resp-content">
           <JsonApiTree :doc="doc" :query="bodyQuery" :highlight-key="highlightKey" @select="highlightResource" @inspect="inspectNode" @fetch="follow" />
         </div>
         <!-- Non-JSON:API is read with the Raw tab's own viewer and search — one
-             implementation, so the two tabs can't drift apart. -->
+             implementation, so the two tabs can't drift apart. The ref is what lets the row's one
+             search reach this tab's input. -->
         <TextViewerTab
           v-else
+          ref="bodyTextViewer"
           :text="prettyRaw"
           :show-open-in-request="record.source === 'browser'"
           @open-in-request="openInRequest"
@@ -498,11 +585,11 @@ async function copyAs(format: CommandFormat) {
       </TabsContent>
 
       <TabsContent class="resp-tab" value="map">
-        <SchemaMap :doc="doc" :highlight-key="highlightKey" @select="openResourceInBody" @fetch="follow" />
+        <SchemaMap ref="schemaMap" :doc="doc" :highlight-key="highlightKey" @select="openResourceInBody" @fetch="follow" />
       </TabsContent>
 
       <TabsContent class="resp-tab" value="raw">
-        <TextViewerTab :text="prettyRaw" />
+        <TextViewerTab ref="rawTextViewer" :text="prettyRaw" />
       </TabsContent>
 
       <TabsContent class="resp-tab" value="headers">
@@ -576,86 +663,131 @@ async function copyAs(format: CommandFormat) {
   @apply flex flex-col h-full min-h-0 bg-bg;
 }
 
-/* The line a captured request gets, drawn taller than the strip under it because a link is what it
-   is about. The method and the status are not here: a captured request has no command line to be
-   edited in, but its answer is still the strip's to say, and the two would otherwise say it twice. */
-.req-line {
-  /* The drawing's own lines, as on the collection page: the window's base is Tailwind's 1.5, which
-     leaves a 66px line of chips taller than the handoff's. */
-  line-height: normal;
-  @apply flex items-center gap-3 h-[66px] px-5 border-b border-border bg-bg-panel;
-}
-
-.req-back {
-  @apply flex-none inline-flex items-center justify-center w-[34px] h-[34px] rounded-lg cursor-pointer
-         text-text-secondary bg-bg-inset border border-border;
-  --wails-draggable: no-drag;
-}
-
-.req-back:hover {
-  @apply bg-bg-hover text-text;
-}
-
+/* The address in the captured request's field: the field itself, the verb's plate and the sections
+   are the shared shapes in style.css — the same objects the editor's bar draws. */
 .req-url {
-  @apply flex-1 min-w-0 overflow-hidden text-ellipsis whitespace-nowrap text-[14px] text-text;
+  @apply flex-1 min-w-0 overflow-hidden text-ellipsis whitespace-nowrap text-text;
   font-family: var(--mono);
-}
-
-/* The query, drawn as the command line's own chip: a URL in this window reads the same both places
-   it is read, and the count is what says there is something behind the chip. */
-.req-params {
-  @apply flex-none inline-flex items-center gap-[7px] h-[30px] px-2.5 rounded-[7px] cursor-pointer
-         text-[12.5px] font-medium text-text bg-bg-inset border border-border;
-  font-family: inherit;
-  --wails-draggable: no-drag;
-}
-
-.req-params:hover {
-  @apply bg-bg-hover;
-}
-
-.req-params[data-state='open'] {
-  @apply bg-accent border-accent text-accent-text;
-}
-
-.req-params-count {
-  @apply inline-flex items-center justify-center min-w-[17px] h-[17px] px-[5px] rounded-full
-         font-bold text-[10.5px] text-accent bg-accent-soft;
-  font-family: var(--mono);
-}
-
-.req-params[data-state='open'] .req-params-count {
-  background: rgba(255, 255, 255, 0.28);
-  color: var(--accent-text);
-}
-
-.req-readonly {
-  @apply flex-none text-[12px] font-medium py-2 px-2 rounded-md text-text-tertiary bg-bg-hover;
+  font-size: 13px;
 }
 
 .resp-bar {
-  @apply flex items-center gap-3.5 h-12 px-5 border-b border-border bg-bg-panel;
+  /* The handoff's own line under this strip: a step quieter than the line under the tab row, so the
+     two strips are told apart by the weight of the hairline and not only by what stands in them. */
+  @apply flex items-center gap-3.5 h-12 px-5 border-b bg-bg-panel;
+  border-color: color-mix(in srgb, var(--border) 60%, transparent);
+}
+
+/* The back button is the bar's control in icon form: the same fill, hairline and radius as the
+   words beside it, so the row reads as one set of controls at two widths. */
+.resp-bar .icon-btn.resp-back {
+  width: 30px;
+  height: 30px;
+  border-radius: 7px;
+  background: var(--bg-inset);
+  border: 1px solid var(--border);
+}
+
+.resp-bar .icon-btn.resp-back:hover {
+  @apply bg-bg-hover text-text;
 }
 
 .resp-meta {
-  @apply text-text-tertiary text-[13px] whitespace-nowrap;
+  @apply text-[13px] whitespace-nowrap text-text-secondary;
+  font-family: var(--mono);
 }
 
-/* The status on the bar is the one word about the answer, so it is drawn a step larger than the
-   badges in the list. */
+/* The type is the one value on the bar that is a fact about the answer rather than a measurement of
+   it, so it stands a step back from the two numbers. */
+.resp-type {
+  /* The longest value on the bar and the only one that is allowed to give way: a media type can be
+     longer than the room between the numbers and the buttons, and clipped text with an ellipsis is
+     still a media type somebody can read the start of. */
+  @apply text-text-tertiary overflow-hidden text-ellipsis;
+  flex: 0 1 auto;
+  min-width: 0;
+}
+
+/* The status on the bar: a 20px plate, the height the drawing gives it, with the code alone in it.
+   The colour comes from the shared badge classes, as it does in the lists. */
 .resp-status {
-  font-size: 12px;
+  height: 20px;
+  padding: 0 7px;
+  border-radius: 5px;
+  font-size: 11px;
   font-weight: 700;
-  padding: 4px 9px;
-  border-radius: 6px;
 }
 
 .divider {
-  @apply w-px h-3 bg-border flex-none;
+  @apply w-px h-3.5 bg-border flex-none;
 }
 
 .resp-spacer {
   @apply flex-1;
+}
+
+/* The row the tabs stand in. The list itself keeps drawing the tabs and their underline; what this
+   row adds is the search at the end, which is why the list's own box and padding are taken off and
+   given to the row. */
+.tabs-row {
+  @apply flex items-stretch gap-2 h-[44px] px-4 border-b border-border bg-bg-panel;
+}
+
+.tabs-row :deep(.tabs) {
+  @apply flex-1 min-w-0 h-auto px-0 border-b-0;
+}
+
+.tabs-row .btn.tabs-search {
+  @apply self-center gap-2 text-text-secondary;
+}
+
+.tabs-search-key {
+  @apply text-[12px] text-text-tertiary;
+}
+
+/* The four steps as one control: a groove they sit in, and a button per step with no fill of its own
+   until the pointer is on it. The two ends are a step quieter than the two the reader moves by —
+   they jump to the ends of the collection, and the steps beside them are what a page is turned with. */
+.pager {
+  @apply flex gap-0.5 flex-none rounded-lg p-0.5 bg-bg-hover;
+}
+
+.pager-btn {
+  @apply inline-flex items-center justify-center w-8 h-7 rounded-md border-0 bg-transparent
+         cursor-pointer text-text-secondary;
+  padding: 0;
+  --wails-draggable: no-drag;
+}
+
+.pager-btn.pager-edge {
+  @apply text-text-tertiary;
+}
+
+.pager-btn:hover:not(:disabled) {
+  @apply bg-bg-active text-text;
+}
+
+.pager-btn:disabled {
+  @apply opacity-50 cursor-default;
+}
+
+.pager-btn:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+/* What the answer says about itself: the version of the format it is written in, read from the
+   document rather than from its content type. */
+.jsonapi-tag {
+  @apply flex-none ml-2 text-[13px] text-text-tertiary;
+}
+
+.jsonapi-ver {
+  @apply text-text-secondary;
+}
+
+.page-label {
+  @apply flex-none text-[13px] text-text-tertiary;
 }
 
 .request-caption {
@@ -704,7 +836,7 @@ async function copyAs(format: CommandFormat) {
   border-collapse: separate;
   border-spacing: 0;
   font-family: var(--mono);
-  font-size: 13.5px;
+  font-size: 13px;
 }
 
 /* 44px rows with the name and the value centred in them, and no line under the last: the card's own
@@ -757,7 +889,7 @@ async function copyAs(format: CommandFormat) {
 }
 
 .params-count {
-  @apply text-[12.5px] text-text-tertiary;
+  @apply text-[13px] text-text-tertiary;
   font-family: var(--mono);
 }
 
@@ -766,7 +898,7 @@ async function copyAs(format: CommandFormat) {
 }
 
 .params-copy {
-  @apply flex-none h-7 px-2.5 rounded-[7px] border cursor-pointer text-[12.5px] text-text
+  @apply flex-none h-7 px-2.5 rounded-[7px] border cursor-pointer text-[13px] text-text
          bg-bg-inset border-border-strong;
   font-family: inherit;
   --wails-draggable: no-drag;
@@ -791,7 +923,7 @@ async function copyAs(format: CommandFormat) {
 }
 
 .params-item-count {
-  @apply text-[11.5px] text-text-tertiary;
+  @apply text-[12px] text-text-tertiary;
 }
 
 .params-chips {
@@ -799,7 +931,7 @@ async function copyAs(format: CommandFormat) {
 }
 
 .params-chip {
-  @apply text-[12.5px] text-accent py-[3px] px-2 rounded-md;
+  @apply text-[13px] text-accent py-[3px] px-2 rounded-md;
   background: var(--accent-soft);
 }
 
@@ -810,7 +942,7 @@ async function copyAs(format: CommandFormat) {
 
 /* The query as one string: what the chips say value by value, in the shape it is pasted in. */
 .params-string {
-  @apply flex gap-3 mt-2.5 p-3 rounded-[9px] bg-bg-inset;
+  @apply flex gap-3 mt-2.5 p-3 rounded-[8px] bg-bg-inset;
 }
 
 .params-string-label {
@@ -818,7 +950,7 @@ async function copyAs(format: CommandFormat) {
 }
 
 .params-string-text {
-  @apply flex-1 min-w-0 text-[12.5px] break-all;
+  @apply flex-1 min-w-0 text-[13px] break-all;
   line-height: 1.6;
   color: var(--text-secondary);
 }
@@ -828,22 +960,28 @@ async function copyAs(format: CommandFormat) {
   @apply text-accent;
 }
 
-/* The pane's toggle carries a key like the search beside it, so it stands the same way. It is the
-   row's only button that answers for a state: an open pane fills it with the accent, which is what
-   the handoff draws. `.btn` is written twice there because the primitive's own hover paints the
-   background as well, and an open pane must not grey out under the pointer — the drawing lightens
-   it instead. */
-.toolbar .btn.inspector-toggle {
+/* The pane's toggle is the bar's only button that answers for a state: an open pane fills it with
+   the accent, which is what the handoff draws. `.btn` is written twice there because the primitive's
+   own hover paints the background as well, and an open pane must not grey out under the pointer —
+   the drawing lightens it instead. */
+.resp-bar .btn.btn.inspector-toggle {
   gap: 8px;
 }
 
-.toolbar .btn.btn.inspector-open,
-.toolbar .btn.btn.inspector-open:hover {
+.resp-bar .btn.btn.inspector-open,
+.resp-bar .btn.btn.inspector-open:hover {
   @apply text-accent bg-accent-soft border-accent-soft;
 }
 
-.toolbar .btn.btn.inspector-open:hover {
+.resp-bar .btn.btn.inspector-open:hover {
   filter: brightness(1.03);
+}
+
+/* The key beside the word, at the handoff's own size for this one: fainter than the label and not in
+   the small caps a keycap draws, because the handoff writes it plain. */
+.inspector-key {
+  @apply text-[12px] opacity-70;
+  font-family: inherit;
 }
 
 /* The chevron of a menu button says the label has more behind it, so it stays behind the label —

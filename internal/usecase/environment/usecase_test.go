@@ -42,6 +42,17 @@ func (f fakeScope) ActiveWorkspace(context.Context) (string, error) {
 	return f.id, nil
 }
 
+// fakeHome answers with the workspace the installation began in, which every test here is: the
+// import it serves is about this installation's own data, not about the space on screen.
+type fakeHome struct{ id string }
+
+func (f fakeHome) FirstWorkspace(context.Context) (string, error) {
+	if f.id == "" {
+		return domain.WorkspacePersonalID, nil
+	}
+	return f.id, nil
+}
+
 func (f *fakeStore) EnvState(context.Context, string) (domain.EnvState, error) {
 	state := domain.EnvState{Environments: []domain.Environment{}, Globals: []domain.Variable{},
 		ActiveID: f.active}
@@ -154,12 +165,12 @@ func newUseCase(t *testing.T) (*UseCase, *fakeStore) {
 	t.Helper()
 	store := newFakeStore()
 	ids := platform.NewIDGen()
-	return NewUseCase(store, fakeScope{}, ids), store
+	return NewUseCase(store, fakeScope{}, fakeHome{}, ids), store
 }
 
 func seed(t *testing.T, u *UseCase, name string) (domain.EnvState, domain.Environment) {
 	t.Helper()
-	state, err := u.Create(context.Background(), name)
+	state, err := u.Create(context.Background(), EnvironmentDraft{Name: name})
 	if err != nil {
 		t.Fatalf("Create(%q): %v", name, err)
 	}
@@ -171,7 +182,7 @@ func TestCreateValidatesAndActivates(t *testing.T) {
 	ctx := context.Background()
 
 	for _, bad := range []string{"", "   ", strings.Repeat("x", maxNameLength+1)} {
-		if _, err := u.Create(ctx, bad); !errors.Is(err, domain.ErrNotAllowed) {
+		if _, err := u.Create(ctx, EnvironmentDraft{Name: bad}); !errors.Is(err, domain.ErrNotAllowed) {
 			t.Errorf("Create(%q) = %v, want domain.ErrNotAllowed", bad, err)
 		}
 	}
@@ -589,7 +600,7 @@ func TestEnsureDefaultsSeedsOnlyAnEmptyState(t *testing.T) {
 	}
 
 	// A second call leaves the user's own setup alone.
-	if _, err := u.Create(ctx, "Prod"); err != nil {
+	if _, err := u.Create(ctx, EnvironmentDraft{Name: "Prod"}); err != nil {
 		t.Fatalf("Create: %v", err)
 	}
 	state, err = u.EnsureDefaults(ctx)
@@ -633,7 +644,158 @@ func TestRenameRefusesTheSameNamesCreateDoes(t *testing.T) {
 	}
 
 	// And the created case still says what it always said.
-	if _, err := u.Create(ctx, ""); domain.CodeOf(err) != domain.CodeNameEmpty {
+	if _, err := u.Create(ctx, EnvironmentDraft{}); domain.CodeOf(err) != domain.CodeNameEmpty {
 		t.Errorf("Create(%q) = %q, want %q", "", domain.CodeOf(err), domain.CodeNameEmpty)
 	}
+}
+
+// A draft carries the colour the environment is drawn with. The create form asks for the name and
+// the colour together, and patching what was just made would be a second step the form never shows.
+func TestCreateTakesItsColour(t *testing.T) {
+	u, _ := newUseCase(t)
+
+	state, err := u.Create(context.Background(), EnvironmentDraft{Name: "Stage", Color: "purple"})
+	if err != nil {
+		t.Fatalf("Create: %v", err)
+	}
+	if got := state.Environments[0].Color; got != "purple" {
+		t.Errorf("color = %q, want the colour the draft named", got)
+	}
+	if state.ActiveID != state.Environments[0].ID {
+		t.Errorf("activeId = %q, want the environment just made", state.ActiveID)
+	}
+}
+
+// A copy is the keys a new environment needs and not the values another one holds: the names, the
+// kinds and the order come over, and a secret's value does not.
+func TestCreateCopiesTheVariablesOfItsBase(t *testing.T) {
+	u, _ := newUseCase(t)
+	ctx := context.Background()
+	base := baseWithVars(t, u)
+
+	state, err := u.Create(ctx, EnvironmentDraft{Name: "Stage", StartFrom: base.ID})
+	if err != nil {
+		t.Fatalf("Create: %v", err)
+	}
+
+	made := state.Environments[len(state.Environments)-1]
+	if made.ID == base.ID {
+		t.Fatal("the new environment is the base itself")
+	}
+	if len(made.Vars) != 3 {
+		t.Fatalf("vars = %d, want the base's three", len(made.Vars))
+	}
+
+	names := make([]string, 0, len(made.Vars))
+	for i, v := range made.Vars {
+		names = append(names, v.Name)
+		if v.ID == base.Vars[i].ID {
+			t.Errorf("%s kept the base's id, want a variable of this environment's own", v.Name)
+		}
+		if v.Position != i+1 {
+			t.Errorf("%s is at %d, want the base's order kept", v.Name, v.Position)
+		}
+	}
+	if got := strings.Join(names, ", "); got != "baseUrl, token, pageSize" {
+		t.Errorf("names = %s, want the base's own list in its own order", got)
+	}
+	if made.Vars[0].Value != "https://api.example.com" {
+		t.Errorf("baseUrl = %q, want an ordinary value copied as it was", made.Vars[0].Value)
+	}
+}
+
+// The one value a copy does not carry. What a base is for is the list of keys an environment needs;
+// a token that two environments silently share is a token nobody remembers changing in both.
+func TestACopiedSecretArrivesEmpty(t *testing.T) {
+	u, _ := newUseCase(t)
+	ctx := context.Background()
+	base := baseWithVars(t, u)
+
+	state, err := u.Create(ctx, EnvironmentDraft{Name: "Stage", StartFrom: base.ID})
+	if err != nil {
+		t.Fatalf("Create: %v", err)
+	}
+
+	copied := state.Environments[len(state.Environments)-1].Vars[1]
+	if copied.Name != "token" || copied.Kind != domain.VariableSecret {
+		t.Fatalf("copied = %+v, want the base's secret, still a secret", copied)
+	}
+	if copied.Value != "" || copied.HasValue {
+		t.Errorf("copied secret = %q (hasValue %v), want it empty", copied.Value, copied.HasValue)
+	}
+
+	// And the base still holds its own: the copy took nothing from it.
+	revealed, err := u.Reveal(ctx, base.Vars[1].ID)
+	if err != nil {
+		t.Fatalf("Reveal: %v", err)
+	}
+	if revealed != "s3cret" {
+		t.Errorf("the base's secret = %q, want it untouched", revealed)
+	}
+}
+
+// A base nobody can find is refused before anything is written: a draft that names an environment
+// and gets an empty one made anyway is a draft whose form lied about what it did.
+func TestCreateRefusesABaseThatIsNotThere(t *testing.T) {
+	u, _ := newUseCase(t)
+	ctx := context.Background()
+	seed(t, u, "Local")
+
+	if _, err := u.Create(ctx, EnvironmentDraft{Name: "Stage", StartFrom: "нет-такого"}); !errors.Is(
+		err, domain.ErrNotFound) {
+		t.Errorf("Create with an unknown base = %v, want domain.ErrNotFound", err)
+	}
+	state, err := u.Snapshot(ctx)
+	if err != nil {
+		t.Fatalf("Snapshot: %v", err)
+	}
+	if len(state.Environments) != 1 {
+		t.Errorf("environments = %d, want nothing made from a base that is not there",
+			len(state.Environments))
+	}
+}
+
+// An environment made from nothing is empty and not a copy of the globals: the two scopes are told
+// apart by an empty id, and a branch that read the wrong one would fill every new environment with
+// what is only meant to apply everywhere.
+func TestCreateWithNoBaseHasNoVariables(t *testing.T) {
+	u, _ := newUseCase(t)
+	ctx := context.Background()
+	if _, err := u.AddVariable(ctx, domain.EnvScope{}, VariableDraft{
+		Name: "locale", Kind: domain.VariableText, Value: "en-US",
+	}); err != nil {
+		t.Fatalf("AddVariable: %v", err)
+	}
+
+	state, err := u.Create(ctx, EnvironmentDraft{Name: "Stage"})
+	if err != nil {
+		t.Fatalf("Create: %v", err)
+	}
+	if got := state.Environments[0].Vars; len(got) != 0 {
+		t.Errorf("vars = %+v, want none in an environment made from nothing", got)
+	}
+}
+
+// baseWithVars is the setup the copy tests share: an environment holding the three keys a copy is
+// about — an ordinary value, a secret with one, and a second ordinary value.
+func baseWithVars(t *testing.T, u *UseCase) domain.Environment {
+	t.Helper()
+	ctx := context.Background()
+	_, base := seed(t, u, "Local")
+
+	for _, draft := range []VariableDraft{
+		{Name: "baseUrl", Kind: domain.VariableText, Value: "https://api.example.com"},
+		{Name: "token", Kind: domain.VariableSecret, Value: "s3cret"},
+		{Name: "pageSize", Kind: domain.VariableText, Value: "25"},
+	} {
+		if _, err := u.AddVariable(ctx, domain.EnvScope{Environment: base.ID}, draft); err != nil {
+			t.Fatalf("AddVariable(%s): %v", draft.Name, err)
+		}
+	}
+
+	state, err := u.Snapshot(ctx)
+	if err != nil {
+		t.Fatalf("Snapshot: %v", err)
+	}
+	return state.Environments[0]
 }

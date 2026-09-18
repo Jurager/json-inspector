@@ -13,6 +13,9 @@ import type * as domain$0 from "../../../../../json-inspector/internal/domain/mo
 import type * as bridge$0 from "../../../../../json-inspector/internal/transport/bridge/models.js";
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: Unused imports
+import type * as account$0 from "../../../../../json-inspector/internal/usecase/account/models.js";
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-ignore: Unused imports
 import type * as collection$0 from "../../../../../json-inspector/internal/usecase/collection/models.js";
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: Unused imports
@@ -30,14 +33,18 @@ import type * as workspace$0 from "../../../../../json-inspector/internal/usecas
 declare module "@wailsio/runtime" {
     namespace Events {
         interface CustomEvents {
+            "account:changed": account$0.State;
             "capture-disconnected": void;
             "capture-state": bridge$0.CaptureState;
             "collection:run-finished": domain$0.CollectionRun;
             "collection:run-progress": collection$0.RunProgress;
+            "history:cleared": record$0.HistoryCleared;
             "open-tab": number;
             "record:added": domain$0.Record;
             "request:failed": record$0.RequestFailed;
             "request:finished": record$0.RequestFinished;
+            "settings-tab": string;
+            "settings:changed": domain$0.Settings;
             "settings:language": settings$0.LanguageChanged;
             "settings:theme": settings$0.ThemeChanged;
             "update-changed": update$0.Info | null;

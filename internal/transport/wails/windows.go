@@ -82,7 +82,11 @@ func (h *Host) windowByName(name string) (application.Window, bool) {
 }
 
 // ShowSettings opens the preferences window, or brings the open one forward.
-func (h *Host) ShowSettings() {
+//
+// A category that is named is the one the window shows: the account menu sends people to the
+// account, and the gear leaves whatever was there. A window that is not created yet reads the
+// category off its address, an open one is told — a page already on screen reads no URL twice.
+func (h *Host) ShowSettings(category string) {
 	app := h.App()
 	if app == nil {
 		return
@@ -90,7 +94,15 @@ func (h *Host) ShowSettings() {
 	// A closed window leaves the manager, so this is a lookup by name and never a cached handle.
 	if w, ok := h.windowByName(windowSettings); ok {
 		bringToFront(w)
+		if category != "" {
+			w.EmitEvent(eventSettingsTab, category)
+		}
 		return
+	}
+
+	params := h.windowParams(false)
+	if category != "" {
+		params.Set("tab", category)
 	}
 
 	app.Window.NewWithOptions(application.WebviewWindowOptions{
@@ -104,7 +116,7 @@ func (h *Host) ShowSettings() {
 		MinHeight:        settingsMinHeight,
 		Frameless:        UseCustomTitlebar(),
 		BackgroundColour: application.NewRGB(255, 255, 255),
-		URL:              "/settings.html" + h.windowQuery(false),
+		URL:              "/settings.html" + encodeQuery(params),
 		Mac: application.MacWindow{
 			TitleBar:                application.MacTitleBarHiddenInset,
 			InvisibleTitleBarHeight: aboutTitleBarHeight,

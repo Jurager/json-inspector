@@ -214,20 +214,20 @@ function onInput(field: Field, event: Event) {
    its scheme said. */
 .fields input,
 .fields select {
-  height: 36px;
+  height: 34px;
 }
 
 .fields input,
 .fields select,
 .fields .highlight {
   padding: 0 12px;
-  font-size: 13.5px;
+  font-size: 13px;
 }
 
 .fields textarea,
 .fields .highlight.area {
   padding: 10px 12px;
-  font-size: 13.5px;
+  font-size: 13px;
   line-height: 1.6;
 }
 
@@ -246,15 +246,15 @@ function onInput(field: Field, event: Event) {
   cursor: pointer;
 }
 
-/* The sheet's fields are the height of the one field row it draws: 36px, the same frame the popover
+/* The sheet's fields are the height of the one field row it draws: 34px, the same frame the popover
    gives them, in the sheet's own smaller type. */
 .roomy input,
 .roomy select {
-  height: 36px;
+  height: 34px;
 }
 
 /* The sheet's fields hold a credential, which is a value: the drawing gives every one of them the
-   mono face and the same 12.5px the chip on them is drawn in. That they agree is not only a matter
+   mono face and the same 13px the chip on them is drawn in. That they agree is not only a matter
    of taste — the pills stand where the characters are, and a pill in another face or another size
    would stand beside them.
    `.highlight.area` is spelled out because the compact rule above names it too, and a rule with one
@@ -266,7 +266,7 @@ function onInput(field: Field, event: Event) {
 .roomy .highlight,
 .roomy .highlight.area {
   font-family: var(--mono);
-  font-size: 12.5px;
+  font-size: 13px;
 }
 
 .roomy input,
@@ -352,7 +352,7 @@ function onInput(field: Field, event: Event) {
 
 .hint {
   color: var(--text-tertiary);
-  font-size: 10.5px;
+  font-size: 11px;
   line-height: 1.4;
 }
 </style>

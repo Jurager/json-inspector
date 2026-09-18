@@ -23,6 +23,7 @@
   --color-orange-soft: var(--orange-soft);
   --color-yellow: var(--yellow);
   --color-purple: var(--purple);
+  --color-teal: var(--teal);
   --color-tok-str: var(--tok-str);
   --color-tok-num: var(--tok-num);
   --color-tok-bool: var(--tok-bool);
@@ -62,6 +63,9 @@
   --orange-text: #b26a00;
   --yellow: #ffcc00;
   --purple: #af52de;
+  /* The one hue the settings rail needed that the palette did not have: the drawing's Export tile is
+     a dark cyan, and a literal hex would be the one surface that never follows the theme. */
+  --teal: #0a7a8c;
   --tok-str: #c41a16;
   --tok-num: #1c00cf;
   --tok-bool: #1c00cf;
@@ -81,6 +85,11 @@
      material's to show, not the fill's to fight. Where the chrome meets the opaque content, the
      surfaces are separated by the hairline and by tone, as the handoff draws them. */
   --glass-chrome: rgba(255, 255, 255, 0.64);
+  /* A sidebar is the same material at its own strength: the handoff draws it as a veil over the
+     window rather than a fill of its own, and lighter than an overlay because a list of rows sits on
+     it and must stay legible over whatever the tint puts behind it. The workspace colour mixes in
+     first, as it does for every surface of this family. */
+  --glass-side: color-mix(in srgb, var(--tint-ink) var(--tint-content), rgba(244, 244, 247, 0.78));
   /* The workspace's colour, in three pieces the rest of the stylesheet reads: the ink the content is
      moved towards, and the two stops of the light the chrome carries. Empty means no colour has been
      chosen, and empty is a value (`transparent`, 0%) rather than a missing one — the window then
@@ -113,6 +122,10 @@
   --blur-chrome: blur(20px) saturate(160%);
   --blur-overlay: blur(26px) saturate(180%);
   --blur-sheet: blur(30px) saturate(180%);
+  /* A sidebar is a chrome strip rather than a panel over a page, so it takes the chrome's smaller
+     radius of blur at the family's strength — its rows sit right against it, and a 26px blur under
+     text reads as a smudge. */
+  --blur-side: blur(24px) saturate(180%);
   /* Outside only. An inset highlight reads as a hard white seam where the material meets the opaque
      content below it — the surfaces are separated by their hairline and by tone, not by a lit edge. */
   --glass-overlay-shadow: 0 12px 32px rgba(0, 0, 0, 0.16);
@@ -196,6 +209,7 @@
   --orange-text: #ff9f0a;
   --yellow: #ffd60a;
   --purple: #bf5af2;
+  --teal: #3aa8bb;
   --tok-str: #fc6a5d;
   --tok-num: #d0bf69;
   --tok-bool: #d0bf69;
@@ -207,6 +221,7 @@
      to grey: the window stops looking dark at all, which is the defect design-system.md records. The
      hairline comes back the other way: on a dark surface the light theme's edge value glows. */
   --glass-chrome: rgba(28, 28, 30, 0.62);
+  --glass-side: color-mix(in srgb, var(--tint-ink) var(--tint-content), rgba(38, 38, 42, 0.8));
   --tint-ink: #ffffff;
   --tint-content: 0%;
   --tint-near: transparent;
@@ -360,7 +375,7 @@ html.window-translucent body {
 
 /* The bar's own buttons are chips, not buttons: no frame and no shadow, one fill that deepens while
    the panel they open is open — the recipe the chips in the command line already follow. They are
-   also a step larger than a dialog's: 30px tall and 13.5px, which is what the latest handoff
+   also a step larger than a dialog's: 30px tall and 13px, which is what the latest handoff
    measures for the workspace and the environment. */
 .titlebar .btn {
   height: 30px;
@@ -370,7 +385,7 @@ html.window-translucent body {
   background: var(--bg-hover);
   box-shadow: none;
   color: var(--text);
-  font-size: 13.5px;
+  font-size: 13px;
   font-weight: 500;
 }
 
@@ -454,11 +469,7 @@ html.window-translucent body {
 }
 
 .sidebar {
-  @apply relative w-[var(--rail-width)] flex-none border-r flex flex-col items-center py-3;
-  /* The rail carries the colour across its whole width in one even band — the handoff draws it that
-     way, and the band simply ends where the strip does, against the hairline the content starts
-     behind. The stops are proportions rather than the handoff's 76px: that is its rail's width, and
-     copying the number into a rail of another width left a band of untinted glass at the edge. */
+  @apply relative w-[var(--rail-width)] flex-none border-r flex flex-col items-center py-2;
   background-image:
     linear-gradient(var(--glass-chrome), var(--glass-chrome)),
     linear-gradient(90deg, var(--tint-near) 0%, var(--tint-far) 100%);
@@ -521,7 +532,7 @@ html.window-translucent body {
 
 .rail-label {
   @apply font-medium leading-none;
-  font-size: 11.5px;
+  font-size: 12px;
   letter-spacing: 0.01em;
 }
 
@@ -532,7 +543,7 @@ html.window-translucent body {
   min-width: 17px;
   height: 17px;
   padding: 0 4px;
-  font-size: 10.5px;
+  font-size: 11px;
   box-shadow: 0 0 0 2px var(--bg-sidebar);
 }
 
@@ -561,7 +572,7 @@ html.window-translucent body {
   padding: 4px;
 }
 
-/* The titlebar's two panels are the chip popovers' own shape — 320 wide, a 4px inset, 38px rows —
+/* The titlebar's two panels are the chip popovers' own shape — 320 wide, a 4px inset, 34px rows —
    because the latest handoff draws them as one family with the chips. Their rows carry their own
    classes, so nothing here reaches the menus of the rest of the window. */
 .menu.env-menu {
@@ -576,13 +587,13 @@ html.window-translucent body {
   width: 180px;
   min-width: 0;
   padding: 5px;
-  border-radius: 10px;
+  border-radius: 12px;
 }
 
 /* The schemes are read one at a time in a list, so the row is taller here than in a context menu:
-   the design's own item for this menu, 13.5px with 8px of air above and below the name. */
+   the design's own item for this menu, 13px with 8px of air above and below the name. */
 .auth-menu .menu-item {
-  @apply gap-1 px-2.5 py-2 text-[13.5px];
+  @apply gap-1 px-2.5 py-2 text-[13px];
   border-radius: 7px;
 }
 
@@ -603,6 +614,77 @@ html.window-translucent body {
 
 .popover[data-state='closed'] {
   animation: panel-out 0.1s ease-in forwards;
+}
+
+/* The account menu in the rail: the drawing's 252px card, its head carrying who this installation is
+   and which server it is on, and rows that are menu rows rather than sheet rows. The class is global
+   for the same reason every popover's is: it lands on an element reka builds in a portal, where no
+   component's own scope reaches. */
+.account-menu {
+  @apply flex flex-col;
+  width: 252px;
+  padding: 8px;
+  gap: 2px;
+}
+
+.account-head {
+  @apply flex items-center gap-2.5;
+  padding: 4px 6px 10px;
+  border-bottom: 1px solid var(--border);
+}
+
+.account-face {
+  @apply flex-none inline-flex items-center justify-center w-[34px] h-[34px] rounded-full
+         bg-bg-inset text-text-secondary;
+}
+
+.account-who {
+  @apply flex-1 min-w-0 flex flex-col gap-0.5;
+}
+
+.account-name {
+  @apply text-[13px] font-semibold truncate;
+}
+
+.account-meta {
+  @apply text-[11px] text-text-tertiary truncate;
+}
+
+.account-row {
+  @apply flex items-center gap-[9px] h-8 px-2 rounded-[7px] border-0 bg-transparent
+         text-[13px] text-text text-left cursor-pointer;
+  font-family: inherit;
+}
+
+.account-row:hover {
+  @apply bg-bg-hover;
+}
+
+/* Leaving is the one row that is not the same colour as the rest, and it says so on hover as well:
+   the two fills are the same pair the menus use for a destructive item. */
+.account-row.bad {
+  color: var(--red-text);
+}
+
+.account-row.bad:hover {
+  @apply bg-red-soft;
+}
+
+.account-row.good {
+  color: var(--accent);
+}
+
+.account-divider {
+  @apply h-px my-[5px] mx-0.5 bg-border;
+}
+
+/* Presence on the rail's account button: the dot says an account is held, and it wears the rail's
+   own colour as a ring so that it reads as sitting on the button rather than beside it. */
+.rail-presence {
+  @apply absolute w-2 h-2 rounded-full bg-green;
+  right: 14px;
+  bottom: 5px;
+  box-shadow: 0 0 0 2px var(--bg-sidebar);
 }
 
 @keyframes panel-in {
@@ -632,7 +714,7 @@ html.window-translucent body {
   padding: 6px 9px;
   background: var(--tip-bg);
   color: var(--tip-text);
-  font-size: 11.5px;
+  font-size: 12px;
   border: 1px solid var(--border-strong);
   box-shadow: 0 8px 22px rgba(0, 0, 0, 0.28);
   animation: tooltip-fade 0.1s ease;
@@ -674,7 +756,7 @@ html.window-translucent body {
 /* The line every scheme shares: values can come from the environment, and the popover is where a
    person finds that out. */
 .auth-foot {
-  @apply pt-2.5 border-t border-border text-[12.5px] text-text-tertiary;
+  @apply pt-2.5 border-t border-border text-[13px] text-text-tertiary;
   line-height: 1.45;
   flex: none;
 }
@@ -704,11 +786,11 @@ html.window-translucent body {
 }
 
 .foot-hint {
-  @apply text-[12.5px] text-text-tertiary;
+  @apply text-[13px] text-text-tertiary;
 }
 
 .env-menu {
-  @apply w-[280px] p-1.5 rounded-[11px];
+  @apply w-[280px] p-1.5 rounded-[12px];
 }
 
 /* The palette is a panel of a fixed width whose height follows what it found, and the fixed width is
@@ -727,7 +809,7 @@ html.window-translucent body {
    plus the 14px of padding and the two borders. Its lines are the drawing's `normal` rather than the
    window's 1.5: a table of names and values is read by its rows, and 1.5 leaves them looser. */
 .params-menu {
-  @apply w-[650px] max-h-[420px] p-3.5 overflow-auto;
+  @apply w-[620px] max-h-[420px] p-3.5 overflow-auto;
   line-height: normal;
 }
 
@@ -770,16 +852,16 @@ html.window-translucent body {
   width: 232px;
   min-width: 0;
   padding: 6px;
-  border-radius: 11px;
+  border-radius: 12px;
 }
 
 .tree-menu .menu-title {
-  @apply px-2.5 pt-[7px] pb-2 text-[11.5px] text-text-tertiary;
+  @apply px-2.5 pt-[7px] pb-2 text-[12px] text-text-tertiary;
   @apply overflow-hidden text-ellipsis whitespace-nowrap;
 }
 
 .tree-menu .menu-item {
-  @apply gap-2.5 h-[34px] px-2.5 text-[13.5px];
+  @apply gap-2.5 h-[34px] px-2.5 text-[13px];
   border-radius: 7px;
 }
 
@@ -806,26 +888,35 @@ html.window-translucent body {
   font-family: var(--mono);
 }
 
+/* A tab's bar, at the handoff's 44px with the hairline it draws under a bar (`--line2`, a step
+   quieter than the line under the strip above it). */
 .toolbar {
-  @apply flex items-center justify-end gap-2 h-11 px-5 border-b border-border bg-bg-panel;
+  @apply flex items-center justify-end gap-2 h-[44px] px-5 border-b bg-bg-panel;
+  border-color: color-mix(in srgb, var(--border) 60%, transparent);
 }
 
 /* The row's own buttons, at the size the latest handoff gives a toolbar: taller than the small
-   button and shorter than the command line's send. */
+   button and shorter than the command line's send. The look is the handoff's bar control —
+   `--raise` fill and a `--line` hairline, with no shadow; it is the same control as `btn--bar`
+   outside a toolbar, and the two are meant to read as one. */
 .toolbar .btn {
   height: 30px;
   padding: 0 12px;
   border-radius: 7px;
   font-size: 13px;
   font-weight: 500;
+  background: var(--bg-inset);
+  border-color: var(--border);
+  box-shadow: none;
 }
 
-/* A toolbar button that carries its shortcut stands a step back from one that acts: the word is
-   what the eye should find first, and the key beside it is read only by whoever wants it. The
-   handoff gives these two a little more room between the two than the rest of the row. */
-.toolbar .btn.with-key {
-  gap: 8px;
-  color: var(--text-secondary);
+/* The icon buttons of a bar wear the same fill as the words beside them: inside a toolbar the
+   outlined control is this bar's control, and a card standing among them would read as a different
+   kind of thing. Outlined icon buttons elsewhere keep the raised look the primitive gives them. */
+.toolbar .icon-btn--outline {
+  background: var(--bg-inset);
+  border-color: var(--border);
+  box-shadow: none;
 }
 
 .search-count {
@@ -850,10 +941,6 @@ button {
 
 .badge {
   @apply inline-flex items-center px-[7px] py-px rounded-sm text-[11px] font-semibold leading-normal;
-}
-
-.badge-method {
-  @apply text-accent bg-accent-soft;
 }
 
 .badge-status-2xx {
@@ -882,7 +969,7 @@ button {
 }
 
 .keycap {
-  @apply text-[9px] font-medium leading-tight px-1.5 rounded-sm text-text-secondary;
+  @apply text-[10px] font-medium leading-tight px-1.5 rounded-sm text-text-secondary;
   font-family: inherit;
   background: var(--bg-inset);
   border: 1px solid var(--border);
@@ -940,7 +1027,7 @@ button {
 }
 
 .empty-hint {
-  @apply text-[12.5px] text-center;
+  @apply text-[13px] text-center;
 }
 
 /* ---- JSON:API tree ---- */
@@ -1143,8 +1230,270 @@ mark.search-match.current {
   @apply text-text-tertiary italic;
 }
 
+/* ── The request bar ─────────────────────────────────────────────────────────────────────────────
+   The editor's bar and the browser's are one object drawn twice: a field with the verb standing in
+   its left end, and a track of sections beside it. They live here because two components draw them,
+   and a scoped rule reaches only the one that owns the markup — the argument the popover's foot is
+   written on. The numbers are the handoff's. */
+
+/* What the request is drawn on, in both windows, with the strong line that separates it from the
+   answer below. It is the sidebar's own surface — the handoff draws the bar and the list beside it
+   as one material — so it takes the same veil and the same blur rather than a fill of its own. */
+.request-block {
+  @apply flex-none;
+  background: var(--glass-side);
+  backdrop-filter: var(--blur-side);
+  border-bottom: 2px solid var(--border);
+}
+
+.bar-row {
+  @apply flex items-center gap-2;
+  padding: 9px 20px 0;
+}
+
+/* The sections sit closer to the address than the address does to the block's own top: the two rows
+   are one thing, and it is the block that stands apart from the answer. */
+.segments-row {
+  padding: 8px 20px 9px;
+}
+
+.bar-spacer {
+  @apply flex-1;
+}
+
+.env-name {
+  @apply flex-none text-[12px] text-text-tertiary;
+}
+
+.url-field {
+  /* The field is what gives way first when the window narrows, and its floor is where the address
+     stays readable. Its own padding is the handoff's: four before the verb, ten after the address. */
+  @apply flex items-center gap-2 overflow-hidden;
+  flex: 1 1 260px;
+  min-width: 140px;
+  height: 34px;
+  padding: 0 10px 0 4px;
+  border: 1px solid var(--border-strong);
+  border-radius: 7px;
+  background: var(--bg-inset);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.url-field:focus-within {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+.url-field.url-field-invalid,
+.url-field.url-field-invalid:focus-within {
+  border-color: color-mix(in srgb, var(--red) 45%, transparent);
+}
+
+.url-field.url-field-invalid:focus-within {
+  box-shadow: 0 0 0 3px var(--red-soft);
+}
+
+/* The verb inside the field: a label on the address rather than a control beside it. The editor's is
+   a button — the verb can be changed there — and the browser's is the same plate with nothing to
+   press. */
+.method-plate {
+  @apply flex-none flex items-center gap-[5px];
+  height: 26px;
+  padding: 0 8px;
+  border-radius: 5px;
+  font-family: var(--mono);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+/* The sections, as one track with a raised pill in it: the open section is the pill, a filled one is
+   the ink of its label, and an empty one is quiet. Nothing here is underlined — that is the grammar
+   of the answer's tabs, and the two rows must never be mistaken for each other. */
+.segments {
+  @apply flex items-center gap-px flex-none;
+  padding: 2px;
+  border-radius: 8px;
+  background: var(--bg-hover);
+}
+
+.segment {
+  @apply flex items-center gap-1.5 border-0 cursor-pointer;
+  height: 30px;
+  padding: 0 12px;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-tertiary);
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  transition: background-color 0.12s ease, color 0.12s ease;
+  --wails-draggable: no-drag;
+}
+
+.segment.filled {
+  color: var(--text-secondary);
+}
+
+.segment:hover {
+  background: var(--bg-active);
+  color: var(--text);
+}
+
+.segment.active,
+.segment[data-state='open'] {
+  background: var(--bg-panel);
+  color: var(--text);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.14);
+}
+
+/* The count is a number beside the label rather than a badge: what is behind a section is a quantity,
+   and a pill around it would be a second thing to read. */
+.segment-count {
+  @apply font-bold;
+  font-size: 11px;
+  color: var(--text-tertiary);
+  font-variant-numeric: tabular-nums;
+}
+
+.segment.active .segment-count,
+.segment[data-state='open'] .segment-count {
+  color: var(--accent);
+}
+
+/* ── The side panels ─────────────────────────────────────────────────────────────────────────────
+   The redesign's three sidebars are two components: HistoryPanel draws the editor's history and the
+   browser's captures, CollectionTree draws the collections. They are one panel — one head, one row,
+   one foot — so the numbers live here rather than in each scoped block: a row that is 32 tall in one
+   panel and 38 in another is not one panel, and two copies of the same five numbers drift.
+   The values are the handoff's; the names are the app's own tokens (see the mapping in the plan). */
+
+.panel-head {
+  @apply flex-none flex items-center justify-between;
+  height: 44px;
+  padding: 0 8px 0 16px;
+  border-bottom: 1px solid color-mix(in srgb, var(--border) 60%, transparent);
+}
+
+.panel-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+/* The one control the head carries. Red where it clears something, accent where it makes something:
+   the colour says which of the two it is before the icon does. */
+.panel-icon {
+  @apply flex-none inline-flex items-center justify-center;
+  width: 28px;
+  height: 28px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  --wails-draggable: no-drag;
+}
+
+.panel-icon.danger:hover:not(:disabled) {
+  background: var(--red-soft);
+  color: var(--red-text);
+}
+
+.panel-icon.accent {
+  color: var(--accent);
+}
+
+.panel-icon.accent:hover:not(:disabled) {
+  background: var(--accent-soft);
+}
+
+.panel-icon:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+/* The label a group of rows stands under — a day in the history, a collection in the tree. */
+.panel-group {
+  padding: 12px 16px 5px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-tertiary);
+}
+
+/* A row of any of the three panels. No radius and no gap: the rows are a stack the eye runs down,
+   and the open one is marked by the tint and by the strip on its leading edge rather than by being
+   filled with the accent, which used to make the list read as a row of buttons. */
+.panel-row {
+  @apply flex items-center w-full text-left select-none;
+  height: 32px;
+  gap: 8px;
+  padding: 0 14px 0 16px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--text);
+  font-size: 13px;
+  cursor: pointer;
+  --wails-draggable: no-drag;
+}
+
+.panel-row:hover {
+  background: var(--bg-hover);
+}
+
+.panel-row.active {
+  background: var(--accent-soft);
+  box-shadow: inset 2px 0 0 var(--accent);
+}
+
+.panel-method {
+  @apply flex-none;
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--text-tertiary);
+  font-variant-numeric: tabular-nums;
+}
+
+.panel-row.active .panel-method {
+  color: var(--text-secondary);
+}
+
+.panel-address {
+  @apply flex-1 min-w-0 overflow-hidden text-ellipsis whitespace-nowrap;
+}
+
+/* The host says where and the path says what; the design gives them one line and two inks. */
+.panel-host {
+  color: var(--text-tertiary);
+}
+
+/* The outcome, as a strip rather than a word: a column of codes reads as a column of colours, and the
+   code itself is in the row's title for whoever needs the number. */
+.panel-strip {
+  @apply flex-none;
+  width: 4px;
+  height: 13px;
+}
+
+.panel-strip.is-ok {
+  background: var(--green);
+}
+
+.panel-strip.is-bad {
+  background: var(--red);
+}
+
+.panel-count {
+  @apply flex-none;
+  font-size: 11px;
+  color: var(--text-tertiary);
+  font-variant-numeric: tabular-nums;
+}
+
 .tabs {
-  @apply flex items-stretch gap-0.5 h-[46px] border-b border-border px-4 bg-bg-panel;
+  @apply flex items-stretch gap-0.5 h-[44px] border-b border-border px-4 bg-bg-panel;
 }
 
 .tab {
@@ -1159,7 +1508,7 @@ mark.search-match.current {
 
 .tab.active,
 .tab[data-state='active'] {
-  @apply text-accent font-medium;
+  @apply text-accent font-semibold;
   border-bottom-color: var(--accent);
 }
 

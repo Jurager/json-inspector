@@ -60,15 +60,32 @@ type fakeVars struct {
 	secret map[string]bool
 }
 
+// known is what both calls answer from: the values this fake was built with, and the ones the
+// levels over the request answer on top of them — the nearest level is the one that wins, and the
+// list arrives outermost first. Both calls read the same map, so they cannot disagree about a name.
+func (f fakeVars) known(above []domain.Variable) map[string]string {
+	values := map[string]string{}
+	for name, value := range f.values {
+		values[name] = value
+	}
+	for _, v := range above {
+		if v.Enabled && v.Name != "" {
+			values[v.Name] = v.Value
+		}
+	}
+	return values
+}
+
 func (f fakeVars) Missing(
 	_ context.Context,
-	_ []domain.Variable,
+	above []domain.Variable,
 	texts []string,
 ) ([]string, error) {
+	values := f.known(above)
 	out, seen := []string{}, map[string]bool{}
 	for _, text := range texts {
 		for _, name := range f.mentioned(text) {
-			if _, known := f.values[name]; known || seen[name] {
+			if _, isKnown := values[name]; isKnown || seen[name] {
 				continue
 			}
 			seen[name] = true
@@ -80,13 +97,14 @@ func (f fakeVars) Missing(
 
 func (f fakeVars) SubstituteTexts(
 	_ context.Context,
-	_ []domain.Variable,
+	above []domain.Variable,
 	texts []string,
 	mask bool,
 ) ([]string, error) {
+	values := f.known(above)
 	out := make([]string, len(texts))
 	for i, text := range texts {
-		for name, value := range f.values {
+		for name, value := range values {
 			if mask && f.secret[name] {
 				value = fakeMask
 			}
@@ -238,18 +256,21 @@ func loaded(t *testing.T) (*UseCase, *fakeStore) {
 	return uc, store
 }
 
-func TestLoadStartsOnTheAcceptHeader(t *testing.T) {
+// A window with no stored draft starts on a GET with nothing written in it: what a request is made
+// of is the user's to write, and a row the app put there is one they would have to delete first.
+func TestLoadStartsOnAnEmptyRequest(t *testing.T) {
 	uc, _ := loaded(t)
 	state, err := uc.Snapshot(context.Background(), domain.DraftCommandLine)
 	if err != nil {
 		t.Fatalf("Snapshot: %v", err)
 	}
 	draft := state.Draft
-	if draft.Method != "GET" || len(draft.Headers) != 1 || draft.Headers[0].Name != "Accept" {
-		t.Fatalf("a fresh draft = %+v, want a GET with an Accept header", draft)
+	if draft.Method != "GET" {
+		t.Fatalf("a fresh draft = %+v, want a GET", draft)
 	}
-	if draft.Headers[0].ID == "" {
-		t.Error("the seeded row has no id, so nothing can address it")
+	if len(draft.Headers) != 0 || len(draft.Params) != 0 || len(draft.Cookies) != 0 ||
+		draft.URL != "" {
+		t.Errorf("a fresh draft = %+v, want nothing written in it", draft)
 	}
 }
 

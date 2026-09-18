@@ -179,8 +179,8 @@ const team = "team-1"
 
 func seedTeam(t *testing.T, store *Store) {
 	t.Helper()
-	// Personal is read back out of the id and not written down, so the kind and the name are the only
-	// things this has to get right.
+	// A second space beside the one the schema writes: the name, the kind and the colour are all this
+	// has to get right.
 	made := domain.NewWorkspace(team, "Команда", domain.WorkspaceTeam, "purple", 1)
 	if err := store.SaveWorkspace(context.Background(), made); err != nil {
 		t.Fatalf("SaveWorkspace(%s): %v", team, err)

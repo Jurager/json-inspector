@@ -21,6 +21,10 @@ type Store interface {
 		error)
 	ReadBody(ctx context.Context, id string, side domain.BodySide) (string, error)
 	DeleteRecords(ctx context.Context, ids []string) error
+	// DeleteAllRecords is the whole of one space's history, which is a call of its own rather than the
+	// one above with every id in it: the ids are the list's, and the list is capped and filtered.
+	DeleteAllRecords(ctx context.Context, workspaceID string) (int, error)
+	HistoryStats(ctx context.Context, workspaceID string) (domain.HistoryStats, error)
 	Prune(ctx context.Context, workspaceID string, opts domain.PruneOptions) (int, error)
 
 	ClaimImport(ctx context.Context, source string) (bool, error)
@@ -87,6 +91,14 @@ type Masked struct {
 // needs the name of the space it is working in.
 type Scope interface {
 	ActiveWorkspace(ctx context.Context) (string, error)
+}
+
+// Home names the workspace the installation started with. The one-time import of the old frontend's
+// localStorage repairs this installation's own data, so it lands there and not in whichever space
+// happens to be on screen — and not on a fixed id either, now that the row the app is born with can
+// be deleted like any other.
+type Home interface {
+	FirstWorkspace(ctx context.Context) (string, error)
 }
 
 // RetentionSource answers how long history is kept — one question, so this feature does not depend

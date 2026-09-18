@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"json-inspector/internal/domain"
+	"json-inspector/internal/dotenv"
 )
 
 // A script reads a variable by name in one scope, and the snapshot's rules do not apply to it: a
@@ -142,5 +143,148 @@ func TestVariableRefusesWhatItCannotDo(t *testing.T) {
 			domain.ErrNotAllowed) {
 			t.Errorf("writing %q = %v, want ErrNotAllowed", name, err)
 		}
+	}
+}
+
+// The globals are one scope and cannot be deleted, so the destructive thing on offer is emptying
+// them — and emptying them must not reach into the environments beside them, which hold variables
+// of their own that happen to live in the same table.
+func TestClearGlobalsEmptiesOnlyTheGlobals(t *testing.T) {
+	u, _ := newUseCase(t)
+	ctx := context.Background()
+	_, env := seed(t, u, "Local")
+
+	for _, one := range []struct {
+		scope domain.EnvScope
+		name  string
+	}{
+		{domain.EnvScope{}, "locale"},
+		{domain.EnvScope{}, "timeout"},
+		{domain.EnvScope{Environment: env.ID}, "baseUrl"},
+	} {
+		if _, err := u.AddVariable(ctx, one.scope, VariableDraft{
+			Name: one.name, Kind: domain.VariableText, Value: "x",
+		}); err != nil {
+			t.Fatalf("AddVariable(%s): %v", one.name, err)
+		}
+	}
+
+	state, err := u.ClearGlobals(ctx)
+	if err != nil {
+		t.Fatalf("ClearGlobals: %v", err)
+	}
+	if len(state.Globals) != 0 {
+		t.Errorf("globals = %+v, want none left", state.Globals)
+	}
+	if len(state.Environments[0].Vars) != 1 {
+		t.Errorf("environment variables = %+v, want its own left alone", state.Environments[0].Vars)
+	}
+	if state.ActiveID != env.ID {
+		t.Errorf("activeId = %q, want the environment still active", state.ActiveID)
+	}
+}
+
+// Clearing what is already empty is not an error: the button is pressed on a state the window is
+// showing, and a state that changed under it is not something to refuse.
+func TestClearGlobalsOnAnEmptyScope(t *testing.T) {
+	u, _ := newUseCase(t)
+
+	state, err := u.ClearGlobals(context.Background())
+	if err != nil {
+		t.Fatalf("ClearGlobals: %v", err)
+	}
+	if len(state.Globals) != 0 {
+		t.Errorf("globals = %+v, want none", state.Globals)
+	}
+}
+
+// Every door a value can come in by, checked at the door: an environment the window has closed is
+// one nobody writes into, and the promise is the use case's rather than a button's — the window's
+// own controls check the same flag, and the side that can hold it for every caller is this one.
+func TestWritesIntoAClosedEnvironmentAreRefused(t *testing.T) {
+	u, _ := newUseCase(t)
+	ctx := context.Background()
+	_, env := seed(t, u, "Prod")
+	scope := domain.EnvScope{Environment: env.ID}
+
+	state, err := u.AddVariable(ctx, scope, VariableDraft{Name: "token", Kind: domain.VariableText})
+	if err != nil {
+		t.Fatalf("AddVariable: %v", err)
+	}
+	v := state.Environments[0].Vars[0]
+
+	closed := true
+	if _, err := u.Update(ctx, env.ID, EnvironmentPatch{Readonly: &closed}); err != nil {
+		t.Fatalf("Update: %v", err)
+	}
+
+	for _, door := range []struct {
+		name string
+		call func() error
+	}{
+		{"AddVariable", func() error {
+			_, err := u.AddVariable(ctx, scope, VariableDraft{Name: "second"})
+			return err
+		}},
+		{"UpdateVariable", func() error {
+			_, err := u.UpdateVariable(ctx, scope, VariablePatch{
+				ID: v.ID, Name: "renamed", Kind: domain.VariableText, Enabled: true,
+				Value: "x", SetValue: true,
+			})
+			return err
+		}},
+		{"RemoveVariable", func() error {
+			_, err := u.RemoveVariable(ctx, scope, v.ID)
+			return err
+		}},
+		{"ImportEntries", func() error {
+			_, err := u.ImportEntries(ctx, scope,
+				[]dotenv.Entry{{Name: "imported", Value: "x"}})
+			return err
+		}},
+	} {
+		err := door.call()
+		if !errors.Is(err, domain.ErrNotAllowed) {
+			t.Errorf("%s on a closed environment = %v, want domain.ErrNotAllowed", door.name, err)
+			continue
+		}
+		if got := domain.CodeOf(err); got != domain.CodeEnvironmentReadOnly {
+			t.Errorf("%s = %q, want %q", door.name, got, domain.CodeEnvironmentReadOnly)
+		}
+	}
+
+	// And nothing of it landed: the refusal is before the write, not after it.
+	after, err := u.Snapshot(ctx)
+	if err != nil {
+		t.Fatalf("Snapshot: %v", err)
+	}
+	vars := after.Environments[0].Vars
+	if len(vars) != 1 || vars[0].Name != "token" || vars[0].Value != "" {
+		t.Errorf("vars = %+v, want the one that was there, untouched", vars)
+	}
+}
+
+// The line is drawn here on purpose: a script writing a value it has just received is the run doing
+// its job and not somebody editing a variable, and refusing it would break every run in an
+// environment that was closed to protect it.
+func TestAScriptStillWritesToAClosedEnvironment(t *testing.T) {
+	u, _ := newUseCase(t)
+	ctx := context.Background()
+	_, env := seed(t, u, "Prod")
+
+	closed := true
+	if _, err := u.Update(ctx, env.ID, EnvironmentPatch{Readonly: &closed}); err != nil {
+		t.Fatalf("Update: %v", err)
+	}
+
+	if err := u.SetVariable(ctx, domain.ScopeEnvironment, "token", "fresh"); err != nil {
+		t.Fatalf("SetVariable: %v", err)
+	}
+	value, ok, err := u.Variable(ctx, domain.ScopeEnvironment, "token")
+	if err != nil {
+		t.Fatalf("Variable: %v", err)
+	}
+	if !ok || value != "fresh" {
+		t.Errorf("token = %q (%v), want what the script wrote", value, ok)
 	}
 }

@@ -718,3 +718,42 @@ func TestARunKeepsTheEnvironmentItRanUnder(t *testing.T) {
 		t.Errorf("last run environment = %q, want what was kept", last.Environment)
 	}
 }
+
+// A request that names a variable nothing answers fails the way a server that never answered does:
+// its row carries the refusal — the window is what words a code — and the requests behind it in the
+// run still go out. Stopping the run at the first one would hide the twenty behind it.
+func TestARunRowCarriesARefusalAndTheRunGoesOn(t *testing.T) {
+	r := setupRunnable(t)
+	refusal := domain.Refuse(domain.CodeVariableMissing, domain.ErrNotAllowed,
+		domain.Args{"n": "1", "names": "var3"})
+	r.sender.refuse("https://api.example.com/second", refusal)
+
+	if _, err := r.uc.Run(context.Background(), r.collectionID, ""); err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+	run := r.notifier.runFinished(t)
+
+	if run.Passed != 3 || run.Failed != 1 {
+		t.Errorf("run = %d passed, %d failed, want the one refused and the three others sent",
+			run.Passed, run.Failed)
+	}
+	var refused domain.CollectionRunResult
+	for _, result := range run.Results {
+		if result.Error != "" {
+			refused = result
+		}
+	}
+	if refused.Failure == nil || refused.Failure.Code != domain.CodeVariableMissing {
+		t.Fatalf("row = %+v, want the refusal behind its error", refused)
+	}
+	if refused.Failure.Args["names"] != "var3" || refused.Failure.Args["n"] != "1" {
+		t.Errorf("row args = %+v, want the names and their count for the sentence", refused.Failure.Args)
+	}
+	if refused.Status != nil || refused.RecordID != "" {
+		t.Errorf("row = %+v, want a request that never went out", refused)
+	}
+	if len(r.sender.urls()) != 4 {
+		t.Errorf("the sender was handed %v, want all four — the refusal is not a stop",
+			r.sender.urls())
+	}
+}

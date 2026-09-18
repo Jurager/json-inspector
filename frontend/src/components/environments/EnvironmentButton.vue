@@ -5,6 +5,7 @@ import Icon from '../ui/Icon.vue'
 import { Button } from '../ui/button'
 import { DropdownMenu, DropdownMenuTrigger } from '../ui/dropdown-menu'
 import { useEnvironmentsStore } from '../../stores/environments'
+import { dotOf } from './palette'
 import { useMessages } from '../../i18n'
 
 // Which environment the window sends with, and the way to another one. It is a component of its own
@@ -17,17 +18,12 @@ const { t } = useMessages()
 
 const activeEnvName = computed(() => envStore.activeEnvironment?.name ?? t('titlebar.noEnvironment'))
 
-const ENV_DOT_COLORS: Record<string, string> = {
-  green: 'var(--green)',
-  orange: 'var(--orange)',
-  red: 'var(--red)',
-  purple: 'var(--purple)',
-}
-
+// The colour is the palette's word, and which mark it turns into is the palette's business: the dot
+// this chip draws and the avatar the sheet draws are one answer to one name.
 const envDotStyle = computed(() => {
   const env = envStore.activeEnvironment
   if (!env) return { background: 'var(--text-tertiary)' }
-  return { background: ENV_DOT_COLORS[env.color ?? 'green'] ?? 'var(--green)' }
+  return { background: dotOf(env.color ?? '') }
 })
 </script>
 

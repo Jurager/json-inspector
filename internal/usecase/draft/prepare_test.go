@@ -2,6 +2,7 @@ package draft
 
 import (
 	"context"
+	"errors"
 	"testing"
 
 	"json-inspector/internal/domain"
@@ -255,5 +256,59 @@ func TestInheritedAuthIsWhatTheCallerResolved(t *testing.T) {
 	if _, ok := headerOf(prepared.Headers, "Authorization"); ok {
 		t.Errorf("headers = %+v, want no authorization when there is nothing above to inherit",
 			prepared.Headers)
+	}
+}
+
+// A run sends saved requests, and a request that names a variable nothing answers is one the server
+// would read as a path of braces. The names travel with the refusal because the window is what says
+// which ones were missing — in its own language, and about the row they stopped.
+func TestPrepareRefusesATokenNothingAnswers(t *testing.T) {
+	ctx := context.Background()
+	uc, _, _ := newUseCaseWithAuth()
+
+	_, err := uc.Prepare(ctx, Seed{
+		Method: "GET",
+		URL:    "https://{{host}}/{{var3}}/{{other}}",
+	}, nil)
+	if !errors.Is(err, domain.ErrNotAllowed) {
+		t.Fatalf("Prepare = %v, want the refusal", err)
+	}
+	failure := domain.AsFailure(err)
+	if failure == nil || failure.Code != domain.CodeVariableMissing {
+		t.Fatalf("failure = %+v, want the code a row words", failure)
+	}
+	if failure.Args["names"] != "var3, other" || failure.Args["n"] != "2" {
+		t.Errorf("args = %+v, want the names and how many of them", failure.Args)
+	}
+}
+
+// A token a level above the request answers for is not missing: a collection's own variable is what
+// the run carries down to every request inside it.
+func TestPrepareAsksWithTheNamesTheLevelsAboveAnswer(t *testing.T) {
+	ctx := context.Background()
+	uc, _, _ := newUseCaseWithAuth()
+
+	above := []domain.Variable{
+		{Name: "var3", Value: "three", Kind: domain.VariableText, Enabled: true},
+	}
+	seed := Seed{Method: "GET", URL: "https://{{host}}/{{var3}}"}
+	if _, err := uc.Prepare(ctx, seed, above); err != nil {
+		t.Errorf("Prepare = %v, want a request the collection answers for to go out", err)
+	}
+}
+
+// A request a script rewrote has already been filled in once: its braces are its own text by then,
+// and this second rendering — the copy the record keeps — must not refuse a request that has
+// already left over text one of its own values happened to carry.
+func TestMaskKeepsTheBracesOfASubstitutedRequest(t *testing.T) {
+	ctx := context.Background()
+	uc, _, _ := newUseCaseWithAuth()
+
+	prepared, err := uc.Mask(ctx, Seed{Method: "GET", URL: "https://api.example.com/{{var3}}/a"})
+	if err != nil {
+		t.Fatalf("Mask: %v", err)
+	}
+	if prepared.MaskedURL != "https://api.example.com/{{var3}}/a" {
+		t.Errorf("masked url = %q, want the text as it was handed over", prepared.MaskedURL)
 	}
 }

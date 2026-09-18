@@ -43,6 +43,31 @@ export function Clear(ids: string[] | null): $CancellablePromise<void> {
 }
 
 /**
+ * ClearAll is the whole of the space on screen, which is what the settings screen's "clear history
+ * now" does: what it clears is the history the panel beside it is showing.
+ */
+export function ClearAll(): $CancellablePromise<number> {
+    return $Call.ByID(3387785301);
+}
+
+/**
+ * ExportHar writes one tab's captured traffic as a HAR file and answers whether anything was
+ * written: a cancelled dialog is not a failure, and a window that showed a toast for it would be
+ * telling the user about a file that does not exist.
+ */
+export function ExportHar(title: string, tabKey: string): $CancellablePromise<boolean> {
+    return $Call.ByID(364410274, title, tabKey);
+}
+
+/**
+ * History is what the space on screen is holding — how many requests, how many bytes of bodies —
+ * which is the line the settings screen puts beside that button.
+ */
+export function History(): $CancellablePromise<domain$0.HistoryStats> {
+    return $Call.ByID(3352555715);
+}
+
+/**
  * ImportLegacy moves the history the old frontend kept in localStorage into the database, once. The
  * payload is the raw string: reading that shape is this side's job, not the window's.
  */

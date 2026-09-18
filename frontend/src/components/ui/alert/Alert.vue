@@ -53,7 +53,7 @@ const emit = defineEmits<{ (e: 'cancel'): void }>()
 }
 
 .hint {
-  @apply mt-2.5 mb-4 text-[12.5px] text-text-secondary;
+  @apply mt-2.5 mb-4 text-[13px] text-text-secondary;
 }
 
 .actions {

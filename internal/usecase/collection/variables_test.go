@@ -183,9 +183,10 @@ func TestSaveVariablesRefusesASecret(t *testing.T) {
 	}
 }
 
-// The page's table draws an address, which the tree deliberately does not carry — so it is a
-// read of its own, and it holds the level's own requests and nothing deeper.
-func TestLevelRowsCarryTheAddress(t *testing.T) {
+// The page's table draws an address, which the tree deliberately does not carry — so it is a read
+// of its own, and it holds everything inside the collection: the folders' requests too, because
+// the table is what running the collection would send and a run reaches them.
+func TestContentsCarryTheAddressAndWalkTheFolders(t *testing.T) {
 	ctx := context.Background()
 	v := setupVarsTree(t)
 
@@ -196,24 +197,38 @@ func TestLevelRowsCarryTheAddress(t *testing.T) {
 		t.Fatalf("SaveNode: %v", err)
 	}
 
-	rows, err := v.uc.LevelRows(ctx, v.collectionID)
+	rows, err := v.uc.Contents(ctx, v.collectionID)
 	if err != nil {
-		t.Fatalf("LevelRows: %v", err)
+		t.Fatalf("Contents: %v", err)
 	}
 
-	found := false
+	byID := map[string]domain.LevelRow{}
 	for _, row := range rows {
-		if row.ID == "n-url" {
-			found = true
-			if row.URL != "{{baseUrl}}/articles" || row.Method != "GET" {
-				t.Errorf("row = %+v, want the address and the method", row)
-			}
-		}
-		if row.ID == v.insideID {
-			t.Errorf("row = %+v, want only this level's requests", row)
-		}
+		byID[row.ID] = row
 	}
-	if !found {
+	if row, ok := byID["n-url"]; !ok {
 		t.Errorf("rows = %+v, want the saved request among them", rows)
+	} else if row.URL != "{{baseUrl}}/articles" || row.Method != "GET" || row.Folder != "" {
+		t.Errorf("row = %+v, want the address, the method and no folder", row)
+	}
+
+	// The request inside the folder is a row of the same table, and it says which folder it is from:
+	// a report that left it out would count a run's rows in one place and draw them in another.
+	inside, ok := byID[v.insideID]
+	if !ok {
+		t.Fatalf("rows = %+v, want the folder's own request among them", rows)
+	}
+	if inside.Folder != "Вложенная" {
+		t.Errorf("folder = %q, want the name of the folder it sits in", inside.Folder)
+	}
+
+	// A folder read as a level of its own stands alone: its rows are the level, so none of them is
+	// drawn under a folder.
+	nested, err := v.uc.Contents(ctx, v.nestedID)
+	if err != nil {
+		t.Fatalf("Contents(nested): %v", err)
+	}
+	if len(nested) != 1 || nested[0].ID != v.insideID || nested[0].Folder != "" {
+		t.Errorf("rows = %+v, want the folder's own request and nothing else", nested)
 	}
 }

@@ -25,17 +25,69 @@ const DISCONNECTED_ICON = {
 
 const DEFAULT_SETTINGS = {
   rememberTabs: true,
-  xhrOnly: true,
 };
+
+// The rules the app hands over. Kept here as well as in the app because the service worker is
+// restarted whenever Chrome feels like it, and an extension that forgot what it was told would start
+// sending traffic nobody asked for. The defaults are what this extension did before the rules were
+// anybody's to set: static files were skipped.
+const DEFAULT_FILTERS = {
+  hosts: [],
+  static: true,
+  analytics: false,
+  json: false,
+};
+
+// Hosts whose requests tell somebody else what the page did. A list rather than a rule: "analytics"
+// is a judgement, and a judgement belongs in a list somebody can read and disagree with.
+const TRACKER_HOSTS = [
+  'google-analytics.com',
+  'analytics.google.com',
+  'googletagmanager.com',
+  'doubleclick.net',
+  'googlesyndication.com',
+  'segment.io',
+  'segment.com',
+  'mixpanel.com',
+  'amplitude.com',
+  'hotjar.com',
+  'sentry.io',
+  'bugsnag.com',
+  'newrelic.com',
+  'datadoghq.com',
+  'fullstory.com',
+  'smartlook.com',
+  'yandex.ru',
+  'mc.yandex.ru',
+  'metrika.yandex.ru',
+  'facebook.net',
+  'connect.facebook.net',
+  'clarity.ms',
+  'matomo.cloud',
+  'plausible.io',
+  'posthog.com',
+];
 
 const ASSET_URL =
     /\.(png|jpe?g|gif|webp|svg|ico|bmp|avif|css|woff2?|ttf|otf|eot|mp4|webm|mp3|wav|ogg|pdf)([?#]|$)/i;
+
+// What the app calls this browser. The version is read once: it cannot change while the worker runs,
+// and the app draws it beside the name.
+const BROWSER_NAME = (() => {
+  const match = /Chrome\/([0-9]+)/.exec(navigator.userAgent || '');
+  return match ? `Chrome ${match[1]}` : 'Chrome';
+})();
 
 let socket = null;
 let reconnectTimer = null;
 let pending = [];
 let captureTabIds = new Set();
 let captureTabMeta = new Map();
+// When each captured tab was armed. In memory for the drawing and in session storage for the
+// restarts: a tab restored without its time is a tab nobody can say anything about, and inventing
+// one would date the capture to the restart.
+let captureTabSince = new Map();
+let filters = { ...DEFAULT_FILTERS };
 let capturedCounts = new Map();
 let capturedLastAt = new Map();
 let settings = { ...DEFAULT_SETTINGS };
@@ -43,10 +95,15 @@ let connected = false;
 let pausedOrigins = [];
 let paused = false;
 
-chrome.storage.local.get('settings').then(({ settings: stored }) => {
+chrome.storage.local.get(['settings', 'filters']).then(({ settings: stored, filters: rules }) => {
   settings = {
     ...DEFAULT_SETTINGS,
     ...(stored || {}),
+  };
+
+  filters = {
+    ...DEFAULT_FILTERS,
+    ...(rules || {}),
   };
 });
 
@@ -63,10 +120,11 @@ chrome.storage.onChanged.addListener((changes, area) => {
 
 async function readState() {
   const [session, local] = await Promise.all([
-    chrome.storage.session.get('captureTabIds'),
+    chrome.storage.session.get(['captureTabIds', 'captureTabSince']),
     chrome.storage.local.get({
       port: DEFAULT_PORT,
       settings: DEFAULT_SETTINGS,
+      filters: DEFAULT_FILTERS,
     }),
   ]);
 
@@ -74,6 +132,13 @@ async function readState() {
     ...DEFAULT_SETTINGS,
     ...(local.settings || {}),
   };
+
+  filters = {
+    ...DEFAULT_FILTERS,
+    ...(local.filters || {}),
+  };
+
+  captureTabSince = new Map(session.captureTabSince ?? []);
 
   return {
     captureTabIds: session.captureTabIds ?? [],
@@ -84,6 +149,7 @@ async function readState() {
 async function persistCapture() {
   await chrome.storage.session.set({
     captureTabIds: [...captureTabIds],
+    captureTabSince: [...captureTabSince],
   });
 }
 
@@ -253,6 +319,10 @@ async function connect(port) {
     if (message.type === 'resume') {
       resumeAll();
     }
+
+    if (message.type === 'filters' && message.filters) {
+      applyFilters(message.filters);
+    }
   };
 }
 
@@ -314,7 +384,13 @@ function sendState() {
         // with nothing under it both report no tabs.
         paused,
         tabs: captureTabIds.size,
-        browser: 'Chrome',
+        browser: BROWSER_NAME,
+        // The same tabs the count counts, each with the moment it was armed. A tab whose time nobody
+        // knows — one restored after a restart that predates this — is left out rather than given a
+        // time it never had, and the app draws it without one.
+        tabList: [...captureTabIds]
+            .filter((id) => captureTabSince.has(id))
+            .map((id) => ({ tabId: id, since: captureTabSince.get(id) })),
       })
   );
 }
@@ -390,7 +466,15 @@ function addCaptureTab(tab, resetCount = true) {
     return;
   }
 
+  const fresh = !captureTabIds.has(tab.id);
+
   captureTabIds.add(tab.id);
+
+  if (fresh) {
+    // What the app draws as "capturing since". The time the tab was armed, not the time of its first
+    // request: those differ by however long the page takes to ask for anything.
+    captureTabSince.set(tab.id, Date.now());
+  }
 
   captureTabMeta.set(tab.id, {
     title: tab.title || '',
@@ -469,6 +553,7 @@ async function stopCaptureFor(tabId, keepConnection = false) {
 
   captureTabIds.delete(tabId);
   captureTabMeta.delete(tabId);
+  captureTabSince.delete(tabId);
   capturedCounts.delete(tabId);
   capturedLastAt.delete(tabId);
 
@@ -646,6 +731,80 @@ function looksLikeAsset(message) {
   );
 }
 
+// keptByFilters is the rule the app set: what is worth sending on. It runs where every captured
+// request passes, before anything is counted or sent, because a filter that dropped a request after
+// the app had heard about it would be a filter only of the list.
+function keptByFilters(message) {
+  const host = hostOf(message.url);
+
+  if (filters.hosts.length && !filters.hosts.includes(host)) {
+    return false;
+  }
+
+  if (filters.static && looksLikeAsset(message)) {
+    return false;
+  }
+
+  if (filters.analytics && isTrackerHost(host)) {
+    return false;
+  }
+
+  if (filters.json && !answersWithJson(message)) {
+    return false;
+  }
+
+  return true;
+}
+
+function hostOf(url) {
+  try {
+    return new URL(url).hostname;
+  } catch {
+    return '';
+  }
+}
+
+function isTrackerHost(host) {
+  return TRACKER_HOSTS.some(
+      (known) => host === known || host.endsWith(`.${known}`)
+  );
+}
+
+// A content type is all this asks: what the response *is*, not what is in it. The page's own
+// placeholder for a binary body — `[binary response: image/png]` — is not JSON either, and a rule
+// that kept those would keep exactly what it was meant to drop.
+function answersWithJson(message) {
+  const type = headerValue(message.responseHeaders, 'content-type');
+
+  return /json/i.test(type);
+}
+
+function headerValue(headers, name) {
+  const wanted = name.toLowerCase();
+
+  for (const key of Object.keys(headers || {})) {
+    if (key.toLowerCase() === wanted) {
+      return String(headers[key]);
+    }
+  }
+
+  return '';
+}
+
+// applyFilters is the app telling this extension what to keep. Stored, so a worker restart does not
+// forget it, and answered with a state frame: the app has no way of knowing a frame arrived, and the
+// state it gets back is the one echo this protocol has.
+async function applyFilters(rules) {
+  filters = {
+    ...DEFAULT_FILTERS,
+    ...rules,
+  };
+
+  await chrome.storage.local.set({ filters });
+
+  sendState();
+}
+
 function originOf(url) {
   try {
     return new URL(url).origin;
@@ -753,7 +912,7 @@ function handleCapturedRequest(message, sender) {
     return;
   }
 
-  if (settings.xhrOnly && looksLikeAsset(message)) {
+  if (!keptByFilters(message)) {
     return;
   }
 
@@ -879,6 +1038,10 @@ async function getState() {
     currentTab: await describeTab(tab),
     bufferedCount: pending.length,
     settings: { ...settings },
+    // The rules the app set. The popup shows them and cannot change them: they are decided where the
+    // list they are about is read, and two places to set one rule is two places to disagree.
+    filters: { ...filters },
+    browser: BROWSER_NAME,
   };
 }
 
@@ -1065,6 +1228,7 @@ chrome.tabs.onRemoved.addListener((tabId) => {
 
   captureTabIds.delete(tabId);
   captureTabMeta.delete(tabId);
+  captureTabSince.delete(tabId);
   capturedCounts.delete(tabId);
   capturedLastAt.delete(tabId);
 

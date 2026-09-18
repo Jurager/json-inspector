@@ -51,6 +51,15 @@ const (
 	// orphans every install that came before — a new folder is created, and the old one, with all the
 	// history in it, is left behind.
 	DataDirName = "json-inspector"
+
+	// DefaultServer is the account server this build signs in to until somebody names another one: the
+	// one an account is made on, and the one a self-hosted deployment replaces with its own. It
+	// answers locally while the server is something this repository builds; it becomes the cloud's
+	// address when there is a cloud.
+	//
+	// Unlike everything above, no packaging file carries this text — it is read by this program alone,
+	// which is why it lives here and not in the manifest table.
+	DefaultServer = "http://localhost:8080"
 )
 
 // Version and Build are stamped into the binary at build time rather than written in the source:

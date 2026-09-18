@@ -303,13 +303,13 @@ func (u *UseCase) stateOf(ctx context.Context, draft domain.Draft) (State, error
 	}, nil
 }
 
-// fresh is what a window with no stored draft starts on: the Accept header every JSON:API request
-// needs. It is a row like any other, which is why the scenario and not the type puts it there.
+// fresh is what a window with no stored draft starts on: a GET with nothing written in it. It used
+// to seed a row — `Accept: application/vnd.api+json`, the type a JSON:API service wants — and that
+// turned out to be a guess about the next request rather than a part of it: anyone sending
+// elsewhere deleted the row first, every time. A header nobody asked for is the window writing the
+// request for the user, and it is wrong as often as it is right.
 func (u *UseCase) fresh() domain.Draft {
 	draft := domain.NewDraft()
 	draft.ID = domain.DraftCommandLine
-	draft.Headers = []domain.Row{
-		{ID: u.ids(), Name: "Accept", Value: "application/vnd.api+json", Enabled: true},
-	}
 	return draft
 }

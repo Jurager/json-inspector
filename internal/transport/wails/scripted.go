@@ -27,8 +27,9 @@ func (m requestMask) Mask(
 	sent domain.ScriptRequest,
 ) (record.Masked, error) {
 	// What a script handed back has already been substituted — it is a rewrite of the request that
-// went out — so there is no level above it left to answer.
-	prepared, err := m.drafts.Prepare(ctx, draft.Seed{
+	// went out — so there is no level above it left to answer, and nothing here refuses: the request
+	// has left already, and its braces are its own text.
+	prepared, err := m.drafts.Mask(ctx, draft.Seed{
 		Method:   sent.Method,
 		URL:      sent.URL,
 		Body:     in.Body,
@@ -36,7 +37,7 @@ func (m requestMask) Mask(
 		Form:     in.Form,
 		BodyFile: in.BodyFile,
 		Headers:  sent.Headers,
-	}, nil)
+	})
 	if err != nil {
 		return record.Masked{}, err
 	}

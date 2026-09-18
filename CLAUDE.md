@@ -51,4 +51,5 @@ and `vue-tsc` will not catch it. So the bindings are regenerated in the same cha
 | Event names and types          | `internal/transport/wails/events.go` (the only place)                                                                                         |
 | The request engine             | `internal/infra/httpx`                                                                                                                        |
 | The script sandbox             | `internal/infra/scriptengine` (goja)                                                                                                          |
+| The contracts                  | `github.com/Jurager/json-inspector-proto` — their own repository, taken by version (all of them: the account is the first); a local `go.work` (in `.gitignore`) bridges to a checkout beside this one when both are edited together |
 | The design handoff             | `design_handoff_json_inspector/`                                                                                                              |

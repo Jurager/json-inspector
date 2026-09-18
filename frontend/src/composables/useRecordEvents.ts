@@ -56,6 +56,20 @@ export function useRecordEvents(
         else holdAnswer(id, { failed: true })
       }),
 
+      // A history thrown away — the settings window's "clear history now". Nothing else reloads this
+      // list, so a window that ignored the news would go on drawing rows the database no longer has.
+      //
+      // A list that knows it is another space's is left alone: its rows are still there, and reading
+      // the database again would only cost. Both sides have to be known for that — a window whose own
+      // space is not named yet reads anyway, because the read is about the workspace Go has on
+      // screen, which is the one that was just cleared.
+      Events.On('history:cleared', (ev) => {
+        if (store.workspaceId && ev.data.workspaceId && ev.data.workspaceId !== store.workspaceId) {
+          return
+        }
+        void store.load()
+      }),
+
       // A run of a collection: one event per request it reaches, and the finished run with its
       // counters — which is what the overview draws, and what the status bar counts.
       Events.On('collection:run-progress', (ev) => {

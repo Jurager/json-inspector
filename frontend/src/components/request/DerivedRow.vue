@@ -76,7 +76,12 @@ function syncCellScroll(e: Event) {
         aria-hidden="true"
       >
         <template v-for="(seg, si) in tokenSegments(row.value)" :key="si">
-          <VarToken v-if="seg.tokenName" :name="seg.tokenName" :offset="seg.start" />
+          <VarToken
+            v-if="seg.tokenName"
+            :name="seg.tokenName"
+            :text="seg.text"
+            :offset="seg.start"
+          />
           <span v-else>{{ seg.text }}</span>
         </template>
       </span>
@@ -88,7 +93,7 @@ function syncCellScroll(e: Event) {
       :hint="t('request.auth.derivedRemove')"
       @click.stop="emit('remove')"
     >
-      <Icon name="trash" :size="13" />
+      <Icon name="trash" :size="14" :stroke-width="1.8" />
     </IconButton>
   </div>
 </template>
@@ -99,7 +104,7 @@ function syncCellScroll(e: Event) {
 /* The same grid the rows around it stand on — the columns have to line up with theirs, which is the
    whole reason this row is drawn at all. */
 .row {
-  @apply grid grid-cols-[24px_160px_minmax(0,1fr)_28px] gap-2 items-center h-[38px] px-1.5 rounded-lg;
+  @apply grid grid-cols-[24px_160px_minmax(0,1fr)_28px] gap-2 items-center h-[34px] px-1.5 rounded-lg;
 }
 
 /* The mark is the checkbox column of the rows around it. A projected row is not switched on and off,
@@ -109,12 +114,12 @@ function syncCellScroll(e: Event) {
 }
 
 .row-text {
-  @apply min-w-0 text-[13.5px] truncate;
+  @apply min-w-0 text-[13px] truncate;
   color: var(--text-secondary);
 }
 
 .row-input {
-  @apply min-w-0 bg-transparent border-0 outline-none text-[13.5px] p-0 rounded-sm;
+  @apply min-w-0 bg-transparent border-0 outline-none text-[13px] p-0 rounded-sm;
   font-family: var(--mono);
   color: var(--text);
 }

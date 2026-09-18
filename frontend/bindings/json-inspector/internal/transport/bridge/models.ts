@@ -12,4 +12,21 @@ export interface CaptureState {
     "paused": boolean;
     "tabs": number;
     "browser": string;
+
+    /**
+     * TabList is what Tabs counts, one entry each: which tabs are under capture and since when. It is
+     * a second field rather than a richer Tabs because a frame already on the wire is a promise: an
+     * app that is one version behind reads the count and knows no better, and a window that knows the
+     * times can say since when.
+     */
+    "tabList"?: TabState[] | null;
+}
+
+/**
+ * TabState is one tab under capture. Since is unix milliseconds, the moment the tab was armed — not
+ * the time of its first request, which is a different and much later thing.
+ */
+export interface TabState {
+    "tabId": number;
+    "since": number;
 }

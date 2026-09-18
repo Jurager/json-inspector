@@ -163,7 +163,7 @@ function openRelated() {
 }
 
 .inspector-title {
-  @apply text-[13.5px] font-semibold;
+  @apply text-[13px] font-semibold;
 }
 
 /* The handoff's own close for this panel: 28 square rather than the 24 of the small button. Reached
@@ -193,18 +193,18 @@ function openRelated() {
 }
 
 .block-path {
-  @apply text-[13.5px] text-text break-all;
+  @apply text-[13px] text-text break-all;
   line-height: 1.5;
   font-family: var(--mono);
 }
 
 .block-text {
-  @apply text-[13.5px] text-text-secondary;
+  @apply text-[13px] text-text-secondary;
   line-height: 1.5;
 }
 
 .schema-row {
-  @apply flex items-center gap-[9px] text-[13.5px] text-text;
+  @apply flex items-center gap-[9px] text-[13px] text-text;
 }
 
 .dot {
@@ -220,7 +220,7 @@ function openRelated() {
 }
 
 .inspector-action {
-  @apply block w-full text-left h-9 px-3 rounded-lg text-[13.5px] cursor-pointer;
+  @apply block w-full text-left h-9 px-3 rounded-lg text-[13px] cursor-pointer;
   border: 1px solid var(--border-strong);
   background: var(--bg-inset);
   color: var(--text);

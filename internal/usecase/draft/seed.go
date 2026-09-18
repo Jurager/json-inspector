@@ -63,6 +63,9 @@ func (u *UseCase) Prepared(
 	if err != nil {
 		return Prepared{}, err
 	}
+	if err := u.refuseUnresolved(ctx, draft, inherits, above); err != nil {
+		return Prepared{}, err
+	}
 	return u.prepare(ctx, draft, inherits, above)
 }
 
@@ -74,6 +77,25 @@ func (u *UseCase) Prepare(
 	seed Seed,
 	above []domain.Variable,
 ) (Prepared, error) {
+	draft := u.draftOfSeed(seed)
+	if err := u.refuseUnresolved(ctx, draft, nil, above); err != nil {
+		return Prepared{}, err
+	}
+	return u.prepare(ctx, draft, nil, above)
+}
+
+// Mask re-renders a request a script handed back: it has been resolved once already, and what is
+// asked of it here is only the copy that is written down, with a secret left as its mask. It is not
+// Prepare for that reason — a request that has been filled in has no level over it left to answer,
+// and reading its braces again would refuse a request that is already on the wire over text a value
+// of its own happened to carry.
+func (u *UseCase) Mask(ctx context.Context, seed Seed) (Prepared, error) {
+	return u.prepare(ctx, u.draftOfSeed(seed), nil, nil)
+}
+
+// draftOfSeed is a seed seen as a draft: what a request from outside looks like once it is being
+// handled like one the window typed.
+func (u *UseCase) draftOfSeed(seed Seed) domain.Draft {
 	draft := domain.Draft{
 		Method:   seed.Method,
 		URL:      seed.URL,
@@ -90,7 +112,7 @@ func (u *UseCase) Prepare(
 	if len(draft.Cookies) == 0 {
 		draft.Cookies = cookiesFromHeaders(seed.Headers)
 	}
-	return u.prepare(ctx, draft, nil, above)
+	return draft
 }
 
 // withRowIDs gives every row an id. A draft that came from somewhere else — a saved request — has

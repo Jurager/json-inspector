@@ -6,6 +6,15 @@
 import * as domain$0 from "../../domain/models.js";
 
 /**
+ * HistoryCleared says whose history went, because every open window has to decide whether the
+ * list it draws is the one that was cleared.
+ */
+export interface HistoryCleared {
+    "workspaceId": string;
+    "removed": number;
+}
+
+/**
  * ImportReport says what the import did, so the log and the UI can mention it once.
  */
 export interface ImportReport {

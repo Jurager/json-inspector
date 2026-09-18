@@ -23,10 +23,12 @@ import Workspace from './components/layout/Workspace.vue'
 import StatusBar from './components/layout/StatusBar.vue'
 import EnvironmentsSheet from './components/environments/EnvironmentsSheet.vue'
 import SearchPalette from './components/search/SearchPalette.vue'
-import WorkspaceCreateDialog from './components/workspaces/WorkspaceCreateDialog.vue'
-import WorkspaceSettingsDialog from './components/workspaces/WorkspaceSettingsDialog.vue'
+import WorkspacesSheet from './components/workspaces/WorkspacesSheet.vue'
 import UnsavedChangesDialog from './components/collections/UnsavedChangesDialog.vue'
 import UnsavedLineDialog from './components/request/UnsavedLineDialog.vue'
+import SignInModal from './components/settings/SignInModal.vue'
+import SignOutSheet from './components/settings/SignOutSheet.vue'
+import { useAccount } from './composables/useAccount'
 import Toast from './components/ui/Toast.vue'
 import { Button } from './components/ui/button'
 
@@ -40,6 +42,17 @@ const envStore = useEnvironmentsStore()
 const search = useSearchStore()
 const workspaces = useWorkspacesStore()
 const { availableUpdate } = useUpdates()
+const {
+  state: accountState,
+  signInOpen,
+  signOutOpen,
+  beginSignIn,
+  cancelSignIn,
+  closeSignIn,
+  closeSignOut,
+  signOut,
+} = useAccount()
+const account = computed(() => accountState.value?.account ?? null)
 
 // Without a database every other call fails, and this is the one screen that can say why instead of
 // leaving a window full of empty panels.
@@ -136,18 +149,20 @@ function closeSheet() {
        comes and goes with a `v-if` loses the animation that closes it. -->
   <SearchPalette v-if="startup?.ready" :open="search.open" @close="search.close()" />
 
-  <!-- The two workspace cards float over the window, as the mockup draws them: same fields, same
-       segment and same destructive link as the sheets the app already has. -->
-  <WorkspaceCreateDialog
-    v-if="startup?.ready"
-    :open="workspaces.createOpen"
-    @close="workspaces.closeCards()"
+  <!-- The manager window, in the same frame as the environments one: the spaces on the left, the
+       form or the space itself on the right. -->
+  <WorkspacesSheet v-if="startup?.ready && workspaces.sheetOpen" @close="workspaces.closeSheet()" />
+
+  <!-- The account's two dialogs hang off the window root and not off the rail: the rail draws a
+       material, and a fixed overlay inside it would cover the rail instead of the window. -->
+  <SignInModal
+    v-if="startup?.ready && signInOpen"
+    :server="account?.server ?? ''"
+    @begin="beginSignIn"
+    @cancel="cancelSignIn"
+    @close="closeSignIn()"
   />
-  <WorkspaceSettingsDialog
-    v-if="startup?.ready"
-    :open="workspaces.settingsOpen"
-    @close="workspaces.closeCards()"
-  />
+  <SignOutSheet v-if="startup?.ready && signOutOpen" @close="closeSignOut()" @confirm="signOut()" />
 
   <!-- One alert for the whole window: what asks to leave a card with unsaved edits is not always
        the same view. -->
@@ -168,17 +183,17 @@ function closeSheet() {
 }
 
 .startup-title {
-  @apply text-[15px] font-semibold text-text;
+  @apply text-[14px] font-semibold text-text;
 }
 
 .startup-hint {
-  @apply text-[12.5px] text-text-secondary text-center max-w-[420px];
+  @apply text-[13px] text-text-secondary text-center max-w-[420px];
 }
 
 /* Machine text, so it gets the mono face and a scroll of its own rather than wrapping the
    window into a wall of text. */
 .startup-detail {
-  @apply max-w-[520px] max-h-[160px] overflow-auto text-[11.5px] text-text-tertiary;
+  @apply max-w-[520px] max-h-[160px] overflow-auto text-[12px] text-text-tertiary;
   font-family: var(--mono);
   background: var(--bg-inset);
   border: 1px solid var(--border);

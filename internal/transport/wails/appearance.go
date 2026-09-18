@@ -51,6 +51,12 @@ func (h *Host) tint(theme domain.Theme) {
 // which no IPC call can do. Both windows share one stylesheet, so the flag is what makes the same
 // page the ground of one window and the glass of another.
 func (h *Host) windowQuery(translucent bool) string {
+	return encodeQuery(h.windowParams(translucent))
+}
+
+// windowParams is the frame's own choices, kept apart from the string they are written as: a window
+// that needs one more thing on its address — the preferences window's category — adds it here.
+func (h *Host) windowParams(translucent bool) url.Values {
 	query := url.Values{}
 	if theme, _ := h.theme.Load().(string); theme != "" {
 		query.Set("theme", theme)
@@ -61,6 +67,12 @@ func (h *Host) windowQuery(translucent bool) string {
 	if translucent {
 		query.Set("translucent", "1")
 	}
+	return query
+}
+
+// encodeQuery writes parameters as an address suffix, or as nothing at all: an address ending in a
+// bare "?" is one a page has to be careful with, and most windows ask for nothing.
+func encodeQuery(query url.Values) string {
 	if len(query) == 0 {
 		return ""
 	}

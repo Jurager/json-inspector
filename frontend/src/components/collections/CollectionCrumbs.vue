@@ -70,6 +70,6 @@ const edited = computed(() => {
 }
 
 .edited {
-  @apply flex-none text-[12.5px];
+  @apply flex-none text-[13px];
 }
 </style>

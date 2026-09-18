@@ -387,7 +387,6 @@ function renderOpenButton(state) {
 
 const SETTING_INPUTS = [
   'set-rememberTabs',
-  'set-xhrOnly',
 ];
 
 function renderSettings(state) {
@@ -408,6 +407,49 @@ function renderSettings(state) {
     $(id).checked = Boolean(
         state.settings?.[key]
     );
+  }
+
+  renderFilters(state.filters);
+}
+
+// The rules the app filters by, listed as they are: the popup is where somebody looks to find out why
+// a request they expected is not here, and «фильтры в приложении» is not an answer to that.
+function renderFilters(filters) {
+  const box = $('filters');
+
+  if (!box || !filters) {
+    return;
+  }
+
+  const rows = [
+    [
+      'Хосты',
+      filters.hosts?.length ? filters.hosts.join(', ') : 'все',
+    ],
+    ['Статические файлы', filters.static ? 'пропускаются' : 'сохраняются'],
+    ['Аналитика и трекеры', filters.analytics ? 'пропускаются' : 'сохраняются'],
+    ['Только JSON', filters.json ? 'да' : 'нет'],
+  ];
+
+  box.textContent = '';
+
+  for (const [name, value] of rows) {
+    const row = document.createElement('div');
+
+    row.className = 'filter-row';
+
+    const key = document.createElement('span');
+
+    key.className = 'filter-name';
+    key.textContent = name;
+
+    const val = document.createElement('span');
+
+    val.className = 'filter-value mono';
+    val.textContent = value;
+
+    row.append(key, val);
+    box.append(row);
   }
 }
 

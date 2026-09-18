@@ -95,6 +95,36 @@ func (u *UseCase) Clear(ctx context.Context, ids []string) error {
 	return u.store.DeleteRecords(ctx, ids)
 }
 
+// ClearAll throws away the whole history of the space on screen and reports how many records went.
+// It is the settings screen's "clear history now": what it clears is what the panel beside it
+// draws, which is one workspace's, not the database's.
+//
+// Every window hears about it. The window that asked redraws its numbers from the answer, and the
+// window that draws the list has rows in front of it that the database no longer holds.
+func (u *UseCase) ClearAll(ctx context.Context) (int, error) {
+	workspace, err := u.scope.ActiveWorkspace(ctx)
+	if err != nil {
+		return 0, err
+	}
+	removed, err := u.store.DeleteAllRecords(ctx, workspace)
+	if err != nil {
+		return removed, err
+	}
+	u.notifier.Publish(TopicHistoryCleared, HistoryCleared{WorkspaceID: workspace, Removed: removed})
+	return removed, nil
+}
+
+// History is what the space on screen is holding, counted for the line beside the button that
+// clears it. The active workspace is read here rather than handed in, the same way pruning reads
+// it: the window says "this space", and this feature is what knows which one that is.
+func (u *UseCase) History(ctx context.Context) (domain.HistoryStats, error) {
+	workspace, err := u.scope.ActiveWorkspace(ctx)
+	if err != nil {
+		return domain.HistoryStats{}, err
+	}
+	return u.store.HistoryStats(ctx, workspace)
+}
+
 // A body the sender had to cut short says so: the window then offers to fetch the rest rather
 // than drawing half a document as if it were all of it.
 func bodyRef(text string, truncated bool) *domain.BodyRef {

@@ -43,11 +43,36 @@ const (
 	CodeUnknownListSide    Code = "unknownListSide"
 	CodeUnknownRetention   Code = "unknownRetention"
 	CodeUnknownChannel     Code = "unknownUpdateChannel"
-	CodePersonalWorkspace  Code = "personalWorkspace"
-	CodeWorkspaceMissing   Code = "workspaceMissing"
+	// The workspace the app is born with was the one that could not be deleted, and the rule is about
+	// number now: the app has to have somewhere to keep its data, so the last space may not go —
+	// whichever one it happens to be.
+	CodeLastWorkspace    Code = "lastWorkspace"
+	CodeWorkspaceMissing Code = "workspaceMissing"
 	// A collection leaves the machine — it is exported, duplicated and handed on — so a secret has
 	// no place in one, and this is the refusal that says so.
 	CodeVariableSecret Code = "variableSecret"
+	// An environment the user has closed to editing. The flag is a promise about the whole side, not
+	// about the button somebody happened to press, so the write itself is what refuses.
+	CodeEnvironmentReadOnly Code = "environmentReadOnly"
+	// A request that names a `{{token}}` nothing answers. It is a refusal rather than a request with
+	// braces in its address: the server would read `{{var3}}` as a path and answer something wrong,
+	// and a run that reported that answer would be reporting a request nobody meant to send.
+	CodeVariableMissing Code = "variableMissing"
+
+	// The account. What can go wrong with the other side of the wire is narrower than it looks: the
+	// server either answers, refuses, or is not there — and the three are told apart because the
+	// person's next move is different in each case.
+	//
+	// CodeServerUnreachable is the one that must never be an exception or a hang: the app is a local
+	// tool first, and a server that is down or a laptop that is offline is an ordinary state, not a
+	// broken install.
+	CodeNotSignedIn       Code = "notSignedIn"
+	CodeServerUnreachable Code = "serverUnreachable"
+	CodeServerRefused     Code = "serverRefused"
+	CodeSessionUnknown    Code = "sessionUnknown"
+	// A sign-in that ends in nothing: the code ran out, the person said no, or the app was closed
+	// while the browser was open. The next move is the same in all three — try again.
+	CodeSignInFailed Code = "signInFailed"
 )
 
 // Args are the values a code's sentence interpolates. Strings because that is what a message

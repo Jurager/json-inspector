@@ -1,317 +1,85 @@
 <script setup lang="ts">
-import { computed, nextTick, ref, watch, type ComponentPublicInstance } from 'vue'
+import { computed } from 'vue'
 import Icon from '../ui/Icon.vue'
-import { Button, IconButton } from '../ui/button'
-import DeleteEnvDialog from './DeleteEnvDialog.vue'
-import ImportDialog from './ImportDialog.vue'
-import { useEnvironmentsStore, type ImportChoice } from '../../stores/environments'
-import { useRequestsStore } from '../../stores/requests'
-import { parseTokens } from '../../lib/vars'
-import { EnvironmentsService } from '../../../bindings/json-inspector/internal/transport/wails'
-import type { Variable } from '../../../bindings/json-inspector/internal/domain'
-import { useSheetNotice } from '../../composables/useSheetNotice'
+import { useEnvironmentsStore } from '../../stores/environments'
+import { GLOBALS_COLOR, initialOf, tintOf } from './palette'
 import { useMessages } from '../../i18n'
 
-const envStore = useEnvironmentsStore()
-const reqStore = useRequestsStore()
-const { setNotice, clearNotice } = useSheetNotice()
+// The rail: which set of variables the pane beside it is about. A row is a name, the colour it wears
+// and a line saying what is in it; a new environment is made from the button underneath, which is the
+// only thing this rail does besides choosing. While that button has been pressed the whole rail is
+// out of the way, so the button is never on screen in a state of its own.
+const emit = defineEmits<{ (e: 'select', id: string | null): void; (e: 'create'): void }>()
 
+const envStore = useEnvironmentsStore()
 const { t } = useMessages()
 
-const envId = computed(() => envStore.editedEnvId)
-const env = computed(() => envStore.environments.find((e) => e.id === envId.value) ?? null)
-const isGlobals = computed(() => envId.value === null)
-
-const renamingId = ref<string | null>(null)
-const envNameDraft = ref('')
-const renameInput = ref<HTMLInputElement | null>(null)
-const renameInvalid = ref(false)
-
-function setRenameInput(el: Element | ComponentPublicInstance | null) {
-  renameInput.value = (el as HTMLInputElement | null) ?? null
+interface Row {
+  id: string | null
+  name: string
+  color: string
+  count: number
+  readonly: boolean
+  active: boolean
 }
 
-async function addEnv() {
-  const id = await envStore.addEnv()
-  envStore.editEnv(id)
-  startRename(id, { selectAll: true })
+const rows = computed<Row[]>(() => [
+  ...envStore.environments.map((e) => ({
+    id: e.id as string | null,
+    name: e.name,
+    color: e.color ?? '',
+    count: e.vars.length,
+    readonly: e.readonly,
+    active: e.id === envStore.activeId,
+  })),
+  // The globals are a row of the same list and not a section of their own: they are the scope that
+  // applies everywhere, and a name to look at like any other.
+  {
+    id: null,
+    name: t('environments.globals'),
+    color: GLOBALS_COLOR,
+    count: envStore.globals.length,
+    readonly: false,
+    active: false,
+  },
+])
+
+// What the second line says: how much is in it, and then the one thing about it that is not a count
+// — whether requests are being sent with it, or whether it is closed to editing.
+function metaOf(row: Row): string {
+  const count = t('counts.variables', row.count)
+  if (row.active) return count + t('environments.activeMark')
+  if (row.readonly) return count + t('environments.readonlyMark')
+  return count
 }
-
-function startRename(id: string, { selectAll = false } = {}) {
-  const target = envStore.environments.find((e) => e.id === id)
-  if (!target) return
-  renamingId.value = id
-  envNameDraft.value = target.name
-  clearNotice()
-  renameInvalid.value = false
-  nextTick(() => {
-    renameInput.value?.focus()
-    if (selectAll) renameInput.value?.select()
-  })
-}
-
-function commitRename(): boolean {
-  const id = renamingId.value
-  if (!id) return false
-  const name = envNameDraft.value.trim()
-  const others = envStore.environments.filter((e) => e.id !== id)
-  if (!name || others.some((e) => e.name === name)) {
-    renameInvalid.value = true
-    setNotice(!name ? t('environments.nameEmpty') : t('environments.nameTaken'))
-    renameInput.value?.focus()
-    return false
-  }
-  envStore.renameEnv(id, name)
-  renamingId.value = null
-  renameInvalid.value = false
-  clearNotice()
-  return true
-}
-
-function commitRenameFrom(id: string) {
-  if (renamingId.value !== id) return
-  commitRename()
-}
-
-function cancelRename() {
-  renamingId.value = null
-  renameInvalid.value = false
-  clearNotice()
-}
-
-function renameNext(direction: 'prev' | 'next') {
-  const list = envStore.environments
-  const at = list.findIndex((e) => e.id === renamingId.value)
-  const step = direction === 'prev' ? -1 : 1
-  const next = list[at + step]
-  if (!next) {
-    cancelRename()
-    return
-  }
-  if (commitRename()) startRename(next.id, { selectAll: true })
-}
-
-function onRenameKeydown(e: KeyboardEvent) {
-  e.stopPropagation()
-  if (e.key === 'Enter') {
-    e.preventDefault()
-    commitRename()
-  } else if (e.key === 'Escape') {
-    e.preventDefault()
-    cancelRename()
-  } else if (e.key === 'Tab') {
-    e.preventDefault()
-    renameNext(e.shiftKey ? 'prev' : 'next')
-  }
-}
-
-function onEnvRowEnter(id: string) {
-  if (envStore.editedEnvId === id) startRename(id, { selectAll: true })
-  else envStore.editEnv(id)
-}
-
-const confirmingEnvId = ref<string | null>(null)
-
-// Kept mounted with the last known id/entries through the close animation — an outer `v-if` on
-// `confirmingEnvId`/`importEntries` going to null would unmount the dialog before reka-ui's own
-// close animation gets to run (same fix as RequestBuilder's `displayedChip`).
-const displayedConfirmingId = ref<string | null>(null)
-watch(confirmingEnvId, (id) => {
-  if (id) displayedConfirmingId.value = id
-})
-
-const displayedConfirmingName = computed(
-  () => envStore.environments.find((e) => e.id === displayedConfirmingId.value)?.name ?? ''
-)
-
-function isNameReferenced(name: string): boolean {
-  const texts: string[] = [reqStore.url, reqStore.body]
-  for (const p of reqStore.params) texts.push(p.name, p.value)
-  for (const h of reqStore.headers) texts.push(h.name, h.value)
-  // History keeps a record's URL and headers in full but not its bodies — a body stays in the
-  // database until something opens it — so a name that only ever appeared inside one is missed
-  // here. That is a hint not given, not a wrong answer.
-  for (const r of reqStore.records) {
-    texts.push(r.url)
-    for (const h of r.requestHeaders ?? []) texts.push(h.name, h.value)
-  }
-  return texts.some((t) => t && parseTokens(t).some((tok) => tok.name === name))
-}
-
-function askRemove(id: string) {
-  const target = envStore.environments.find((e) => e.id === id)
-  if (!target) return
-  if (target.vars.some((v) => isNameReferenced(v.name))) {
-    confirmingEnvId.value = id
-    return
-  }
-  removeEnv(id)
-}
-
-function removeEnv(id: string) {
-  envStore.removeEnv(id)
-  confirmingEnvId.value = null
-  // Deleting what you were looking at leaves the sheet with nothing to show.
-  if (envStore.editedEnvId === id) envStore.editEnv(envStore.environments[0]?.id ?? null)
-}
-
-// The file is read in the webview, not through a Go binding: parsing a text file needs no backend.
-const fileInput = ref<HTMLInputElement | null>(null)
-const importEntries = ref<ImportChoice[] | null>(null)
-
-const displayedImportEntries = ref<ImportChoice[] | null>(null)
-watch(importEntries, (entries) => {
-  if (entries) displayedImportEntries.value = entries
-})
-
-function pickFile() {
-  if (isGlobals.value) return
-  fileInput.value?.click()
-}
-
-async function onFileChosen(e: Event) {
-  const input = e.target as HTMLInputElement
-  const file = input.files?.[0]
-  // Reset immediately, so choosing the same file twice still fires a change.
-  input.value = ''
-  if (!file) return
-  // Reading the file is Go's job: the window shows what it found and lets the user decide.
-  const entries = await EnvironmentsService.ParseDotenv(await file.text())
-  // Conflicts default to "skip": an import must never overwrite a hand-set value without saying so
-  // on the row.
-  importEntries.value = (entries ?? []).map((entry) => ({
-    ...entry,
-    mode: existingNames.value.has(entry.name) ? ('skip' as const) : ('replace' as const),
-  }))
-}
-
-const existingNames = computed(
-  () => new Set(envStore.rowsFor(envId.value).own.map((v: Variable) => v.name))
-)
-
-const importCount = computed(
-  () =>
-    displayedImportEntries.value?.filter((e) => e.mode === 'replace' || !existingNames.value.has(e.name)).length ?? 0
-)
-
-function importEntriesIntoEnv() {
-  if (importEntries.value) void envStore.importDotenv(envId.value, importEntries.value)
-  importEntries.value = null
-}
-
-function cancelTop(): boolean {
-  if (renamingId.value) {
-    cancelRename()
-    return true
-  }
-  if (importEntries.value) {
-    importEntries.value = null
-    return true
-  }
-  if (confirmingEnvId.value) {
-    confirmingEnvId.value = null
-    return true
-  }
-  return false
-}
-
-defineExpose({ cancelTop })
 </script>
 
 <template>
   <div class="sheet-side">
-    <div class="side-label">{{ t('environments.title') }}</div>
-    <div
-      v-for="e in envStore.environments"
-      :key="e.id"
-      class="side-row"
-      :class="{ active: e.id === envStore.editedEnvId }"
-      role="button"
-      tabindex="0"
-      :title="t('environments.renameHint')"
-      @click="envStore.editEnv(e.id)"
-      @keydown.enter="onEnvRowEnter(e.id)"
-      @dblclick="startRename(e.id, { selectAll: true })"
-    >
-      <span class="side-dot" :class="{ on: e.id === envStore.activeId }"></span>
-      <input
-        v-if="renamingId === e.id"
-        :ref="setRenameInput"
-        v-model="envNameDraft"
-        class="side-rename"
-        :class="{ invalid: renameInvalid }"
-        maxlength="40"
-        spellcheck="false"
-        @click.stop
-        @keydown="onRenameKeydown"
-        @blur="commitRenameFrom(e.id)"
-      />
-      <span v-else class="side-name">{{ e.name }}</span>
-      <Icon v-if="e.readonly" name="lock" :size="11" class="side-lock" />
-      <span v-else class="side-count mono">{{ e.vars.length }}</span>
+    <div class="side-rows">
+      <button
+        v-for="row in rows"
+        :key="row.id ?? 'globals'"
+        type="button"
+        class="side-row"
+        :class="{ active: row.id === envStore.editedEnvId }"
+        @click="emit('select', row.id)"
+      >
+        <span class="avatar" :style="{ background: tintOf(row.color) }">{{ initialOf(row.name) }}</span>
+        <span class="side-text">
+          <span class="side-name">{{ row.name }}</span>
+          <span class="side-meta">{{ metaOf(row) }}</span>
+        </span>
+        <Icon v-if="row.readonly" name="lock" :size="12" class="side-lock" />
+      </button>
     </div>
-
-    <div class="side-divider"></div>
-
-    <button
-      class="side-row"
-      :class="{ active: envStore.editedEnvId === null }"
-      @click="envStore.editEnv(null)"
-    >
-      <span class="side-dot"></span>
-      <span class="side-name">{{ t('environments.globals') }}</span>
-      <span class="side-count mono">{{ envStore.globals.length }}</span>
-    </button>
-
-    <div class="side-spacer"></div>
 
     <div class="side-foot">
-      <IconButton variant="bare" :hint="t('environments.new')" @click="addEnv">
-        <Icon name="plus" :size="16" />
-      </IconButton>
-      <IconButton
-        variant="bare"
-        :hint="t('environments.delete')"
-        :disabled="isGlobals"
-        @click="isGlobals || askRemove(envStore.editedEnvId as string)"
-      >
-        <Icon name="trash" :size="13" />
-      </IconButton>
-      <span class="side-foot-spacer"></span>
-      <input
-        ref="fileInput"
-        type="file"
-        accept=".env,text/plain"
-        class="file-input"
-        @change="onFileChosen"
-      />
-      <Button
-        variant="quiet"
-        :disabled="isGlobals"
-        :title="isGlobals ? t('environments.importIntoSelected') : undefined"
-        @click="pickFile"
-      >
-        Импорт .env
-      </Button>
+      <button type="button" class="side-new" @click="emit('create')">
+        <Icon name="plus" :size="14" :stroke-width="2.2" />
+        {{ t('environments.new') }}
+      </button>
     </div>
-
-    <ImportDialog
-      v-if="displayedImportEntries"
-      :open="importEntries !== null"
-      :entries="displayedImportEntries"
-      :existing-names="existingNames"
-      :target-name="env?.name ?? t('environments.globals')"
-      :count="importCount"
-      @cancel="importEntries = null"
-      @apply="importEntriesIntoEnv"
-    />
-    <DeleteEnvDialog
-      v-if="displayedConfirmingId"
-      :open="confirmingEnvId !== null"
-      :name="displayedConfirmingName"
-      @cancel="confirmingEnvId = null"
-      @confirm="removeEnv(displayedConfirmingId)"
-    />
   </div>
 </template>
 
@@ -319,18 +87,23 @@ defineExpose({ cancelTop })
 @reference "../../style.css";
 
 .sheet-side {
-  @apply flex-none w-[232px] flex flex-col p-2 pb-0 border-r;
+  @apply flex-none w-[236px] flex flex-col p-2 pb-0 border-r;
   background: var(--glass-sheet-side);
-  border-color: var(--glass-overlay-border);
+  border-color: var(--border);
 }
 
-.side-label {
-  @apply pt-1.5 px-2 pb-1.5 text-[10px] uppercase tracking-[0.08em] text-text-tertiary;
+/* The rows scroll and the button does not: a workspace with twenty environments would otherwise
+   push the way to make another one off the leaf. No gap between them — the drawing leaves none, and
+   a gap turns one block of names into a list of separate things. */
+.side-rows {
+  @apply flex-1 min-h-0 overflow-y-auto flex flex-col;
 }
 
 .side-row {
-  @apply flex items-center gap-2 w-full h-[30px] px-2 border-none rounded-md bg-transparent text-text text-[13px] text-left cursor-pointer;
-  font: inherit;
+  @apply flex items-center gap-2.5 w-full text-left border-0 rounded-lg
+         bg-transparent cursor-pointer text-text;
+  font-family: inherit;
+  padding: 8px 9px;
   --wails-draggable: no-drag;
 }
 
@@ -339,67 +112,58 @@ defineExpose({ cancelTop })
 }
 
 .side-row.active {
-  @apply bg-accent-soft font-semibold;
+  @apply bg-accent-soft;
 }
 
-.side-row:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: -2px;
+/* The avatar letters the tab groups of the history panel wear, at the size this rail asks for. */
+.avatar {
+  @apply flex-none inline-flex items-center justify-center w-[22px] h-[22px] rounded-md
+         text-white font-bold;
+  font-size: 11px;
+  /* The line box keeps room for the descenders a capital never reaches, so a single letter sits
+     about half of that below the middle of the square. Padding at the foot shrinks the box the line
+     is centred in, which lifts it by half the padding — and in em, so every size is the same. */
+  padding-bottom: 0.09em;
 }
 
-.side-dot {
-  @apply w-[7px] h-[7px] rounded-full flex-none;
-}
-
-.side-dot.on {
-  background: var(--green);
+.side-text {
+  @apply flex-1 min-w-0 flex flex-col gap-px;
 }
 
 .side-name {
-  @apply flex-1 min-w-0 overflow-hidden text-ellipsis whitespace-nowrap;
+  @apply text-[13px] overflow-hidden text-ellipsis whitespace-nowrap;
 }
 
-.side-rename {
-  @apply flex-1 min-w-0 h-[26px] box-border text-[13px] outline-none;
-  margin-left: -8px;
-  padding: 0 7px;
-  border-radius: 6px;
-  border: 1px solid var(--accent);
-  box-shadow: 0 0 0 3px var(--accent-soft);
-  background: var(--bg-panel);
-  color: var(--text);
+.side-row.active .side-name {
+  @apply font-semibold;
 }
 
-.side-rename.invalid {
-  border-color: color-mix(in srgb, var(--red) 45%, transparent);
-  box-shadow: 0 0 0 3px var(--red-soft);
-}
-
-.side-count {
-  @apply flex-none text-xs text-text-tertiary;
+.side-meta {
+  @apply text-[11px] text-text-tertiary overflow-hidden text-ellipsis whitespace-nowrap;
 }
 
 .side-lock {
   @apply flex-none text-text-tertiary;
 }
 
-.side-divider {
-  @apply h-px mx-1.5 my-2 bg-border;
-}
-
-.side-spacer {
-  @apply flex-1;
-}
-
+/* The same 48px bar as the panes' own feet, which is what keeps the button in it level with theirs:
+   10px of air around a 28px button puts its centre 24 above the bottom, and a 48px bar centring what
+   stands in it puts theirs 23.5 — half a pixel, which is a hairline nobody can see. */
 .side-foot {
-  @apply flex items-center gap-0.5 py-1.5 border-t border-border;
+  @apply flex-none;
+  padding: 10px 2px;
+  border-top: 1px solid color-mix(in srgb, var(--border) 60%, transparent);
 }
 
-.side-foot-spacer {
-  @apply flex-1;
+.side-new {
+  @apply flex items-center gap-[7px] h-7 px-2 border-0 rounded-md cursor-pointer
+         bg-transparent text-accent;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 500;
 }
 
-.file-input {
-  @apply hidden;
+.side-new:hover {
+  @apply bg-accent-soft;
 }
 </style>

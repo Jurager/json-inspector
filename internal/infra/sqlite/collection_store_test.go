@@ -59,29 +59,45 @@ func TestCollectionsReadsTheTreeNested(t *testing.T) {
 	}
 }
 
-// The page's read carries the address a tree row leaves out, and only the level it was asked about:
-// a request inside a collection that is inside this one is a row of that collection's own page.
-func TestLevelRowsCarryTheAddressOfOneLevel(t *testing.T) {
+// The page's read carries the address a tree row leaves out, and it carries every request inside
+// the collection rather than the level's own: the table is what running the collection would send,
+// and a run reaches the folders. The order is the walk's — a folder and the requests beside it are
+// one numbered sequence — and each row says which folder it came from.
+func TestContentRowsWalkTheWholeCollectionInTreeOrder(t *testing.T) {
 	store := newMigratedStore(t)
 	seedTree(t, store)
 
-	rows, err := store.LevelRows(context.Background(), "col-1")
+	rows, err := store.ContentRows(context.Background(), "col-1")
 	if err != nil {
-		t.Fatalf("LevelRows: %v", err)
+		t.Fatalf("ContentRows: %v", err)
 	}
-	if len(rows) != 1 || rows[0].ID != "r-2" {
-		t.Fatalf("rows = %+v, want this level's own request alone", rows)
+	// The fixture numbers the folder first and this level's own request second, so the folder's
+	// request comes first: a read that listed the level and then the folders would have it the other
+	// way round, and a report would draw a run in an order it never ran in.
+	if len(rows) != 2 || rows[0].ID != "r-1" || rows[1].ID != "r-2" {
+		t.Fatalf("rows = %+v, want the folder's request then this level's own", rows)
 	}
-	if rows[0].URL != "https://api.example.com/users/1" || rows[0].Method != "PATCH" {
-		t.Errorf("row = %+v, want the address and the method", rows[0])
+	if rows[0].Folder != "Админ" {
+		t.Errorf("folder = %q, want the folder the request sits in", rows[0].Folder)
+	}
+	// The level's own request belongs to no folder, which is what the page draws bare.
+	if rows[1].Folder != "" {
+		t.Errorf("folder = %q, want empty for this level's own request", rows[1].Folder)
+	}
+	if rows[0].URL != "https://api.example.com/users" || rows[0].Method != "GET" {
+		t.Errorf("row = %+v, want the address and the method the tree leaves out", rows[0])
 	}
 
-	nested, err := store.LevelRows(context.Background(), "f-1")
+	// A folder is asked for as a level of its own: what is under it, and nothing beside it.
+	nested, err := store.ContentRows(context.Background(), "f-1")
 	if err != nil {
-		t.Fatalf("LevelRows(nested): %v", err)
+		t.Fatalf("ContentRows(nested): %v", err)
 	}
 	if len(nested) != 1 || nested[0].ID != "r-1" || nested[0].Name != "Список" {
 		t.Errorf("rows = %+v, want the nested collection's own request", nested)
+	}
+	if nested[0].Folder != "" {
+		t.Errorf("folder = %q, want empty — the folder is the level being read", nested[0].Folder)
 	}
 }
 
@@ -642,5 +658,54 @@ func TestNodesSurviveACollectionRename(t *testing.T) {
 	// upsert leaves the placement alone, so a nested collection stays nested.
 	if tree[0].Children[0].ParentID != "col-1" {
 		t.Errorf("nested = %+v, want it still inside the collection", tree[0].Children[0])
+	}
+}
+
+// A refusal a row carried is read back with it: the page draws the words of a code, and a run
+// opened a week later has to say what the window said while it was going. A row the network failed
+// keeps its error and no code at all — that one belongs to the machine.
+func TestARunRowKeepsTheRefusalItCarried(t *testing.T) {
+	store := newMigratedStore(t)
+	ctx := context.Background()
+	seedTree(t, store)
+
+	run := domain.CollectionRun{
+		ID: "run-1", CollectionID: "col-1", NodeID: "f-1",
+		StartedAt: 1_700_000_000_000, Results: []domain.CollectionRunResult{},
+	}
+	if err := store.SaveRun(ctx, run); err != nil {
+		t.Fatalf("SaveRun: %v", err)
+	}
+
+	refusal := &domain.Failure{
+		Code: domain.CodeVariableMissing,
+		Args: domain.Args{"n": "1", "names": "var3"},
+	}
+	for _, result := range []domain.CollectionRunResult{
+		{NodeID: "r-1", Position: 0, OK: false, Error: refusal.Error(), Failure: refusal},
+		{NodeID: "r-2", Position: 1, OK: false, Error: "сервер не ответил"},
+	} {
+		if err := store.AppendRunResult(ctx, run.ID, result); err != nil {
+			t.Fatalf("AppendRunResult: %v", err)
+		}
+	}
+
+	last, found, err := store.LastRun(ctx, "col-1", "f-1")
+	if err != nil || !found {
+		t.Fatalf("LastRun = %v, %v", err, found)
+	}
+	if len(last.Results) != 2 {
+		t.Fatalf("run kept %d results, want 2", len(last.Results))
+	}
+	stored := last.Results[0].Failure
+	if stored == nil || stored.Code != domain.CodeVariableMissing {
+		t.Fatalf("first result = %+v, want the refusal it was written with", last.Results[0])
+	}
+	if stored.Args["names"] != "var3" || stored.Args["n"] != "1" {
+		t.Errorf("args = %+v, want the values the sentence interpolates", stored.Args)
+	}
+	if last.Results[1].Failure != nil {
+		t.Errorf("second result = %+v, want no code for a failure of the network's",
+			last.Results[1].Failure)
 	}
 }

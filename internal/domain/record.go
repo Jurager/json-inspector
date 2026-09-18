@@ -55,6 +55,17 @@ type PruneOptions struct {
 	MaxAge   time.Duration
 }
 
+// HistoryStats is what one workspace's history weighs: how many requests it holds and how many
+// bytes of bodies it keeps for them. It is a reading rather than a rule — what the settings screen
+// shows beside the button that throws it away, so nobody has to guess what "clear" costs.
+//
+// Bodies rather than the database file: the file is shared by every space, and a number that
+// counted the whole of it would change under a user who only captures in one.
+type HistoryStats struct {
+	Count int   `json:"count"`
+	Bytes int64 `json:"bytes"`
+}
+
 // RecordSummary is a record without the parts only the detail pane needs — what a list row draws.
 // The list reads the most rows, so it gets the least data.
 type RecordSummary struct {
