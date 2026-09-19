@@ -6,14 +6,25 @@ import { useHoverArrival } from '../../composables/useHoverArrival'
 import { Tooltip } from './tooltip'
 import { useMessages } from '../../i18n'
 
-const props = defineProps<{ name: string; text?: string; offset?: number }>()
+// envId is the environment the request this token sits in pinned itself to, when it has one: the
+// pill over a `{{token}}` shows a value, and it has to be the value that would really be sent.
+//
+// `plain` is the address's own drawing of a token: the characters keep their places, so the pill's
+// box is not there to push them along, and a dotted underline is what says the word is a name.
+const props = defineProps<{
+  name: string
+  text?: string
+  offset?: number
+  envId?: string
+  variant?: 'pill' | 'plain'
+}>()
 
 const store = useEnvironmentsStore()
 const { isMac } = usePlatform()
 
 const { t } = useMessages()
 
-const resolvedVar = computed(() => store.resolveVariable(props.name))
+const resolvedVar = computed(() => store.resolveVariable(props.name, props.envId))
 const isKnown = computed(() => resolvedVar.value !== null)
 const isSecret = computed(() => resolvedVar.value?.kind === 'secret')
 
@@ -24,7 +35,13 @@ const label = computed(() => props.text ?? `{{${props.name}}}`)
 const scopeLabel = computed(() => {
   const r = resolvedVar.value
   if (!r) return ''
-  return r.source === 'env' ? (store.activeEnvironment?.name ?? t('varToken.environment')) : t('varToken.globals')
+  if (r.source !== 'env') return t('varToken.globals')
+  // A pinned request answers in its own environment, and the tooltip names that one — the window's
+  // own name here would be a tooltip about a different environment than the value under it.
+  const env = props.envId
+    ? store.environments.find((e) => e.id === props.envId)
+    : store.activeEnvironment
+  return env?.name ?? t('varToken.environment')
 })
 
 const modifier = computed(() => t('varToken.clickModifier', { modifier: isMac.value ? '⌥' : 'Alt' }))
@@ -46,8 +63,11 @@ function onMouseDown(e: MouseEvent) {
     // or a window with no environment chosen — the environment being worked in, which is where the
     // bar's own «Создать переменную» would put it. The globals are the target only for a name that
     // really resolves there, and for a window that has nowhere else to put one.
+    // The level a new variable goes into is the one this token answers in, which for a pinned
+    // request is its own environment rather than the window's.
     const r = resolvedVar.value
-    const envId = r?.source === 'global' || store.activeId === null ? null : store.activeId
+    const scope = props.envId || store.activeId
+    const envId = r?.source === 'global' || scope === null ? null : scope
     store.openSheet({ envId, varName: props.name })
     return
   }
@@ -99,7 +119,7 @@ function caretPoint(x: number, y: number): { node: Node; offset: number } | null
       <span
         ref="root"
         class="var-token"
-        :class="{ unknown: !isKnown, secret: isSecret }"
+        :class="{ unknown: !isKnown, secret: isSecret, plain: props.variant === 'plain' }"
         @mousedown="onMouseDown"
         @pointerleave="hintArmed = true"
         >{{ label }}</span
@@ -136,6 +156,26 @@ function caretPoint(x: number, y: number): { node: Node; offset: number } | null
   color: var(--red);
   text-decoration: underline wavy;
   text-underline-offset: 3px;
+}
+
+/* The address's own drawing: no box and no padding, because the characters here stand exactly where
+   the input put them and a pill reaching outside its text would push the caret off its mark. */
+.var-token.plain {
+  padding: 0;
+  margin: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--accent);
+  text-decoration: underline dotted;
+  text-decoration-color: var(--accent);
+  text-underline-offset: 3px;
+}
+
+.var-token.plain.unknown {
+  background: transparent;
+  color: var(--red);
+  text-decoration: underline wavy;
+  text-decoration-color: var(--red);
 }
 
 .var-tip {

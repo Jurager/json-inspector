@@ -27,6 +27,11 @@ export interface RequestSource {
   headers: Row[]
   cookies: CookieRow[]
   auth: Auth
+  // The environment this one request resolves its `{{tokens}}` in, apart from the window's own. Empty
+  // is "not pinned" and means it follows whatever the window is on — the state every request is in
+  // until somebody picks one in the bar.
+  environmentId: string
+  setEnvironmentOverride(id: string): Promise<void>
   // The rows the authorization puts in those lists — a Bearer token is an Authorization header, an
   // API key is a header or a query parameter. They are worked out by Go on every answer and are not
   // stored anywhere: the scheme's fields are what is written down, and these are what they come to.

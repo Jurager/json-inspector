@@ -331,7 +331,7 @@ func TestResolutionOrderAndMasking(t *testing.T) {
 
 	// The environment wins over the globals: the order the design names is
 	// Request → Environment → Globals.
-	resolved, err := u.SubstituteTexts(ctx, nil, []string{"{{token}}"}, false)
+	resolved, err := u.SubstituteTexts(ctx, nil, []string{"{{token}}"}, false, "")
 	if err != nil {
 		t.Fatalf("SubstituteTexts: %v", err)
 	}
@@ -341,14 +341,14 @@ func TestResolutionOrderAndMasking(t *testing.T) {
 
 	// Substitution: the request gets the values, everything that outlives it gets the mask — and a
 	// secret is the difference between the two.
-	sent, err := u.SubstituteTexts(ctx, nil, []string{"{{token}}/{{secret}}"}, false)
+	sent, err := u.SubstituteTexts(ctx, nil, []string{"{{token}}/{{secret}}"}, false, "")
 	if err != nil {
 		t.Fatalf("SubstituteTexts: %v", err)
 	}
 	if sent[0] != "env-value/s3cret" {
 		t.Errorf("for sending = %q, want the real values", sent[0])
 	}
-	masked, err := u.SubstituteTexts(ctx, nil, []string{"{{token}}/{{secret}}"}, true)
+	masked, err := u.SubstituteTexts(ctx, nil, []string{"{{token}}/{{secret}}"}, true, "")
 	if err != nil {
 		t.Fatalf("SubstituteTexts (masked): %v", err)
 	}
@@ -357,7 +357,7 @@ func TestResolutionOrderAndMasking(t *testing.T) {
 	}
 
 	// Several texts at once, and a name that repeats across them is one thing missing.
-	missing, err := u.Missing(ctx, nil, []string{"{{token}}/{{nope}}", "{{nope}}/{{other}}"})
+	missing, err := u.Missing(ctx, nil, []string{"{{token}}/{{nope}}", "{{nope}}/{{other}}"}, "")
 	if err != nil {
 		t.Fatalf("Missing: %v", err)
 	}
@@ -372,12 +372,76 @@ func TestResolutionOrderAndMasking(t *testing.T) {
 	}); err != nil {
 		t.Fatalf("UpdateVariable (disable): %v", err)
 	}
-	again, err := u.SubstituteTexts(ctx, nil, []string{"{{token}}"}, false)
+	again, err := u.SubstituteTexts(ctx, nil, []string{"{{token}}"}, false, "")
 	if err != nil {
 		t.Fatalf("SubstituteTexts: %v", err)
 	}
 	if again[0] != "global-value" {
 		t.Errorf("with the override disabled, token = %q, want the global", again[0])
+	}
+}
+
+// A request can pin itself to an environment apart from the window's, and when it does, that pin
+// is what "Environment" means for it in the resolution order — not whatever the window is on.
+func TestAPinnedEnvironmentOverridesTheWindows(t *testing.T) {
+	u, _ := newUseCase(t)
+	ctx := context.Background()
+
+	_, local := seed(t, u, "Local")
+	_, prod := seed(t, u, "Prod") // Create activates what it makes, so the window is on Prod now.
+
+	setHost := func(envID, value string) {
+		t.Helper()
+		if _, err := u.AddVariable(ctx, domain.EnvScope{Environment: envID},
+			VariableDraft{Kind: domain.VariableText}); err != nil {
+			t.Fatalf("AddVariable: %v", err)
+		}
+		state, err := u.Snapshot(ctx)
+		if err != nil {
+			t.Fatalf("Snapshot: %v", err)
+		}
+		var added domain.Variable
+		for _, e := range state.Environments {
+			if e.ID == envID {
+				added = e.Vars[len(e.Vars)-1]
+			}
+		}
+		if _, err := u.UpdateVariable(ctx, domain.EnvScope{Environment: envID}, VariablePatch{
+			ID: added.ID, Name: "host", Kind: domain.VariableText, Enabled: true, Value: value,
+			SetValue: true,
+		}); err != nil {
+			t.Fatalf("UpdateVariable: %v", err)
+		}
+	}
+	setHost(local.ID, "local-host")
+	setHost(prod.ID, "prod-host")
+
+	// The window is on Prod, but the request is pinned to Local.
+	pinned, err := u.SubstituteTexts(ctx, nil, []string{"{{host}}"}, false, local.ID)
+	if err != nil {
+		t.Fatalf("SubstituteTexts: %v", err)
+	}
+	if pinned[0] != "local-host" {
+		t.Errorf("pinned = %q, want Local's value despite the window being on Prod", pinned[0])
+	}
+
+	// Nothing pinned still means the window's own.
+	unpinned, err := u.SubstituteTexts(ctx, nil, []string{"{{host}}"}, false, "")
+	if err != nil {
+		t.Fatalf("SubstituteTexts: %v", err)
+	}
+	if unpinned[0] != "prod-host" {
+		t.Errorf("unpinned = %q, want the window's own environment", unpinned[0])
+	}
+
+	// A pin that answers to nothing — its environment deleted — reads as no environment at all,
+	// the way a stale ActiveID always has, rather than quietly falling back to the window's.
+	stale, err := u.Missing(ctx, nil, []string{"{{host}}"}, "not-a-real-id")
+	if err != nil {
+		t.Fatalf("Missing: %v", err)
+	}
+	if len(stale) != 1 || stale[0] != "host" {
+		t.Errorf("Missing(stale pin) = %v, want host missing", stale)
 	}
 }
 
@@ -421,7 +485,7 @@ func TestCollectionVariablesStandOverTheEnvironment(t *testing.T) {
 		{Name: "baseUrl", Value: "https://collection", Kind: domain.VariableText, Enabled: true},
 	}
 
-	resolved, err := u.SubstituteTexts(ctx, above, []string{"{{baseUrl}}/{{page}}"}, false)
+	resolved, err := u.SubstituteTexts(ctx, above, []string{"{{baseUrl}}/{{page}}"}, false, "")
 	if err != nil {
 		t.Fatalf("SubstituteTexts: %v", err)
 	}
@@ -433,7 +497,7 @@ func TestCollectionVariablesStandOverTheEnvironment(t *testing.T) {
 	// The collection's own row switched off is a level that answered nothing, so the environment is
 	// what stands again.
 	above[0].Enabled = false
-	off, err := u.SubstituteTexts(ctx, above, []string{"{{baseUrl}}"}, false)
+	off, err := u.SubstituteTexts(ctx, above, []string{"{{baseUrl}}"}, false, "")
 	if err != nil {
 		t.Fatalf("SubstituteTexts(disabled): %v", err)
 	}
@@ -442,7 +506,7 @@ func TestCollectionVariablesStandOverTheEnvironment(t *testing.T) {
 	}
 
 	// And what a request in no collection asks is unchanged: no levels above it, no answers.
-	none, err := u.SubstituteTexts(ctx, nil, []string{"{{baseUrl}}"}, false)
+	none, err := u.SubstituteTexts(ctx, nil, []string{"{{baseUrl}}"}, false, "")
 	if err != nil {
 		t.Fatalf("SubstituteTexts(none): %v", err)
 	}

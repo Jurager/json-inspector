@@ -24,6 +24,12 @@ export interface NodeDraft {
     "bodyFile"?: string;
     "cookies"?: domain$0.CookieRow[] | null;
     "auth"?: domain$0.Auth | null;
+
+    /**
+     * EnvironmentID carries a command-line request's pin into the node "Сохранить" makes of it — a
+     * request that was pointed at a particular environment stays pointed at it once saved.
+     */
+    "environmentId"?: string;
 }
 
 /**

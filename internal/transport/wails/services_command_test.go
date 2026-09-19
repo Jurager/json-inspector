@@ -33,6 +33,7 @@ func (fakeVars) SubstituteTexts(
 	_ []domain.Variable,
 	texts []string,
 	mask bool,
+	_ string,
 ) ([]string, error) {
 	out := make([]string, len(texts))
 	for i, text := range texts {

@@ -119,6 +119,15 @@ export function SetBodyKind(id: domain$0.DraftID, kind: domain$0.BodyKind): $Can
     return $Call.ByID(1227862282, id, kind);
 }
 
+/**
+ * SetEnvironmentOverride pins this request to an environment of its own, apart from the window's;
+ * an empty id clears the pin. The bar draws it beside the address because it is the last thing a
+ * person checks before pressing send.
+ */
+export function SetEnvironmentOverride(id: domain$0.DraftID, environmentID: string): $CancellablePromise<draft$0.State> {
+    return $Call.ByID(2724376661, id, environmentID);
+}
+
 export function SetMethod(id: domain$0.DraftID, method: string): $CancellablePromise<draft$0.State> {
     return $Call.ByID(2905225717, id, method);
 }

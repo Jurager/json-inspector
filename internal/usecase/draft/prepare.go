@@ -31,7 +31,7 @@ func (u *UseCase) refuseUnresolved(
 	inherits *domain.Auth,
 	above []domain.Variable,
 ) error {
-	missing, err := u.vars.Missing(ctx, above, partsOf(draft, inherits).texts())
+	missing, err := u.vars.Missing(ctx, above, partsOf(draft, inherits).texts(), draft.EnvironmentID)
 	if err != nil {
 		return err
 	}
@@ -58,11 +58,11 @@ func (u *UseCase) prepare(
 	raw := partsOf(draft, inherits)
 	texts := raw.texts()
 
-	live, err := u.vars.SubstituteTexts(ctx, above, texts, false)
+	live, err := u.vars.SubstituteTexts(ctx, above, texts, false, draft.EnvironmentID)
 	if err != nil {
 		return Prepared{}, err
 	}
-	hidden, err := u.vars.SubstituteTexts(ctx, above, texts, true)
+	hidden, err := u.vars.SubstituteTexts(ctx, above, texts, true, draft.EnvironmentID)
 	if err != nil {
 		return Prepared{}, err
 	}

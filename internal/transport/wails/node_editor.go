@@ -81,17 +81,18 @@ func draftOfNode(node domain.CollectionNode) domain.Draft {
 		auth = *node.Auth
 	}
 	return domain.Draft{
-		ID:       domain.DraftID(node.ID),
-		Method:   node.Method,
-		URL:      node.URL,
-		Params:   rowsOf(node.Params),
-		Headers:  rowsOf(node.Headers),
-		Body:     node.Body,
-		BodyKind: domain.KindOf(node.BodyKind),
-		Form:     formRowsOf(node.Form),
-		BodyFile: node.BodyFile,
-		Cookies:  cookiesOf(node.Cookies),
-		Auth:     auth,
+		ID:            domain.DraftID(node.ID),
+		Method:        node.Method,
+		URL:           node.URL,
+		Params:        rowsOf(node.Params),
+		Headers:       rowsOf(node.Headers),
+		Body:          node.Body,
+		BodyKind:      domain.KindOf(node.BodyKind),
+		Form:          formRowsOf(node.Form),
+		BodyFile:      node.BodyFile,
+		Cookies:       cookiesOf(node.Cookies),
+		Auth:          auth,
+		EnvironmentID: node.EnvironmentID,
 	}
 }
 
@@ -110,6 +111,7 @@ func nodeFromDraft(node domain.CollectionNode, d domain.Draft) domain.Collection
 	node.BodyFile = d.BodyFile
 	node.Cookies = d.Cookies
 	node.Auth = d.Auth.Stored()
+	node.EnvironmentID = d.EnvironmentID
 	return node
 }
 

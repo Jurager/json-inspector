@@ -72,6 +72,61 @@ export interface TokenSegment {
   start: number
 }
 
+export interface UrlPiece {
+  text: string
+  /** Set when the piece is a `{{token}}` — that is what the pill is drawn for. */
+  tokenName?: string
+  /** How the piece is painted: a query is read in two inks, its names apart from its values. */
+  kind?: 'query-key' | 'query-value'
+  start: number
+}
+
+// Which ink each character of an address is written in. Everything before the `?` is the address
+// itself; after it, a name runs up to its `=` and a value up to the next `&` — the grammar a query
+// string is read by, and the one the design draws: `?include=` quiet, `author,comments` accented.
+function charKinds(text: string): (UrlPiece['kind'])[] {
+  const kinds: (UrlPiece['kind'])[] = new Array(text.length).fill(undefined)
+  const query = text.indexOf('?')
+  if (query < 0) return kinds
+
+  let inValue = false
+  for (let i = query; i < text.length; i++) {
+    const char = text[i]
+    if (char === '&') inValue = false
+    kinds[i] = inValue ? 'query-value' : 'query-key'
+    if (char === '=' && !inValue) inValue = true
+  }
+  return kinds
+}
+
+// The address as it is painted: its `{{tokens}}` and the two inks of its query, in the order they
+// stand in the text. Concatenating the pieces reproduces the text exactly — the layer paints over a
+// real input, so a dropped character would show up as the caret standing in the wrong place.
+export function urlPieces(text: string): UrlPiece[] {
+  const kinds = charKinds(text)
+  const out: UrlPiece[] = []
+
+  // A run of one kind, so that a long address is a handful of spans rather than one per character.
+  function addPlain(from: number, to: number) {
+    let start = from
+    for (let i = from; i <= to; i++) {
+      if (i === to || kinds[i] !== kinds[start]) {
+        if (i > start) out.push({ text: text.slice(start, i), kind: kinds[start], start })
+        start = i
+      }
+    }
+  }
+
+  let last = 0
+  for (const token of parseTokens(text)) {
+    addPlain(last, token.start)
+    out.push({ text: token.raw, tokenName: token.name, start: token.start })
+    last = token.end
+  }
+  addPlain(last, text.length)
+  return out
+}
+
 // Concatenating the segments reproduces the input exactly: the layers paint over a real input,
 // so a dropped character would show up as misaligned text.
 export function tokenSegments(text: string): TokenSegment[] {

@@ -332,6 +332,10 @@ const en = {
     },
     send: 'Send',
     saveToCollection: 'Save to a collection',
+    saveHint: 'Unsaved changes — save the request to a collection',
+    envTitle: 'Environment for this request',
+    envFor: 'Environment for this request',
+    envFollow: 'Follow window · {name}',
     unsavedTitle: 'The changes will be lost',
     unsavedHint: 'If the changes are important, save the request to a collection; otherwise, it will be lost.',
     placeholderName: 'name',
@@ -366,7 +370,6 @@ const en = {
     // The missing-variable sentence is cut at a clause, because a list of names is drawn in the
     // middle of it in red and a name is not a word a translator can move.
     // No `{n}`: the count picks the form, and the sentence around it supplies the colon and the list.
-    missingBlocked: 'Unknown variables: {names}',
     createVar: 'Create variable',
     createVarAll: 'Create all variables',
     createFailed: 'Could not create the variable: {error}',

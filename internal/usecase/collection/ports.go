@@ -70,6 +70,11 @@ type RunRequest struct {
 	// same levels travel beside it, for the same reason and in the same shape.
 	Auth      *domain.Auth
 	Variables []domain.Variable
+
+	// EnvironmentID is the environment this one request pinned itself to, when it has one. It travels
+	// for the same reason the variables do: a run reaches requests the window is not looking at, and
+	// the node it read the pin from is out of reach by then. Empty means the run's own environment.
+	EnvironmentID string
 }
 
 // Sender sends one saved request and answers with what it produced. A run does not know how a

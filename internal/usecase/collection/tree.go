@@ -75,6 +75,9 @@ type NodeDraft struct {
 	BodyFile string             `json:"bodyFile,omitempty"`
 	Cookies  []domain.CookieRow `json:"cookies,omitempty"`
 	Auth     *domain.Auth       `json:"auth,omitempty"`
+	// EnvironmentID carries a command-line request's pin into the node "Сохранить" makes of it — a
+	// request that was pointed at a particular environment stays pointed at it once saved.
+	EnvironmentID string `json:"environmentId,omitempty"`
 }
 
 // CreateNode adds a request to the end of a collection's level.
@@ -106,19 +109,20 @@ func (u *UseCase) CreateNode(
 	}
 
 	node := domain.CollectionNode{
-		ID:           u.ids(),
-		CollectionID: in.CollectionID,
-		Name:         name,
-		Position:     position,
-		Method:       defaultMethod(in.Method),
-		URL:          strings.TrimSpace(in.URL),
-		Params:       domain.OrEmpty(in.Params),
-		Headers:      domain.OrEmpty(in.Headers),
-		Body:         in.Body,
-		BodyKind:     domain.KindOf(in.BodyKind),
-		Form:         withFormIDs(u.ids, in.Form),
-		BodyFile:     in.BodyFile,
-		Cookies:      domain.OrEmpty(in.Cookies),
+		ID:            u.ids(),
+		CollectionID:  in.CollectionID,
+		Name:          name,
+		Position:      position,
+		Method:        defaultMethod(in.Method),
+		URL:           strings.TrimSpace(in.URL),
+		Params:        domain.OrEmpty(in.Params),
+		Headers:       domain.OrEmpty(in.Headers),
+		Body:          in.Body,
+		BodyKind:      domain.KindOf(in.BodyKind),
+		Form:          withFormIDs(u.ids, in.Form),
+		BodyFile:      in.BodyFile,
+		Cookies:       domain.OrEmpty(in.Cookies),
+		EnvironmentID: in.EnvironmentID,
 		// The auth is stored the way the tree keeps one: «None» with nothing behind it is a level
 		// nobody has answered anything at, and storing it as a value would make a request saved from
 		// the command line stop inheriting — which is not what «None» means there, where nothing is
@@ -330,6 +334,7 @@ func (u *UseCase) SaveNode(
 	stored.BodyFile = edited.BodyFile
 	stored.Cookies = domain.OrEmpty(edited.Cookies)
 	stored.Auth = edited.Auth
+	stored.EnvironmentID = edited.EnvironmentID
 	if err := u.store.SaveNode(ctx, stored); err != nil {
 		return nil, err
 	}

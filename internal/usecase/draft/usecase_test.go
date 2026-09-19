@@ -80,6 +80,7 @@ func (f fakeVars) Missing(
 	_ context.Context,
 	above []domain.Variable,
 	texts []string,
+	_ string,
 ) ([]string, error) {
 	values := f.known(above)
 	out, seen := []string{}, map[string]bool{}
@@ -100,6 +101,7 @@ func (f fakeVars) SubstituteTexts(
 	above []domain.Variable,
 	texts []string,
 	mask bool,
+	_ string,
 ) ([]string, error) {
 	values := f.known(above)
 	out := make([]string, len(texts))
@@ -361,6 +363,32 @@ func TestSetTextKeepsDisabledRows(t *testing.T) {
 	}
 	if kept == nil || kept.Enabled {
 		t.Errorf("params = %+v, want the parked row kept and still off", flushed.Draft.Params)
+	}
+}
+
+// The pin is written and read back like any other field, and an empty one clears it — the request
+// goes back to following whatever the window is on rather than being stuck on the last thing tried.
+func TestSetEnvironmentOverridePersists(t *testing.T) {
+	uc, store := loaded(t)
+	ctx := context.Background()
+
+	state, err := uc.SetEnvironmentOverride(ctx, domain.DraftCommandLine, "env-1")
+	if err != nil {
+		t.Fatalf("SetEnvironmentOverride: %v", err)
+	}
+	if state.Draft.EnvironmentID != "env-1" {
+		t.Errorf("environmentID = %q, want the pin just set", state.Draft.EnvironmentID)
+	}
+	if store.saved.EnvironmentID != "env-1" {
+		t.Errorf("stored draft = %+v, want the pin written down too", store.saved)
+	}
+
+	cleared, err := uc.SetEnvironmentOverride(ctx, domain.DraftCommandLine, "")
+	if err != nil {
+		t.Fatalf("SetEnvironmentOverride: %v", err)
+	}
+	if cleared.Draft.EnvironmentID != "" {
+		t.Errorf("environmentID = %q, want the pin cleared", cleared.Draft.EnvironmentID)
 	}
 }
 

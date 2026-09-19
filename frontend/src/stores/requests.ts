@@ -202,6 +202,11 @@ export const useRequestsStore = defineStore('requests', {
     auth(state): Auth {
       return state.draft?.auth ?? NO_AUTH
     },
+    // Empty means this request follows whatever the window is on — see useEnvironmentsStore's
+    // activeId — and a pin is this request's own answer to that instead.
+    environmentId(state): string {
+      return state.draft?.environmentId ?? ''
+    },
     // `projected` and `token` are fields of this store rather than getters — Go sends them with every
     // answer, so there is nothing to derive.
     //
@@ -370,6 +375,10 @@ export const useRequestsStore = defineStore('requests', {
 
     async setAuth(auth: Auth) {
       this.apply(await DraftService.SetAuth(DRAFT, auth))
+    },
+
+    async setEnvironmentOverride(id: string) {
+      this.apply(await DraftService.SetEnvironmentOverride(DRAFT, id))
     },
 
     // A row the authorization put in a list is not stored, so an edit to it is an edit to the field

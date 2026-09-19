@@ -25,10 +25,10 @@ func (s *Store) Draft(
 	)
 	err := s.db.QueryRowContext(ctx,
 		`SELECT id, revision, method, url, params_json, headers_json, auth_json, body, body_kind,
-		        form_json, body_file, cookies_json
+		        form_json, body_file, cookies_json, environment_id
 		   FROM drafts WHERE workspace_id = ? AND id = ?`, workspaceID, id).
 		Scan(&draft.ID, &draft.Revision, &draft.Method, &draft.URL, &params, &headers, &auth,
-			&draft.Body, &bodyKind, &form, &draft.BodyFile, &cookies)
+			&draft.Body, &bodyKind, &form, &draft.BodyFile, &cookies, &draft.EnvironmentID)
 	if errors.Is(err, sql.ErrNoRows) {
 		return domain.Draft{}, fmt.Errorf("draft %s: %w", id, domain.ErrNotFound)
 	}
@@ -82,18 +82,20 @@ func (s *Store) SaveDraft(ctx context.Context, workspaceID string, draft domain.
 
 	_, err = s.db.ExecContext(ctx,
 		`INSERT INTO drafts (workspace_id, id, revision, method, url, params_json, headers_json,
-		                     auth_json, body, body_kind, form_json, body_file, cookies_json, updated_at)
-		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		                     auth_json, body, body_kind, form_json, body_file, cookies_json,
+		                     environment_id, updated_at)
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 		 ON CONFLICT(workspace_id, id) DO UPDATE SET
 		   revision = excluded.revision, method = excluded.method, url = excluded.url,
 		   params_json = excluded.params_json, headers_json = excluded.headers_json,
 		   auth_json = excluded.auth_json, body = excluded.body,
 		   body_kind = excluded.body_kind, form_json = excluded.form_json,
 		   body_file = excluded.body_file,
-		   cookies_json = excluded.cookies_json, updated_at = excluded.updated_at`,
+		   cookies_json = excluded.cookies_json, environment_id = excluded.environment_id,
+		   updated_at = excluded.updated_at`,
 		workspaceID, draft.ID, draft.Revision, draft.Method, draft.URL, string(params),
 		string(headers), string(auth), draft.Body, string(domain.KindOf(draft.BodyKind)),
-		string(form), draft.BodyFile, string(cookies), time.Now().UnixMilli())
+		string(form), draft.BodyFile, string(cookies), draft.EnvironmentID, time.Now().UnixMilli())
 	if err != nil {
 		return fmt.Errorf("saving draft %s: %w", draft.ID, err)
 	}

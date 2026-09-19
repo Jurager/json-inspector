@@ -144,6 +144,18 @@ func (s *DraftService) SetBodyFile(
 	return s.answered(ctx, state, err)
 }
 
+// SetEnvironmentOverride pins this request to an environment of its own, apart from the window's;
+// an empty id clears the pin. The bar draws it beside the address because it is the last thing a
+// person checks before pressing send.
+func (s *DraftService) SetEnvironmentOverride(
+	ctx context.Context,
+	id domain.DraftID,
+	environmentID string,
+) (draft.State, error) {
+	state, err := s.drafts.SetEnvironmentOverride(ctx, id, environmentID)
+	return s.answered(ctx, state, err)
+}
+
 // SetText is a buffer flush: the URL and the body are the window's while they are being typed, and
 // this is how they reach this side. The revision travels back with the answer so the window can
 // tell a reply to the keystroke it just made from one to the keystroke before it.

@@ -83,18 +83,19 @@ func (s *CollectionsService) SaveDraft(
 	}
 
 	node, tree, err := s.collections.CreateNode(ctx, collection.NodeDraft{
-		CollectionID: collectionID,
-		Name:         name,
-		Method:       draft.Method,
-		URL:          draft.URL,
-		Params:       draft.Params,
-		Headers:      draft.Headers,
-		Body:         draft.Body,
-		BodyKind:     draft.BodyKind,
-		Form:         draft.Form,
-		BodyFile:     draft.BodyFile,
-		Cookies:      draft.Cookies,
-		Auth:         &draft.Auth,
+		CollectionID:  collectionID,
+		Name:          name,
+		Method:        draft.Method,
+		URL:           draft.URL,
+		Params:        draft.Params,
+		Headers:       draft.Headers,
+		Body:          draft.Body,
+		BodyKind:      draft.BodyKind,
+		Form:          draft.Form,
+		BodyFile:      draft.BodyFile,
+		Cookies:       draft.Cookies,
+		Auth:          &draft.Auth,
+		EnvironmentID: draft.EnvironmentID,
 	})
 	if err != nil {
 		return CreatedNode{}, err

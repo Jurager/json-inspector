@@ -198,6 +198,10 @@ export const useCollectionsStore = defineStore('collections', {
     auth(state): Auth {
       return state.editor?.state.draft.auth ?? NO_AUTH
     },
+    // Empty means this card follows whatever the window is on; a pin is the card's own answer.
+    environmentId(state): string {
+      return state.editor?.state.draft.environmentId ?? ''
+    },
     // The rows the authorization puts in the lists, worked out by Go. Empty until the schemas load,
     // which is a moment nobody sees: nothing to project means no authorization is set yet.
     projected(state): ProjectedRow[] {
@@ -532,6 +536,11 @@ export const useCollectionsStore = defineStore('collections', {
     async setMethod(method: string) {
       const id = this.draftId()
       if (id) this.apply(await DraftService.SetMethod(id, method))
+    },
+
+    async setEnvironmentOverride(envId: string) {
+      const id = this.draftId()
+      if (id) this.apply(await DraftService.SetEnvironmentOverride(id, envId))
     },
 
     async setAuth(auth: Auth) {

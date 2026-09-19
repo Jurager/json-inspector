@@ -873,6 +873,16 @@ html.window-translucent body {
   @apply w-[280px] p-1.5 rounded-[12px];
 }
 
+/* The environment the bar sends this one request with. Its box is here for the reason every panel's
+   is: the class is written where the popover is used, but it lands on the root reka-ui builds inside
+   its portal, where no scope of that component reaches. The 300px is the drawing's, and it is a
+   width rather than a maximum — a list of environments that resized the panel as names changed
+   would move the check under the pointer. */
+.bar-env-pop {
+  @apply flex flex-col gap-0.5 p-2;
+  width: 300px;
+}
+
 /* The palette is a panel of a fixed width whose height follows what it found, and the fixed width is
    the point: without it every chip the user clicks would resize the window under their hands as the
    widest row changes. It is written here rather than in the component for the reason the tooltip's
@@ -1351,7 +1361,7 @@ mark.search-match.current {
    answer below. It is the sidebar's own surface — the handoff draws the bar and the list beside it
    as one material — so it takes the same veil and the same blur rather than a fill of its own. */
 .request-block {
-  @apply flex-none;
+  @apply flex-none flex flex-col;
   background: var(--glass-side);
   backdrop-filter: var(--blur-side);
   border-bottom: 2px solid var(--border);
@@ -1362,18 +1372,11 @@ mark.search-match.current {
   padding: 9px 20px 0;
 }
 
-/* The sections sit closer to the address than the address does to the block's own top: the two rows
-   are one thing, and it is the block that stands apart from the answer. */
-.segments-row {
-  padding: 8px 20px 9px;
-}
-
-.bar-spacer {
-  @apply flex-1;
-}
-
-.env-name {
-  @apply flex-none text-[12px] text-text-tertiary;
+/* The block's own breathing room, for the bar that is the block's only row: the editor's sections
+   sit on that edge instead — their rule is what marks the bottom there — so the 9px is owed only
+   where nothing follows the address. */
+.request-block-solo .bar-row {
+  padding-bottom: 9px;
 }
 
 .url-field {

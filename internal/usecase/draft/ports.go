@@ -42,13 +42,22 @@ type FileSource interface {
 //
 // The calls take a list because a request is a list: one round of resolving covers its URL, its
 // body, every header and its cookies, and the answers stay consistent with each other.
+//
+// envID is a request's own pin on an environment, apart from the window's — empty asks for
+// whatever the window is on, exactly as leaving a request unpinned always has.
 type VariableSource interface {
-	Missing(ctx context.Context, above []domain.Variable, texts []string) ([]string, error)
+	Missing(
+		ctx context.Context,
+		above []domain.Variable,
+		texts []string,
+		envID string,
+	) ([]string, error)
 	SubstituteTexts(
 		ctx context.Context,
 		above []domain.Variable,
 		texts []string,
 		mask bool,
+		envID string,
 	) ([]string, error)
 }
 

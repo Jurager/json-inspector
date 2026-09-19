@@ -102,7 +102,7 @@ func (p parts) putBack(resolved []string) parts {
 }
 
 func (u *UseCase) preview(ctx context.Context, draft domain.Draft) (Preview, error) {
-	missing, err := u.vars.Missing(ctx, nil, collect(draft).texts())
+	missing, err := u.vars.Missing(ctx, nil, collect(draft).texts(), draft.EnvironmentID)
 	if err != nil {
 		return Preview{}, err
 	}

@@ -257,19 +257,20 @@ func requestFrom(
 	runID string,
 ) RunRequest {
 	request := RunRequest{
-		Run:       runID,
-		NodeID:    node.ID,
-		Workspace: workspace,
-		Method:    node.Method,
-		URL:       node.URL,
-		Body:      node.Body,
-		BodyKind:  node.BodyKind,
-		Form:      node.Form,
-		BodyFile:  node.BodyFile,
-		Headers:   []domain.HeaderPair{},
-		Cookies:   domain.OrEmpty(node.Cookies),
-		Auth:      auth,
-		Variables: above,
+		Run:           runID,
+		NodeID:        node.ID,
+		Workspace:     workspace,
+		Method:        node.Method,
+		URL:           node.URL,
+		Body:          node.Body,
+		BodyKind:      node.BodyKind,
+		Form:          node.Form,
+		BodyFile:      node.BodyFile,
+		Headers:       []domain.HeaderPair{},
+		Cookies:       domain.OrEmpty(node.Cookies),
+		Auth:          auth,
+		Variables:     above,
+		EnvironmentID: node.EnvironmentID,
 	}
 	for _, row := range node.Headers {
 		if row.Enabled && strings.TrimSpace(row.Name) != "" {

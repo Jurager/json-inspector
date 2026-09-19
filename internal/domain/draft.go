@@ -49,6 +49,11 @@ type Draft struct {
 	Form     []FormRow   `json:"form"`
 	BodyFile string      `json:"bodyFile,omitempty"`
 	Cookies  []CookieRow `json:"cookies"`
+	// EnvironmentID pins this one request to an environment of its own, apart from the window's:
+	// empty means it still follows whatever the window is on. It names an environment rather than
+	// carrying one, the way ActiveID does, so a request stays pinned to the right thing across a
+	// rename and reads as "nothing here" once more should that environment be deleted.
+	EnvironmentID string `json:"environmentId,omitempty"`
 }
 
 // NewDraft is the shape a draft starts in: a GET with nothing in it. What the app puts in a fresh

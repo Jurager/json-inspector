@@ -109,15 +109,16 @@ func (s *Store) Node(ctx context.Context, id string) (domain.CollectionNode, err
 		description                 sql.NullString
 		url, body, method, bodyKind sql.NullString
 		form, bodyFile              sql.NullString
+		environmentID               sql.NullString
 	)
 	err := s.db.QueryRowContext(ctx,
 		`SELECT id, collection_id, name, position, description, auth_json, scripts_json,
 		        method, url, params_json, headers_json, body, body_kind, form_json, body_file,
-		        cookies_json, created_at, updated_at
+		        cookies_json, environment_id, created_at, updated_at
 		   FROM collection_nodes WHERE id = ?`, id).
 		Scan(&node.ID, &node.CollectionID, &node.Name, &node.Position, &description,
 			&auth, &scripts, &method, &url, &params, &headers, &body, &bodyKind, &form, &bodyFile,
-			&cookies, &node.CreatedAt, &node.UpdatedAt)
+			&cookies, &environmentID, &node.CreatedAt, &node.UpdatedAt)
 	if errors.Is(err, sql.ErrNoRows) {
 		return domain.CollectionNode{}, fmt.Errorf("collection node %s: %w", id, domain.ErrNotFound)
 	}
@@ -132,6 +133,7 @@ func (s *Store) Node(ctx context.Context, id string) (domain.CollectionNode, err
 	// A node saved before there were kinds holds text, and an unsaved one holds nothing: both are raw.
 	node.BodyKind = domain.KindOf(domain.BodyKind(bodyKind.String))
 	node.BodyFile = bodyFile.String
+	node.EnvironmentID = environmentID.String
 	if form.Valid {
 		if err := json.Unmarshal([]byte(form.String), &node.Form); err != nil {
 			return domain.CollectionNode{}, fmt.Errorf("reading the form of node %s: %w", id, err)
@@ -360,21 +362,21 @@ func (s *Store) SaveNode(ctx context.Context, node domain.CollectionNode) error 
 	_, err = s.db.ExecContext(ctx,
 		`INSERT INTO collection_nodes (id, collection_id, name, position, description,
 		                               auth_json, scripts_json, method, url, params_json, headers_json,
-		                               body, body_kind, form_json, body_file, cookies_json, created_at,
-		                               updated_at)
-		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		                               body, body_kind, form_json, body_file, cookies_json,
+		                               environment_id, created_at, updated_at)
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 		 ON CONFLICT(id) DO UPDATE SET
 		   name = excluded.name, position = excluded.position, description = excluded.description,
 		   auth_json = excluded.auth_json, scripts_json = excluded.scripts_json,
 		   method = excluded.method, url = excluded.url,
 		   params_json = excluded.params_json, headers_json = excluded.headers_json,
 		   body = excluded.body, body_kind = excluded.body_kind, form_json = excluded.form_json,
-		   body_file = excluded.body_file,
-		   cookies_json = excluded.cookies_json, updated_at = excluded.updated_at`,
+		   body_file = excluded.body_file, cookies_json = excluded.cookies_json,
+		   environment_id = excluded.environment_id, updated_at = excluded.updated_at`,
 		node.ID, node.CollectionID, node.Name, node.Position,
 		nullIfEmpty(node.Description), auth, scripts, nullIfEmpty(node.Method), nullIfEmpty(node.URL),
 		string(params), string(headers), node.Body, string(domain.KindOf(node.BodyKind)), string(form),
-		node.BodyFile, string(cookies), now, now)
+		node.BodyFile, string(cookies), nullIfEmpty(node.EnvironmentID), now, now)
 	if err != nil {
 		return fmt.Errorf("saving node %s: %w", node.ID, err)
 	}

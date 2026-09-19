@@ -16,13 +16,17 @@ import (
 //
 // mask is the difference between the request that goes out and everything that outlives it: the
 // preview, an export, the record. A secret leaves those as its mask.
+//
+// envID is a request's own pin on an environment, apart from the window's — empty resolves against
+// whatever the window is on, which is what every caller that has no request of its own passes.
 func (u *UseCase) SubstituteTexts(
 	ctx context.Context,
 	above []domain.Variable,
 	texts []string,
 	mask bool,
+	envID string,
 ) ([]string, error) {
-	resolver, err := u.resolver(ctx, !mask, above)
+	resolver, err := u.resolver(ctx, !mask, above, envID)
 	if err != nil {
 		return nil, err
 	}
@@ -39,8 +43,9 @@ func (u *UseCase) Missing(
 	ctx context.Context,
 	above []domain.Variable,
 	texts []string,
+	envID string,
 ) ([]string, error) {
-	resolver, err := u.resolver(ctx, false, above)
+	resolver, err := u.resolver(ctx, false, above, envID)
 	if err != nil {
 		return nil, err
 	}
@@ -63,10 +68,16 @@ func (u *UseCase) Missing(
 // the order the design names — Request → Collection → Environment → Globals. A request's own
 // answers never reach here: they are the text the draft holds, and this is the rest of it. Only the
 // send path asks for a secret's value; everything else gets its kind and whether a value exists.
+//
+// envID is which environment stands for "Environment" in that order. A request pinned to one of
+// its own passes it here instead of leaving the blank that means "whatever the window is on" — and
+// an id that answers to nothing, pinned or not, is read the same way an unset ActiveID always was:
+// as no environment at all, rather than falling back to the window's.
 func (u *UseCase) resolver(
 	ctx context.Context,
 	revealSecrets bool,
 	above []domain.Variable,
+	envID string,
 ) (lookup, error) {
 	workspace, err := u.scope.ActiveWorkspace(ctx)
 	if err != nil {
@@ -76,10 +87,13 @@ func (u *UseCase) resolver(
 	if err != nil {
 		return nil, err
 	}
+	if envID == "" {
+		envID = state.ActiveID
+	}
 
 	active := map[string]domain.Variable{}
 	for _, env := range state.Environments {
-		if env.ID != state.ActiveID {
+		if env.ID != envID {
 			continue
 		}
 		for _, v := range env.Vars {

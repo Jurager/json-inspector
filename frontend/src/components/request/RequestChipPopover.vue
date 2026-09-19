@@ -106,21 +106,21 @@ function removeDerived() {
   void store.removeDerived()
 }
 
-// A segment button sits outside the popover's own content — it is the anchor the panel hangs from —
+// A section's tab sits outside the popover's own content — it is the anchor the panel hangs from —
 // so pressing it reaches reka-ui as an outside interaction (the pointerdown, and the focus that
 // follows it) and closes the popover on its own; the button's own `click` handler then runs against
 // that now-closed state and reopens it. Left alone this reads as "clicking the open section does
 // nothing" or "reopens instead of closing", and a press held down shows both in turn — the panel
 // vanishing under the finger and coming back. `interactOutside` covers both paths, so suppressing it
-// for segment presses hands the whole open/close decision to `toggleChip`.
+// for tab presses hands the whole open/close decision to `toggleChip`.
 //
-// Two things make this guard easy to break: the class is the one the buttons wear now — it used to
-// be the chips, and a selector left behind by that rename is a guard that never fires — and the
+// Two things make this guard easy to break: the class is the one the buttons wear now — it has been
+// renamed twice, and a selector left behind by either rename is a guard that never fires — and the
 // target is an Element rather than an HTMLElement, because a press that lands on an icon inside the
 // button is an SVG, which an `instanceof HTMLElement` test sends straight through.
 function onInteractOutside(e: Event) {
   const target = (e as CustomEvent<{ originalEvent?: Event }>).detail?.originalEvent?.target
-  if (target instanceof Element && target.closest('.segment')) e.preventDefault()
+  if (target instanceof Element && target.closest('.bar-tab')) e.preventDefault()
 }
 
 // Same as the URL field: the input stays the editable control and a transparent layer paints tokens above it.

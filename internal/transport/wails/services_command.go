@@ -33,6 +33,7 @@ type variableSource interface {
 		above []domain.Variable,
 		texts []string,
 		mask bool,
+		envID string,
 	) ([]string, error)
 }
 
@@ -78,8 +79,9 @@ func (s *CommandService) substitute(ctx context.Context, seed *draft.Seed) error
 	}
 
 	// A recorded request was already sent, and what it holds is what it holds: there is no tree above
-	// it to answer for a name, so the environment answers alone.
-	resolved, err := s.vars.SubstituteTexts(ctx, nil, texts, true)
+	// it to answer for a name, so the environment answers alone. Nor is there a draft to have pinned
+	// one of its own — a record is history, not something open in a card — so nothing is passed.
+	resolved, err := s.vars.SubstituteTexts(ctx, nil, texts, true, "")
 	if err != nil {
 		return err
 	}

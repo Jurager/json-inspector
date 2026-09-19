@@ -18,12 +18,18 @@ type environmentVariables struct {
 }
 
 var _ interface {
-	Missing(ctx context.Context, above []domain.Variable, texts []string) ([]string, error)
+	Missing(
+		ctx context.Context,
+		above []domain.Variable,
+		texts []string,
+		envID string,
+	) ([]string, error)
 	SubstituteTexts(
 		ctx context.Context,
 		above []domain.Variable,
 		texts []string,
 		mask bool,
+		envID string,
 	) ([]string, error)
 } = environmentVariables{}
 
@@ -31,8 +37,9 @@ func (v environmentVariables) Missing(
 	ctx context.Context,
 	above []domain.Variable,
 	texts []string,
+	envID string,
 ) ([]string, error) {
-	return v.environments.Missing(ctx, above, texts)
+	return v.environments.Missing(ctx, above, texts, envID)
 }
 
 func (v environmentVariables) SubstituteTexts(
@@ -40,8 +47,9 @@ func (v environmentVariables) SubstituteTexts(
 	above []domain.Variable,
 	texts []string,
 	mask bool,
+	envID string,
 ) ([]string, error) {
-	return v.environments.SubstituteTexts(ctx, above, texts, mask)
+	return v.environments.SubstituteTexts(ctx, above, texts, mask, envID)
 }
 
 // activeEnvironment is the environments feature seen as what a run goes out under. The name is read

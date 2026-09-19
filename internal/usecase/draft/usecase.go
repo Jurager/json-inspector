@@ -192,6 +192,21 @@ func (u *UseCase) SetBodyFile(ctx context.Context, id domain.DraftID, path strin
 	})
 }
 
+// SetEnvironmentOverride pins this one request to an environment of its own, apart from the
+// window's — empty clears the pin, and the request goes back to following whatever the window is
+// on. Storing the id rather than validating it against the environment list matches BodyFile: a
+// pin that has gone stale (its environment deleted) is read as none, not refused.
+func (u *UseCase) SetEnvironmentOverride(
+	ctx context.Context,
+	id domain.DraftID,
+	environmentID string,
+) (State, error) {
+	return u.result(ctx, id, func(d *domain.Draft) error {
+		d.EnvironmentID = strings.TrimSpace(environmentID)
+		return nil
+	})
+}
+
 // SetText takes a buffer the window was typing into. The window keeps ownership of the text while
 // it works — an answer never overwrites what is under the caret — so this is the only way a text
 // the user typed reaches this side at all.

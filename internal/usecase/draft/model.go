@@ -83,6 +83,11 @@ type Seed struct {
 	// Auth is what the request authorizes itself with. It travels resolved: whoever builds a seed
 	// knows where the request came from, and a seed is a request, not a place in a tree.
 	Auth *domain.Auth `json:"auth,omitempty"`
+	// EnvironmentID is the environment this one request resolves its `{{tokens}}` in, when it is not
+	// the window's own — a run sends requests that were saved with a pin, and it is no longer looking
+	// at the tree they came from. Empty means the window's, which is what a followed link and a
+	// pasted command answer with: neither was ever pinned to anything.
+	EnvironmentID string `json:"environmentId,omitempty"`
 }
 
 // Prepared is the draft ready to go out: its variables filled in, and beside it the copy that

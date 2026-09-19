@@ -24,16 +24,20 @@ func (s collectionSender) Send(
 	ctx context.Context,
 	req collection.RunRequest,
 ) (domain.Record, error) {
+	// The pin travels with the seed, so a request saved against one environment is resolved against
+	// it wherever it is sent from — the run is not looking at the tree, and the window may well be on
+	// a different environment by the time the twentieth request goes out.
 	prepared, err := s.drafts.Prepare(ctx, draft.Seed{
-		Method:   req.Method,
-		URL:      req.URL,
-		Body:     req.Body,
-		BodyKind: req.BodyKind,
-		Form:     req.Form,
-		BodyFile: req.BodyFile,
-		Headers:  req.Headers,
-		Cookies:  req.Cookies,
-		Auth:     req.Auth,
+		Method:        req.Method,
+		URL:           req.URL,
+		Body:          req.Body,
+		BodyKind:      req.BodyKind,
+		Form:          req.Form,
+		BodyFile:      req.BodyFile,
+		Headers:       req.Headers,
+		Cookies:       req.Cookies,
+		Auth:          req.Auth,
+		EnvironmentID: req.EnvironmentID,
 	}, req.Variables)
 	if err != nil {
 		return domain.Record{}, err

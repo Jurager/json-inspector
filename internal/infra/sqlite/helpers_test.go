@@ -79,9 +79,12 @@ func sampleDraft() domain.Draft {
 		Headers: []domain.Row{
 			{ID: "h1", Name: "Authorization", Value: "Bearer {{token}}", Enabled: true},
 		},
-		Auth:    bearerAuth("{{token}}"),
-		Body:    `{"a": 1}`,
-		Cookies: []domain.CookieRow{{ID: "c1", Name: "session", Value: "abc", Path: "/", HTTPOnly: true}},
+		Auth: bearerAuth("{{token}}"),
+		Body: `{"a": 1}`,
+		Cookies: []domain.CookieRow{
+			{ID: "c1", Name: "session", Value: "abc", Path: "/", HTTPOnly: true},
+		},
+		EnvironmentID: "env-1",
 	}
 }
 

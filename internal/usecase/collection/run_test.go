@@ -666,6 +666,52 @@ func TestARunsRequestCarriesWhatItsBodyWasMadeOf(t *testing.T) {
 	}
 }
 
+// A request saved against an environment of its own is resolved against it wherever it is sent
+// from. A run is the case that makes this matter: it reaches requests the window is not looking at,
+// so the node's pin has to travel with the request — without it a collection pointed at one
+// environment would quietly go out under whatever the window is on.
+func TestARunsRequestCarriesTheEnvironmentItWasPinnedTo(t *testing.T) {
+	store := newFakeStore()
+	sender := newFakeSender()
+	notifier := newFakeNotifier()
+	uc := NewUseCase(store, fakeScope{}, sender, newFakeAssertions(), newFakeEnvironment(),
+		notifier, platform.NewIDGen())
+	ctx := context.Background()
+
+	tree, err := uc.CreateCollection(ctx, "Коллекция", "", "")
+	if err != nil {
+		t.Fatalf("CreateCollection: %v", err)
+	}
+	collectionID := only(t, tree).ID
+	if _, tree, err = uc.CreateNode(ctx, NodeDraft{
+		CollectionID: collectionID, Name: "Прод", Method: "GET",
+	}); err != nil {
+		t.Fatalf("CreateNode: %v", err)
+	}
+	const url = "https://api.example.com/articles"
+	node := findInTree(t, tree, "Прод")
+	if _, err := uc.SaveNode(ctx, domain.CollectionNode{
+		ID: node.ID, Name: "Прод", Method: "GET", URL: url, EnvironmentID: "env-prod",
+	}); err != nil {
+		t.Fatalf("SaveNode: %v", err)
+	}
+	sender.reply(url, 200, 1000)
+
+	if _, err := uc.Run(ctx, collectionID, ""); err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+	notifier.runFinished(t)
+
+	requests := sender.requests()
+	if len(requests) != 1 {
+		t.Fatalf("sent %d requests, want 1", len(requests))
+	}
+	if requests[0].EnvironmentID != "env-prod" {
+		t.Errorf("environment = %q, want the one the request was saved against",
+			requests[0].EnvironmentID)
+	}
+}
+
 // What a run went out under is kept with the run. The page that reports on it is read later, under
 // whatever environment happens to be on screen then, and drawing that name on an older run would be
 // saying it ran under something it never saw.

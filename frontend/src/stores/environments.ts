@@ -223,8 +223,11 @@ export const useEnvironmentsStore = defineStore('environments', {
       return this.revealed[v.id] ?? ''
     },
 
-    resolveVariable(name: string): VarResolution | null {
-      const env = this.activeEnvironment
+    // envId is the environment a request pinned itself to, when it has one. It answers in place of
+    // the window's own, the way the same id does on the Go side — an id nothing answers to is no
+    // environment at all there, and it is one here too, rather than quietly the window's.
+    resolveVariable(name: string, envId?: string): VarResolution | null {
+      const env = envId ? (this.environments.find((e) => e.id === envId) ?? null) : this.activeEnvironment
       if (env) {
         const v = env.vars.find((x) => x.name === name && x.enabled)
         if (v) return { value: this.effectiveValue(v), source: 'env', kind: v.kind }

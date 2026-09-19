@@ -346,6 +346,13 @@ export interface CollectionNode {
     "form"?: FormRow[] | null;
     "bodyFile"?: string;
     "cookies"?: CookieRow[] | null;
+
+    /**
+     * EnvironmentID pins this card to an environment of its own, apart from the window's — the same
+     * field a draft carries, kept in step with it by nodeFromDraft/draftOfNode. Empty means the card
+     * follows whatever the window is on.
+     */
+    "environmentId"?: string;
     "auth"?: Auth | null;
 
     /**
@@ -500,6 +507,14 @@ export interface Draft {
     "form": FormRow[] | null;
     "bodyFile"?: string;
     "cookies": CookieRow[] | null;
+
+    /**
+     * EnvironmentID pins this one request to an environment of its own, apart from the window's:
+     * empty means it still follows whatever the window is on. It names an environment rather than
+     * carrying one, the way ActiveID does, so a request stays pinned to the right thing across a
+     * rename and reads as "nothing here" once more should that environment be deleted.
+     */
+    "environmentId"?: string;
 }
 
 /**

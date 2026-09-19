@@ -97,7 +97,11 @@ type CollectionNode struct {
 	Form     []FormRow   `json:"form,omitempty"`
 	BodyFile string      `json:"bodyFile,omitempty"`
 	Cookies  []CookieRow `json:"cookies,omitempty"`
-	Auth     *Auth       `json:"auth,omitempty"`
+	// EnvironmentID pins this card to an environment of its own, apart from the window's — the same
+	// field a draft carries, kept in step with it by nodeFromDraft/draftOfNode. Empty means the card
+	// follows whatever the window is on.
+	EnvironmentID string `json:"environmentId,omitempty"`
+	Auth          *Auth  `json:"auth,omitempty"`
 	// Scripts are the code this request runs around itself. Nil means "not set here" and the levels
 	// above are what runs; empty means this level has nothing to add.
 	Scripts *Scripts `json:"scripts,omitempty"`
@@ -120,6 +124,10 @@ type CollectionRun struct {
 	// the time. It is a name rather than an id because a run is a thing that happened: the
 	// environment on screen next week is not the one these requests were sent with, and neither is
 	// the name it may have been renamed to since.
+	//
+	// It is the environment the run was started under, which is what every request in it resolves in
+	// unless that request pinned one of its own — a request carries its own environment, and the run
+	// carries the one they fall back on.
 	Environment string `json:"environment,omitempty"`
 
 	StartedAt  int64 `json:"startedAt"`

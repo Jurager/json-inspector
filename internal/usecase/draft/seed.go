@@ -97,15 +97,16 @@ func (u *UseCase) Mask(ctx context.Context, seed Seed) (Prepared, error) {
 // handled like one the window typed.
 func (u *UseCase) draftOfSeed(seed Seed) domain.Draft {
 	draft := domain.Draft{
-		Method:   seed.Method,
-		URL:      seed.URL,
-		Body:     seed.Body,
-		BodyKind: domain.KindOf(seed.BodyKind),
-		Form:     u.formWithIDs(seed.Form),
-		BodyFile: seed.BodyFile,
-		Headers:  u.rowsFromHeaders(seed.Headers),
-		Cookies:  seed.Cookies,
-		Auth:     authOf(seed),
+		Method:        seed.Method,
+		URL:           seed.URL,
+		Body:          seed.Body,
+		BodyKind:      domain.KindOf(seed.BodyKind),
+		Form:          u.formWithIDs(seed.Form),
+		BodyFile:      seed.BodyFile,
+		Headers:       u.rowsFromHeaders(seed.Headers),
+		Cookies:       seed.Cookies,
+		Auth:          authOf(seed),
+		EnvironmentID: seed.EnvironmentID,
 	}
 	// A request with no jar of its own — a followed link, a pasted command — carries its cookies in
 	// the header, and that is where they are read from.

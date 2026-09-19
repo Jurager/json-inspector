@@ -418,7 +418,7 @@ async function copyAs(format: CommandFormat) {
     <!-- The line a captured request gets, and the only one it can: it has no command line to be
          read in, so where it went and what it carried are said here. What the answer was is the
          strip below — a method and a status in this line would be the response said twice. -->
-    <div v-if="record.source === 'browser'" class="request-block">
+    <div v-if="record.source === 'browser'" class="request-block request-block-solo">
       <div class="bar-row">
         <!-- The field is the editor's own object: the verb standing in its left end, the address after
              it. A captured request has no command line to be read in, so what it was and where it went
