@@ -33,7 +33,6 @@ import {
   Moon,
   Monitor,
   Link,
-  Bookmark,
   Play,
   Pause,
   Square,
@@ -142,6 +141,51 @@ const APP_WINDOW = createLucideIcon('app-window', [
   ['path', { d: 'm3.6 8h16.8' }],
 ])
 
+// The four the response bar's own buttons draw, all of them the handoff's paths rather than lucide's.
+// The bar's controls are 28px squares that carry no label, so the glyph is the whole button and a
+// lucide variant a pixel narrower or a corner rounder is the difference a person sees.
+//
+// The bin's lesson, applied: where the drawing has its own mark, the drawing's mark is the one used.
+const COPY = createLucideIcon('copy-sheet', [
+  ['rect', { x: '8.5', y: '8.5', width: '11', height: '11', rx: '2' }],
+  ['path', { d: 'M15.5 5.5a2 2 0 0 0-2-2h-7a3 3 0 0 0-3 3v7a2 2 0 0 0 2 2' }],
+])
+
+// Two bars on one spine: what this answer says against what the last one did.
+const COMPARE = createLucideIcon('compare-marks', [
+  ['path', { d: 'M12 3.5v9' }],
+  ['path', { d: 'M7.5 8h9' }],
+  ['path', { d: 'M7.5 19h9' }],
+])
+
+// The panel the inspector stands in: the window frame with its right column marked, drawn as a line
+// rather than as the filled band the list-side control uses — the two say different things.
+const INSPECTOR = createLucideIcon('inspector-panel', [
+  ['rect', { x: '3', y: '4.5', width: '18', height: '15', rx: '2' }],
+  ['path', { d: 'M14.5 4.5v15' }],
+])
+
+// One arrow coming round again: the handoff's own retry, which is half of lucide's cycle.
+const RETRY = createLucideIcon('retry-arrow', [
+  ['path', { d: 'M20 11.5a8 8 0 1 0-1.9 6.1' }],
+  ['path', { d: 'M20 5.5v6h-6' }],
+])
+
+// The mark a request is kept under. The handoff's ribbon is narrower than lucide's, which runs the
+// full width of the box and comes to a point a third shorter.
+const BOOKMARK = createLucideIcon('bookmark-ribbon', [
+  ['path', { d: 'M6.5 4.5h11a1 1 0 0 1 1 1V20l-6.5-4.6L5.5 20V5.5a1 1 0 0 1 1-1Z' }],
+])
+
+// The environment a request answers in: three stacked discs, the outline the rail's own token is not.
+// Its fill is left to the caller, which tints the stack when the request is pinned to one — a shape
+// attribute here would be one state's colour baked into every use.
+const DATABASE = createLucideIcon('database-stack', [
+  ['ellipse', { cx: '12', cy: '6', rx: '7.5', ry: '3' }],
+  ['path', { d: 'M4.5 6v12c0 1.7 3.4 3 7.5 3s7.5-1.3 7.5-3V6' }],
+  ['path', { d: 'M4.5 12c0 1.7 3.4 3 7.5 3s7.5-1.3 7.5-3' }],
+])
+
 const ICONS: Record<string, Component> = {
   file: FILE,
   window: APP_WINDOW,
@@ -178,7 +222,8 @@ const ICONS: Record<string, Component> = {
   moon: Moon,
   monitor: Monitor,
   link: Link,
-  bookmark: Bookmark,
+  bookmark: BOOKMARK,
+  database: DATABASE,
   play: Play,
   pause: Pause,
   stop: Square,
@@ -189,6 +234,10 @@ const ICONS: Record<string, Component> = {
   upload: Upload,
   contrast: Contrast,
   globe: Globe,
+  copy: COPY,
+  compare: COMPARE,
+  inspector: INSPECTOR,
+  retry: RETRY,
   user: User,
   logout: LogOut,
   // The settings rail's own three: a request going out and an answer coming back, the shield a proxy

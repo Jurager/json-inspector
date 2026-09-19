@@ -688,26 +688,35 @@ html.window-translucent body {
   @apply block text-[11px] text-text-tertiary;
 }
 
-/* While the retry is running the block says what it is doing instead of what is wrong: the title
-   takes the accent — the colour of work in this app — and the button goes quiet, because pressing it
-   again is not a thing to do while the first press is still being answered. */
+/* While the retry is running the block says what it is doing instead of what is wrong, and the mark
+   on the button turns with it — the accent is the colour of work in this app, and a button whose own
+   glyph is already going round does not need to be told twice not to be pressed again. */
 .account-reach.busy .account-reach-title {
   color: var(--accent);
 }
 
 .account-reach.busy .account-reach-retry {
-  color: var(--text-tertiary);
+  color: var(--accent);
 }
 
+.account-reach.busy .account-reach-retry svg {
+  animation: spin 900ms linear infinite;
+  transform-origin: 50% 50%;
+}
+
+/* The handoff's small field-button, now carrying a mark rather than a word: 26px square, the fill and
+   the hairline of a field, so it stands in the row as the control it is. */
 .account-reach-retry {
-  @apply flex-none text-[12px] font-medium h-6 cursor-pointer;
-  padding: 0 9px;
+  @apply flex-none inline-flex items-center justify-center cursor-pointer;
+  width: 26px;
+  height: 26px;
   border: 1px solid var(--border-strong);
   border-radius: 6px;
   background: var(--bg-inset);
   color: var(--text);
   font-family: inherit;
   --wails-draggable: no-drag;
+  transition: background 0.12s ease, color 0.12s ease;
 }
 
 .account-reach-retry:hover {
@@ -757,14 +766,30 @@ html.window-translucent body {
   background: var(--red);
 }
 
-/* The dot's own place while a check is in flight, holding the app's ring: a 16px badge on the
-   sidebar's own colour, so the ring stands on the rail rather than beside a dot that is not there. */
-.rail-syncing {
-  @apply absolute inline-flex items-center justify-center w-4 h-4 rounded-full;
-  right: 10px;
-  bottom: 1px;
-  background: var(--bg-sidebar);
-  color: var(--accent);
+/* The two steps of the save panel, which is one panel with two faces: the step being left goes out
+   on the side the one arriving comes in from, so the pair reads as one movement rather than as two
+   panels. Here rather than in the component because they are a panel's own vocabulary, beside the
+   scale every other popover arrives on. */
+@keyframes step-next {
+  from {
+    opacity: 0;
+    transform: translateX(14px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes step-back {
+  from {
+    opacity: 0;
+    transform: translateX(-14px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
 }
 
 @keyframes panel-in {
@@ -1068,11 +1093,6 @@ button {
   @apply w-7 h-7 border-[3px];
 }
 
-/* The same ring, sized for a line of text: a button that is working says so without growing. */
-.spinner-sm {
-  @apply w-3 h-3 border-[1.5px];
-}
-
 @keyframes spin {
   to {
     transform: rotate(360deg);
@@ -1328,19 +1348,19 @@ mark.search-match.current {
   @apply flex-none flex flex-col;
   background: var(--glass-side);
   backdrop-filter: var(--blur-side);
-  border-bottom: 2px solid var(--border);
+  border-bottom: 1px solid var(--border);
 }
 
 .bar-row {
   @apply flex items-center gap-2;
-  padding: 9px 20px 0;
+  padding: 10px 20px 0;
 }
 
 /* The block's own breathing room, for the bar that is the block's only row: the editor's sections
-   sit on that edge instead — their rule is what marks the bottom there — so the 9px is owed only
+   sit on that edge instead — their rule is what marks the bottom there — so the 10px is owed only
    where nothing follows the address. */
 .request-block-solo .bar-row {
-  padding-bottom: 9px;
+  padding-bottom: 10px;
 }
 
 .url-field {

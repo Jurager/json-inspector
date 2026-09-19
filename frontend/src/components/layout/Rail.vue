@@ -149,13 +149,11 @@ async function selectSource(view: RailView) {
             <!-- The dot is presence, not a badge: it says the app holds an account, and it is drawn
                  only then. It wears the colour of that account's health — the same dot is green
                  while the server answers and red while it does not, so the rail says it without
-                 being opened. -->
+                 being opened.
+                 While a check is in flight neither is known, and the rail says nothing at all: a
+                 ring here said «работаю», and the handoff keeps work — and its animation — for the
+                 button inside the menu, which is where somebody pressed it. -->
             <span v-if="signedIn && !syncing" class="rail-presence" :class="{ down: serverDown }"></span>
-            <!-- And while a check is in flight the dot gives way to a ring: «аккаунт здесь» is not
-                 something to keep saying while it is unknown whether the server is. -->
-            <span v-if="syncing" class="rail-syncing" :title="t('account.checking')">
-              <span class="spinner spinner-sm"></span>
-            </span>
           </button>
         </PopoverTrigger>
         <PopoverContent class="account-menu" side="right" align="end">
@@ -181,8 +179,17 @@ async function selectSource(view: RailView) {
                 {{ syncing ? t('account.retrying') : lastReach ? t('account.lastReach', { when: lastReach }) : '' }}
               </span>
             </span>
-            <button class="account-reach-retry" @click="checkServer()">
-              {{ syncing ? t('account.trying') : t('account.retry') }}
+            <!-- The mark is the whole button, and it turns while the retry is in flight: the row
+                 above it is already saying «переподключаемся» in words, and a second word beside it
+                 would be the same sentence twice. -->
+            <button
+              type="button"
+              class="account-reach-retry"
+              :title="syncing ? t('account.trying') : t('account.retry')"
+              :aria-label="syncing ? t('account.trying') : t('account.retry')"
+              @click="checkServer()"
+            >
+              <Icon name="retry" :size="14" :stroke-width="1.9" />
             </button>
           </div>
 

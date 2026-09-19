@@ -8,7 +8,7 @@ import { useHoverArrival } from '../../../composables/useHoverArrival'
 withDefaults(
   defineProps<{
     variant?: 'outline' | 'bare' | 'subtle' | 'danger'
-    size?: 'sm' | 'md' | 'lg' | 'xl'
+    size?: 'sm' | 'md' | 'lg' | 'xl' | 'bar' | 'tab'
     hint?: string
     disabled?: boolean
   }>(),
@@ -93,6 +93,22 @@ const hintArmed = useHoverArrival(hintEl)
   width: 26px;
   height: 26px;
   border-radius: 6px;
+}
+
+/* The square a labelled button of the same name would be: the 28px of `.btn--bar` and its radius, so
+   that a bar whose controls lost their words still stands on one line of one height. */
+.icon-btn--bar {
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+}
+
+/* The one control the tab row keeps: the handoff draws it a step larger than the bar's own, and at
+   the radius that goes with 30 rather than with 28. */
+.icon-btn--tab {
+  width: 30px;
+  height: 30px;
+  border-radius: 7px;
 }
 
 .icon-btn--outline {

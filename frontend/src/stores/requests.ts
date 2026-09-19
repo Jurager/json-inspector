@@ -369,6 +369,15 @@ export const useRequestsStore = defineStore('requests', {
       }
     },
 
+    // What the line holds has been kept somewhere other than the line — sent and filed in the
+    // history, or saved into a collection — so it stops being work of its own. Neither act changes
+    // the draft, so the revision it stands at is the revision that was kept; a line edited after
+    // this is work again, which is the revision moving on. The mark the line carries for that is
+    // the same one, so both callers say it the same way.
+    kept() {
+      this.lineRevision = this.draft?.revision ?? 0
+    },
+
     async setMethod(method: string) {
       await this.edit(DraftService.SetMethod(DRAFT, method))
     },
@@ -687,10 +696,9 @@ export const useRequestsStore = defineStore('requests', {
         this.failSend()
         throw error
       }
-      // What the line holds is a record from this moment on — it is in the history, and sending does
-      // not change the draft — so it stops being work of its own. A line edited after this is work
-      // again, which is what the revision moving on says.
-      this.lineRevision = this.draft?.revision ?? 0
+      // What the line holds is a record from this moment on: sending does not change the draft, and
+      // what stands in it is now in the history.
+      this.kept()
       // The answer can be back before this call is, and the claim has already adopted it and turned
       // the spinner off: putting the id back would leave the button waiting for what it just got.
       this.claim(id)

@@ -3,7 +3,7 @@ import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import Icon from '../ui/Icon.vue'
 import BarEnvironment from './BarEnvironment.vue'
 import BarSections from './BarSections.vue'
-import SaveToCollectionSheet from '../collections/SaveToCollectionSheet.vue'
+import SaveRequestPopover from '../collections/SaveRequestPopover.vue'
 import { Button } from '../ui/button'
 import VarToken from '../ui/VarToken.vue'
 import {
@@ -20,6 +20,7 @@ import { usePlatform } from '../../composables/usePlatform'
 import { registerUrlField } from '../../composables/urlFocus'
 import { useRequestEnvironment } from '../../composables/useRequestEnvironment'
 import { urlPieces } from '../../lib/vars'
+import { collectionPlaces } from '../../lib/collectionPlaces'
 import { looksLikeCommand } from '../../lib/commandShape'
 import { CommandKind } from '../../../bindings/json-inspector/internal/usecase/draft'
 import { useToast } from '../../composables/useToast'
@@ -190,24 +191,39 @@ const canSave = computed(() => props.source === 'request')
 const saveOpen = ref(false)
 const saveAnchor = ref<HTMLElement | null>(null)
 
-// A dot on the bookmark while the line holds a request no collection has: the drawing's way of
-// saying there is something here worth keeping, which is exactly when there is an address to save.
-const unsaved = computed(() => canSave.value && Boolean(store.url.trim()))
+// A dot on the bookmark while the line holds something a collection does not: it is there for a
+// request somebody typed, and it goes once the request is kept — saved, or sent and filed in the
+// history — and comes back on the next edit of it.
+//
+// What is being typed counts before Go has heard of it. The revision the store counts is Go's, and
+// its answer to a keystroke is a round trip away, so a dot that waited for it would lag every line
+// by the length of a flush.
+//
+// The question is the command line's own and so is the answer: a card is drawn by the same builder
+// but kept by its own button in the status bar, so it never wears this dot.
+// Whether there is anything to keep at all: saving is the command line's gesture, and a line with no
+// address is not a request yet.
+const canSaveNow = computed(() => canSave.value && Boolean(requests.url.trim()))
+
+const unsaved = computed(
+  () =>
+    canSaveNow.value &&
+    (requests.lineDirty || requests.bufferedUrl || requests.bufferedBody)
+)
 const saveHint = computed(() => (unsaved.value ? t('request.saveHint') : t('request.saveToCollection')))
 
-// The default name is the address the way a person would say it: the last segment, query and all
-// the rest left out — a name, not a URL.
+// Where a save could go, which is what tells the shortcut that the place it remembers is still
+// there. The sheet draws the same list with the tree's names on it.
+const places = computed(() => collectionPlaces(collections.tree))
+
+// What the request would be called: the address without its scheme, which is what tells one row of a
+// collection from another. The verb is left out on purpose — the same endpoint is usually written to
+// in a collection that reads it, and two rows that differ by nothing else are two rows nobody can
+// tell apart. The panel opens its name field with this in it, and the name is theirs to change.
 const saveDefaultName = computed(() => {
   const raw = store.url.trim()
   if (!raw) return t('request.newRequestName')
-  try {
-    const url = new URL(raw)
-    const last = url.pathname.split('/').filter(Boolean).pop()
-    return decodeURIComponent(last ?? url.host)
-  } catch {
-    const withoutQuery = raw.split('?')[0].split('#')[0]
-    return withoutQuery.split('/').filter(Boolean).pop() ?? withoutQuery
-  }
+  return raw.replace(/^[a-z][a-z0-9+.-]*:\/\//i, '')
 })
 
 function syncUrlScroll() {
@@ -217,10 +233,38 @@ function syncUrlScroll() {
 }
 
 function onWindowKeydown(e: KeyboardEvent) {
-  if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
+  if (!(e.metaKey || e.ctrlKey)) return
+  // By code and not by key: the layouts the window is used in put other letters on this key, and a
+  // shortcut that only answers on one of them is a shortcut half the users do not have.
+  if (e.code === 'KeyS') {
+    // A card is kept by its own button, and a line with no address is not a request yet: the press
+    // is left to the window rather than swallowed by a shortcut with nothing to do.
+    if (!canSaveNow.value) return
+    e.preventDefault()
+    void saveShortcut()
+    return
+  }
+  if (e.key === 'Enter') {
     e.preventDefault()
     void send()
   }
+}
+
+// What the sheet promises in its own last line: the next request goes where the last one went,
+// without the panel being opened at all. Nothing remembered is not a refusal — it is what the sheet
+// is for — so the first save of a session is the sheet and the ones after it are this.
+//
+// A place the tree no longer has answers the same way: the collection was deleted, and the sheet is
+// where that is found out. So does a line nothing has been done to since the last save.
+async function saveShortcut() {
+  const place = places.value.find((p) => p.id === collections.lastSaveTarget)
+  if (!unsaved.value || !place) {
+    saveOpen.value = true
+    return
+  }
+  if (!(await collections.saveDraft(place.id, saveDefaultName.value))) return
+  requests.kept()
+  toast.show(t('collections.savedTo', { name: place.path.join(' / ') }))
 }
 
 // A paste is read on the other side, which is where the parsing lives — quoting dialects are logic,
@@ -340,15 +384,22 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onWindowKeydown))
       <BarEnvironment :source="store" />
 
       <span v-if="canSave" ref="saveAnchor" class="save-anchor">
-        <button class="bookmark-btn" :disabled="!store.url.trim()" :title="saveHint" @click="saveOpen = !saveOpen">
-          <Icon name="bookmark" :size="14" />
+        <button
+          class="bookmark-btn"
+          :class="{ open: saveOpen }"
+          :disabled="!store.url.trim()"
+          :title="saveHint"
+          @click="saveOpen = !saveOpen"
+        >
+          <Icon name="bookmark" :size="17" :stroke-width="1.7" />
           <span v-if="unsaved" class="unsaved-dot"></span>
         </button>
-        <SaveToCollectionSheet
+        <SaveRequestPopover
           :open="saveOpen"
           :url="store.url"
           :default-name="saveDefaultName"
           @update:open="saveOpen = $event"
+          @saved="requests.kept()"
         />
       </span>
 
@@ -464,7 +515,10 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onWindowKeydown))
   --wails-draggable: no-drag;
 }
 
-.bookmark-btn:hover:not(:disabled) {
+/* The button wears the accent while its panel is open, hover or not: what it holds is on screen, and
+   a control that looked the same open and closed would leave the panel attached to nothing. */
+.bookmark-btn:hover:not(:disabled),
+.bookmark-btn.open {
   background: var(--bg-hover);
   color: var(--accent);
 }
@@ -523,8 +577,11 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onWindowKeydown))
 
 /* A notice inside the block rather than a strip across the window: it is about the address above it,
    and it stands where the sections stand — the shape of the thing it is blocking. */
+/* The block stands under the address it is about and on the address's own edges: the bar is inset
+   20px on both sides, and a warning that ran the full width of the window would not read as being
+   about the line above it. */
 .var-error {
-  @apply flex items-center gap-[9px] mt-[7px] py-[7px] px-2.5 rounded-[7px];
+  @apply flex items-center gap-[9px] mt-[7px] mx-5 py-[7px] px-2.5 rounded-[7px];
   background: var(--red-soft);
 }
 
@@ -533,9 +590,12 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onWindowKeydown))
 }
 
 /* One sentence, and it gives way rather than wrapping: a long address in a tooltip is better than a
-   second line that pushes the answer down. */
+   second line that pushes the answer down. It is written in the colour of the thing that is wrong —
+   the handoff paints the whole line, and a warning in the ordinary ink is a sentence the eye has to
+   stop and read. `--red-text` rather than the fill: this is written words, and the fill is for the dot. */
 .var-error-text {
-  @apply flex-1 min-w-0 text-[12px] text-text;
+  @apply flex-1 min-w-0 text-[12px];
+  color: var(--red-text);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -545,11 +605,11 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onWindowKeydown))
   @apply font-semibold;
 }
 
-/* The names are values in a sentence about them, so they are drawn as values: the mono face (the
-   `mono` class the markup wears) and the colour of the thing that is wrong, not a chip of their own. */
+/* The names are values in a sentence about them, so they are drawn as values: the mono face the
+   markup wears, and the sentence's own colour. A second red inside a red line would be a second
+   thing to read, and what makes a name stand out here is the face and the weight, not the ink. */
 .var-name {
   @apply font-semibold;
-  color: var(--red);
 }
 
 .var-error-action {

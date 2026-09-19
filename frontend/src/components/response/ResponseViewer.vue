@@ -28,7 +28,7 @@ import JsonApiTree from '../json/JsonApiTree.vue'
 import TextViewerTab from './TextViewerTab.vue'
 import SchemaMap from '../json/SchemaMap.vue'
 import NodeInspector from '../json/NodeInspector.vue'
-import RequestCookiesTab from './RequestCookiesTab.vue'
+import CookiesTab from './CookiesTab.vue'
 import TimingsTab from './TimingsTab.vue'
 import ScriptsTab from './ScriptsTab.vue'
 import { RecordSource } from '../../../bindings/json-inspector/internal/domain'
@@ -202,9 +202,9 @@ const availableTabs = computed<Tab[]>(() => {
   const tabs: Tab[] = ['body']
   if (isJsonApiDoc.value) tabs.push('map')
   tabs.push('raw', 'headers')
-  // "Cookies" is the request's own cookie jar, which only a manual send has — a captured
-  // response can't show its cookies at all (Set-Cookie is a forbidden header for fetch/XHR,
-  // and the browser-side workaround wasn't worth its cost), so the tab would always be empty.
+  // "Cookies" holds both ends of the exchange, and only a manual send has an answer to show: a
+  // captured one never carries Set-Cookie — the browser hides that header from the page — so the
+  // tab there would be empty on both halves.
   if (props.record.source === RecordSource.SourceManual) tabs.push('cookies')
   tabs.push('timings')
   // The scripts of a collection run around the requests this app sends, so a report only ever hangs
@@ -377,14 +377,17 @@ async function copyAs(format: CommandFormat) {
 
       <span class="resp-spacer"></span>
 
-      <Button size="bar" disabled :title="t('response.compareSoon')">{{ t('response.compare') }}</Button>
+      <IconButton variant="bare" size="bar" disabled :hint="t('response.compareSoon')">
+        <Icon name="compare" :size="16" :stroke-width="1.8" />
+      </IconButton>
       <DropdownMenu>
         <DropdownMenuTrigger as-child>
-          <Button size="bar">
-            <Icon v-if="copied" name="check" :size="12" />
-            <span>{{ copied ? t('common.copied') : t('common.copy') }}</span>
-            <svg class="caret" viewBox="0 0 24 24" width="11" height="11" fill="none" aria-hidden="true"><path d="m6 9 6 6 6-6" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
-          </Button>
+          <button type="button" class="copy-trigger" :title="t('common.copy')">
+            <!-- The mark answers for itself while the copy is landing: a tick where the sheet was is
+                 the whole answer a button with no word left can give. -->
+            <Icon :name="copied ? 'check' : 'copy'" :size="16" :stroke-width="1.7" />
+            <Icon class="caret" name="chevron-down" :size="10" :stroke-width="2.6" />
+          </button>
         </DropdownMenuTrigger>
         <DropdownMenuContent :side-offset="4">
           <!-- The link comes first and the wire formats after it: one is this request, the others
@@ -397,13 +400,16 @@ async function copyAs(format: CommandFormat) {
         </DropdownMenuContent>
       </DropdownMenu>
 
-      <Button
+      <IconButton
+        variant="bare"
         size="bar"
         class="inspector-toggle"
         :class="{ 'inspector-open': store.inspector.open }"
-        :title="t('response.inspector', { shortcut: '⌥I' })"
+        :hint="t('response.inspector', { shortcut: '⌥I' })"
         @click="toggleInspector"
-      >{{ t('response.inspectorShort') }}<kbd class="inspector-key">⌥I</kbd></Button>
+      >
+        <Icon name="inspector" :size="16" :stroke-width="1.7" />
+      </IconButton>
     </div>
 
     <div v-if="record.cancelled" class="resp-error">{{ t('response.cancelled') }}</div>
@@ -417,9 +423,16 @@ async function copyAs(format: CommandFormat) {
         <TabsList>
           <TabsTrigger v-for="tab in availableTabs" :key="tab" :value="tab">{{ TAB_LABELS[tab] }}</TabsTrigger>
         </TabsList>
-        <Button v-if="searchable" size="bar" class="tabs-search" @click="openSearch()">
-          <span>{{ t('common.search') }}</span><span class="tabs-search-key">{{ searchShortcut }}</span>
-        </Button>
+        <IconButton
+          v-if="searchable"
+          variant="bare"
+          size="tab"
+          class="tabs-search"
+          :hint="t('response.search', { shortcut: searchShortcut })"
+          @click="openSearch()"
+        >
+          <Icon name="search" :size="16" :stroke-width="1.8" />
+        </IconButton>
       </div>
 
     <div class="resp-main">
@@ -504,7 +517,7 @@ async function copyAs(format: CommandFormat) {
 
       <TabsContent class="resp-tab" value="cookies">
         <div class="resp-content">
-          <RequestCookiesTab />
+          <CookiesTab :record="record" />
         </div>
       </TabsContent>
 
@@ -620,12 +633,12 @@ async function copyAs(format: CommandFormat) {
   @apply flex-1 min-w-0 h-auto px-0 border-b-0;
 }
 
-.tabs-row .btn.tabs-search {
-  @apply self-center gap-2 text-text-secondary;
-}
-
-.tabs-search-key {
-  @apply text-[12px] text-text-tertiary;
+/* The search the row keeps at its end: a mark rather than a word, wearing the field's fill and its
+   hairline so that it reads as a control standing in the row rather than as a tab beside them. */
+.tabs-row .tabs-search {
+  @apply self-center;
+  border: 1px solid var(--border);
+  background: var(--bg-inset);
 }
 
 /* The four steps as one control: a groove they sit in, and a button per step with no fill of its own
@@ -772,24 +785,42 @@ async function copyAs(format: CommandFormat) {
    the accent, which is what the handoff draws. `.btn` is written twice there because the primitive's
    own hover paints the background as well, and an open pane must not grey out under the pointer —
    the drawing lightens it instead. */
-.resp-bar .btn.btn.inspector-toggle {
-  gap: 8px;
+/* The three controls at the end of the bar, as the handoff now draws them: the mark carries the
+   meaning and the word has gone, so none of them has a fill or a hairline of its own. The inspector
+   is the one exception, and only because it has something to say about itself — whether the panel it
+   names is standing open. */
+.copy-trigger {
+  @apply inline-flex flex-none items-center text-text-secondary;
+  height: 28px;
+  padding: 0 6px 0 7px;
+  gap: 3px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  cursor: pointer;
+  transition: color 0.12s ease, background 0.12s ease;
+  --wails-draggable: no-drag;
 }
 
-.resp-bar .btn.btn.inspector-open,
-.resp-bar .btn.btn.inspector-open:hover {
-  @apply text-accent bg-accent-soft border-accent-soft;
+.copy-trigger:hover {
+  @apply bg-bg-hover text-text;
 }
 
-.resp-bar .btn.btn.inspector-open:hover {
-  filter: brightness(1.03);
+.copy-trigger:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
 }
 
-/* The key beside the word, at the handoff's own size for this one: fainter than the label and not in
-   the small caps a keycap draws, because the handoff writes it plain. */
-.inspector-key {
-  @apply text-[12px] opacity-70;
-  font-family: inherit;
+.resp-bar .inspector-toggle {
+  border: 1px solid var(--border);
+  background: var(--bg-inset);
+}
+
+.resp-bar .inspector-toggle.inspector-open,
+.resp-bar .inspector-toggle.inspector-open:hover {
+  @apply text-accent;
+  background: var(--accent-soft);
+  border-color: var(--accent-soft);
 }
 
 /* The chevron of a menu button says the label has more behind it, so it stays behind the label —

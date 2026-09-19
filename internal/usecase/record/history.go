@@ -44,6 +44,7 @@ func (u *UseCase) Ingest(ctx context.Context, in IngestInput) (domain.Record, er
 		},
 		RequestHeaders:  domain.OrEmpty(in.RequestHeaders),
 		ResponseHeaders: domain.OrEmpty(in.ResponseHeaders),
+		ResponseCookies: domain.ParseResponseCookies(in.ResponseHeaders, time.UnixMilli(started)),
 		// A body that came in from outside is never marked short: nothing in what arrived says it was
 		// cut, and guessing would be worse than taking it whole.
 		RequestBody:   bodyRef(in.RequestBody, false),

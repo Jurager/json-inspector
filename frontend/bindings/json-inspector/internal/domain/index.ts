@@ -52,6 +52,7 @@ export type {
     Option,
     ProjectedRow,
     Record,
+    ResponseCookie,
     Row,
     Scheme,
     ScriptLog,

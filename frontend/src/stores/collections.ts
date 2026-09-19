@@ -54,6 +54,10 @@ export const useCollectionsStore = defineStore('collections', {
     selectedId: null as string | null,
     expanded: {} as { [id: string]: boolean },
     filter: '',
+    // The collection the command line was last saved into, so the next request can go there without
+    // the sheet being opened at all. It is this session's answer and not a setting: what a person
+    // saved an hour ago is not a place they meant to keep saving to.
+    lastSaveTarget: '',
 
     // The card: the node that is open, together with the draft Go opened on it.
     editor: null as NodeEditor | null,
@@ -274,6 +278,8 @@ export const useCollectionsStore = defineStore('collections', {
       this.pendingId = null
       this.loading = false
       this.filter = ''
+      // An id of the workspace being left names nothing here.
+      this.lastSaveTarget = ''
     },
 
     // Every change to the tree answers with the whole tree, so the mirror is replaced rather than
@@ -328,14 +334,35 @@ export const useCollectionsStore = defineStore('collections', {
 
     // Saving from the command line copies what is composed into a collection. The draft is not
     // touched: saving a copy is not a move, and what is being composed stays where it is.
-    async saveDraft(collectionId: string, name: string) {
+    //
+    // Answers whether it landed, because the sheet has two things to do after it — say so, and stop
+    // offering to save — and neither is right when the save was refused.
+    async saveDraft(collectionId: string, name: string): Promise<boolean> {
       const created = await asked(
         CollectionsService.SaveDraft(collectionId, name),
         'collections.saveFailed'
       )
-      if (!created) return
+      if (!created) return false
       this.applyTree(created.tree ?? [])
       this.expanded[collectionId] = true
+      // Where the next ⌘S puts the next request: the sheet says so in as many words, and a promise
+      // the window cannot keep would be worse than not making it.
+      this.lastSaveTarget = collectionId
+      return true
+    },
+
+    // The sheet's «Создать «X»» row: a collection nobody has yet, with this request as its first.
+    // One call on the other side, so a failure cannot leave an empty collection behind.
+    async saveDraftToNew(collection: string, name: string): Promise<boolean> {
+      const created = await asked(
+        CollectionsService.SaveDraftToNew(collection, name),
+        'collections.saveFailed'
+      )
+      if (!created) return false
+      this.applyTree(created.tree ?? [])
+      this.expanded[created.node.collectionId] = true
+      this.lastSaveTarget = created.node.collectionId
+      return true
     },
 
     // A collection travels as a file: the window asks Go for an import, and Go reads the file. A

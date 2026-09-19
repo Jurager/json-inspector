@@ -116,6 +116,26 @@ func (s *CollectionsService) SaveDraft(
 	return CreatedNode{Node: node, Tree: tree}, nil
 }
 
+// SaveDraftToNew saves the command line's request as the first one of a collection that does not
+// exist yet, named by the caller. The sheet's «Создать «X»» row is one intention, and serving it in
+// two calls would leave an empty collection behind whenever the second one failed — a collection
+// nobody asked for, and one somebody then has to go and delete.
+//
+// It is here rather than in the collection feature because the draft is: the request being composed
+// is this layer's to read, and the two calls that make one collection of it are this layer's to
+// join.
+func (s *CollectionsService) SaveDraftToNew(
+	ctx context.Context,
+	collection string,
+	name string,
+) (CreatedNode, error) {
+	made, _, err := s.collections.CreateCollection(ctx, collection, "", "")
+	if err != nil {
+		return CreatedNode{}, err
+	}
+	return s.SaveDraft(ctx, made.ID, name)
+}
+
 // Describe writes what a collection is for — the line the overview draws above its tabs. Empty is
 // an answer there: the header then shows the placeholder that invites one.
 func (s *CollectionsService) Describe(

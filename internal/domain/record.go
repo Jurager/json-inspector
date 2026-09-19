@@ -110,8 +110,12 @@ type Record struct {
 	RequestHeaders  []HeaderPair `json:"requestHeaders"`
 	ResponseHeaders []HeaderPair `json:"responseHeaders"`
 	RequestCookies  []CookieRow  `json:"requestCookies,omitempty"`
-	RequestBody     *BodyRef     `json:"requestBody,omitempty"`
-	ResponseBody    *BodyRef     `json:"responseBody,omitempty"`
+	// ResponseCookies is the answer's own jar, read out of its `Set-Cookie` rows. It is derived from
+	// the headers rather than stored beside them: those lines are the truth, and a second copy could
+	// only drift from them. Whoever builds or reads a record fills it — see ParseResponseCookies.
+	ResponseCookies []ResponseCookie `json:"responseCookies,omitempty"`
+	RequestBody     *BodyRef         `json:"requestBody,omitempty"`
+	ResponseBody    *BodyRef         `json:"responseBody,omitempty"`
 	// Skipped is a request that never went out, because a pre-request script said so. There is no
 	// answer to fold in and nothing for history to keep — the flag is how whoever asked learns that
 	// the request was not sent rather than that it failed.

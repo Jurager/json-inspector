@@ -84,10 +84,12 @@ const { style: markStyle, ready: markReady } = useSlidingPill(tabsEl, '.bar-tab.
 <style scoped>
 @reference "../../style.css";
 
-/* The row sits at the height of the field above it, and the padding is inside it so that a tab's
-   offsets — which is how the mark is placed — are measured from its own edge. */
+/* The row is taller than the field above it and stands 4px under it: the tabs are words with a rule
+   beneath them, and the rule needs air of its own rather than the field's edge. The padding is inside
+   the row so that a tab's offsets — which is how the mark is placed — are measured from its edge. */
 .bar-tabs {
-  @apply relative flex items-stretch gap-0.5 h-[34px];
+  @apply relative flex items-stretch gap-5 h-10;
+  margin-top: 4px;
   padding: 0 20px;
 }
 
@@ -96,11 +98,13 @@ const { style: markStyle, ready: markReady } = useSlidingPill(tabsEl, '.bar-tab.
    a label's rather than the accent an answer's tab carries, because the two rows are two different
    readings and must not be taken for each other. */
 .bar-tabs .slide-mark {
-  background: linear-gradient(to bottom, transparent calc(100% - 2px), var(--text) 0);
+  background: linear-gradient(to bottom, transparent calc(100% - 1.5px), var(--text) 0);
 }
 
+/* No padding of its own: the tabs stand on the row's 20px gap, which is what the design measures
+   between them — a tab that carried the space instead would put its own rule wider than its word. */
 .bar-tab {
-  @apply flex items-center gap-[7px] px-[11px] border-0 border-b-2 border-b-transparent bg-transparent cursor-pointer;
+  @apply flex items-center gap-[7px] p-0 border-0 bg-transparent cursor-pointer;
   color: var(--text-tertiary);
   font-family: inherit;
   font-size: 13px;

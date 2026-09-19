@@ -227,6 +227,9 @@ func (u *UseCase) recordFrom(
 		RequestHeaders:  sentHeaders(masked.Headers, resp),
 		ResponseHeaders: domain.OrEmpty(resp.Headers),
 		RequestCookies:  domain.OrEmpty(in.Cookies),
+		// The cookies are dated from the send: a `Max-Age` cookie lives from the moment its answer
+		// arrived, and this is the clock the attempt was started on.
+		ResponseCookies: domain.ParseResponseCookies(resp.Headers, time.UnixMilli(started)),
 		RequestBody:     bodyRef(masked.Body, false),
 		ResponseBody:    bodyRef(resp.Body, resp.BodyTruncated),
 	}

@@ -53,9 +53,10 @@ export function useRequestEnvironment(source: RequestSource) {
 
   // Every choice the popover offers: following the window, or one environment named outright. The
   // window's own name is in the first row's words, so a person can see what "follow" means right now
-  // without opening anything else.
+  // without opening anything else — and what that row answers for is the globals, which apply under
+  // every environment, so it is the one row whose second column is a word rather than a count.
   const options = computed(() => [
-    { value: '', name: t('request.envFollow', { name: windowName.value }), vars: '' },
+    { value: '', name: `${t('request.envFollow')} · ${windowName.value}`, vars: t('request.envFollowScope') },
     ...envStore.environments.map((e) => ({
       value: e.id,
       name: e.name,

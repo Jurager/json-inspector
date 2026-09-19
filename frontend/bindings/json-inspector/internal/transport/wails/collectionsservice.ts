@@ -151,6 +151,20 @@ export function SaveDraft(collectionID: string, name: string): $CancellablePromi
 }
 
 /**
+ * SaveDraftToNew saves the command line's request as the first one of a collection that does not
+ * exist yet, named by the caller. The sheet's «Создать «X»» row is one intention, and serving it in
+ * two calls would leave an empty collection behind whenever the second one failed — a collection
+ * nobody asked for, and one somebody then has to go and delete.
+ * 
+ * It is here rather than in the collection feature because the draft is: the request being composed
+ * is this layer's to read, and the two calls that make one collection of it are this layer's to
+ * join.
+ */
+export function SaveDraftToNew(collection: string, name: string): $CancellablePromise<$models.CreatedNode> {
+    return $Call.ByID(1941657663, collection, name);
+}
+
+/**
  * SaveNode writes what the card is editing back into the tree. The draft is where the request is —
  * its method, its address, its rows, its body — and the node keeps what the card does not own: what
  * it is called, where it sits, when it was made.

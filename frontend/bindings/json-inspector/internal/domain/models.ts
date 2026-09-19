@@ -831,6 +831,13 @@ export interface Record {
     "requestHeaders": HeaderPair[] | null;
     "responseHeaders": HeaderPair[] | null;
     "requestCookies"?: CookieRow[] | null;
+
+    /**
+     * ResponseCookies is the answer's own jar, read out of its `Set-Cookie` rows. It is derived from
+     * the headers rather than stored beside them: those lines are the truth, and a second copy could
+     * only drift from them. Whoever builds or reads a record fills it — see ParseResponseCookies.
+     */
+    "responseCookies"?: ResponseCookie[] | null;
     "requestBody"?: BodyRef | null;
     "responseBody"?: BodyRef | null;
 
@@ -855,6 +862,23 @@ export enum RecordSource {
     SourceManual = "manual",
     SourceBrowser = "browser",
 };
+
+/**
+ * ResponseCookie is one cookie an answer set, read out of a `Set-Cookie` row. It has no id and no
+ * editor: nothing in the window changes it, so there is nothing to address it by.
+ * 
+ * Only what the window draws is kept. The attributes a table has no column for — `SameSite` — stay
+ * in the header text, which the Headers tab shows whole.
+ */
+export interface ResponseCookie {
+    "name": string;
+    "value": string;
+    "domain"?: string;
+    "path"?: string;
+    "expires"?: string;
+    "secure"?: boolean;
+    "httpOnly"?: boolean;
+}
 
 /**
  * Retention is how long history is kept. The count cap that has always applied stays: this is what

@@ -343,6 +343,29 @@ func TestSendRecordsWhatTheEngineAdded(t *testing.T) {
 	}
 }
 
+// The cookies the answer set are read out of its headers as the record is made, so the window gets
+// them with the record itself rather than having to walk the header rows it draws beside them.
+func TestSendRecordsTheAnswersCookies(t *testing.T) {
+	uc, _, executor, notifier := newUseCase()
+	executor.response.Headers = []domain.HeaderPair{
+		{Name: "Content-Type", Value: "application/json"},
+		{Name: "Set-Cookie", Value: "session=abc; Path=/; HttpOnly"},
+	}
+
+	if _, err := uc.Send(context.Background(), input()); err != nil {
+		t.Fatalf("Send: %v", err)
+	}
+	finished := notifier.waitFor(t, TopicRequestFinished).(RequestFinished)
+
+	cookies := finished.Record.ResponseCookies
+	if len(cookies) != 1 {
+		t.Fatalf("recorded cookies = %+v, want the one the answer set", cookies)
+	}
+	if cookies[0].Name != "session" || cookies[0].Value != "abc" || !cookies[0].HTTPOnly {
+		t.Errorf("recorded cookie = %+v, want the answer's own row", cookies[0])
+	}
+}
+
 func TestSendRecordsTheMaskedRequest(t *testing.T) {
 	uc, store, executor, notifier := newUseCase()
 

@@ -130,6 +130,11 @@ func scanRecord(row rowScanner) (domain.Record, int64, error) {
 			return domain.Record{}, 0, fmt.Errorf("reading the %s of %s: %w", part.what, rec.ID, err)
 		}
 	}
+	// Read out of the headers rather than stored beside them: the `Set-Cookie` lines are what the
+	// server actually said, and the date a `Max-Age` came to is the one this record's own clock
+	// answers, so a record read back a week later still dates its cookies from when it was made.
+	rec.ResponseCookies = domain.ParseResponseCookies(
+		rec.ResponseHeaders, time.UnixMilli(rec.StartedAt))
 	return rec, seq, nil
 }
 

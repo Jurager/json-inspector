@@ -14,6 +14,8 @@
   a { color: #0a6cff; text-decoration: none; }
   a:hover { color: #0050c8; }
   @keyframes om-spin { to { transform: rotate(360deg); } }
+  @keyframes om-step-next { from { opacity: 0; transform: translateX(14px); } to { opacity: 1; transform: none; } }
+  @keyframes om-step-back { from { opacity: 0; transform: translateX(-14px); } to { opacity: 1; transform: none; } }
   [data-theme="light"] { --win: #ffffff; --chrome: rgba(246,246,248,0.82); --side: rgba(244,244,247,0.78); --content: #ffffff; --raise: #f6f6f8; --pop: rgba(250,250,252,0.86); --field: #ffffff; --fieldline: rgba(0,0,0,0.13); --ink: #1d1d1f; --ink2: #5d5d63; --ink3: #8e8e93; --line: rgba(0,0,0,0.09); --line2: rgba(0,0,0,0.055); --sel: rgba(0,0,0,0.055); --accent: #0a6cff; --accent-press: #0053cc; --accent-soft: rgba(10,108,255,0.12); --ok: #1a7f37; --ok-soft: rgba(26,127,55,0.12); --warn: #b26a00; --warn-soft: rgba(178,106,0,0.14); --bad: #c8402a; --bad-soft: rgba(200,64,42,0.13); --str: #a33a1f; --num: #2a2fb8; --key: #0a6cff; --type: #7a3fb8; --type-soft: rgba(122,63,184,0.12); --chip: rgba(0,0,0,0.045); --shadow: 0 1px 2px rgba(0,0,0,0.06), 0 14px 40px rgba(0,0,0,0.16); --popshadow: 0 1px 0 rgba(255,255,255,0.7) inset, 0 12px 34px rgba(0,0,0,0.18); }
   [data-theme="dark"] { --win: #1c1c1e; --chrome: rgba(46,46,50,0.84); --side: rgba(38,38,42,0.8); --content: #1c1c1e; --raise: #26262a; --pop: rgba(44,44,48,0.9); --field: #1f1f22; --fieldline: rgba(255,255,255,0.14); --ink: #f5f5f7; --ink2: #b0b0b8; --ink3: #85858c; --line: rgba(255,255,255,0.1); --line2: rgba(255,255,255,0.06); --sel: rgba(255,255,255,0.07); --accent: #0a84ff; --accent-press: #3d9bff; --accent-soft: rgba(10,132,255,0.2); --ok: #4ade80; --ok-soft: rgba(74,222,128,0.16); --warn: #f5a524; --warn-soft: rgba(245,165,36,0.18); --bad: #ff6f5e; --bad-soft: rgba(255,111,94,0.18); --str: #ff8a6b; --num: #b39dff; --key: #6fb6ff; --type: #d3a2ff; --type-soft: rgba(211,162,255,0.16); --chip: rgba(255,255,255,0.07); --shadow: 0 1px 2px rgba(0,0,0,0.4), 0 18px 48px rgba(0,0,0,0.5); --popshadow: 0 1px 0 rgba(255,255,255,0.08) inset, 0 14px 38px rgba(0,0,0,0.55); }
 </style>
@@ -187,14 +189,6 @@
             <sc-if value="{{ showAccDot }}" hint-placeholder-val="{{ true }}">
               <span style="position: absolute; right: 14px; bottom: 5px; width: 8px; height: 8px; border-radius: 999px; background: {{ accDotInk }}; box-shadow: 0 0 0 2px var(--side);"></span>
             </sc-if>
-            <sc-if value="{{ syncing }}" hint-placeholder-val="{{ false }}">
-              <span title="Syncing…" style="position: absolute; right: 10px; bottom: 1px; width: 16px; height: 16px; border-radius: 999px; background: var(--side); display: inline-flex; align-items: center; justify-content: center; color: var(--accent);">
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" style="animation: om-spin 720ms linear infinite; transform-origin: 50% 50%;">
-                  <circle cx="12" cy="12" r="8.5" stroke="currentColor" stroke-opacity="0.2" stroke-width="3"></circle>
-                  <circle cx="12" cy="12" r="8.5" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-dasharray="14 40"></circle>
-                </svg>
-              </span>
-            </sc-if>
           </button>
           <sc-if value="{{ popAccount }}" hint-placeholder-val="{{ false }}">
             <div style="position: absolute; left: 68px; bottom: -6px; width: 252px; background: var(--pop); backdrop-filter: blur(30px) saturate(180%); -webkit-backdrop-filter: blur(30px) saturate(180%); border: 1px solid var(--line); border-radius: 12px; box-shadow: var(--popshadow); padding: 8px; display: flex; flex-direction: column; gap: 2px; z-index: 70;">
@@ -214,7 +208,9 @@
                     <span style="font-size: 12px; font-weight: 600; color: {{ syncTitleInk }};">{{ syncTitle }}</span>
                     <span style="font-size: 11px; color: var(--ink3);">{{ syncNote }}</span>
                   </span>
-                  <button type="button" onClick="{{ retrySync }}" style="appearance: none; cursor: pointer; font-family: inherit; font-size: 12px; font-weight: 500; height: 24px; padding: 0 9px; background: var(--field); color: {{ retryInk }}; border: 1px solid var(--fieldline); border-radius: 6px; flex: none; display: flex; align-items: center; gap: 6px;" style-hover="background: var(--sel);">{{ retryLabel }}</button>
+                  <button type="button" onClick="{{ retrySync }}" title="{{ retryLabel }}" aria-label="{{ retryLabel }}" style="appearance: none; cursor: pointer; font-family: inherit; width: 26px; height: 26px; background: var(--field); color: {{ retryInk }}; border: 1px solid var(--fieldline); border-radius: 6px; flex: none; display: flex; align-items: center; justify-content: center;" style-hover="background: var(--sel);">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" style="animation: {{ retrySpin }}; transform-origin: 50% 50%;"><path d="M20 11.5a8 8 0 1 0-1.9 6.1"></path><path d="M20 5.5v6h-6"></path></svg>
+                  </button>
                 </div>
               </sc-if>
               <button type="button" onClick="{{ openAccountTab }}" style="appearance: none; cursor: pointer; font-family: inherit; text-align: left; font-size: 13px; color: var(--ink); background: transparent; border: 0; border-radius: 7px; height: 30px; padding: 0 8px; display: flex; align-items: center; gap: 9px;" style-hover="background: var(--sel);">
@@ -414,8 +410,8 @@
         </sc-if>
 
         <sc-if value="{{ isEditable }}" hint-placeholder-val="{{ true }}">
-        <div style="flex: none; background: var(--side); border-bottom: 2px solid var(--line); position: relative; z-index: 30; display: flex; flex-direction: column;">
-          <div style="display: flex; align-items: center; gap: 8px; padding: 9px 20px 0;">
+        <div style="flex: none; background: var(--side); border-bottom: 1px solid var(--line); position: relative; z-index: 30; display: flex; flex-direction: column;">
+          <div style="display: flex; align-items: center; gap: 8px; padding: 10px 20px 0;">
             <div style="flex: 1; min-width: 0; height: 34px; background: var(--field); border: 1px solid var(--fieldline); border-radius: 7px; display: flex; align-items: center; gap: 8px; padding: 0 10px 0 4px;">
               <button type="button" style="appearance: none; cursor: pointer; font-family: ui-monospace, 'SF Mono', 'Cascadia Code', Menlo, monospace; font-size: 12px; font-weight: 700; height: 26px; padding: 0 8px; background: var(--ok-soft); color: var(--ok); border: 0; border-radius: 5px; display: flex; align-items: center; gap: 5px; flex: none;" style-hover="filter: brightness(1.06);">GET
                 <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" style="opacity: 0.7;"><path d="m6 9 6 6 6-6"></path></svg>
@@ -429,8 +425,9 @@
               </sc-if>
             </div>
             <div style="position: relative; flex: none;">
-              <button type="button" onClick="{{ toggleBarEnv }}" title="Environment" style="appearance: none; cursor: pointer; font-family: inherit; font-size: 12px; font-weight: 500; color: var(--ink2); background: {{ envChipBg }}; border: 1px solid var(--fieldline); border-radius: 7px; height: 34px; padding: 0 10px; display: flex; align-items: center; gap: 7px;" style-hover="background: var(--sel); color: var(--ink);">
-                <span style="width: 7px; height: 7px; border-radius: 999px; background: {{ barEnvDot }}; box-shadow: {{ barEnvRing }};"></span>{{ barEnvLabel }}
+              <button type="button" onClick="{{ toggleBarEnv }}" title="{{ barEnvTitle }}" aria-label="{{ barEnvTitle }}" style="appearance: none; cursor: pointer; font-family: inherit; font-size: 12px; font-weight: 500; color: {{ barEnvInk }}; background: {{ envChipBg }}; border: 0; border-radius: 7px; height: 34px; padding: {{ barEnvPad }}; display: flex; align-items: center; gap: 7px;" style-hover="background: var(--sel);">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="{{ barEnvFill }}" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="flex: none;"><ellipse cx="12" cy="6" rx="7.5" ry="3"></ellipse><path d="M4.5 6v12c0 1.7 3.4 3 7.5 3s7.5-1.3 7.5-3V6"></path><path d="M4.5 12c0 1.7 3.4 3 7.5 3s7.5-1.3 7.5-3"></path></svg>
+                <sc-if value="{{ barEnvOverride }}" hint-placeholder-val="{{ false }}"><span style="max-width: 130px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{{ barEnvLabel }}</span></sc-if>
               </button>
               <sc-if value="{{ popBarEnv }}" hint-placeholder-val="{{ false }}">
                 <div style="position: absolute; top: 40px; right: 0; width: 300px; background: var(--pop); backdrop-filter: blur(30px) saturate(180%); -webkit-backdrop-filter: blur(30px) saturate(180%); border: 1px solid var(--line); border-radius: 12px; box-shadow: var(--popshadow); padding: 8px; display: flex; flex-direction: column; gap: 2px; z-index: 60;">
@@ -452,12 +449,61 @@
                 </div>
               </sc-if>
             </div>
-            <button type="button" title="{{ saveHint }}" style="appearance: none; cursor: pointer; color: var(--ink2); background: transparent; border: 0; border-radius: 7px; width: 34px; height: 34px; flex: none; display: flex; align-items: center; justify-content: center; position: relative;" style-hover="background: var(--sel); color: var(--accent);">
+            <div style="position: relative; flex: none;">
+            <button type="button" onClick="{{ toggleSavePop }}" title="{{ saveHint }}" style="appearance: none; cursor: pointer; color: {{ saveInk }}; background: {{ saveBg }}; border: 0; border-radius: 7px; width: 34px; height: 34px; flex: none; display: flex; align-items: center; justify-content: center; position: relative;" style-hover="background: var(--sel); color: var(--accent);">
               <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M6.5 4.5h11a1 1 0 0 1 1 1V20l-6.5-4.6L5.5 20V5.5a1 1 0 0 1 1-1Z"></path></svg>
               <sc-if value="{{ unsaved }}" hint-placeholder-val="{{ true }}">
                 <span style="position: absolute; top: 6px; right: 6px; width: 6px; height: 6px; border-radius: 999px; background: var(--accent); box-shadow: 0 0 0 2px var(--side);"></span>
               </sc-if>
             </button>
+            <sc-if value="{{ popSave }}" hint-placeholder-val="{{ false }}">
+              <div style="position: absolute; top: 40px; right: 0; width: 320px; background: var(--pop); backdrop-filter: blur(30px) saturate(180%); -webkit-backdrop-filter: blur(30px) saturate(180%); border: 1px solid var(--line); border-radius: 12px; box-shadow: var(--popshadow); padding: 8px; display: flex; flex-direction: column; gap: 2px; z-index: 60; overflow: hidden;">
+                <sc-if value="{{ savePick }}" hint-placeholder-val="{{ true }}">
+                <div style="display: flex; flex-direction: column; gap: 2px; animation: om-step-back 180ms ease-out;">
+                <div style="padding: 6px 10px 8px; font-size: 11px; font-weight: 600; letter-spacing: 0.07em; text-transform: uppercase; color: var(--ink3);">Save request to</div>
+                <div style="display: flex; align-items: center; gap: 8px; height: 32px; padding: 0 10px; margin: 0 2px 6px; background: var(--field); border: 1px solid var(--fieldline); border-radius: 8px;">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" style="color: var(--ink3); flex: none;"><circle cx="11" cy="11" r="6.5"></circle><path d="m20 20-4.4-4.4"></path></svg>
+                  <input type="text" value="{{ saveQuery }}" onInput="{{ setSaveQuery }}" placeholder="Find a collection or folder" style="flex: 1; min-width: 0; appearance: none; border: 0; outline: none; background: transparent; font-family: inherit; font-size: 13px; color: var(--ink);">
+                </div>
+                <div style="max-height: 232px; overflow-y: auto; display: flex; flex-direction: column; gap: 2px; margin: 0 -2px; padding: 0 2px;">
+                <sc-for list="{{ saveTargets }}" as="s" hint-placeholder-count="5">
+                  <button type="button" onClick="{{ s.on }}" style="appearance: none; cursor: pointer; font-family: inherit; text-align: left; border: 0; border-radius: 9px; background: {{ s.bg }}; min-height: 36px; padding: {{ s.pad }}; display: flex; align-items: center; gap: 10px; color: var(--ink);" style-hover="background: var(--sel);">
+                    <span style="width: 16px; flex: none; display: inline-flex; align-items: center; justify-content: center; color: var(--accent);">
+                      <sc-if value="{{ s.active }}" hint-placeholder-val="{{ false }}"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="m5 13 4 4L19 7"></path></svg></sc-if>
+                      <sc-if value="{{ s.isNew }}" hint-placeholder-val="{{ false }}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 5v14M5 12h14"></path></svg></sc-if>
+                    </span>
+                    <span style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px;">
+                      <span style="font-size: 13px; font-weight: {{ s.weight }}; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{{ s.name }}</span>
+                      <span style="font-size: 11px; color: var(--ink3); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{{ s.meta }}</span>
+                    </span>
+                  </button>
+                </sc-for>
+                <sc-if value="{{ saveNothing }}" hint-placeholder-val="{{ false }}">
+                  <div style="padding: 14px 10px; font-size: 12.5px; color: var(--ink3);">Nothing matches “{{ saveQuery }}”</div>
+                </sc-if>
+                </div>
+                </div>
+                </sc-if>
+
+                <sc-if value="{{ saveConfirm }}" hint-placeholder-val="{{ false }}">
+                <div style="display: flex; flex-direction: column; gap: 2px; animation: om-step-next 180ms ease-out;">
+                  <div style="display: flex; align-items: center; gap: 6px; padding: 2px 6px 10px;">
+                    <button type="button" onClick="{{ saveBack }}" title="Choose another collection" style="appearance: none; cursor: pointer; width: 24px; height: 24px; flex: none; border: 0; border-radius: 6px; background: transparent; color: var(--ink2); display: flex; align-items: center; justify-content: center;" style-hover="background: var(--sel); color: var(--ink);">
+                      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m14 6-6 6 6 6"></path></svg>
+                    </button>
+                    <span title="{{ saveTargetName }}" style="flex: 1; min-width: 0; font-size: 13px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; direction: rtl; text-align: left;">{{ saveTargetName }}</span>
+                  </div>
+                  <input type="text" value="{{ saveName }}" onInput="{{ setSaveName }}" placeholder="Request name" style="width: 100%; box-sizing: border-box; height: 36px; margin: 0 0 8px; padding: 0 11px; appearance: none; outline: none; background: var(--field); border: 1px solid var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); border-radius: 8px; font-family: inherit; font-size: 13px; font-weight: 500; color: var(--ink);">
+                  <span style="padding: 0 4px 4px; font-size: 11.5px; line-height: 1.5; color: var(--ink3);">{{ saveNameHint }}</span>
+                  <div style="display: flex; align-items: center; gap: 8px; padding: 10px 4px 2px; border-top: 1px solid var(--line2); margin-top: 6px;">
+                    <span style="flex: 1; min-width: 0; font-size: 12px; color: var(--ink3);">Next time ⌘S saves here</span>
+                    <button type="button" onClick="{{ confirmSave }}" style="appearance: none; cursor: pointer; font-family: inherit; font-size: 12px; font-weight: 600; height: 30px; padding: 0 13px; background: var(--accent); color: #fff; border: 0; border-radius: 8px; flex: none;" style-hover="background: var(--accent-press);">Save</button>
+                  </div>
+                </div>
+                </sc-if>
+              </div>
+            </sc-if>
+            </div>
             <button type="button" onClick="{{ sendClick }}" style="appearance: none; cursor: {{ sendCursor }}; font-family: inherit; font-size: 13px; font-weight: 600; height: 34px; min-width: 104px; padding: 0 15px; background: {{ sendBg }}; color: #fff; border: 0; border-radius: 7px; flex: none; display: flex; align-items: center; justify-content: center; gap: 8px; opacity: {{ sendOpacity }};" style-hover="filter: brightness(1.06);">
               <sc-if value="{{ sending }}" hint-placeholder-val="{{ false }}">
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" style="animation: om-spin 720ms linear infinite; transform-origin: 50% 50%;"><circle cx="12" cy="12" r="8.5" stroke="currentColor" stroke-opacity="0.35" stroke-width="3"></circle><circle cx="12" cy="12" r="8.5" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-dasharray="14 40"></circle></svg>
@@ -472,9 +518,9 @@
               <button type="button" onClick="{{ openNewVariable }}" style="appearance: none; cursor: pointer; font-family: inherit; font-size: 12px; font-weight: 500; height: 24px; padding: 0 9px; background: var(--field); color: var(--ink); border: 1px solid var(--fieldline); border-radius: 6px; flex: none;" style-hover="background: var(--sel);">{{ varErrAction }}</button>
             </div>
           </sc-if>
-          <div style="display: flex; align-items: stretch; gap: 2px; height: 34px; padding: 0 20px;">
+          <div style="display: flex; align-items: stretch; gap: 20px; height: 40px; margin-top: 4px; padding: 0 20px;">
             <sc-for list="{{ chips }}" as="c" hint-placeholder-count="5">
-              <button type="button" onClick="{{ c.on }}" style="appearance: none; cursor: pointer; font-family: inherit; font-size: 13px; font-weight: {{ c.weight }}; padding: 0 11px; border: 0; background: transparent; border-bottom: 2px solid {{ c.line }}; color: {{ c.ink }}; display: flex; align-items: center; gap: 7px;" style-hover="color: var(--ink);">
+              <button type="button" onClick="{{ c.on }}" style="appearance: none; cursor: pointer; font-family: inherit; font-size: 13px; font-weight: {{ c.weight }}; padding: 0; border: 0; background: transparent; box-shadow: inset 0 -1.5px 0 {{ c.line }}; color: {{ c.ink }}; display: flex; align-items: center; gap: 7px;" style-hover="color: var(--ink);">
                 {{ c.label }}
                 <sc-if value="{{ c.hasDot }}" hint-placeholder-val="{{ false }}"><span style="width: 5px; height: 5px; border-radius: 999px; background: {{ c.dotInk }};"></span></sc-if>
               </button>
@@ -656,6 +702,35 @@
             </div>
           </sc-if>
 
+          <sc-if value="{{ popCookies }}" hint-placeholder-val="{{ false }}">
+            <div style="position: absolute; top: 82px; left: 20px; width: 540px; background: var(--pop); backdrop-filter: blur(30px) saturate(180%); -webkit-backdrop-filter: blur(30px) saturate(180%); border: 1px solid var(--line); border-radius: 12px; box-shadow: var(--popshadow); padding: 14px; display: flex; flex-direction: column; gap: 4px; z-index: 50;">
+              <div style="display: flex; align-items: center; justify-content: space-between; padding-bottom: 10px;">
+                <span style="font-size: 14px; font-weight: 600;">Cookies for {{ cookieHost }}</span>
+                <button type="button" onClick="{{ closePop }}" style="appearance: none; cursor: pointer; border: 0; border-radius: 6px; background: transparent; color: var(--ink3); width: 28px; height: 28px; display: flex; align-items: center; justify-content: center;" style-hover="background: var(--sel); color: var(--ink);">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"></path></svg>
+                </button>
+              </div>
+              <span style="font-size: 12px; line-height: 1.5; color: var(--ink3); padding-bottom: 6px;">Taken from the jar for this host and sent in the Cookie header. Turning one off skips it for this request only.</span>
+              <sc-for list="{{ reqCookies }}" as="c" hint-placeholder-count="3">
+                <div style="display: grid; grid-template-columns: 24px 150px minmax(0, 1fr) auto; gap: 10px; align-items: center; padding: 9px 4px; border-top: 1px solid var(--line2);">
+                  <button type="button" onClick="{{ c.toggle }}" title="{{ c.hint }}" style="appearance: none; cursor: pointer; width: 16px; height: 16px; padding: 0; border: 1.5px solid {{ c.boxLine }}; border-radius: 5px; background: {{ c.boxBg }}; color: #fff; display: flex; align-items: center; justify-content: center;">
+                    <sc-if value="{{ c.on }}" hint-placeholder-val="{{ true }}"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><path d="m5 13 4 4L19 7"></path></svg></sc-if>
+                  </button>
+                  <span style="font-family: ui-monospace, 'SF Mono', 'Cascadia Code', Menlo, monospace; font-size: 13px; color: {{ c.ink }}; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{{ c.name }}</span>
+                  <span style="font-family: ui-monospace, 'SF Mono', 'Cascadia Code', Menlo, monospace; font-size: 13px; color: {{ c.valueInk }}; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{{ c.value }}</span>
+                  <span style="font-size: 11px; font-weight: 500; color: {{ c.srcInk }}; background: {{ c.srcBg }}; border-radius: 6px; padding: 3px 8px; white-space: nowrap;">{{ c.source }}</span>
+                </div>
+              </sc-for>
+              <div style="display: flex; align-items: center; gap: 8px; padding-top: 12px; margin-top: 4px; border-top: 1px solid var(--line2);">
+                <button type="button" onClick="{{ openCookieManager }}" style="appearance: none; cursor: pointer; font-family: inherit; font-size: 13px; font-weight: 500; height: 32px; padding: 0 12px; background: var(--field); color: var(--ink); border: 1px solid var(--fieldline); border-radius: 8px; display: flex; align-items: center; gap: 8px;" style-hover="background: var(--sel);">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="color: var(--ink3);"><circle cx="12" cy="12" r="8.5"></circle><circle cx="9.5" cy="10" r="1"></circle><circle cx="14" cy="14.5" r="1"></circle><circle cx="15" cy="9" r="1"></circle></svg>Cookie manager
+                </button>
+                <div style="flex: 1;"></div>
+                <span style="font-size: 12px; color: var(--ink3);">{{ cookieJarNote }}</span>
+              </div>
+            </div>
+          </sc-if>
+
           <sc-if value="{{ popScripts }}" hint-placeholder-val="{{ false }}">
             <div style="position: absolute; top: 82px; left: 20px; width: 500px; background: var(--pop); backdrop-filter: blur(30px) saturate(180%); -webkit-backdrop-filter: blur(30px) saturate(180%); border: 1px solid var(--line); border-radius: 12px; box-shadow: var(--popshadow); padding: 14px; display: flex; flex-direction: column; gap: 12px; z-index: 50;">
               <div style="display: flex; align-items: center; justify-content: space-between;">
@@ -695,11 +770,16 @@
           <span style="width: 1px; height: 14px; background: var(--line); flex: none;"></span>
           <span style="font-family: ui-monospace, 'SF Mono', 'Cascadia Code', Menlo, monospace; font-size: 13px; color: var(--ink3); flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">application/vnd.api+json</span>
           <div style="flex: 1; min-width: 8px;"></div>
-          <button type="button" style="appearance: none; cursor: pointer; font-family: inherit; font-size: 12px; font-weight: 500; color: var(--ink2); background: transparent; border: 0; border-radius: 6px; height: 28px; padding: 0 10px; flex: none;" style-hover="background: var(--sel); color: var(--ink);">Compare</button>
-          <button type="button" style="appearance: none; cursor: pointer; font-family: inherit; font-size: 12px; font-weight: 500; color: var(--ink2); background: transparent; border: 0; border-radius: 6px; height: 28px; padding: 0 10px; flex: none; display: flex; align-items: center; gap: 6px;" style-hover="background: var(--sel); color: var(--ink);">Copy
-            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" style="color: var(--ink3);"><path d="m6 9 6 6 6-6"></path></svg>
+          <button type="button" title="Compare with previous run" aria-label="Compare with previous run" style="appearance: none; cursor: pointer; font-family: inherit; color: var(--ink2); background: transparent; border: 0; border-radius: 6px; width: 28px; height: 28px; flex: none; display: flex; align-items: center; justify-content: center;" style-hover="background: var(--sel); color: var(--ink);">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3.5v9"></path><path d="M7.5 8h9"></path><path d="M7.5 19h9"></path></svg>
           </button>
-          <button type="button" onClick="{{ toggleInspector }}" style="appearance: none; cursor: pointer; font-family: inherit; font-size: 12px; font-weight: 500; color: {{ inspInk }}; background: {{ inspBg }}; border: 1px solid {{ inspLine }}; border-radius: 6px; height: 28px; padding: 0 10px; flex: none; display: flex; align-items: center; gap: 8px;" style-hover="filter: brightness(1.03);">Inspector<span style="font-size: 11px; opacity: 0.7;">⌥I</span></button>
+          <button type="button" title="Copy response" aria-label="Copy response" style="appearance: none; cursor: pointer; font-family: inherit; color: var(--ink2); background: transparent; border: 0; border-radius: 6px; height: 28px; padding: 0 6px 0 7px; flex: none; display: flex; align-items: center; gap: 3px;" style-hover="background: var(--sel); color: var(--ink);">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="8.5" y="8.5" width="11" height="11" rx="2"></rect><path d="M15.5 5.5a2 2 0 0 0-2-2h-7a3 3 0 0 0-3 3v7a2 2 0 0 0 2 2"></path></svg>
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" style="color: var(--ink3);"><path d="m6 9 6 6 6-6"></path></svg>
+          </button>
+          <button type="button" onClick="{{ toggleInspector }}" title="Inspector ⌥I" aria-label="Inspector" style="appearance: none; cursor: pointer; font-family: inherit; color: {{ inspInk }}; background: {{ inspBg }}; border: 1px solid {{ inspLine }}; border-radius: 6px; width: 28px; height: 28px; flex: none; display: flex; align-items: center; justify-content: center;" style-hover="filter: brightness(1.03);">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4.5" width="18" height="15" rx="2"></rect><path d="M14.5 4.5v15"></path></svg>
+          </button>
         </div>
         </sc-if>
 
@@ -709,7 +789,9 @@
             <button type="button" onClick="{{ tab.on }}" style="appearance: none; cursor: pointer; font-family: inherit; background: transparent; border: 0; border-bottom: 2px solid {{ tab.line }}; color: {{ tab.ink }}; font-size: 14px; font-weight: {{ tab.weight }}; padding: 0 14px;" style-hover="color: var(--ink);">{{ tab.label }}</button>
           </sc-for>
           <div style="flex: 1;"></div>
-          <button type="button" style="appearance: none; cursor: pointer; align-self: center; font-family: inherit; font-size: 13px; font-weight: 500; color: var(--ink2); background: var(--raise); border: 1px solid var(--line); border-radius: 7px; height: 30px; padding: 0 12px; display: flex; align-items: center; gap: 8px;" style-hover="background: var(--sel); color: var(--ink);">Search<span style="font-size: 11px; color: var(--ink3);">⌘F</span></button>
+          <button type="button" title="Search ⌘F" aria-label="Search" style="appearance: none; cursor: pointer; align-self: center; font-family: inherit; color: var(--ink2); background: var(--raise); border: 1px solid var(--line); border-radius: 7px; width: 30px; height: 30px; display: flex; align-items: center; justify-content: center;" style-hover="background: var(--sel); color: var(--ink);">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="6.5"></circle><path d="m20 20-4.4-4.4"></path></svg>
+          </button>
         </div>
 
         <div style="flex: 1; min-height: 0; display: flex;">
@@ -856,27 +938,43 @@
 
             <sc-if value="{{ isCookies }}" hint-placeholder-val="{{ false }}">
               <div style="flex: 1; min-height: 0; overflow-y: auto; padding: 18px 20px; display: flex; flex-direction: column; gap: 12px;">
-                <span style="font-size: 13px; color: var(--ink2);">Sent with this request in the <span style="font-family: ui-monospace, 'SF Mono', 'Cascadia Code', Menlo, monospace; font-size: 12px; padding: 2px 6px; border-radius: 5px; background: var(--chip);">Cookie</span> header.</span>
+                <div style="display: flex; align-items: center; gap: 12px;">
+                  <span style="flex: 1; min-width: 0; font-size: 13px; color: var(--ink2);">{{ cookieRespNote }}</span>
+                  <button type="button" onClick="{{ openCookieManager }}" style="appearance: none; cursor: pointer; font-family: inherit; font-size: 12px; font-weight: 500; height: 30px; padding: 0 11px; background: var(--field); color: var(--ink); border: 1px solid var(--fieldline); border-radius: 8px; flex: none;" style-hover="background: var(--sel);">Cookie manager</button>
+                </div>
                 <div style="border: 1px solid var(--line); border-radius: 12px; overflow: hidden;">
-                  <div style="display: grid; grid-template-columns: 170px minmax(0, 1fr) 160px 130px 170px; background: var(--raise); border-bottom: 1px solid var(--line); font-size: 11px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink3);">
-                    <div style="padding: 10px 16px;">Name</div><div style="padding: 10px 16px;">Value</div><div style="padding: 10px 16px;">Domain</div><div style="padding: 10px 16px;">Expires</div><div style="padding: 10px 16px;">Flags</div>
+                  <div style="display: grid; grid-template-columns: 160px minmax(0, 1fr) 150px 110px 176px 110px; background: var(--raise); border-bottom: 1px solid var(--line); font-size: 11px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink3);">
+                    <div style="padding: 10px 16px;">Name</div><div style="padding: 10px 16px;">Value</div><div style="padding: 10px 16px;">Domain</div><div style="padding: 10px 16px;">Expires</div><div style="padding: 10px 16px;">Flags</div><div style="padding: 10px 16px;">Jar</div>
                   </div>
                   <sc-for list="{{ cookies }}" as="c" hint-placeholder-count="2">
-                    <div style="display: grid; grid-template-columns: 170px minmax(0, 1fr) 160px 130px 170px; align-items: center; min-height: 48px; border-bottom: 1px solid var(--line2);" style-hover="background: var(--sel);">
-                      <div style="padding: 0 16px; font-family: ui-monospace, 'SF Mono', 'Cascadia Code', Menlo, monospace; font-size: 13px;">{{ c.name }}</div>
+                    <button type="button" onClick="{{ openCookieManager }}" title="Open in the cookie manager" style="appearance: none; cursor: pointer; font-family: inherit; text-align: left; width: 100%; background: transparent; border: 0; border-bottom: 1px solid var(--line2); display: grid; grid-template-columns: 160px minmax(0, 1fr) 150px 110px 176px 110px; align-items: center; min-height: 48px; color: var(--ink);" style-hover="background: var(--sel);">
+                      <div style="padding: 0 16px; font-family: ui-monospace, 'SF Mono', 'Cascadia Code', Menlo, monospace; font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{{ c.name }}</div>
                       <div style="padding: 0 16px; font-family: ui-monospace, 'SF Mono', 'Cascadia Code', Menlo, monospace; font-size: 13px; color: var(--str); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{{ c.value }}</div>
-                      <div style="padding: 0 16px; font-size: 13px; color: var(--ink2);">{{ c.domain }}</div>
+                      <div style="padding: 0 16px; font-size: 13px; color: var(--ink2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{{ c.domain }}</div>
                       <div style="padding: 0 16px; font-size: 13px; color: var(--ink2);">{{ c.expires }}</div>
-                      <div style="padding: 0 16px; display: flex; gap: 6px;">
-                        <span style="font-size: 11px; font-weight: 600; padding: 3px 8px; border-radius: 6px; background: {{ c.secureBg }}; color: {{ c.secureInk }};">Secure</span>
-                        <span style="font-size: 11px; font-weight: 600; padding: 3px 8px; border-radius: 6px; background: {{ c.httpBg }}; color: {{ c.httpInk }};">HttpOnly</span>
+                      <div style="padding: 0 16px; font-size: 12.5px; color: var(--ink3); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{{ c.flagText }}</div>
+                      <div style="padding: 0 16px; display: flex; align-items: center; gap: 7px;">
+                        <span style="width: 6px; height: 6px; flex: none; border-radius: 999px; background: {{ c.stateInk }};"></span>
+                        <span style="font-size: 12.5px; color: {{ c.stateInk }}; white-space: nowrap;">{{ c.state }}</span>
                       </div>
-                    </div>
+                    </button>
                   </sc-for>
-                  <button type="button" style="appearance: none; cursor: pointer; width: 100%; font-family: inherit; text-align: left; background: transparent; border: 0; height: 44px; padding: 0 16px; display: flex; align-items: center; gap: 9px; color: var(--ink3); font-size: 13px;" style-hover="background: var(--sel); color: var(--ink);">
-                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 5v14M5 12h14"></path></svg>Add cookie
-                  </button>
                 </div>
+                <sc-if value="{{ cookieDiffAny }}" hint-placeholder-val="{{ true }}">
+                  <div style="display: flex; flex-direction: column; gap: 12px; padding-top: 6px;">
+                    <span style="font-size: 13px; font-weight: 600;">What this response changed in the jar</span>
+                    <sc-for list="{{ cookieDiff }}" as="d" hint-placeholder-count="3">
+                      <div style="display: flex; align-items: flex-start; gap: 11px;">
+                        <span style="width: 7px; height: 7px; flex: none; margin-top: 6px; border-radius: 999px; background: {{ d.ink }};"></span>
+                        <span style="flex: 1; min-width: 0; font-size: 13px; line-height: 1.55; color: var(--ink2); text-wrap: pretty;"><span style="color: var(--ink);">{{ d.headline }}</span> — {{ d.detail }}</span>
+                      </div>
+                    </sc-for>
+                    <div style="display: flex; align-items: center; gap: 12px; padding-top: 2px;">
+                      <span style="flex: 1; min-width: 0; font-size: 12px; color: var(--ink3);">{{ cookieDiffFoot }}</span>
+                      <button type="button" onClick="{{ openCookieManager }}" style="appearance: none; cursor: pointer; font-family: inherit; font-size: 12px; font-weight: 500; height: 28px; padding: 0 10px; background: transparent; color: var(--ink2); border: 1px solid var(--fieldline); border-radius: 7px; flex: none;" style-hover="background: var(--sel); color: var(--ink);">Undo these writes</button>
+                    </div>
+                  </div>
+                </sc-if>
               </div>
             </sc-if>
 
@@ -1300,6 +1398,66 @@
                       </sc-if>
                     </div>
                   </sc-for>
+                </div>
+              </div>
+            </div>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{ cookieManagerOpen }}" hint-placeholder-val="{{ false }}">
+          <div style="position: absolute; inset: 0; background: rgba(0,0,0,0.22); display: flex; align-items: center; justify-content: center; padding: 28px; z-index: 80;">
+            <div style="width: 100%; max-width: 940px; height: 100%; max-height: 580px; background: var(--pop); backdrop-filter: blur(30px) saturate(180%); -webkit-backdrop-filter: blur(30px) saturate(180%); border: 1px solid var(--line); border-radius: 14px; box-shadow: var(--popshadow); overflow: hidden; display: flex; flex-direction: column;">
+              <div style="height: 52px; flex: none; display: flex; align-items: center; gap: 12px; padding: 0 16px; border-bottom: 1px solid var(--line);">
+                <span style="flex: 1; font-size: 14px; font-weight: 600;">Cookies</span>
+                <button type="button" onClick="{{ closeCookieManager }}" style="appearance: none; cursor: pointer; font-family: inherit; font-size: 13px; font-weight: 500; height: 30px; padding: 0 14px; background: var(--field); color: var(--ink); border: 1px solid var(--fieldline); border-radius: 8px;" style-hover="background: var(--sel);">Done</button>
+              </div>
+              <div style="flex: 1; min-height: 0; display: flex;">
+                <div style="width: 232px; flex: none; border-right: 1px solid var(--line); display: flex; flex-direction: column; padding: 8px 8px 0;">
+                  <span style="font-size: 11px; font-weight: 600; letter-spacing: 0.07em; text-transform: uppercase; color: var(--ink3); padding: 6px 9px 8px;">Domains</span>
+                  <sc-for list="{{ cookieDomains }}" as="d" hint-placeholder-count="4">
+                    <button type="button" onClick="{{ d.on }}" style="appearance: none; cursor: pointer; font-family: inherit; text-align: left; border: 0; border-radius: 8px; background: {{ d.bg }}; padding: 8px 9px; display: flex; align-items: center; gap: 9px; color: var(--ink);" style-hover="background: var(--sel);">
+                      <span style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px;">
+                        <span style="font-family: ui-monospace, 'SF Mono', 'Cascadia Code', Menlo, monospace; font-size: 12.5px; font-weight: {{ d.weight }}; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{{ d.name }}</span>
+                        <span style="font-size: 11px; color: var(--ink3);">{{ d.meta }}</span>
+                      </span>
+                      <sc-if value="{{ d.fresh }}" hint-placeholder-val="{{ false }}">
+                        <span title="Changed by the last response" style="width: 7px; height: 7px; flex: none; border-radius: 999px; background: var(--accent);"></span>
+                      </sc-if>
+                    </button>
+                  </sc-for>
+                  <div style="flex: 1;"></div>
+                  <div style="flex: none; padding: 6px 2px; border-top: 1px solid var(--line2);">
+                    <button type="button" style="appearance: none; cursor: pointer; font-family: inherit; font-size: 12px; font-weight: 500; color: var(--bad); background: transparent; border: 0; border-radius: 6px; height: 28px; padding: 0 8px;" style-hover="background: var(--bad-soft);">Clear all cookies</button>
+                  </div>
+                </div>
+                <div style="flex: 1; min-width: 0; display: flex; flex-direction: column;">
+                  <div style="flex: none; display: flex; align-items: center; gap: 12px; padding: 14px 18px; border-bottom: 1px solid var(--line2);">
+                    <span style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px;">
+                      <span style="font-family: ui-monospace, 'SF Mono', 'Cascadia Code', Menlo, monospace; font-size: 13px; font-weight: 600;">{{ cookieDomainName }}</span>
+                      <span style="font-size: 12px; color: var(--ink3);">{{ cookieDomainMeta }}</span>
+                    </span>
+                    <button type="button" onClick="{{ toggleCookieAuto }}" title="{{ cookieAutoHint }}" style="appearance: none; cursor: pointer; font-family: inherit; font-size: 12px; font-weight: 500; height: 30px; padding: 0 11px; background: {{ cookieAutoBg }}; color: {{ cookieAutoInk }}; border: 1px solid {{ cookieAutoLine }}; border-radius: 8px; display: flex; align-items: center; gap: 7px;" style-hover="filter: brightness(1.03);">{{ cookieAutoLabel }}</button>
+                    <button type="button" style="appearance: none; cursor: pointer; font-family: inherit; font-size: 12px; font-weight: 500; height: 30px; padding: 0 11px; background: var(--field); color: var(--ink); border: 1px solid var(--fieldline); border-radius: 8px; display: flex; align-items: center; gap: 7px;" style-hover="background: var(--sel);">
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 5v14M5 12h14"></path></svg>Add cookie
+                    </button>
+                  </div>
+                  <div style="flex: 1; min-height: 0; overflow-y: auto;">
+                    <div style="display: grid; grid-template-columns: 150px minmax(0, 1fr) 70px 110px 176px 34px; background: var(--raise); border-bottom: 1px solid var(--line2); font-size: 11px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink3); position: sticky; top: 0;">
+                      <div style="padding: 9px 14px;">Name</div><div style="padding: 9px 14px;">Value</div><div style="padding: 9px 14px;">Path</div><div style="padding: 9px 14px;">Expires</div><div style="padding: 9px 14px;">Flags</div><div></div>
+                    </div>
+                    <sc-for list="{{ cookieRows }}" as="c" hint-placeholder-count="4">
+                      <div style="display: grid; grid-template-columns: 150px minmax(0, 1fr) 70px 110px 176px 34px; align-items: center; min-height: 46px; border-bottom: 1px solid var(--line2);" style-hover="background: var(--sel);">
+                        <div style="padding: 0 14px; font-family: ui-monospace, 'SF Mono', 'Cascadia Code', Menlo, monospace; font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{{ c.name }}</div>
+                        <div style="padding: 0 14px; font-family: ui-monospace, 'SF Mono', 'Cascadia Code', Menlo, monospace; font-size: 13px; color: var(--str); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{{ c.value }}</div>
+                        <div style="padding: 0 14px; font-size: 12.5px; color: var(--ink2);">{{ c.path }}</div>
+                        <div style="padding: 0 14px; font-size: 12.5px; color: var(--ink2);">{{ c.expires }}</div>
+                        <div style="padding: 0 14px; font-size: 12.5px; color: var(--ink3); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{{ c.flagText }}</div>
+                        <button type="button" title="Delete cookie" style="appearance: none; cursor: pointer; border: 0; background: transparent; color: var(--ink3); width: 26px; height: 26px; border-radius: 6px; display: flex; align-items: center; justify-content: center;" style-hover="background: var(--bad-soft); color: var(--bad);">
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 6.5h15"></path><path d="M9.5 6.5V5a1.5 1.5 0 0 1 1.5-1.5h2A1.5 1.5 0 0 1 14.5 5v1.5"></path><path d="M6.5 6.5 7.4 19a1.5 1.5 0 0 0 1.5 1.4h6.2a1.5 1.5 0 0 0 1.5-1.4l.9-12.5"></path></svg>
+                        </button>
+                      </div>
+                    </sc-for>
+                  </div>
                 </div>
               </div>
             </div>
@@ -1990,19 +2148,13 @@
   </div>
 
   <div id="account" data-theme="{{ theme }}" data-screen-label="Сайт · аккаунт" style="width: 1400px; position: relative; background: var(--content); color: var(--ink); border: 1px solid var(--line); box-shadow: var(--shadow); overflow: hidden;">
-    <div style="height: 68px; display: flex; align-items: center; justify-content: space-between; gap: 40px; padding: 0 60px; border-bottom: 1px solid var(--line);">
+    <div style="height: 68px; display: flex; align-items: center; border-bottom: 1px solid var(--line);">
+      <div style="flex: 1; min-width: 0; max-width: 1200px; margin: 0 auto; padding: 0 40px; display: flex; align-items: center; justify-content: space-between; gap: 40px;">
       <div style="display: flex; align-items: center; gap: 11px;">
         <span style="width: 24px; height: 24px; border-radius: 7px; background: var(--accent); color: #fff; font-size: 13px; font-weight: 700; display: inline-flex; align-items: center; justify-content: center;">J</span>
         <span style="font-size: 14px; font-weight: 600; letter-spacing: -0.01em;">JSON Inspector Server</span>
       </div>
       <div style="display: flex; align-items: center; gap: 22px;">
-        <div style="display: flex; align-items: center; gap: 20px; font-size: 14px;">
-          <button type="button" onClick="{{ pGoSpaces }}" style="appearance: none; cursor: pointer; font-family: inherit; font-size: 14px; color: var(--ink2); background: transparent; border: 0; padding: 0;" style-hover="color: var(--ink);">{{ x1 }}</button>
-          <sc-if value="{{ pAdmin }}" hint-placeholder-val="{{ true }}">
-            <button type="button" onClick="{{ pGoTeam }}" style="appearance: none; cursor: pointer; font-family: inherit; font-size: 14px; color: var(--ink2); background: transparent; border: 0; padding: 0;" style-hover="color: var(--ink);">{{ z1 }}</button>
-          </sc-if>
-          <button type="button" onClick="{{ pGoActivity }}" style="appearance: none; cursor: pointer; font-family: inherit; font-size: 14px; color: var(--ink2); background: transparent; border: 0; padding: 0;" style-hover="color: var(--ink);">{{ z2 }}</button>
-        </div>
         <div style="display: flex; align-items: center; gap: 8px;">
             <button type="button" onClick="{{ pSetRu }}" style="appearance: none; cursor: pointer; font-family: inherit; font-size: 13px; padding: 0; border: 0; background: transparent; color: {{ pRuInk }}; font-weight: {{ pRuW }};">RU</button>
             <span style="color: var(--line); font-size: 13px;">·</span>
@@ -2012,19 +2164,19 @@
             <span style="width: 28px; height: 28px; border-radius: 999px; background: var(--accent-soft); color: var(--accent); font-size: 11px; font-weight: 600; display: inline-flex; align-items: center; justify-content: center;">АМ</span>a.morozov@studio.dev
           </a>
       </div>
+      </div>
     </div>
 
-    <div style="display: grid; grid-template-columns: 268px minmax(0, 1fr); align-items: stretch; min-height: 780px;">
-      <div style="padding: 30px 18px; border-right: 1px solid var(--line); background: var(--side); display: flex; flex-direction: column; gap: 4px;">
-        <span style="font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink3); padding: 0 12px 12px;">{{ z3 }}</span>
+    <div style="border-bottom: 1px solid var(--line); background: var(--side);">
+      <div style="max-width: 1200px; margin: 0 auto; padding: 0 40px; height: 50px; display: flex; align-items: stretch; gap: 26px;">
         <sc-for list="{{ pNavItems }}" as="n" hint-placeholder-count="5">
-          <button type="button" onClick="{{ n.go }}" style="appearance: none; cursor: pointer; text-align: left; font-family: inherit; font-size: 14px; line-height: 1.35; padding: 10px 12px; border: 0; border-radius: 8px; background: {{ n.bg }}; color: {{ n.ink }}; font-weight: {{ n.weight }};" style-hover="background: var(--sel);">{{ n.label }}</button>
+          <button type="button" onClick="{{ n.go }}" style="appearance: none; cursor: pointer; font-family: inherit; font-size: 14px; line-height: 1.35; padding: 0; border: 0; background: transparent; box-shadow: inset 0 -2px 0 {{ n.line }}; color: {{ n.ink }}; font-weight: {{ n.weight }}; white-space: nowrap;" style-hover="color: var(--ink);">{{ n.label }}</button>
         </sc-for>
-        <div style="flex: 1;"></div>
-        <div style="padding: 0 12px; font-size: 12px; line-height: 1.6; color: var(--ink3);">{{ z11 }} 1.4.2<br>self-hosted<br>jsoni.local:7420</div>
       </div>
+    </div>
 
-      <div style="min-width: 0; padding: 44px 60px 56px;">
+    <div style="min-height: 700px; padding: 48px 40px 64px;">
+      <div style="max-width: 1200px; min-width: 0; margin: 0 auto;">
 
         <sc-if value="{{ pIsOverview }}" hint-placeholder-val="{{ true }}">
           <div style="display: flex; flex-direction: column; gap: 36px; max-width: 1000px;">
@@ -2635,6 +2787,12 @@
       </div>
     </div>
 
+    <div style="border-top: 1px solid var(--line); background: var(--side);">
+      <div style="max-width: 1200px; margin: 0 auto; padding: 18px 40px; display: flex; gap: 22px; font-size: 12px; color: var(--ink3);">
+        <span>{{ z11 }} 1.4.2</span><span>self-hosted</span><span>jsoni.local:7420</span>
+      </div>
+    </div>
+
     <sc-if value="{{ pSpaceDialogNew }}" hint-placeholder-val="{{ false }}">
       <div style="position: absolute; inset: 0; background: rgba(0,0,0,0.3); display: flex; align-items: center; justify-content: center; padding: 40px;">
         <div style="width: 470px; background: var(--pop); backdrop-filter: blur(30px) saturate(180%); -webkit-backdrop-filter: blur(30px) saturate(180%); border: 1px solid var(--line); border-radius: 14px; box-shadow: var(--popshadow); padding: 30px; display: flex; flex-direction: column; gap: 20px;">
@@ -2974,7 +3132,8 @@ class Component extends DCLogic {
       pNavItems: navDefs.map((label) => ({
         label: lang === 'ru' ? label : NAVEN[label],
         bg: label === nav ? 'var(--accent-soft)' : 'transparent',
-        ink: label === nav ? 'var(--accent)' : (label === 'Опасная зона' ? 'var(--bad)' : 'var(--ink2)'),
+        line: label === nav ? 'var(--accent)' : 'transparent',
+        ink: label === nav ? 'var(--ink)' : (label === 'Опасная зона' ? 'var(--bad)' : 'var(--ink2)'),
         weight: label === nav ? '600' : '500',
         go: () => this.setState({ pNav: label, pDialog: null })
       })),
@@ -3375,6 +3534,7 @@ class Component extends DCLogic {
       { label: 'Headers', count: '1', filled: true },
       { label: 'Auth', count: '', filled: true },
       { label: 'Body', count: '', filled: false },
+      { label: 'Cookies', count: '3', filled: true },
       { label: 'Scripts', count: '', filled: false }
     ];
     const pop = this.state.pop;
@@ -3502,17 +3662,60 @@ class Component extends DCLogic {
     ];
     const mapRows = mapDefs.map(m => ({ ...m, indent: (16 + m.depth * 18) + 'px', ...typeStyle(m.type) }));
 
-    const cookieDefs = [
-      { name: 'session_id', value: '9f3c1b7e-4d2a-4f11-9c7e-5b0f2a1c8d44', domain: 'api.example.com', expires: 'Session', secure: true, http: true },
-      { name: 'locale', value: 'en-US', domain: 'api.example.com', expires: '2026-12-31', secure: true, http: false }
+    const flagChip = (label, on) => ({
+      label, bg: on ? 'var(--ok-soft)' : 'var(--chip)', ink: on ? 'var(--ok)' : 'var(--ink3)'
+    });
+    const cookieFlags = (c) => [
+      flagChip('Secure', c.secure), flagChip('HttpOnly', c.http), flagChip(c.same || 'Lax', true)
     ];
+    const cookieFlagText = (c) => [c.secure ? 'Secure' : null, c.http ? 'HttpOnly' : null, c.same || 'Lax']
+      .filter(Boolean).join(' · ');
+    const cookieDefs = [
+      { name: 'session_id', value: '9f3c1b7e-4d2a-4f11-9c7e-5b0f2a1c8d44', domain: 'api.example.com', path: '/', expires: 'Session', secure: true, http: true, same: 'Lax', state: 'Replaced', stateNote: 'was 4a91…c2f8' },
+      { name: 'locale', value: 'en-US', domain: 'api.example.com', path: '/', expires: '2026-12-31', secure: true, http: false, same: 'Lax', state: 'Added', stateNote: 'new cookie' }
+    ];
+    const stateInk = (s) => s === 'Replaced' ? 'var(--accent)' : (s === 'Deleted' ? 'var(--bad)' : (s === 'Not saved' ? 'var(--ink3)' : 'var(--ok)'));
     const cookies = cookieDefs.map(c => ({
-      ...c,
+      ...c, flags: cookieFlags(c), flagText: cookieFlagText(c), stateInk: stateInk(c.state),
       secureBg: c.secure ? 'var(--ok-soft)' : 'var(--chip)',
       secureInk: c.secure ? 'var(--ok)' : 'var(--ink3)',
       httpBg: c.http ? 'var(--ok-soft)' : 'var(--chip)',
       httpInk: c.http ? 'var(--ok)' : 'var(--ink3)'
     }));
+
+    const jarDefs = {
+      'api.example.com': [
+        { name: 'session_id', value: '9f3c1b7e-4d2a-4f11-9c7e-5b0f2a1c8d44', path: '/', expires: 'Session', secure: true, http: true, same: 'Lax' },
+        { name: 'locale', value: 'en-US', path: '/', expires: '2026-12-31', secure: true, http: false, same: 'Lax' },
+        { name: 'ab_variant', value: 'b', path: '/v1', expires: '2026-10-02', secure: false, http: false, same: 'None' }
+      ],
+      'auth.example.com': [
+        { name: 'refresh_token', value: 'rt_8c21…9ab4', path: '/auth', expires: '2026-12-04', secure: true, http: true, same: 'Strict' }
+      ],
+      'stage.example.com': [
+        { name: 'session_id', value: 'd41a…77f0', path: '/', expires: 'Session', secure: true, http: true, same: 'Lax' },
+        { name: 'debug', value: '1', path: '/', expires: 'Session', secure: false, http: false, same: 'Lax' }
+      ]
+    };
+    const saveQ = (this.state.saveQuery || '').trim().toLowerCase();
+    const saveList = [
+      { name: 'Example API / Articles', meta: 'Folder · 5 requests · recent', key: 'Articles' },
+      { name: 'Example API', meta: 'Collection · 12 requests', key: 'Example API' },
+      { name: 'Example API / Authorization', meta: 'Folder · 2 requests', key: 'Authorization' },
+      { name: 'Example API / Comments', meta: 'Folder · 3 requests', key: 'Comments' },
+      { name: 'Internal tools', meta: 'Collection · 7 requests', key: 'Internal tools' },
+      { name: 'Internal tools / Billing', meta: 'Folder · 4 requests', key: 'Billing' },
+      { name: 'Payments sandbox', meta: 'Collection · 9 requests', key: 'Payments sandbox' },
+      { name: 'Payments sandbox / Webhooks', meta: 'Folder · 6 requests', key: 'Webhooks' },
+      { name: 'Scratch', meta: 'Collection · not synced', key: 'Scratch' }
+    ].filter(t => !saveQ || t.name.toLowerCase().includes(saveQ));
+    const saveRaw = (this.state.saveQuery || '').trim();
+    if (saveRaw && !saveList.some(t => t.name.toLowerCase() === saveQ)) {
+      saveList.unshift({ name: 'Create “' + saveRaw + '”', meta: 'New collection', key: 'new:' + saveRaw, isNew: true });
+    }
+    const jarHost = this.state.cookieDomain || 'api.example.com';
+    const cookieBlocked = this.state.cookieBlocked === true;
+    const cookieOff = this.state.cookieOff || {};
 
     const timingDefs = [
       { label: 'DNS lookup', ms: '12 ms', pct: 9 },
@@ -4634,10 +4837,16 @@ class Component extends DCLogic {
       winBg: segBg(platform === 'windows'), winInk: segInk(platform === 'windows'), winSh: segSh(platform === 'windows'),
 
       envName: this.state.env,
-      envChipBg: this.state.pop === 'BarEnv' ? 'var(--sel)' : 'var(--field)',
+      envChipBg: this.state.pop === 'BarEnv' ? 'var(--sel)' : (this.state.barEnv ? 'var(--accent-soft)' : 'transparent'),
       barEnvLabel: this.state.barEnv || this.state.env,
-      barEnvDot: this.state.barEnv ? 'var(--ok)' : 'transparent',
-      barEnvRing: this.state.barEnv ? 'none' : 'inset 0 0 0 1.5px var(--ink3)',
+      barEnvOverride: !!this.state.barEnv,
+      barEnvTitle: this.state.barEnv
+        ? 'Environment for this request: ' + this.state.barEnv
+        : 'Environment: follows the window (' + this.state.env + ')',
+      barEnvInk: this.state.barEnv ? 'var(--accent)' : 'var(--ink2)',
+      barEnvLine: this.state.barEnv ? 'var(--accent)' : 'var(--fieldline)',
+      barEnvFill: this.state.barEnv ? 'var(--accent-soft)' : 'none',
+      barEnvPad: this.state.barEnv ? '0 10px 0 9px' : '0 9px',
       barEnvs: [{ name: 'Follow window · ' + this.state.env, vars: 'global', value: null }]
         .concat(envDefs.filter(e => e.name !== 'No environment').map(e => ({ name: e.name, vars: e.vars, value: e.name })))
         .map(e => {
@@ -4683,8 +4892,8 @@ class Component extends DCLogic {
       },
       popBarEnv: this.state.pop === 'BarEnv',
       toggleBarEnv: () => this.setState({ pop: this.state.pop === 'BarEnv' ? null : 'BarEnv' }),
-      unsaved: true,
-      saveHint: 'Unsaved changes — save to a collection',
+      unsaved: this.state.unsaved !== false,
+      saveHint: this.state.unsaved === false ? 'Saved to the collection' : 'Unsaved changes — save to a collection',
       serverDown: !!this.props.serverDown,
       syncing: !!this.state.syncing,
       showAccDot: signedIn && !this.state.syncing,
@@ -4696,12 +4905,101 @@ class Component extends DCLogic {
         this._syncT = setTimeout(() => this.setState({ syncing: false }), 2600);
       },
       retryLabel: this.state.syncing ? 'Trying…' : 'Retry',
-      retryInk: this.state.syncing ? 'var(--ink3)' : 'var(--ink)',
+      retrySpin: this.state.syncing ? 'om-spin 900ms linear infinite' : 'none',
+      retryInk: this.state.syncing ? 'var(--accent)' : 'var(--ink)',
       syncTitle: this.state.syncing ? 'Reconnecting…' : 'Server not responding',
       syncTitleInk: this.state.syncing ? 'var(--accent)' : 'var(--bad)',
       syncNote: this.state.syncing ? 'Retrying app.jsoninspector.dev' : 'Last sync 12 minutes ago',
       brandDisplay: platform === 'windows' ? 'flex' : 'none',
       macTitleDisplay: platform === 'windows' ? 'none' : 'block',
+      popSave: pop === 'Save',
+      toggleSavePop: () => this.setState({ pop: pop === 'Save' ? null : 'Save', saveStep: 'pick', saveQuery: '' }),
+      saveBg: pop === 'Save' ? 'var(--sel)' : 'transparent',
+      saveInk: pop === 'Save' ? 'var(--accent)' : 'var(--ink2)',
+      saveQuery: this.state.saveQuery || '',
+      setSaveQuery: (e) => this.setState({ saveQuery: e.target.value }),
+      saveNothing: saveList.length === 0 && !saveQ,
+      saveTargets: saveList.map(t => {
+        const active = (this.state.saveTarget || 'Articles') === t.key;
+        return {
+          name: t.name, meta: t.meta, active, isNew: !!t.isNew && !active,
+          weight: active ? 600 : 500,
+          pad: '0 10px',
+          bg: active ? 'var(--accent-soft)' : 'transparent',
+          on: () => this.setState({ saveTarget: t.key, saveStep: 'confirm' })
+        };
+      }),
+      saveName: this.state.saveName === undefined
+        ? 'GET api.example.com/v1/articles?include=author,comments'
+        : this.state.saveName,
+      setSaveName: (e) => this.setState({ saveName: e.target.value }),
+      saveNameHint: 'Taken from the URL. Give it a name you will recognise in the list.',
+      savePick: this.state.saveStep !== 'confirm',
+      saveConfirm: this.state.saveStep === 'confirm',
+      saveBack: () => this.setState({ saveStep: 'pick' }),
+      saveTargetName: (() => {
+        const t = String(this.state.saveTarget || 'Articles');
+        if (t.startsWith('new:')) return 'New collection “' + t.slice(4) + '”';
+        const hit = saveList.find(x => x.key === t);
+        return hit ? hit.name : t;
+      })(),
+      confirmSave: () => this.setState({ pop: null, unsaved: false, saveQuery: '', saveStep: 'pick' }),
+      cookieHost: 'api.example.com',
+      cookieJarNote: '3 in the jar for this host',
+      popCookies: pop === 'Cookies',
+      reqCookies: (jarDefs['api.example.com'] || []).map(c => {
+        const on = cookieOff[c.name] !== true;
+        const fromResponse = c.name === 'session_id';
+        return {
+          name: c.name, value: c.value, on,
+          hint: on ? 'Skip for this request' : 'Send with this request',
+          boxBg: on ? 'var(--accent)' : 'transparent',
+          boxLine: on ? 'var(--accent)' : 'var(--fieldline)',
+          ink: on ? 'var(--ink)' : 'var(--ink3)',
+          valueInk: on ? 'var(--str)' : 'var(--ink3)',
+          source: fromResponse ? 'from response' : 'manual',
+          srcBg: fromResponse ? 'var(--accent-soft)' : 'var(--chip)',
+          srcInk: fromResponse ? 'var(--accent)' : 'var(--ink3)',
+          toggle: () => this.setState(s => ({ cookieOff: { ...(s.cookieOff || {}), [c.name]: !(s.cookieOff || {})[c.name] } }))
+        };
+      }),
+      cookieManagerOpen: this.state.modal === 'cookies',
+      openCookieManager: () => this.setState({ modal: 'cookies', pop: null, sheet: null }),
+      closeCookieManager: this.set('modal', null),
+      cookieDomains: Object.keys(jarDefs).map(d => ({
+        name: d,
+        meta: jarDefs[d].length + (jarDefs[d].length === 1 ? ' cookie' : ' cookies'),
+        fresh: d === 'api.example.com',
+        bg: d === jarHost ? 'var(--sel)' : 'transparent',
+        weight: d === jarHost ? 600 : 500,
+        on: () => this.setState({ cookieDomain: d })
+      })),
+      cookieDomainName: jarHost,
+      cookieDomainMeta: (jarDefs[jarHost] || []).length + ' cookies · last written 12:04',
+      cookieRows: (jarDefs[jarHost] || []).map(c => ({ ...c, flags: cookieFlags(c), flagText: cookieFlagText(c) })),
+      cookieAutoLabel: cookieBlocked ? 'Writes blocked' : 'Saving Set-Cookie',
+      cookieAutoHint: cookieBlocked
+        ? 'Responses from this domain do not change the jar'
+        : 'Set-Cookie from this domain is saved to the jar',
+      cookieAutoBg: cookieBlocked ? 'var(--bad-soft)' : 'var(--field)',
+      cookieAutoInk: cookieBlocked ? 'var(--bad)' : 'var(--ink)',
+      cookieAutoLine: cookieBlocked ? 'var(--bad)' : 'var(--fieldline)',
+      toggleCookieAuto: () => this.setState(s => ({ cookieBlocked: !s.cookieBlocked })),
+      cookieRespNote: 'Set-Cookie from this response changed three cookies in the jar for api.example.com. The next request to that host sends them as shown.',
+      cookieDiffAny: true,
+      cookieDiffSummary: '3 changes',
+      cookieDiffFoot: 'The next request to api.example.com will send the jar as it is now.',
+      cookieDiff: [
+        { headline: 'session_id got a new value',
+          detail: 'The old session is no longer valid. The cookie now lives until the app closes instead of expiring on 4 October.',
+          values: '4a91…c2f8 → 9f3c…8d44', ink: 'var(--accent)' },
+        { headline: 'locale was added',
+          detail: 'A new cookie the server had not set before. It stays until 31 December 2026.',
+          values: 'en-US', ink: 'var(--ok)' },
+        { headline: 'onboarding was deleted',
+          detail: 'The server asked to remove it, so it will not be sent again.',
+          values: 'was step-3', ink: 'var(--bad)' }
+      ],
       rail, history, chips, tabs, included, mapRows, cookies, timings,
       paramRows, headerRows,
       popParams: pop === 'Params', popHeaders: pop === 'Headers', popAuth: pop === 'Auth',

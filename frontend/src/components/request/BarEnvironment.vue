@@ -11,9 +11,10 @@ import { useMessages } from '../../i18n'
 // The environment this one request goes out under, drawn beside the address it applies to: it is the
 // last thing a person checks before pressing send.
 //
-// Following the window is an answer of its own rather than the absence of one, so the button says
-// which of the two it is — a name and a filled dot for a request pinned to one environment, a name
-// and a ring for a request that follows — before the popover is opened.
+// Following the window is the answer a request gives until it is told otherwise, and the drawing says
+// so by saying nothing: an unpinned request wears the plain stack, and only a pinned one is worth the
+// room a name takes. Which of the two it is, and which environment that is, the tooltip spells out —
+// a name on every request would be the same name on every request.
 const props = defineProps<{ source: RequestSource }>()
 
 const envStore = useEnvironmentsStore()
@@ -23,6 +24,13 @@ const { t } = useMessages()
 const { pinned, label, options, choose } = useRequestEnvironment(props.source)
 
 const open = ref(false)
+
+// What the button says when there is no name on it, and what it says behind the name when there is.
+const title = computed(() =>
+  pinned.value
+    ? t('request.envPinnedTitle', { name: label.value })
+    : t('request.envFollowTitle', { name: label.value })
+)
 
 function pick(id: string) {
   open.value = false
@@ -47,10 +55,11 @@ const editHint = computed(() => shortcut('E'))
         type="button"
         class="bar-env"
         :class="{ open, pinned }"
-        :title="t('request.envTitle')"
+        :title="title"
+        :aria-label="title"
       >
-        <span class="bar-env-dot"></span>
-        <span class="bar-env-name">{{ label }}</span>
+        <Icon name="database" :size="15" :stroke-width="1.8" />
+        <span v-if="pinned" class="bar-env-name">{{ label }}</span>
       </button>
     </PopoverTrigger>
     <PopoverContent class="bar-env-pop" align="end" :side-offset="6">
@@ -84,38 +93,50 @@ const editHint = computed(() => shortcut('E'))
 /* The panel's own box lives in style.css with the other popovers': this component's scope reaches
    the head and the rows, which are its own children, but not the portalled root they sit in. */
 
+/* No frame and no fill of its own: the control is quieter than the field beside it, and a request
+   that follows the window is quieter still — a name appears only once there is a choice to name. */
 .bar-env {
-  @apply flex-none flex items-center gap-[7px] h-[34px] px-2.5 rounded-[7px] cursor-pointer;
-  border: 1px solid var(--border-strong);
-  background: var(--bg-inset);
+  @apply flex-none flex items-center gap-[7px] h-[34px] px-[9px] rounded-[7px] cursor-pointer;
+  border: 0;
+  background: transparent;
   color: var(--text-secondary);
   font: inherit;
   font-size: 12px;
   font-weight: 500;
-  max-width: 190px;
   --wails-draggable: no-drag;
 }
 
-.bar-env:hover,
-.bar-env.open {
+/* Pinned to one of its own, the control wears the accent and the stack is tinted: two marks rather
+   than one, because this is the state the whole popover exists to let a person leave. Written before
+   the two rules below, which stand on the same rung of specificity. */
+.bar-env.pinned {
+  padding: 0 10px 0 9px;
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.bar-env:hover {
   background: var(--bg-hover);
   color: var(--text);
 }
 
+/* An open panel is a fill under the button and nothing else: the ink is what the state is read by,
+   and the state does not change by the panel being open. */
+.bar-env.open {
+  background: var(--bg-hover);
+}
+
+.bar-env svg {
+  fill: none;
+}
+
+.bar-env.pinned svg {
+  fill: var(--accent-soft);
+}
+
 .bar-env-name {
   @apply truncate;
-}
-
-/* Pinned to one of its own is green; following the window is a ring, which is the shape this app
-   uses for an answer that has not been given. */
-.bar-env-dot {
-  @apply flex-none w-[7px] h-[7px] rounded-full;
-  box-shadow: inset 0 0 0 1.5px var(--text-tertiary);
-}
-
-.bar-env.pinned .bar-env-dot {
-  background: var(--green);
-  box-shadow: none;
+  max-width: 130px;
 }
 
 .bar-env-pop-head {

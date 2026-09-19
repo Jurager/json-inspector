@@ -30,8 +30,10 @@ Behaviour comes from `reka-ui` (focus, Escape, click outside, ARIA, positioning)
 classes. The rule is one: **needed a second time, it goes into `ui/` instead of being written again**.
 
 - `ui/button` — `Button` (`outline` / `primary` / `ghost` / `quiet`) and `IconButton` (`outline` /
-  `bare` / `subtle` / `danger`), sizes `sm` / `md` / `lg`. The metrics come from the design handoff and
-  live in one place: `lg` is 32px with an 8px radius, `md` is 26px with a 7px radius.
+  `bare` / `subtle` / `danger`). The metrics come from the design handoff and live in one place: on
+  `Button`, `lg` is 32px with an 8px radius and `md` is 26px with a 7px radius; on `IconButton`, the
+  square sizes are `sm` 20 / `md` 24 / `xl` 26 / `lg` 32, and `bar` is the 28px of a bar control —
+  the same height and radius `Button size="bar"` has, for a row whose controls lost their words.
 - `ui/input` — `Input`: 32px with an 8px radius in `md`, 28px with a 7px radius in `sm`. The `bare`
   variant is the same field without a frame, for a container that draws the frame itself: the filter
   pills, the address in the request line. Layout (`flex-1`, `w-full`) is the caller's business.
