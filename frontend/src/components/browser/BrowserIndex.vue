@@ -207,7 +207,9 @@ async function exportHar() {
              down, and a head that left the screen would stop saying which column is which. -->
         <div class="table-body">
           <button v-for="record in items" :key="record.id" type="button" class="row" @click="store.selectBrowser(record.id)">
-            <span class="cell-method mono" :class="methodInkClass(record.method)">{{ record.method }}</span>
+            <span class="cell-method mono" :class="methodInkClass(record.method)">
+              {{ record.method }}
+            </span>
             <span class="cell-path mono" :title="record.url">{{ addressOf(record.url) }}</span>
             <span class="cell-status">
               <span class="status" :class="statusBadgeClass(record.status)">{{ record.status }}</span>
@@ -413,6 +415,8 @@ async function exportHar() {
   white-space: nowrap;
 }
 
+/* The verb wears its own colour — the shared classes at the root do that — and only the size is the
+   table's: a table is denser than a list, and the column is laid out by the grid. */
 .cell-method {
   @apply text-[12px];
 }

@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<script src="support.js"></script>
+<script src="./support.js"></script>
 </head>
 <body>
 <x-dc>
@@ -56,20 +56,25 @@
           <span style="width: 12px; height: 12px; border-radius: 999px; background: #28c840;"></span>
         </div>
       </sc-if>
-      <div style="display: flex; align-items: center; gap: 12px; padding: 0 8px 0 14px;">
+      <div style="display: {{ brandDisplay }}; align-items: center; gap: 12px; padding: 0 8px 0 14px;">
         <span style="width: 22px; height: 22px; border-radius: 6px; background: var(--accent); display: inline-flex; align-items: center; justify-content: center; color: #fff; font-size: 12px; font-weight: 700;">J</span>
         <span style="font-size: 14px; font-weight: 600; letter-spacing: -0.01em;">JSON Inspector</span>
       </div>
+      <span style="display: {{ macTitleDisplay }}; position: absolute; left: 0; right: 0; text-align: center; font-size: 13px; font-weight: 600; letter-spacing: -0.01em; color: var(--ink2); pointer-events: none;">JSON Inspector</span>
       <button type="button" onClick="{{ toggleWs }}" style="appearance: none; cursor: pointer; font-family: inherit; font-size: 13px; font-weight: 500; color: var(--ink); background: {{ wsBtnBg }}; border: 0; border-radius: 7px; height: 30px; padding: 0 10px; margin-left: 10px; display: flex; align-items: center; gap: 8px;" style-hover="background: var(--sel);">
         <span style="width: 18px; height: 18px; border-radius: 5px; background: var(--accent-soft); color: var(--accent); font-size: 11px; font-weight: 600; display: inline-flex; align-items: center; justify-content: center;">P</span>Personal
         <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" style="color: var(--ink3);"><path d="m6 9 6 6 6-6"></path></svg>
       </button>
       <div style="flex: 1;"></div>
-      <button type="button" onClick="{{ toggleEnv }}" style="appearance: none; cursor: pointer; font-family: inherit; font-size: 13px; color: var(--ink); background: {{ envBtnBg }}; border: 0; border-radius: 7px; height: 30px; padding: 0 12px; display: flex; align-items: center; gap: 9px;" style-hover="background: var(--sel);"><span style="width: 8px; height: 8px; border-radius: 999px; background: var(--ok);"></span>Local · dev
-        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" style="color: var(--ink3);"><path d="m6 9 6 6 6-6"></path></svg>
-      </button>
-      <div style="flex: 1;"></div>
       <div style="display: flex; align-items: center; gap: 10px; padding-right: 16px;">
+        <sc-if value="{{ serverDown }}" hint-placeholder-val="{{ false }}">
+          <span title="Sync server not responding — local work continues" style="display: flex; align-items: center; gap: 8px; height: 30px; padding: 0 11px; border-radius: 7px; background: var(--bad-soft); color: var(--bad); font-size: 13px; font-weight: 500;">
+            <span style="width: 8px; height: 8px; border-radius: 999px; background: currentColor;"></span>Offline
+          </span>
+        </sc-if>
+        <button type="button" onClick="{{ toggleEnv }}" style="appearance: none; cursor: pointer; font-family: inherit; font-size: 13px; color: var(--ink); background: {{ envBtnBg }}; border: 0; border-radius: 7px; height: 30px; padding: 0 12px; display: flex; align-items: center; gap: 9px;" style-hover="background: var(--sel);"><span style="width: 8px; height: 8px; border-radius: 999px; background: var(--ok);"></span>Local · dev
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" style="color: var(--ink3);"><path d="m6 9 6 6 6-6"></path></svg>
+        </button>
         <div style="display: flex; align-items: center; gap: 2px; padding: 2px; background: var(--chip); border-radius: 8px;">
           <button type="button" onClick="{{ modeLightOn }}" title="Светлая" style="appearance: none; cursor: pointer; border: 0; border-radius: 6px; width: 34px; height: 28px; display: flex; align-items: center; justify-content: center; background: {{ mLightBg }}; color: {{ mLightInk }}; box-shadow: {{ mLightSh }};" style-hover="color: var(--ink);">
             <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="4.2"></circle><path d="M12 2.6v2.2M12 19.2v2.2M2.6 12h2.2M19.2 12h2.2M5.4 5.4l1.6 1.6M17 17l1.6 1.6M18.6 5.4 17 7M7 17l-1.6 1.6"></path></svg>
@@ -122,7 +127,7 @@
       </sc-if>
 
       <sc-if value="{{ popEnv }}" hint-placeholder-val="{{ false }}">
-        <div style="position: absolute; top: 46px; left: 50%; transform: translateX(-50%); width: 320px; background: var(--pop); backdrop-filter: blur(30px) saturate(180%); -webkit-backdrop-filter: blur(30px) saturate(180%); border: 1px solid var(--line); border-radius: 12px; box-shadow: var(--popshadow); padding: 8px; display: flex; flex-direction: column; gap: 2px; z-index: 60;">
+        <div style="position: absolute; top: 46px; right: 180px; width: 320px; background: var(--pop); backdrop-filter: blur(30px) saturate(180%); -webkit-backdrop-filter: blur(30px) saturate(180%); border: 1px solid var(--line); border-radius: 12px; box-shadow: var(--popshadow); padding: 8px; display: flex; flex-direction: column; gap: 2px; z-index: 60;">
           <div style="padding: 6px 10px 8px; font-size: 11px; font-weight: 600; letter-spacing: 0.07em; text-transform: uppercase; color: var(--ink3);">Environment</div>
           <sc-for list="{{ environments }}" as="e" hint-placeholder-count="4">
             <button type="button" onClick="{{ e.on }}" style="appearance: none; cursor: pointer; font-family: inherit; text-align: left; border: 0; border-radius: 9px; background: {{ e.bg }}; height: 34px; padding: 0 10px; display: flex; align-items: center; gap: 10px; color: {{ e.ink }};" style-hover="background: var(--sel);">
@@ -179,8 +184,16 @@
         <div style="position: relative; display: flex; flex-direction: column; align-items: center;">
           <button type="button" onClick="{{ accountClick }}" title="Account" style="appearance: none; cursor: pointer; color: {{ accBtnInk }}; background: {{ accBtnBg }}; border: 0; border-radius: 8px; width: 60px; height: 34px; display: flex; align-items: center; justify-content: center; position: relative;" style-hover="background: var(--sel); color: var(--ink);">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8.4" r="3.6"></circle><path d="M5.2 20c0-3.6 3-6.2 6.8-6.2s6.8 2.6 6.8 6.2"></path></svg>
-            <sc-if value="{{ isSignedIn }}" hint-placeholder-val="{{ true }}">
-              <span style="position: absolute; right: 14px; bottom: 5px; width: 8px; height: 8px; border-radius: 999px; background: var(--ok); box-shadow: 0 0 0 2px var(--side);"></span>
+            <sc-if value="{{ showAccDot }}" hint-placeholder-val="{{ true }}">
+              <span style="position: absolute; right: 14px; bottom: 5px; width: 8px; height: 8px; border-radius: 999px; background: {{ accDotInk }}; box-shadow: 0 0 0 2px var(--side);"></span>
+            </sc-if>
+            <sc-if value="{{ syncing }}" hint-placeholder-val="{{ false }}">
+              <span title="Syncing…" style="position: absolute; right: 10px; bottom: 1px; width: 16px; height: 16px; border-radius: 999px; background: var(--side); display: inline-flex; align-items: center; justify-content: center; color: var(--accent);">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" style="animation: om-spin 720ms linear infinite; transform-origin: 50% 50%;">
+                  <circle cx="12" cy="12" r="8.5" stroke="currentColor" stroke-opacity="0.2" stroke-width="3"></circle>
+                  <circle cx="12" cy="12" r="8.5" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-dasharray="14 40"></circle>
+                </svg>
+              </span>
             </sc-if>
           </button>
           <sc-if value="{{ popAccount }}" hint-placeholder-val="{{ false }}">
@@ -194,6 +207,16 @@
                   <span style="font-size: 11px; color: var(--ink3);">{{ accountMeta }}</span>
                 </span>
               </div>
+              <sc-if value="{{ serverDown }}" hint-placeholder-val="{{ false }}">
+                <div style="display: flex; align-items: center; gap: 8px; padding: 9px 8px; margin: 4px 0; border-bottom: 1px solid var(--line);">
+                  <span style="width: 7px; height: 7px; flex: none; border-radius: 999px; background: {{ syncTitleInk }};"></span>
+                  <span style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px;">
+                    <span style="font-size: 12px; font-weight: 600; color: {{ syncTitleInk }};">{{ syncTitle }}</span>
+                    <span style="font-size: 11px; color: var(--ink3);">{{ syncNote }}</span>
+                  </span>
+                  <button type="button" onClick="{{ retrySync }}" style="appearance: none; cursor: pointer; font-family: inherit; font-size: 12px; font-weight: 500; height: 24px; padding: 0 9px; background: var(--field); color: {{ retryInk }}; border: 1px solid var(--fieldline); border-radius: 6px; flex: none; display: flex; align-items: center; gap: 6px;" style-hover="background: var(--sel);">{{ retryLabel }}</button>
+                </div>
+              </sc-if>
               <button type="button" onClick="{{ openAccountTab }}" style="appearance: none; cursor: pointer; font-family: inherit; text-align: left; font-size: 13px; color: var(--ink); background: transparent; border: 0; border-radius: 7px; height: 30px; padding: 0 8px; display: flex; align-items: center; gap: 9px;" style-hover="background: var(--sel);">
                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" style="color: var(--ink2);"><circle cx="12" cy="8.4" r="3.5"></circle><path d="M5.2 20c0-3.5 3-6 6.8-6s6.8 2.5 6.8 6"></path></svg>Account
               </button>
@@ -217,11 +240,14 @@
         <div style="height: 44px; flex: none; display: flex; align-items: center; justify-content: space-between; padding: 0 8px 0 16px; border-bottom: 1px solid var(--line2);">
           <span style="font-size: 13px; font-weight: 600;">History</span>
           <button type="button" title="Clear history" style="appearance: none; cursor: pointer; color: var(--ink3); background: transparent; border: 0; border-radius: 7px; width: 28px; height: 28px; display: flex; align-items: center; justify-content: center;" style-hover="background: var(--bad-soft); color: var(--bad);">
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 7h14M10 7V5h4v2M7 7v12h10V7"></path></svg>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" shape-rendering="geometricPrecision"><path d="M4.5 7.5h15M9.75 7.5V4.5h4.5v3M6.75 7.5l.9 12h8.7l.9-12M10.5 11.25v4.5M13.5 11.25v4.5"></path></svg>
           </button>
         </div>
-        <div style="padding: 12px 16px 5px; font-size: 11px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink3);">Today</div>
-        <div style="display: flex; flex-direction: column;">
+        <sc-if value="{{ histEmpty }}" hint-placeholder-val="{{ false }}">
+          <div style="padding: 18px 20px; font-size: 13px; line-height: 1.55; color: var(--ink3);">Nothing sent yet.</div>
+        </sc-if>
+        <div style="padding: 12px 16px 5px; font-size: 11px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink3); display: {{ histListDisplay }};">Today</div>
+        <div style="display: {{ histListFlex }}; flex-direction: column;">
           <sc-for list="{{ history }}" as="row" hint-placeholder-count="4">
             <button type="button" onClick="{{ row.on }}" title="{{ row.statusTitle }}" style="appearance: none; cursor: pointer; font-family: inherit; text-align: left; border: 0; border-radius: 0; background: {{ row.bg }}; box-shadow: {{ row.mark }}; height: 32px; padding: 0 14px 0 16px; display: grid; grid-template-columns: 34px minmax(0, 1fr) 4px; align-items: center; gap: 8px; color: {{ row.ink }};" style-hover="background: {{ row.hoverBg }};">
               <span style="font-family: ui-monospace, 'SF Mono', 'Cascadia Code', Menlo, monospace; font-size: 11px; letter-spacing: 0.02em; color: {{ row.methodInk }};">{{ row.method }}</span>
@@ -244,7 +270,7 @@
           <span style="font-size: 13px; font-weight: 600;">Captured</span>
           <div style="flex: 1;"></div>
           <button type="button" title="Clear captured traffic" style="appearance: none; cursor: pointer; color: var(--ink3); background: transparent; border: 0; border-radius: 7px; width: 28px; height: 28px; display: flex; align-items: center; justify-content: center;" style-hover="background: var(--bad-soft); color: var(--bad);">
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 7h14M10 7V5h4v2M7 7v12h10V7"></path></svg>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" shape-rendering="geometricPrecision"><path d="M4.5 7.5h15M9.75 7.5V4.5h4.5v3M6.75 7.5l.9 12h8.7l.9-12M10.5 11.25v4.5M13.5 11.25v4.5"></path></svg>
           </button>
         </div>
         <sc-if value="{{ isBrowserHome }}" hint-placeholder-val="{{ false }}">
@@ -300,7 +326,7 @@
                 <span style="flex: none; font-size: 11px; color: var(--ink3);">{{ n.count }}</span>
               </sc-if>
               <sc-if value="{{ n.isRequest }}" hint-placeholder-val="{{ false }}">
-                <span style="width: 44px; flex: none; font-family: ui-monospace, 'SF Mono', 'Cascadia Code', Menlo, monospace; font-size: 11px; color: {{ n.methodInk }};">{{ n.method }}</span>
+                <span style="width: 34px; flex: none; font-family: ui-monospace, 'SF Mono', 'Cascadia Code', Menlo, monospace; font-size: 11px; color: {{ n.methodInk }};">{{ n.method }}</span>
                 <span style="flex: 1; min-width: 0; font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{{ n.title }}</span>
               </sc-if>
             </button>
@@ -618,6 +644,13 @@
           </div>
         </sc-if>
 
+        <sc-if value="{{ showNoRun }}" hint-placeholder-val="{{ false }}">
+        <div style="flex: 1; min-height: 0; padding: 28px 32px; display: flex; flex-direction: column; gap: 8px; max-width: 560px;">
+          <span style="font-size: 16px; font-weight: 600; letter-spacing: -0.01em;">No response yet</span>
+          <span style="font-size: 13px; line-height: 1.55; color: var(--ink3);">{{ noRunBody }}</span>
+        </div>
+        </sc-if>
+
         <sc-if value="{{ showResponse }}" hint-placeholder-val="{{ true }}">
         <div style="height: 48px; flex: none; display: flex; align-items: center; gap: 14px; padding: 0 20px; border-bottom: 1px solid var(--line2);">
           <span style="font-size: 11px; font-weight: 700; height: 20px; padding: 0 7px; border-radius: 5px; background: {{ metaStatusBg }}; color: {{ metaStatusInk }}; flex: none; display: flex; align-items: center;">{{ metaStatus }}</span>
@@ -832,7 +865,14 @@
               </div>
             </sc-if>
 
-            <sc-if value="{{ isScripts }}" hint-placeholder-val="{{ false }}">
+            <sc-if value="{{ isScriptsEmpty }}" hint-placeholder-val="{{ false }}">
+              <div style="flex: 1; min-height: 0; padding: 28px 32px; display: flex; flex-direction: column; gap: 8px; max-width: 560px;">
+                <span style="font-size: 16px; font-weight: 600; letter-spacing: -0.01em;">No scripts ran</span>
+                <span style="font-size: 13px; line-height: 1.55; color: var(--ink3);">Nothing is attached to this request. Add a pre-request or post-response script.</span>
+              </div>
+            </sc-if>
+
+            <sc-if value="{{ isScriptsRun }}" hint-placeholder-val="{{ false }}">
               <div style="flex: 1; min-height: 0; overflow-y: auto; padding: 22px 24px; display: flex; flex-direction: column; gap: 18px;">
                 <div style="display: flex; align-items: center; gap: 12px;">
                   <span style="font-size: 12px; font-weight: 700; padding: 5px 10px; border-radius: 6px; background: var(--ok-soft); color: var(--ok);">2 passed</span>
@@ -1356,7 +1396,7 @@
                         <span><span style="font-size: 11px; font-weight: 600; padding: 3px 7px; border-radius: 5px; background: {{ v.tagBg }}; color: {{ v.tagInk }};">{{ v.tag }}</span></span>
                         <span style="display: flex; justify-content: flex-end;">
                           <button type="button" title="Delete variable" style="appearance: none; cursor: pointer; width: 28px; height: 28px; border: 0; border-radius: 6px; background: transparent; color: var(--ink3); display: flex; align-items: center; justify-content: center;" style-hover="background: var(--bad-soft); color: var(--bad);">
-                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 7h14M10 7V5h4v2M7 7v12h10V7"></path></svg>
+                            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" shape-rendering="geometricPrecision"><path d="M4.5 7.5h15M9.75 7.5V4.5h4.5v3M6.75 7.5l.9 12h8.7l.9-12M10.5 11.25v4.5M13.5 11.25v4.5"></path></svg>
                           </button>
                         </span>
                       </div>
@@ -2701,7 +2741,7 @@
 
 </section>
 </x-dc>
-<script type="text/x-dc" data-dc-script data-props="{&quot;theme&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;light&quot;,&quot;dark&quot;],&quot;default&quot;:&quot;light&quot;,&quot;tsType&quot;:&quot;'light' | 'dark'&quot;},&quot;platform&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;macos&quot;,&quot;windows&quot;],&quot;default&quot;:&quot;macos&quot;,&quot;tsType&quot;:&quot;'macos' | 'windows'&quot;},&quot;emptyCollections&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Empty states&quot;},&quot;browserNotConnected&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Empty states&quot;},&quot;signedOut&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Empty states&quot;},&quot;missingVariable&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Empty states&quot;}}">
+<script type="text/x-dc" data-dc-script data-props="{&quot;theme&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;light&quot;,&quot;dark&quot;],&quot;default&quot;:&quot;light&quot;,&quot;tsType&quot;:&quot;'light' | 'dark'&quot;},&quot;platform&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;macos&quot;,&quot;windows&quot;],&quot;default&quot;:&quot;macos&quot;,&quot;tsType&quot;:&quot;'macos' | 'windows'&quot;},&quot;emptyCollections&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Empty states&quot;},&quot;browserNotConnected&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Empty states&quot;},&quot;noRunYet&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Empty states&quot;},&quot;noScripts&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Empty states&quot;},&quot;serverDown&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Empty states&quot;},&quot;signedOut&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Empty states&quot;},&quot;missingVariable&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Empty states&quot;}}">
 class Component extends DCLogic {
   state = {
     mode: null, platform: null, src: 'Request', tab: 'Body', mainOpen: true,
@@ -3268,6 +3308,9 @@ class Component extends DCLogic {
       };
     });
 
+    const methodInk = m => m === 'DELETE' ? 'var(--bad)' : (m === 'GET' ? 'var(--ok)' : 'var(--accent)');
+    const methodShort = m => ({ DELETE: 'DEL', OPTIONS: 'OPT' })[m] || m;
+
     const rows = [
       { method: 'GET', status: '200', host: 'api.example.com', url: '/articles?include=author,comments', time: '01:15 PM' },
       { method: 'POST', status: '201', host: 'api.example.com', url: '/articles', time: '01:09 PM' },
@@ -3285,7 +3328,8 @@ class Component extends DCLogic {
         ink: 'var(--ink)',
         hostInk: 'var(--ink3)',
         metaInk: on ? 'var(--ink2)' : 'var(--ink3)',
-        methodInk: on ? 'var(--ink2)' : 'var(--ink3)',
+        method: methodShort(r.method),
+        methodInk: methodInk(r.method),
         bar: good ? 'var(--ok)' : 'var(--bad)',
         statusTitle: r.method + ' ' + r.status + ' · ' + r.time
       };
@@ -3478,8 +3522,9 @@ class Component extends DCLogic {
 
     const signedIn = !this.props.signedOut;
     const setTab = this.state.setTab || 'General';
+    const down2 = !!this.props.serverDown;
     const setTabDefs = [
-      { name: 'Account', meta: signedIn ? 'ucell.dev@itl.digital' : 'Not signed in', tint: '#0a6cff', icon: 'M12 4.9a3.6 3.6 0 1 0 0 7.2 3.6 3.6 0 0 0 0-7.2ZM5.2 20c0-3.6 3-6.2 6.8-6.2s6.8 2.6 6.8 6.2' },
+      { name: 'Account', meta: (signedIn && down2) ? 'Server not responding' : (signedIn ? 'ucell.dev@itl.digital' : 'Not signed in'), tint: '#0a6cff', icon: 'M12 4.9a3.6 3.6 0 1 0 0 7.2 3.6 3.6 0 0 0 0-7.2ZM5.2 20c0-3.6 3-6.2 6.8-6.2s6.8 2.6 6.8 6.2' },
       { name: 'General', meta: 'Startup, tabs, editor', tint: '#5d5d63', icon: 'M4 8.5h16M4 15.5h16M9.5 6.3v4.4M15 13.3v4.4' },
       { name: 'Appearance', meta: 'Theme, density, fonts', tint: '#5a4fcf', icon: 'M12 3.5a8.5 8.5 0 1 0 0 17 8.5 8.5 0 0 0 0-17Zm0 0v17' },
       { name: 'Requests', meta: 'Timeouts, redirects, cookies', tint: '#2e8b57', icon: 'M4 8.8h13.5l-3.2-3.2M20 15.2H6.5l3.2 3.2' },
@@ -3550,12 +3595,20 @@ class Component extends DCLogic {
     };
     const setSectionDefs = {
       Account: signedIn ? [
+        ...(down2 ? [{ label: 'Connection', note: 'The app works from the local store until the server answers again.', rows: [
+          { title: 'Server not responding', note: 'app.jsoninspector.dev · last reply 12 minutes ago', control: btn('Retry', () => {}, true) },
+          { title: 'Waiting to sync', note: '3 local changes in Personal and 1 in Example API', control: val('Queued') },
+          { title: 'Account details', note: 'Plan, seats and billing load from the server', control: val('Unavailable') }
+        ] }] : []),
         { label: 'Signed in', rows: [
-          { title: 'ucell.dev@itl.digital', note: 'Team plan · 4 members · synced 2 minutes ago', control: btn('Manage account', this.set('sheet', 'manageAccount')) },
-          { title: 'Sync', note: 'Collections, environments and history', control: tog('sync', true) },
+          { title: 'ucell.dev@itl.digital', note: down2 ? 'Cached profile · last synced 12 minutes ago' : 'Team plan · 4 members · synced 2 minutes ago', control: btn('Manage account', this.set('sheet', 'manageAccount')) },
+          { title: 'Sync', note: down2 ? 'Paused — nothing leaves the machine while the server is down' : 'Collections, environments and history', control: tog('sync', true) },
           { title: 'Sign out of this device', note: 'Local collections stay on the machine', control: btn('Sign out', () => this.setState({ sheet: 'signOut' })) }
         ] },
-        { label: 'Sessions and devices', note: 'Where the account is currently signed in.', rows: [
+        { label: 'Sessions and devices', note: down2 ? 'The session list lives on the server and cannot be read right now.' : 'Where the account is currently signed in.', rows: down2 ? [
+          { title: 'This device', note: 'macOS · JSON Inspector 2.4.1 · signed in locally', control: val('Active') },
+          { title: 'Other devices', note: 'Shown again after the server answers', control: val('Unavailable') }
+        ] : [
           { title: 'macOS · JSON Inspector 2.4.1', note: 'Almaty, Kazakhstan · active now', control: val('This device') },
           { title: 'iOS · JSON Inspector 2.4.0', note: 'Almaty, Kazakhstan · yesterday at 19:42', control: btn('End', this.set('sheet', 'endSession')) },
           { title: 'Windows · JSON Inspector 2.3.6', note: 'Astana, Kazakhstan · 12 September', control: btn('End', this.set('sheet', 'endSession')) },
@@ -3701,14 +3754,14 @@ class Component extends DCLogic {
         bar: (n.status || '200').startsWith('2') || (n.status || '200').startsWith('3') ? 'var(--ok)' : 'var(--bad)',
         metaInk: sel ? 'var(--ink2)' : 'var(--ink3)',
         methodBg: 'transparent',
-        methodInk: sel ? 'var(--ink2)' : 'var(--ink3)',
+        method: methodShort(n.method || ''),
+        methodInk: methodInk(n.method || 'GET'),
         ...(sel
           ? { statusBg: 'rgba(255,255,255,0.22)', statusInk: '#ffffff' }
           : statusTint(n.status || '200'))
       };
     });
 
-    const methodInk = m => m === 'DELETE' ? 'var(--bad)' : (m === 'GET' ? 'var(--ok)' : 'var(--accent)');
     const collDefs = [
       { kind: 'folder', title: 'Example API', count: '12', depth: 0, open: true, weight: 600 },
       { kind: 'folder', title: 'Articles', count: '4', depth: 1, open: true },
@@ -3734,7 +3787,8 @@ class Component extends DCLogic {
         mark: sel ? 'inset 2px 0 0 var(--accent)' : 'none',
         ink: sel ? 'var(--accent)' : 'var(--ink)',
         folderInk: n.depth === 0 ? 'var(--accent)' : 'var(--ink3)',
-        methodInk: sel ? 'var(--accent)' : methodInk(n.method || 'GET')
+        method: methodShort(n.method || ''),
+        methodInk: methodInk(n.method || 'GET')
       };
     });
 
@@ -4040,6 +4094,7 @@ class Component extends DCLogic {
     const collIsFolder = collNode.kind === 'folder';
     const isCollIndex = src === 'Collections' && collIsFolder;
     const collEmpty = !!this.props.emptyCollections;
+    const noRun = !!this.props.noRunYet;
     const ctxIdx = this.state.ctx;
     const ctxNode = ctxIdx === null || ctxIdx === undefined ? null : collDefs[ctxIdx];
     const ctxIsFolder = ctxNode ? ctxNode.kind === 'folder' : false;
@@ -4160,7 +4215,14 @@ class Component extends DCLogic {
       isCollEmptyPage: src === 'Collections' && collEmpty,
       openNewCollection: this.set('sheet', 'newCollection'),
       openImport: this.set('sheet', 'import'),
-      showResponse: !isCollIndex && !isBrowserIndex && !atBrowserHome && !collEmpty,
+      showResponse: !isCollIndex && !isBrowserIndex && !atBrowserHome && !collEmpty && !(noRun && (src === 'Request' || src === 'Collections')),
+      showNoRun: noRun && (src === 'Request' || (src === 'Collections' && !collIsFolder && !collEmpty)),
+      noRunBody: src === 'Collections'
+        ? 'This request has not run in this session. Send it — ⌘↵ — and the result opens here.'
+        : 'Send the request — ⌘↵ — and status, headers and the body appear here.',
+      histEmpty: noRun,
+      histListDisplay: noRun ? 'none' : 'block',
+      histListFlex: noRun ? 'none' : 'flex',
       isCollRequest: src === 'Collections' && !collIsFolder && !collEmpty,
       isBrowserRequest: src === 'Browser' && !capIsSite && !atBrowserHome,
       browserIndexTitle: capNode.title || 'Captured session',
@@ -4533,6 +4595,23 @@ class Component extends DCLogic {
       winBg: segBg(platform === 'windows'), winInk: segInk(platform === 'windows'), winSh: segSh(platform === 'windows'),
 
       envName: this.state.env,
+      serverDown: !!this.props.serverDown,
+      syncing: !!this.state.syncing,
+      showAccDot: signedIn && !this.state.syncing,
+      accDotInk: this.props.serverDown ? 'var(--bad)' : 'var(--ok)',
+      retrySync: () => {
+        if (this.state.syncing) return;
+        this.setState({ syncing: true });
+        clearTimeout(this._syncT);
+        this._syncT = setTimeout(() => this.setState({ syncing: false }), 2600);
+      },
+      retryLabel: this.state.syncing ? 'Trying…' : 'Retry',
+      retryInk: this.state.syncing ? 'var(--ink3)' : 'var(--ink)',
+      syncTitle: this.state.syncing ? 'Reconnecting…' : 'Server not responding',
+      syncTitleInk: this.state.syncing ? 'var(--accent)' : 'var(--bad)',
+      syncNote: this.state.syncing ? 'Retrying app.jsoninspector.dev' : 'Last sync 12 minutes ago',
+      brandDisplay: platform === 'windows' ? 'flex' : 'none',
+      macTitleDisplay: platform === 'windows' ? 'none' : 'block',
       rail, history, chips, tabs, included, mapRows, cookies, timings,
       paramRows, headerRows,
       popParams: pop === 'Params', popHeaders: pop === 'Headers', popAuth: pop === 'Auth',
@@ -4554,7 +4633,9 @@ class Component extends DCLogic {
       tab: this.state.tab,
       isBody: this.state.tab === 'Body', isMap: this.state.tab === 'Map', isRaw: this.state.tab === 'Raw',
       isHeaders: this.state.tab === 'Headers', isCookies: this.state.tab === 'Cookies',
-      isTimings: this.state.tab === 'Timings', isScripts: this.state.tab === 'Scripts',
+      isTimings: this.state.tab === 'Timings',
+      isScriptsEmpty: this.state.tab === 'Scripts' && !!this.props.noScripts,
+      isScriptsRun: this.state.tab === 'Scripts' && !this.props.noScripts,
 
       mainOpen: this.state.mainOpen,
       mainRot: this.state.mainOpen ? '90deg' : '0deg',

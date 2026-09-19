@@ -1,4 +1,7 @@
 <script setup lang="ts">
+import { ref } from 'vue'
+import { useSlidingPill } from '../../composables/useSlidingPill'
+
 // A row of exclusive choices: what a new environment starts from, whether this one is editable, what
 // a workspace is meant to be, and every choice a settings row offers. One control for all of them,
 // because they are the same drawing with different words in it.
@@ -6,7 +9,7 @@
 // An option may be drawn and not offered: `soon` is a choice the design shows so that the answer it
 // will have is visible, and `soonHint` is what says so on hover. It never emits, and it is disabled
 // on its own, so a row can hold one live choice beside one that is still coming.
-withDefaults(
+const props = withDefaults(
   defineProps<{
     options: { value: string; label: string; soon?: boolean }[]
     value: string
@@ -22,10 +25,20 @@ withDefaults(
 )
 
 const emit = defineEmits<{ (e: 'pick', value: string): void }>()
+
+// The choice slides, as it does everywhere else in the window. The options are as wide as their own
+// words here — a settings row keeps them content-sized — so the pill is placed by measurement, and a
+// change of language is a change of widths like any other.
+const rootEl = ref<HTMLElement | null>(null)
+const { style: pillStyle, ready: pillReady } = useSlidingPill(rootEl, '.seg.active', () => [
+  props.value,
+  props.options.map((o) => o.label).join('|'),
+])
 </script>
 
 <template>
-  <div class="segment" :class="[`segment--${size}`, { grow, disabled }]">
+  <div ref="rootEl" class="segment" :class="[`segment--${size}`, { grow, disabled }]">
+    <span class="seg-pill slide-mark" :class="{ ready: pillReady }" :style="pillStyle"></span>
     <button
       v-for="option in options"
       :key="option.value"
@@ -45,13 +58,21 @@ const emit = defineEmits<{ (e: 'pick', value: string): void }>()
 @reference "../../style.css";
 
 /* A block rather than an inline box, as it was: a form's segment is told its width by the form and
-   the choices share it, and a settings row keeps it content-sized because that row is a flex line. */
+   the choices share it, and a settings row keeps it content-sized because that row is a flex line.
+   It is the pill's coordinate space, which is why it is positioned. */
 .segment {
-  @apply flex gap-0.5 p-0.5 rounded-lg bg-bg-hover;
+  @apply relative flex gap-0.5 p-0.5 rounded-lg bg-bg-hover;
+}
+
+.segment .seg-pill {
+  border-radius: 6px;
 }
 
 .seg {
-  @apply min-w-0 text-center border-none rounded-md cursor-pointer
+  /* Relative for the paint order alone: the pill is positioned and comes before these, so a label
+     that is not positioned would be covered by it — the chosen option's own name disappearing under
+     the very shape that says it is chosen. */
+  @apply relative min-w-0 text-center border-none rounded-md cursor-pointer
          bg-transparent text-text-secondary;
   font: inherit;
   font-size: 13px;
@@ -71,10 +92,9 @@ const emit = defineEmits<{ (e: 'pick', value: string): void }>()
   @apply flex-1;
 }
 
-/* The chosen segment is the panel's own colour lifted off the groove it sits in. */
+/* The chosen segment keeps its ink and gives its fill to the pill, which is the thing that moves. */
 .seg.active {
-  @apply bg-bg-panel text-text;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.12);
+  @apply text-text;
 }
 
 .segment--md .seg {

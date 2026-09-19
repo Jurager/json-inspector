@@ -258,6 +258,7 @@ body.settings .view-settings {
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  line-height: normal;
   font-size: 10px;
   font-weight: 700;
   color: var(--text-secondary);

@@ -51,6 +51,7 @@ const {
   closeSignIn,
   closeSignOut,
   signOut,
+  checkServer,
 } = useAccount()
 const account = computed(() => accountState.value?.account ?? null)
 
@@ -90,7 +91,13 @@ const startupTitle = computed(() => {
 // key above, so it could not be an enum and still be worded here.
 const folderRefused = computed(() => startup.value?.failure?.kind === 'data-dir')
 
-onMounted(loadStartup)
+onMounted(() => {
+  void loadStartup()
+  // The account is read at launch and the server is asked with it: the rail's dot and the strip say
+  // who this installation belongs to from the first frame, and whether that server is there is part
+  // of the same answer rather than something a window finds out when somebody opens a menu.
+  void checkServer()
+})
 
 // The status bar's "Доступна версия X" is a pointer to the window that can act on it.
 function openAbout() {

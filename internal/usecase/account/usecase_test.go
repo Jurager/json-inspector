@@ -277,7 +277,7 @@ func signedIn(t *testing.T, uc *UseCase) {
 	if _, err := uc.Begin(ctx, "https://api.example.com"); err != nil {
 		t.Fatalf("Begin: %v", err)
 	}
-	uc.server.(*fakeServer).confirming <- answer{
+	theServer(t, uc).confirming <- answer{
 		tokens: tokens("access-1", "refresh-1"),
 	}
 	notifier.until(t, func(state State) bool { return state.SignedIn })
@@ -286,6 +286,22 @@ func signedIn(t *testing.T, uc *UseCase) {
 // expired moves the app's clock past the token it holds, which is what makes it go and buy another.
 func expired(uc *UseCase) {
 	uc.now = func() time.Time { return time.Now().Add(2 * time.Hour) }
+}
+
+// theServer is the fake under the wrapper the use case talks to: every call to the port is recorded
+// by the wrapper, so a test driving the fake has to reach through it.
+func theServer(t *testing.T, uc *UseCase) *fakeServer {
+	t.Helper()
+
+	watcher, ok := uc.server.(watched)
+	if !ok {
+		t.Fatal("the use case was built without the wrapper that records reachability")
+	}
+	server, ok := watcher.Server.(*fakeServer)
+	if !ok {
+		t.Fatal("the port under the wrapper is not the fake")
+	}
+	return server
 }
 
 func TestASignInShowsACodeAndOpensTheBrowser(t *testing.T) {
@@ -492,6 +508,27 @@ func TestSigningOutForgetsTheAccountAndKeepsTheAddress(t *testing.T) {
 	}
 }
 
+func TestLeavingWorksEvenWhenTheServerIsAway(t *testing.T) {
+	uc, store, server, _, _ := newUseCase()
+	signedIn(t, uc)
+
+	server.refreshErr = domain.Refuse(domain.CodeServerUnreachable, nil, nil)
+	expired(uc)
+
+	if _, err := uc.SignOut(context.Background()); err != nil {
+		t.Fatalf("SignOut: %v", err)
+	}
+	// The session stays on the server — nobody could tell it — and that is not a reason to keep
+	// somebody signed in on a machine they asked to leave.
+	if contains(server.called(), "sign out") {
+		t.Errorf("called: %v, want no call to a server that is away", server.called())
+	}
+	saved, token := store.saved()
+	if saved.SignedIn() || token != "" {
+		t.Errorf("kept %+v with token %q, want the account gone", saved, token)
+	}
+}
+
 func TestAServerThatCannotBeReachedIsNotALostAccount(t *testing.T) {
 	uc, store, server, _, _ := newUseCase()
 	signedIn(t, uc)
@@ -507,6 +544,108 @@ func TestAServerThatCannotBeReachedIsNotALostAccount(t *testing.T) {
 	saved, _ := store.saved()
 	if saved.UserID != "user-1" {
 		t.Errorf("kept %+v, want the account left alone", saved)
+	}
+}
+
+func TestACheckOnAServerThatIsAwaySaysSo(t *testing.T) {
+	uc, store, server, _, _ := newUseCase()
+	signedIn(t, uc)
+
+	// Once while it is there, so that the moment it last answered is known and can be watched.
+	answered, err := uc.Check(context.Background())
+	if err != nil {
+		t.Fatalf("Check: %v", err)
+	}
+
+	server.refreshErr = domain.Refuse(domain.CodeServerUnreachable, nil, nil)
+	expired(uc)
+
+	state, err := uc.Check(context.Background())
+	if err != nil {
+		t.Fatalf("Check: %v", err)
+	}
+	// The verdict travels as state rather than as an error: a server that does not answer has
+	// answered this question, and a call that failed would leave the window with nothing to draw.
+	if !state.Reachability.Checked || state.Reachability.Reachable {
+		t.Errorf("reachability = %+v, want checked and out of reach", state.Reachability)
+	}
+	// «Последняя связь» is when it last answered, and a call that never got there does not move it.
+	if !state.Reachability.At.Equal(answered.Reachability.At) {
+		t.Errorf("kept %v, want the moment the server last answered (%v)",
+			state.Reachability.At, answered.Reachability.At)
+	}
+	saved, _ := store.saved()
+	if saved.UserID != "user-1" {
+		t.Errorf("kept %+v, want the account left alone", saved)
+	}
+}
+
+func TestACheckOnAServerThatAnswersSaysSo(t *testing.T) {
+	uc, _, _, _, _ := newUseCase()
+	signedIn(t, uc)
+
+	state, err := uc.Check(context.Background())
+	if err != nil {
+		t.Fatalf("Check: %v", err)
+	}
+	if !state.Reachability.Checked || !state.Reachability.Reachable {
+		t.Errorf("reachability = %+v, want checked and reached", state.Reachability)
+	}
+	if state.Reachability.At.IsZero() {
+		t.Error("no moment was kept for a call that was made")
+	}
+}
+
+func TestAServerThatRefusedStillCountsAsReached(t *testing.T) {
+	uc, _, server, _, _ := newUseCase()
+	signedIn(t, uc)
+
+	// The server answers and says no: it is there, and "there" is the whole of what this asks. The
+	// two are told apart because the person's next move is different in each case.
+	server.meErr = domain.Refuse(domain.CodeServerRefused, nil, nil)
+
+	state, err := uc.Check(context.Background())
+	if err != nil {
+		t.Fatalf("Check: %v", err)
+	}
+	if !state.Reachability.Reachable {
+		t.Errorf("reachability = %+v, want a server that answered", state.Reachability)
+	}
+}
+
+func TestAnAccountNobodySignedIntoIsNotChecked(t *testing.T) {
+	uc, _, server, _, _ := newUseCase()
+
+	state, err := uc.Check(context.Background())
+	if err != nil {
+		t.Fatalf("Check: %v", err)
+	}
+	if state.Reachability.Checked {
+		t.Errorf("reachability = %+v, want nothing said about a server nobody asked", state.Reachability)
+	}
+	if called := server.called(); len(called) != 0 {
+		t.Errorf("called the server: %v, want no call at all", called)
+	}
+}
+
+func TestACheckIsAnnouncedToEveryWindow(t *testing.T) {
+	uc, _, server, _, notifier := newUseCase()
+	signedIn(t, uc)
+
+	server.refreshErr = domain.Refuse(domain.CodeServerUnreachable, nil, nil)
+	expired(uc)
+
+	if _, err := uc.Check(context.Background()); err != nil {
+		t.Fatalf("Check: %v", err)
+	}
+
+	// Every window draws the account, so the verdict is published rather than only handed back to
+	// whoever asked: the window that asked is not the only one looking.
+	arrived := notifier.until(t, func(state State) bool {
+		return state.Reachability.Checked && !state.Reachability.Reachable
+	})
+	if arrived.Reachability.Reachable {
+		t.Errorf("announced %+v, want the server out of reach", arrived.Reachability)
 	}
 }
 

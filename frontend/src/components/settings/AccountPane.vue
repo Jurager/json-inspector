@@ -19,6 +19,8 @@ import { formatDate, useMessages } from '../../i18n'
 const { t } = useMessages()
 const {
   state,
+  serverDown,
+  lastReach,
   sessions,
   failure,
   sessionsFailed,
@@ -32,6 +34,7 @@ const {
   endSession,
   endOthers,
   deleteAccount,
+  checkServer,
 } = useAccount()
 
 // Only the deletion is the pane's own sheet: signing in and signing out are the account's two
@@ -43,16 +46,37 @@ const signedIn = computed(() => state.value?.signedIn === true)
 const thisSession = computed(() => account.value?.sessionId ?? '')
 const server = computed(() => account.value?.server ?? '')
 
+// The server's own row in the block about the wire: which server it is, and when it last answered.
+// The address is a choice kept on this machine, so there is one to name even while it is silent.
+const serverNote = computed(() =>
+  [server.value, lastReach.value ? t('account.lastReach', { when: lastReach.value }) : '']
+    .filter(Boolean)
+    .join(' · ')
+)
+
+// What the account's own row says under the email: the row is kept here, so while the server does not
+// answer the details beside it are the ones from its last reply rather than the current ones.
+const profileNote = computed(() =>
+  serverDown.value
+    ? t('account.cachedProfile', { when: lastReach.value || t('account.never') })
+    : t('account.signedInAs')
+)
+
 // The tariff block is drawn only when the server says something other than free. A self-hosted server
-// answers free, and "free · 1 seat" is a tariff nobody can buy.
+// answers free, and "free · 1 seat" is a tariff nobody can buy. While the server is away there is
+// nothing to draw at all: the block would be the last reply, and the connection block says so.
 const plan = computed(() => {
+  if (serverDown.value) return null
   const held = account.value
   if (!held || !held.plan || held.plan === 'free') return null
   return { name: held.plan, seats: held.seats }
 })
 
-onMounted(() => {
-  void loadAccount()
+onMounted(async () => {
+  // Asked rather than read: this pane is where a person comes to see what the server says about the
+  // devices and the plan, and the row on this machine is only half of that. The list of devices is a
+  // call of its own, and it goes out only when there is an account to have devices on.
+  await checkServer()
   if (signedIn.value) void loadSessions()
 })
 
@@ -96,8 +120,22 @@ function when(value: string): string {
     </SettingsSection>
 
     <template v-else>
+      <!-- The block the design adds for the state where the account is here and the server is not:
+           what still works, what can be done about it, and what the pane cannot show at all. It
+           stands above everything else because it is the reason the rest looks the way it does. -->
+      <SettingsSection v-if="serverDown" :label="t('account.connection')" :note="t('account.connectionNote')">
+        <SettingsRow :title="t('account.serverDown')" :note="serverNote">
+          <Button variant="primary" size="field" @click="checkServer()">
+            {{ t('account.retry') }}
+          </Button>
+        </SettingsRow>
+        <SettingsRow :title="t('account.details')" :note="t('account.detailsNote')">
+          <ValueChip :value="t('account.unavailable')" />
+        </SettingsRow>
+      </SettingsSection>
+
       <SettingsSection :label="t('settings.sec.account')">
-        <SettingsRow :title="account?.email ?? ''" :note="t('account.signedInAs')">
+        <SettingsRow :title="account?.email ?? ''" :note="profileNote">
           <ValueChip v-if="server" :value="server" mono />
         </SettingsRow>
         <SettingsRow :title="t('account.sync')" :note="t('account.syncSoon')">
@@ -110,25 +148,41 @@ function when(value: string): string {
         </SettingsRow>
       </SettingsSection>
 
-      <SettingsSection :label="t('account.devices')" :note="t('account.devicesNote')">
+      <!-- The list of devices lives on the server, so with no answer there is no list to draw and
+           nothing to end: what is known locally is drawn instead — this machine is still signed in,
+           and the rest is not a fact this window has. -->
+      <SettingsSection
+        :label="t('account.devices')"
+        :note="serverDown ? t('account.devicesOffline') : t('account.devicesNote')"
+      >
+        <template v-if="serverDown">
+          <SettingsRow :title="t('account.thisDevice')" :note="t('account.thisDeviceLocal')">
+            <ValueChip :value="t('account.active')" />
+          </SettingsRow>
+          <SettingsRow :title="t('account.otherDevices')" :note="t('account.otherDevicesNote')">
+            <ValueChip :value="t('account.unavailable')" />
+          </SettingsRow>
+        </template>
         <SettingsRow
-          v-for="session in sessions"
+          v-for="session in serverDown ? [] : sessions"
           :key="session.id"
           :title="describe(session.device) || t('account.devices')"
           :note="[when(session.createdAt), session.ip].filter(Boolean).join(' · ')"
         >
           <ValueChip v-if="session.id === thisSession" :value="t('account.thisDevice')" />
+          <!-- Ending a session is a call to the server, and the server is there: this is only drawn
+               while it answers. -->
           <Button v-else variant="outline" size="field" @click="endSession(session.id)">
             {{ t('account.end') }}
           </Button>
         </SettingsRow>
         <SettingsRow
-          v-if="sessions.length === 0"
+          v-if="!serverDown && sessions.length === 0"
           :title="t('account.devicesEmpty')"
           :note="sessionsFailed ? t('account.devicesFailed') : ''"
         />
         <SettingsRow
-          v-if="sessions.length > 1"
+          v-if="!serverDown && sessions.length > 1"
           :title="t('account.endOthers')"
           :note="t('account.endOthersNote')"
         >
@@ -144,7 +198,15 @@ function when(value: string): string {
 
       <SettingsSection :label="t('settings.sec.data')">
         <SettingsRow :title="t('account.leave')" :note="t('account.leaveNote')">
-          <Button variant="danger" size="field" @click="leaving = true">
+          <!-- Leaving for good is the server's to do and nobody else's: an account deleted on this
+               machine alone is an account that is still there. -->
+          <Button
+            variant="danger"
+            size="field"
+            :disabled="serverDown"
+            :title="serverDown ? t('account.serverDown') : ''"
+            @click="leaving = true"
+          >
             {{ t('account.leaveAction') }}
           </Button>
         </SettingsRow>

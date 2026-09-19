@@ -26,6 +26,13 @@ func (s *AccountService) State(ctx context.Context) (account.State, error) {
 	return s.account.State(ctx)
 }
 
+// Check asks the server whether it is there, and answers the state with the verdict in it. It is
+// what a window calls when it opens the account, and it never fails over an unreachable server:
+// that is the answer it went looking for.
+func (s *AccountService) Check(ctx context.Context) (account.State, error) {
+	return s.account.Check(ctx)
+}
+
 // SetServer remembers a server other than the one the app would use by default. It is kept even
 // when nobody is signed in, and it does not sign anybody out.
 func (s *AccountService) SetServer(ctx context.Context, server string) (account.State, error) {

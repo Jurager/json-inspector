@@ -832,6 +832,8 @@ async function run() {
   padding: 0 16px;
 }
 
+/* The verb wears its own colour, as in the tree beside it: the size is the table's, the ink is the
+   shared class's. */
 .cell-method {
   @apply text-[12px];
 }

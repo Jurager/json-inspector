@@ -40,6 +40,15 @@ export function Cancel(): $CancellablePromise<account$0.State> {
 }
 
 /**
+ * Check asks the server whether it is there, and answers the state with the verdict in it. It is
+ * what a window calls when it opens the account, and it never fails over an unreachable server:
+ * that is the answer it went looking for.
+ */
+export function Check(): $CancellablePromise<account$0.State> {
+    return $Call.ByID(911420944);
+}
+
+/**
  * DeleteAccount leaves the server for good. The collections on this machine stay: they were always
  * local, and leaving an account is not the same as erasing a drive.
  */

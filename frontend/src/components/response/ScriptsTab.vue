@@ -60,13 +60,16 @@ function caption(run: ScriptRun): string {
 </script>
 
 <template>
-  <div class="script-runs">
-    <div v-if="loading" class="empty"><span>{{ t('response.scripts.loading') }}</span></div>
+  <!-- The page's own shape rather than the list's centred one: an empty tab is not a list nobody
+       filled, it is the tab saying what it is about. It stands outside the runs' own padding, which
+       is measured for a column of reports. -->
+  <div v-if="runs.length === 0 && !loading" class="pane-empty">
+    <span class="pane-empty-title">{{ t('response.scripts.none') }}</span>
+    <span class="pane-empty-note">{{ t('response.scripts.noneHint') }}</span>
+  </div>
 
-    <div v-else-if="runs.length === 0" class="empty">
-      <span class="empty-title">{{ t('response.scripts.none') }}</span>
-      <span>{{ t('response.scripts.noneHint') }}</span>
-    </div>
+  <div v-else class="script-runs">
+    <div v-if="loading" class="empty"><span>{{ t('response.scripts.loading') }}</span></div>
 
     <template v-else>
       <section v-for="run in runs" :key="run.id" class="run">

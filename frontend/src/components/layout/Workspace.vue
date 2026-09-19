@@ -7,7 +7,7 @@ import { useResizableWidth } from '../../composables/useResizableWidth'
 import { effectiveTab, tabGroups } from '../../lib/recordTabs'
 import { useSettings } from '../../composables/useSettings'
 import { useMessages } from '../../i18n'
-import Icon from '../ui/Icon.vue'
+import { usePlatform } from '../../composables/usePlatform'
 import HistoryPanel from '../history/HistoryPanel.vue'
 import RequestBuilder from '../request/RequestBuilder.vue'
 import ResponseViewer from '../response/ResponseViewer.vue'
@@ -21,6 +21,12 @@ import CollectionsEmptyState from '../collections/CollectionsEmptyState.vue'
 const store = useRequestsStore()
 
 const { t } = useMessages()
+const { shortcut } = usePlatform()
+
+// The chord the two pages below name: sending is what they are waiting for, and the same key is
+// written on the button in the bar above them.
+const sendKey = computed(() => shortcut('↵'))
+
 const collections = useCollectionsStore()
 const { settings, loadSettings, setLayout } = useSettings()
 
@@ -94,11 +100,11 @@ const sidePanelShown = computed(() => {
           <div v-else-if="store.loading" class="empty">
             <span class="spinner spinner-lg"></span>
           </div>
-          <div v-else class="empty">
-            <Icon name="arrow-up-right" :size="32" :stroke-width="1.6" class="empty-icon" />
-            <div class="empty-text">
-              <span class="empty-hint">{{ t('workspace.orLoadSample') }}</span>
-            </div>
+          <div v-else class="pane-empty">
+            <span class="pane-empty-title">{{ t('workspace.noResponse') }}</span>
+            <span class="pane-empty-note">
+              {{ t('workspace.noResponseRequest', { shortcut: sendKey }) }}
+            </span>
           </div>
         </template>
         <template v-else-if="store.activeView === 'browser'">
@@ -118,17 +124,17 @@ const sidePanelShown = computed(() => {
             <div v-else-if="collections.loading" class="empty">
               <span class="spinner spinner-lg"></span>
             </div>
-            <div v-else class="empty">
-              <Icon name="arrow-up-right" :size="32" :stroke-width="1.6" class="empty-icon" />
-              <div class="empty-text">
-                <span class="empty-hint">{{ t('workspace.sendDoesNotSave') }}</span>
-              </div>
+            <div v-else class="pane-empty">
+              <span class="pane-empty-title">{{ t('workspace.noResponse') }}</span>
+              <span class="pane-empty-note">
+                {{ t('workspace.noResponseCollection', { shortcut: sendKey }) }}
+              </span>
             </div>
           </template>
           <CollectionOverview v-else-if="collections.selectedId" />
-          <div v-else class="empty">
-            <span class="empty-title">{{ t('workspace.chooseRequest') }}</span>
-            <span>{{ t('workspace.orCollection') }}</span>
+          <div v-else class="pane-empty">
+            <span class="pane-empty-title">{{ t('workspace.chooseRequest') }}</span>
+            <span class="pane-empty-note">{{ t('workspace.orCollection') }}</span>
           </div>
         </template>
       </div>

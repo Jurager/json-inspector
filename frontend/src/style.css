@@ -409,8 +409,13 @@ html.window-translucent body {
   background: var(--green);
 }
 
+/* The window's own buttons — minimise, maximise, close — in every window that draws a bar of its
+   own. They stand inside that bar, and the bar is a drag region, so the `no-drag` here is what makes
+   a press land on the button: without it the press starts a window drag instead, and the window
+   closes on the second or third click rather than the first. */
 .cap-btn {
   @apply flex items-center justify-center w-[46px] h-full border-none bg-transparent text-text cursor-pointer;
+  --wails-draggable: no-drag;
 }
 
 .cap-btn:hover {
@@ -650,6 +655,65 @@ html.window-translucent body {
   @apply text-[11px] text-text-tertiary truncate;
 }
 
+/* The one block in the menu that is not about the account but about the wire: whether the server
+   answered the last check. It sits between the head and the rows, separated by the same hairline the
+   head closes with, because it is the second half of the same sentence — «вы вошли, но с сервером
+   связи нет». The colour is the app's own for that: the same red a failure is written in anywhere
+   else. The retry is the handoff's small field-button, the size a row's control has. */
+.account-reach {
+  @apply flex items-center gap-2;
+  padding: 9px 8px;
+  margin: 4px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+/* The block's own dot wears the colour of what the block is saying — red while the server is away,
+   the accent while the retry is in flight — and it is this element the title borrows its ink from,
+   so the two can never disagree. */
+.account-reach-dot {
+  @apply flex-none w-[7px] h-[7px] rounded-full;
+  background: var(--red);
+}
+
+.account-reach.busy .account-reach-dot {
+  background: var(--accent);
+}
+
+.account-reach-title {
+  @apply block text-[12px] font-semibold;
+  color: var(--red);
+}
+
+.account-reach-when {
+  @apply block text-[11px] text-text-tertiary;
+}
+
+/* While the retry is running the block says what it is doing instead of what is wrong: the title
+   takes the accent — the colour of work in this app — and the button goes quiet, because pressing it
+   again is not a thing to do while the first press is still being answered. */
+.account-reach.busy .account-reach-title {
+  color: var(--accent);
+}
+
+.account-reach.busy .account-reach-retry {
+  color: var(--text-tertiary);
+}
+
+.account-reach-retry {
+  @apply flex-none text-[12px] font-medium h-6 cursor-pointer;
+  padding: 0 9px;
+  border: 1px solid var(--border-strong);
+  border-radius: 6px;
+  background: var(--bg-inset);
+  color: var(--text);
+  font-family: inherit;
+  --wails-draggable: no-drag;
+}
+
+.account-reach-retry:hover {
+  background: var(--bg-hover);
+}
+
 .account-row {
   @apply flex items-center gap-[9px] h-8 px-2 rounded-[7px] border-0 bg-transparent
          text-[13px] text-text text-left cursor-pointer;
@@ -685,6 +749,22 @@ html.window-translucent body {
   right: 14px;
   bottom: 5px;
   box-shadow: 0 0 0 2px var(--bg-sidebar);
+}
+
+/* The account is still here and the server is not: the dot keeps saying an account is held and takes
+   the colour of the trouble, so the rail carries the news without the menu being opened. */
+.rail-presence.down {
+  background: var(--red);
+}
+
+/* The dot's own place while a check is in flight, holding the app's ring: a 16px badge on the
+   sidebar's own colour, so the ring stands on the rail rather than beside a dot that is not there. */
+.rail-syncing {
+  @apply absolute inline-flex items-center justify-center w-4 h-4 rounded-full;
+  right: 10px;
+  bottom: 1px;
+  background: var(--bg-sidebar);
+  color: var(--accent);
 }
 
 @keyframes panel-in {
@@ -1030,6 +1110,37 @@ button {
   @apply text-[13px] text-center;
 }
 
+/* ---- A pane with nothing in it yet ----
+   The answer that has not come, the scripts that have not run: one line naming the state and one
+   saying what fills it, against the left edge the content below will stand on. The centred glyph of
+   the block above is for a list nobody has put anything in; a page says what it is waiting for the
+   same way the page's own text will read. */
+.pane-empty {
+  @apply flex-1 min-h-0 flex flex-col gap-2;
+  padding: 28px 32px;
+  max-width: 560px;
+}
+
+.pane-empty-title {
+  @apply text-[16px] font-semibold;
+  letter-spacing: -0.01em;
+}
+
+.pane-empty-note {
+  @apply text-[13px] text-text-tertiary;
+  line-height: 1.55;
+}
+
+/* The sidebar's own version of the same news: one sentence where the list would be, at the padding
+   its rows stand on. A glyph and a centred column said "this panel is broken"; a line where the
+   first row would have been says "this list is empty", which is what it is. */
+.panel-empty {
+  padding: 18px 20px;
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--text-tertiary);
+}
+
 /* ---- JSON:API tree ---- */
 .ja-root {
   @apply py-2;
@@ -1346,6 +1457,41 @@ mark.search-match.current {
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.14);
 }
 
+/* The mark that slides under the chosen option of a control — the auth schemes, the theme switch,
+   every choice a settings row offers, and the tabs of a response.
+   It is one element moving between the options rather than each option painting itself, because the
+   eye follows the movement to where the choice went; a mark that jumps from button to button is gone
+   before it can be followed. Its place and its size are measured by `useSlidingPill` — the options
+   are as wide as their own words — so the numbers live in that composable and not here, and what the
+   mark *looks* like belongs to the control: a raised pill in a segmented control, a rule under a tab. */
+.slide-mark {
+  @apply absolute top-0 left-0 pointer-events-none;
+  opacity: 0;
+}
+
+/* Nothing moves until the mark has been placed once: a mark that travelled in from the corner would
+   be a second thing happening on a control that has only just been drawn. */
+.slide-mark.ready {
+  transition:
+    transform 0.18s cubic-bezier(0.22, 1, 0.36, 1),
+    width 0.18s cubic-bezier(0.22, 1, 0.36, 1),
+    height 0.18s cubic-bezier(0.22, 1, 0.36, 1),
+    opacity 0.12s ease;
+}
+
+/* The raised pill of a segmented control: the chosen option lifted off the groove it sits in. */
+.seg-pill {
+  background: var(--bg-panel);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.12);
+}
+
+/* The tabs' mark is a rule at the bottom of the chosen tab, and the measurement gives it the tab's
+   own box — so the rule is drawn by the background rather than by the mark's height, which is the
+   tab's. Everything above the last two pixels is the nothing the tab already shows. */
+.tab-mark {
+  background: linear-gradient(to bottom, transparent calc(100% - 2px), var(--accent) 0);
+}
+
 /* The count is a number beside the label rather than a badge: what is behind a section is a quantity,
    and a pill around it would be a second thing to read. */
 .segment-count {
@@ -1448,17 +1594,47 @@ mark.search-match.current {
   box-shadow: inset 2px 0 0 var(--accent);
 }
 
+/* The verb, and one column wide rather than as wide as its own word: the three lists stand side by
+   side and a row has to start at the same place in each of them whatever verb it carries. The width
+   is the tree's own, which is the one that has to hold DELETE. The verb is ink, not a badge: a list
+   is read by its names, and a badge at every row would make the column of names ragged. */
 .panel-method {
   @apply flex-none;
+  width: 34px;
+  line-height: normal;
   font-family: var(--mono);
   font-size: 11px;
   color: var(--text-tertiary);
   font-variant-numeric: tabular-nums;
 }
 
-.panel-row.active .panel-method {
-  color: var(--text-secondary);
+/* The same room for a row that has no verb yet — one being created, or one being carried — so that
+   the name still lands where its neighbours' names land. */
+.panel-method-space {
+  @apply flex-none;
+  width: 34px;
 }
+
+/* The verb's colour, wherever a verb is drawn: the history, a collection's tree, the tab of captured
+   traffic and a report of a run all read the same word the same way. The two meanings the design
+   names are the two a person acts on — reading is safe, deleting is not — and everything else is a
+   request that changes something, which is the accent. The `-text` colours rather than the fills:
+   these are words at eleven points on a white row, and a fill is not readable there. */
+.method-get {
+  color: var(--green-text);
+}
+
+.method-delete {
+  color: var(--red-text);
+}
+
+.method-other {
+  color: var(--accent);
+}
+
+/* No rule for the row being read: its fill is soft enough that the verb's own ink stays legible on
+   it, and a colour set here would win over that ink — the one place a person is looking is the last
+   place a verb should go grey. */
 
 .panel-address {
   @apply flex-1 min-w-0 overflow-hidden text-ellipsis whitespace-nowrap;
@@ -1493,7 +1669,8 @@ mark.search-match.current {
 }
 
 .tabs {
-  @apply flex items-stretch gap-0.5 h-[44px] border-b border-border px-4 bg-bg-panel;
+  /* The mark's coordinate space: the offsets it is placed by are measured inside this box. */
+  @apply relative flex items-stretch gap-0.5 h-[44px] border-b border-border px-4 bg-bg-panel;
 }
 
 .tab {
@@ -1508,8 +1685,10 @@ mark.search-match.current {
 
 .tab.active,
 .tab[data-state='active'] {
+  /* The rule under the chosen tab is the sliding mark's now — a border of the tab's own would stay
+     where it was while the mark travelled, which is two answers to one question. The ink stays: it
+     is the label that says which tab is on. */
   @apply text-accent font-semibold;
-  border-bottom-color: var(--accent);
 }
 
 .code {

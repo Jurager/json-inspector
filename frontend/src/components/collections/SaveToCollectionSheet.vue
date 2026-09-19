@@ -61,6 +61,22 @@ watch(
 
 const canSave = computed(() => !!selected.value && name.value.trim().length > 0 && props.url.trim().length > 0)
 
+// The button this sheet hangs from stands outside its own content, so pressing it reaches reka-ui as
+// an outside interaction and closes the sheet — and the button's `click`, running against that
+// closed state, opens it again. The button could then never close what it opened, and a press held
+// down flickered. Suppressing it for that button hands the whole decision to the button itself,
+// which is where the flag lives.
+//
+// The class is the one the request bar wraps its save button and this sheet in: the two are one
+// control, and the sheet is opened from nowhere else.
+//
+// The target is an Element and not an HTMLElement: the press usually lands on the icon inside the
+// button, and an SVG is not an HTMLElement — a guard that asks for one never fires on it.
+function onInteractOutside(e: Event) {
+  const target = (e as CustomEvent<{ originalEvent?: Event }>).detail?.originalEvent?.target
+  if (target instanceof Element && target.closest('.save-anchor')) e.preventDefault()
+}
+
 const empty = computed(() => places.value.length === 0)
 
 async function save() {
@@ -85,7 +101,12 @@ async function save() {
       <span class="anchor"></span>
     </PopoverAnchor>
 
-    <PopoverContent class="save-sheet" align="end" @open-auto-focus.prevent>
+    <PopoverContent
+      class="save-sheet"
+      align="end"
+      @open-auto-focus.prevent
+      @interact-outside="onInteractOutside"
+    >
       <div class="sheet-body">
         <div class="head">{{ t('collections.saveRequest') }}</div>
 

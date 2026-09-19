@@ -12,10 +12,10 @@ import {
 } from '../ui/context-menu'
 import DeleteNodeDialog from './DeleteNodeDialog.vue'
 import { useListKeys } from '../../composables/useListKeys'
+import { methodInkClass, shortMethod } from '../../lib/format'
 import { useTreeDrag, type DropTarget } from '../../composables/useTreeDrag'
 import { useCollectionsStore } from '../../stores/collections'
 import { childrenOf, filterTree, findCollection, requestCount, trailOf } from '../../lib/collectionTree'
-import { methodInkClass } from '../../lib/format'
 import { useToast } from '../../composables/useToast'
 import { usePlatform } from '../../composables/usePlatform'
 import { useMessages } from '../../i18n'
@@ -615,11 +615,14 @@ function cancelTop(): boolean {
                 <Icon name="folder" :size="14" />
               </span>
 
+              <!-- A request's verb is drawn as every other list draws it: the shared method cell,
+                   coloured by the verb and cut to the column, so the tree's rows and the history's
+                   read as one list. -->
               <span
                 v-if="row.kind === 'request'"
-                class="row-method mono"
+                class="panel-method"
                 :class="methodInkClass(row.method)"
-              >{{ row.method }}</span>
+              >{{ shortMethod(row.method) }}</span>
 
               <input
                 v-if="renamingId === row.id"
@@ -634,7 +637,7 @@ function cancelTop(): boolean {
                 @keydown="onRenameKeydown"
                 @blur="commitRenameFrom(row.id)"
               />
-              <span v-else class="row-name" :title="row.name">{{ row.name }}</span>
+              <span v-else class="panel-address" :title="row.name">{{ row.name }}</span>
 
               <span v-if="row.kind === 'collection'" class="row-count mono">{{ row.count }}</span>
             </div>
@@ -689,7 +692,7 @@ function cancelTop(): boolean {
           :style="{ paddingLeft: indentDepth(creatingAt.depth) }"
         >
           <!-- The verb's own room: the name being typed stands where the name will stand. -->
-          <span class="row-method-space"></span>
+          <span class="panel-method-space"></span>
           <input
             :ref="setCreatingInput"
             v-model="creatingName"
@@ -709,8 +712,12 @@ function cancelTop(): boolean {
          pointer so that the gesture says what it holds. -->
     <Teleport to="body">
       <div v-if="drag" class="drag-ghost" :style="{ left: `${drag.x + 12}px`, top: `${drag.y + 8}px` }">
-        <span v-if="drag.row.kind === 'request'" class="row-method mono">{{ drag.row.method }}</span>
-        <span class="row-name">{{ drag.row.name }}</span>
+        <span
+          v-if="drag.row.kind === 'request'"
+          class="panel-method"
+          :class="methodInkClass(drag.row.method)"
+        >{{ shortMethod(drag.row.method) }}</span>
+        <span class="panel-address">{{ drag.row.name }}</span>
       </div>
     </Teleport>
 
@@ -801,43 +808,8 @@ function cancelTop(): boolean {
   @apply flex-none w-[11px];
 }
 
-/* The verb keeps the column the names line up in: 44px is the width the design gives it, and it is
-   what starts every name of a level at the same place whatever stands in front of it. A row being
-   created leaves the same room before its name. */
-.row-method-space {
-  @apply flex-none;
-  min-width: 44px;
-}
-
-/* The method is the row's own ink rather than a badge here: the tree is read by name, and a badge at
-   every request would make the column of names ragged. */
-.row-method {
-  @apply flex-none text-[11px] text-text-secondary;
-  min-width: 44px;
-}
-
-/* The verb's own colour, from `methodInkClass`. Written after the grey above so that the same
-   specificity resolves to the ink rather than to the default. */
-.ink-read {
-  color: var(--green-text);
-}
-
-.ink-delete {
-  color: var(--red-text);
-}
-
-.ink-write {
-  @apply text-accent;
-}
-
-.panel-row.active .row-method {
-  @apply text-accent;
-}
-
-.row-name {
-  @apply flex-1 min-w-0 overflow-hidden text-ellipsis whitespace-nowrap;
-}
-
+/* The verb and the name are the shared cells of the three lists — the method's column, the name that
+   fills the rest — so they are not repeated here. What a tree adds is only what a tree has. */
 .row-count {
   @apply flex-none text-[11px] text-text-tertiary tabular-nums;
 }

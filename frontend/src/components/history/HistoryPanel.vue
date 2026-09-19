@@ -7,6 +7,7 @@ import { useListKeys } from '../../composables/useListKeys'
 import { useRequestsStore } from '../../stores/requests'
 import { RecordSource, type Record } from '../../../bindings/json-inspector/internal/domain'
 import { splitAddress } from '../../lib/address'
+import { methodInkClass, shortMethod } from '../../lib/format'
 import { effectiveTab, groupHue, groupLabel, tabGroups, type TabGroup } from '../../lib/recordTabs'
 import { formatDate, formatMicros, useMessages } from '../../i18n'
 
@@ -216,12 +217,7 @@ watch(
       </button>
     </div>
 
-    <div v-if="records.length === 0 && !browser" class="empty">
-      <Icon name="clock" :size="30" :stroke-width="1.6" class="empty-icon" />
-      <div class="empty-text">
-        <span class="empty-hint">{{ emptyHint }}</span>
-      </div>
-    </div>
+    <div v-if="records.length === 0 && !browser" class="panel-empty">{{ emptyHint }}</div>
 
     <div v-else-if="records.length > 0 && isEmptyFiltered" class="no-results">{{ t('common.nothingFound') }}</div>
 
@@ -239,7 +235,7 @@ watch(
           @keydown.enter="select(r.id)"
           @keydown.space.prevent="select(r.id)"
         >
-          <span class="panel-method">{{ r.method }}</span>
+          <span class="panel-method" :class="methodInkClass(r.method)">{{ shortMethod(r.method) }}</span>
           <span class="panel-address" :title="rowTitle(r)">
             <span class="panel-host">{{ hostOf(r.url) }}</span>{{ pathOf(r.url) }}
           </span>
@@ -296,7 +292,7 @@ watch(
             @keydown.enter="select(r.id)"
             @keydown.space.prevent="select(r.id)"
           >
-            <span class="panel-method">{{ r.method }}</span>
+            <span class="panel-method" :class="methodInkClass(r.method)">{{ shortMethod(r.method) }}</span>
             <span class="panel-address" :title="rowTitle(r)">
               <span class="panel-host">{{ hostOf(r.url) }}</span>{{ pathOf(r.url) }}
             </span>
@@ -333,10 +329,6 @@ watch(
    centred text its own width asks for. */
 .empty {
   @apply p-4 text-center;
-}
-
-.empty-hint {
-  @apply max-w-[220px];
 }
 
 /* Both lists are a stack of rows with no gap and no inset of their own: the row carries its own

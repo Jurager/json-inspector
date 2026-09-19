@@ -27,7 +27,7 @@ const store = useRequestsStore()
 const collections = useCollectionsStore()
 const envStore = useEnvironmentsStore()
 const { customTitlebar } = usePlatform()
-const { state, loadAccount, openSignIn, openSignOut } = useAccount()
+const { state, serverDown, syncing, lastReach, checkServer, openSignIn, openSignOut } = useAccount()
 
 // The account button: the drawing's chair at the bottom of the rail, with a dot while somebody is
 // signed in. What the menu then offers depends on which of the two states it is in.
@@ -38,10 +38,12 @@ const accountTitle = computed(() =>
   account.value?.email ? `${t('rail.account')} · ${account.value.email}` : t('rail.account')
 )
 
-// Opening the menu reads the account rather than trusting what the last event left behind: a window
+// Opening the menu asks the account rather than trusting what the last event left behind: a window
 // that has been in the background since a token was refused would offer a sign-out that is not due.
+// The check answers the account and, with it, whether the server is there — the one thing about this
+// account that the row on this machine cannot say.
 function onAccountOpen(open: boolean) {
-  if (open) void loadAccount()
+  if (open) void checkServer()
 }
 
 // A tile holds a message key rather than its label: which tile is which does not change with the
@@ -145,8 +147,15 @@ async function selectSource(view: RailView) {
           <button class="rail-btn relative" :title="accountTitle">
             <Icon name="user" :size="20" :stroke-width="1.7" />
             <!-- The dot is presence, not a badge: it says the app holds an account, and it is drawn
-                 only then. -->
-            <span v-if="signedIn" class="rail-presence"></span>
+                 only then. It wears the colour of that account's health — the same dot is green
+                 while the server answers and red while it does not, so the rail says it without
+                 being opened. -->
+            <span v-if="signedIn && !syncing" class="rail-presence" :class="{ down: serverDown }"></span>
+            <!-- And while a check is in flight the dot gives way to a ring: «аккаунт здесь» is not
+                 something to keep saying while it is unknown whether the server is. -->
+            <span v-if="syncing" class="rail-syncing" :title="t('account.checking')">
+              <span class="spinner spinner-sm"></span>
+            </span>
           </button>
         </PopoverTrigger>
         <PopoverContent class="account-menu" side="right" align="end">
@@ -156,6 +165,25 @@ async function selectSource(view: RailView) {
               <span class="account-name">{{ account?.email || t('account.signedOut') }}</span>
               <span class="account-meta">{{ account?.server ?? '' }}</span>
             </span>
+          </div>
+
+          <!-- The row is kept on this machine and the server is elsewhere, so the menu that says who
+               is signed in has to say when nobody can be reached. Silence is the good news: the block
+               appears only when the last check came back empty, and nothing at all before the first
+               one — «не проверяли» is not «не отвечает». -->
+          <div v-if="serverDown" class="account-reach" :class="{ busy: syncing }">
+            <span class="account-reach-dot"></span>
+            <span class="account-who">
+              <span class="account-reach-title">
+                {{ syncing ? t('account.reconnecting') : t('account.serverDown') }}
+              </span>
+              <span class="account-reach-when">
+                {{ syncing ? t('account.retrying') : lastReach ? t('account.lastReach', { when: lastReach }) : '' }}
+              </span>
+            </span>
+            <button class="account-reach-retry" @click="checkServer()">
+              {{ syncing ? t('account.trying') : t('account.retry') }}
+            </button>
           </div>
 
           <PopoverClose as-child>

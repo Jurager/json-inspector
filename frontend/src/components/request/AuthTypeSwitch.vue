@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
+import { useSlidingPill } from '../../composables/useSlidingPill'
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuItem, DropdownMenuContent } from '../ui/dropdown-menu'
 import { useAuthSchemes } from '../../composables/useAuthSchemes'
 import { useMessages } from '../../i18n'
@@ -30,6 +31,16 @@ const inMenu = computed(() => schemes.value.filter((s) => !s.primary))
 const active = computed(() => schemes.value.find((s) => s.type === props.value) ?? null)
 const menuInUse = computed(() => (active.value ? !active.value.primary : false))
 
+// The pill slides between the schemes, as in every other choice in the window. The control is wide
+// and its segments are equal, but they are measured all the same: the words behind «Ещё» change with
+// the scheme they hold.
+const switchEl = ref<HTMLElement | null>(null)
+const { style: pillStyle, ready: pillReady } = useSlidingPill(switchEl, '.seg.active', () => [
+  props.value,
+  inControl.value.length,
+  menuInUse.value,
+])
+
 // The menu spells a scheme out and the control shortens it: «AWS Signature» is what the list says,
 // and «AWS» is what fits in a segment a sixth of the control wide. Two names, because they are two
 // places — and the short one is the scheme's own label, which is the name it goes by everywhere else.
@@ -39,7 +50,8 @@ function menuNameOf(scheme: Scheme): string {
 </script>
 
 <template>
-  <div class="switch" :class="scale ?? 'compact'">
+  <div ref="switchEl" class="switch" :class="scale ?? 'compact'">
+    <span class="seg-pill slide-mark" :class="{ ready: pillReady }" :style="pillStyle"></span>
     <button
       v-for="scheme in inControl"
       :key="scheme.type"
@@ -87,7 +99,8 @@ function menuNameOf(scheme: Scheme): string {
 @reference "../../style.css";
 
 .switch {
-  @apply flex gap-0.5 p-0.5 bg-bg-inset;
+  /* The pill's coordinate space: the offsets it is placed by are measured inside this box. */
+  @apply relative flex gap-0.5 p-0.5 bg-bg-inset;
 }
 
 .switch.compact {
@@ -127,12 +140,19 @@ function menuNameOf(scheme: Scheme): string {
   border-radius: 6px;
 }
 
-/* The active segment is the panel's own colour lifted off the inset it sits on, which is what the
-   design draws: the control reads as a groove and the choice as the thing that filled it. */
+/* The pill is the thing that filled the groove, and it is the thing that moves: the fill and the
+   shadow are its own now. The active segment keeps the ink that says which scheme is in use. */
+.switch .seg-pill {
+  border-radius: 7px;
+}
+
+.switch.roomy .seg-pill {
+  border-radius: 6px;
+}
+
 .seg.active {
-  @apply bg-bg-panel text-text;
+  @apply text-text;
   font-weight: 600;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.12);
 }
 
 .seg.more {

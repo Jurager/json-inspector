@@ -412,6 +412,8 @@ const en = {
     params: 'Parameters {n}',
     paramsTitle: 'Query parameters',
     copyQuery: 'Copy query string',
+    copyFailed: 'Could not copy the request: {error}',
+    openFailed: 'Could not open the record: {error}',
     queryString: 'String',
     compare: 'Compare',
     compareSoon: 'Comparing responses — coming soon',
@@ -450,8 +452,8 @@ const en = {
       failed: '{n} failed',
       console: 'Console',
       loading: 'Reading the reports…',
-      none: 'No scripts',
-      noneHint: 'Nothing runs around this request. Your own scripts are set in the Scripts chip.',
+      none: 'No scripts ran',
+      noneHint: 'Nothing is attached to this request. Add a pre-request or post-response script.',
       quiet: 'The script ran and said nothing',
     },
     text: {
@@ -477,8 +479,11 @@ const en = {
   },
 
   workspace: {
-    orLoadSample: 'Submit a request to obtain detailed information.',
-    sendDoesNotSave: 'Sending does not save your edit — “Save” in the status bar does.',
+    // The two pages that wait for an answer: the request editor's and the collection card's. One
+    // line names the state and one says what fills it.
+    noResponse: 'No response yet',
+    noResponseRequest: 'Send the request — {shortcut} — and status, headers and the body appear here.',
+    noResponseCollection: 'This request has not run in this session. Send it — {shortcut} — and the result opens here.',
     chooseRequest: 'Choose a request',
     orCollection: 'Or a collection — then everything in it can be run.',
   },
@@ -496,8 +501,8 @@ const en = {
   history: {
     captured: 'Captured',
     history: 'History',
-    emptyCaptured: 'Install and activate the extension. Captured requests appear here.',
-    emptySent: 'Your request history will appear here.',
+    emptyCaptured: 'Nothing captured yet. Connect the browser extension to see requests here.',
+    emptySent: 'Nothing sent yet.',
     today: 'Today',
     yesterday: 'Yesterday',
     tab: 'Tab',
@@ -913,6 +918,31 @@ const en = {
     endOthersNote: 'Keeps only this device signed in',
     devicesEmpty: 'Nowhere else: this is the only device signed in.',
     devicesFailed: 'Could not reach the server for the list of devices.',
+    // The account is kept on this machine and the server is not: being signed in and being able to
+    // reach the server are two facts, and the window says the second one in these lines. Four places
+    // draw it: the pill in the window's titlebar, the dot and the menu in the rail, the settings
+    // rail's own row, and the account pane.
+    serverDown: 'Server not responding',
+    lastReach: 'last contact: {when}',
+    never: 'never',
+    retry: 'Retry',
+    // A check in flight: the rail's dot gives way to a ring, and the menu says what it is doing
+    // instead of what is wrong. The word "sync" is not used — the app has none yet.
+    checking: 'Checking…',
+    reconnecting: 'Reconnecting…',
+    retrying: 'Retrying…',
+    trying: 'Trying…',
+    connection: 'Connection',
+    connectionNote: 'The app works from the local store until the server answers again.',
+    details: 'Account details',
+    detailsNote: 'Plan and seats load from the server',
+    unavailable: 'Unavailable',
+    cachedProfile: 'Cached profile · last synced {when}',
+    devicesOffline: 'The session list lives on the server and cannot be read right now.',
+    thisDeviceLocal: 'Signed in locally',
+    otherDevices: 'Other devices',
+    otherDevicesNote: 'Shown again after the server answers',
+    active: 'Active',
     plan: 'Plan',
     seats: 'Seats',
     leave: 'Delete account',

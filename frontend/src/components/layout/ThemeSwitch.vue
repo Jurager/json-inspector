@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import { useSlidingPill } from '../../composables/useSlidingPill'
 import Icon from '../ui/Icon.vue'
 import { useMessages } from '../../i18n'
 import { useTheme } from '../../composables/useTheme'
@@ -22,11 +23,15 @@ const activeIndex = computed(() => OPTIONS.findIndex((o) => o.value === theme.va
 
 const options = () => Array.from(rootEl.value?.querySelectorAll<HTMLElement>('.theme-option') ?? [])
 
-// The pill is an ordinary element: it is on its segment the moment the choice is made, and the
-// cross-fade over the change shows the same window in the other palette.
-const indicatorStyle = computed(() => ({
-  transform: `translateX(calc(${activeIndex.value} * (100% + 2px)))`,
-}))
+// The pill is placed by measurement like every other choice in the window: one element moving from
+// the option that was chosen to the one that is. Its travel is shorter than the cross-fade over the
+// palette — 0.18 against 0.2 — so the movement and the fade end together and neither is left running
+// over the other.
+const { style: pillStyle, ready: pillReady } = useSlidingPill(
+  rootEl,
+  '.theme-option.active',
+  () => activeIndex.value
+)
 
 function pick(value: Theme) {
   if (value !== theme.value) setTheme(value)
@@ -51,7 +56,7 @@ onBeforeUnmount(() => document.removeEventListener('pointerdown', onHijackedPoin
 
 <template>
   <div ref="rootEl" class="theme-switch" :title="t('theme.title')">
-    <span class="theme-indicator" :style="indicatorStyle"></span>
+    <span class="theme-indicator seg-pill slide-mark" :class="{ ready: pillReady }" :style="pillStyle"></span>
     <button
       v-for="(o, i) in OPTIONS"
       :key="o.value"
@@ -72,13 +77,10 @@ onBeforeUnmount(() => document.removeEventListener('pointerdown', onHijackedPoin
   @apply relative flex flex-none items-center gap-0.5 h-[30px] p-0.5 rounded-lg bg-bg-hover;
 }
 
-/* One element that holds the active segment, as in the auth panel. It carries no transition of its
-   own on purpose: the window is snapshotted a frame after the click, and a pill still travelling
-   would be caught in that snapshot and would jump the rest of the way once the fade is over. */
+/* One element that holds the active segment, as in the auth panel: the shared pill's fill, shadow
+   and motion, and this switch's own radius. */
 .theme-indicator {
-  @apply absolute top-0.5 bottom-0.5 left-0.5 inline-flex items-center justify-center bg-bg-panel rounded-md;
-  width: 34px;
-  box-shadow: var(--shadow-btn);
+  @apply inline-flex items-center justify-center rounded-md;
 }
 
 .theme-option {

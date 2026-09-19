@@ -1,5 +1,6 @@
 import { defineStore } from 'pinia'
-import { t as tr } from '../i18n'
+import { describeFailure, t as tr } from '../i18n'
+import { useToast } from '../composables/useToast'
 import { bodyMissing, recordView, type RecordBodies, type RecordView } from '../lib/requestRecord'
 import { takeAnswer } from '../lib/earlyAnswers'
 import {
@@ -52,6 +53,10 @@ const LEGACY_KEY = 'ji-history-v1'
 // keystroke is a write to the database on the other side; a pause is what keeps that from being one
 // write per character. Anything that ends the moment — blur, Enter, sending — flushes at once.
 const FLUSH_MS = 400
+
+// The window's one toast: raised from here for the failures a list answers for — a row whose record
+// is no longer in the database — because the store is what knows it happened.
+const toast = useToast()
 
 // What one tab under capture is: which tab, and since when. The time is unix milliseconds and comes
 // from the extension, which is the only side that knows when it armed the tab.
@@ -549,6 +554,7 @@ export const useRequestsStore = defineStore('requests', {
       if (this.lineDirty && !(await this.confirmOpen())) return
 
       const bodies = await this.loadBodies(id)
+      if (!bodies) return
       this.manualId = id
       await this.replace(recordSeed(record, bodies.request ?? record.requestBody?.inline ?? ''))
     },
@@ -579,10 +585,12 @@ export const useRequestsStore = defineStore('requests', {
     },
 
     async selectBrowser(id: string) {
+      // The bodies are read before the record is taken as selected: a record the database no longer
+      // has is not opened at all, and nothing is left behind a pane that says it is looking at it.
+      if (!(await this.loadBodies(id))) return
       this.browserId = id
       // One thing on screen at a time: a request inside a tab replaces the tab.
       this.browserTabKey = null
-      await this.loadBodies(id)
     },
 
     clearUnreadCaptures() {
@@ -627,7 +635,12 @@ export const useRequestsStore = defineStore('requests', {
 
     // A body the record did not bring with it is read once, by name, and kept for as long as the
     // window is open. A small one came with the record, so this costs nothing in the common case.
-    async loadBodies(id: string): Promise<RecordBodies> {
+    //
+    // A row can outlive what it names: the history prunes itself, and another window can clear it.
+    // The answer to that is nil rather than an empty body — a body that is not there and a record
+    // that is not there are two different things to say about a row, and whoever asked for it is
+    // told once, here, instead of being left with a click that does nothing.
+    async loadBodies(id: string): Promise<RecordBodies | null> {
       const cached = this.bodies[id]
       if (cached) return cached
 
@@ -638,11 +651,16 @@ export const useRequestsStore = defineStore('requests', {
         request: record.requestBody?.inline,
         response: record.responseBody?.inline,
       }
-      if (bodyMissing(record.requestBody)) {
-        bodies.request = await RecordsService.Body(id, BodySide.SideRequest)
-      }
-      if (bodyMissing(record.responseBody)) {
-        bodies.response = await RecordsService.Body(id, BodySide.SideResponse)
+      try {
+        if (bodyMissing(record.requestBody)) {
+          bodies.request = await RecordsService.Body(id, BodySide.SideRequest)
+        }
+        if (bodyMissing(record.responseBody)) {
+          bodies.response = await RecordsService.Body(id, BodySide.SideResponse)
+        }
+      } catch (error) {
+        toast.show(tr('response.openFailed', { error: describeFailure(error) }), 'error')
+        return null
       }
       this.bodies[id] = bodies
       return bodies

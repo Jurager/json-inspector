@@ -32,7 +32,8 @@ import { copyToClipboard } from '../../lib/clipboard'
 import { CommandService } from '../../../bindings/json-inspector/internal/transport/wails'
 import { CommandFormat } from '../../../bindings/json-inspector/internal/usecase/draft'
 import { usePlatform } from '../../composables/usePlatform'
-import { useMessages } from '../../i18n'
+import { useToast } from '../../composables/useToast'
+import { describeFailure, useMessages } from '../../i18n'
 import { focusUrlField } from '../../composables/urlFocus'
 
 // Where this pane is drawn: beside the command line, beside a captured request, or inside a
@@ -51,6 +52,7 @@ const store: InspectorHost = props.source === 'collection' ? collections : reque
 const hasHistory = computed(() => props.source !== 'collection')
 const { t } = useMessages()
 const { shortcut } = usePlatform()
+const toast = useToast()
 
 type Tab = 'body' | 'map' | 'raw' | 'headers' | 'cookies' | 'timings' | 'scripts' | 'request'
 const activeTab = ref<Tab>('body')
@@ -394,7 +396,15 @@ const copied = ref(false)
 // The command is written on the side that holds the values: a record carries its secrets as dots
 // and nothing else, so what lands in the clipboard is text that can be pasted anywhere.
 async function copyAs(format: CommandFormat) {
-  const text = await CommandService.Export(props.record.id, format)
+  let text: string
+  try {
+    text = await CommandService.Export(props.record.id, format)
+  } catch (error) {
+    // The record on screen can be gone from the database — the history prunes itself, and another
+    // window can clear it — so the copy says what happened instead of doing nothing at all.
+    toast.show(t('response.copyFailed', { error: describeFailure(error) }), 'error')
+    return
+  }
   if (await copyToClipboard(text)) {
     copied.value = true
     setTimeout(() => (copied.value = false), 1500)

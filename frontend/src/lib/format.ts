@@ -8,17 +8,30 @@ export function statusBadgeClass(status: number): string {
   return 'badge-status-4xx'
 }
 
-// The colour a verb reads in where there is no badge to sit in — a level of the collection tree. The
-// three the design names have a colour each; every other verb is the accent, which is what an attempt
-// to the server that reads and does not fetch is drawn in.
+// The colour a verb reads in: GET fetches, DELETE destroys, and everything else writes. The design
+// gives the three one class each, and every list draws its verb with this — the same word has to look
+// the same in the history, in a collection and in a table of results.
 export function methodInkClass(method: string): string {
   switch (method.toUpperCase()) {
     case 'GET':
-      return 'ink-read'
+      return 'method-get'
     case 'DELETE':
-      return 'ink-delete'
+      return 'method-delete'
     default:
-      return 'ink-write'
+      return 'method-other'
+  }
+}
+
+// A verb as the narrow column can hold it: the two long ones are cut the way the design cuts them,
+// because DELETE at eleven points is wider than the column the names line up in.
+export function shortMethod(method: string): string {
+  switch (method.toUpperCase()) {
+    case 'DELETE':
+      return 'DEL'
+    case 'OPTIONS':
+      return 'OPT'
+    default:
+      return method
   }
 }
 

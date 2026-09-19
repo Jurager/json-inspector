@@ -6,6 +6,21 @@
 import * as domain$0 from "../../domain/models.js";
 
 /**
+ * Reachability is what the last call to the server came to: whether the other side answered, and
+ * when it last did — a failed attempt does not move that moment, because «последняя связь» is not
+ * «последняя попытка». It is not part of the account: the account is a row this app keeps, and a
+ * server that is down or a laptop that is offline is weather rather than a fact about the person.
+ * 
+ * Checked tells "not asked yet" from "did not answer", because a window words them differently:
+ * before the first call there is nothing to say, and after it there is.
+ */
+export interface Reachability {
+    "checked": boolean;
+    "reachable": boolean;
+    "at": string;
+}
+
+/**
  * State is what a window needs to draw the account: whether anybody is signed in, and what is
  * happening right now — a sign-in in progress is a modal with a spinner, not an empty pane.
  */
@@ -24,4 +39,11 @@ export interface State {
      * Failure is why the last attempt came to nothing, in the app's own codes. The window words it.
      */
     "failure"?: domain$0.Failure | null;
+
+    /**
+     * Reachability is what the last call to the server came to. A window draws the account from the
+     * row and says this beside it: the account is what this app keeps, and a server it cannot reach
+     * is not the same thing as nobody being signed in.
+     */
+    "reachability": Reachability;
 }

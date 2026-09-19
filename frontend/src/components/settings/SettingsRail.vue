@@ -4,6 +4,7 @@ import { SystemService } from '../../../bindings/json-inspector/internal/transpo
 import Icon from '../ui/Icon.vue'
 import { CATEGORIES, metaKey, nameKey, type CategoryId } from './categories'
 import { useUpdateCheck } from '../../composables/useUpdateCheck'
+import { useAccount } from '../../composables/useAccount'
 import { useMessages } from '../../i18n'
 import { formatVersion } from '../../lib/format'
 
@@ -14,6 +15,7 @@ const emit = defineEmits<{ (e: 'select', id: CategoryId): void }>()
 
 const { t } = useMessages()
 const { phase, latest } = useUpdateCheck()
+const { serverDown } = useAccount()
 
 const version = ref('')
 const build = ref('')
@@ -62,7 +64,11 @@ onMounted(async () => {
         </span>
         <span class="lines">
           <span class="name">{{ t(nameKey(category.id)) }}</span>
-          <span class="meta">{{ t(metaKey(category)) }}</span>
+          <!-- The account's second line is the one the rail can say something about that the other
+               categories cannot: while the server does not answer, that is what the row is about. -->
+          <span class="meta">
+            {{ category.id === 'account' && serverDown ? t('account.serverDown') : t(metaKey(category)) }}
+          </span>
         </span>
       </button>
     </div>

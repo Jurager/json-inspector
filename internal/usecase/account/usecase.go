@@ -37,6 +37,10 @@ type State struct {
 	Challenge domain.Challenge `json:"challenge"`
 	// Failure is why the last attempt came to nothing, in the app's own codes. The window words it.
 	Failure *domain.Failure `json:"failure,omitempty"`
+	// Reachability is what the last call to the server came to. A window draws the account from the
+	// row and says this beside it: the account is what this app keeps, and a server it cannot reach
+	// is not the same thing as nobody being signed in.
+	Reachability Reachability `json:"reachability"`
 }
 
 type UseCase struct {
@@ -55,10 +59,21 @@ type UseCase struct {
 	waiting   bool
 	challenge domain.Challenge
 	cancel    context.CancelFunc
+	// reach is whether the server answered the last call, for the window to draw beside the account.
+	reach reach
 }
 
 func NewUseCase(store Store, server Server, browser Browser, notifier Notifier) *UseCase {
-	return &UseCase{store: store, server: server, browser: browser, notifier: notifier, now: time.Now}
+	u := &UseCase{store: store, browser: browser, notifier: notifier, now: time.Now}
+	// The port is wrapped before anything can use it: the outcome of every call is written down by
+	// the wrapper, and nothing in this file has to remember to do it — see watched.
+	u.server = watched{Server: server, uc: u}
+	return u
+}
+
+// noteCall is where a call's outcome lands. The wrapper calls it; nothing else should.
+func (u *UseCase) noteCall(err error) {
+	u.reach.note(u.now(), err)
 }
 
 // State answers what the window draws, reading the account from the store on every call: the row is
@@ -76,11 +91,41 @@ func (u *UseCase) State(ctx context.Context) (State, error) {
 	// What travels is the choice and not the address in use: the window draws a server of somebody's
 	// own when there is one, and the product's own server is not a thing to draw.
 	return State{
-		SignedIn:  stored.SignedIn(),
-		Account:   stored,
-		Waiting:   waiting,
-		Challenge: challenge,
+		SignedIn:     stored.SignedIn(),
+		Account:      stored,
+		Waiting:      waiting,
+		Challenge:    challenge,
+		Reachability: u.reach.now(),
 	}, nil
+}
+
+// Check asks the server whether it is there, and takes the answer it gives about the account along
+// with it: `Me` is the lightest request that also carries the email and the plan, so a server that
+// has come back is drawn with what it says now rather than with what it said last time.
+//
+// A server that does not answer is an answer to this question rather than a failure of the call:
+// the verdict travels in State.Reachability, which is what the windows draw. An error out of here
+// is the store, or the disk — something this call was not asking about.
+func (u *UseCase) Check(ctx context.Context) (State, error) {
+	stored, access, err := u.signedIn(ctx)
+	// A refusal names one of three things — nobody is signed in, the server did not answer, the
+	// server said no — and each of them is what this call asked. Anything else is not ours to hush.
+	if err != nil && domain.AsFailure(err) == nil {
+		return State{}, err
+	}
+
+	if err == nil {
+		if fetched, err := u.server.Me(ctx, serverAddress(stored.Server), access); err == nil {
+			// The choice of server and the moment this device signed in are this app's own facts, not
+			// the server's answers, so they stay as the row had them. The token is untouched too:
+			// ending a sign-in is the only thing that changes it.
+			fetched.Server, fetched.SignedInAt = stored.Server, stored.SignedInAt
+			if err := u.store.Save(ctx, fetched, ""); err != nil {
+				return State{}, err
+			}
+		}
+	}
+	return u.announce(ctx)
 }
 
 // SetServer remembers the address of the server to sign in to. It is kept even when nothing is
