@@ -158,7 +158,7 @@ async function exportHar() {
 
 <template>
   <div v-if="tab" class="tab-page">
-    <div class="head">
+    <div class="page-head">
       <span class="head-icon">
         <img v-if="tab.favIconUrl" class="head-favicon" :src="tab.favIconUrl" alt="" />
         <Icon v-else name="globe" :size="23" :stroke-width="1.6" />
@@ -183,19 +183,19 @@ async function exportHar() {
       <Button size="page" @click="exportHar">{{ t('browser.exportHar') }}</Button>
     </div>
 
-    <div class="stats">
-      <div v-for="card in cards" :key="card.label" class="stat">
-        <span class="stat-label">{{ card.label }}</span>
-        <span class="stat-value" :class="card.tone">{{ card.value }}</span>
-        <span class="stat-note">{{ card.note }}</span>
+    <div class="page-stats">
+      <div v-for="card in cards" :key="card.label" class="page-stat">
+        <span class="page-stat-label">{{ card.label }}</span>
+        <span class="page-stat-value" :class="card.tone">{{ card.value }}</span>
+        <span class="page-stat-note">{{ card.note }}</span>
       </div>
     </div>
 
     <section class="captured">
-      <span class="section-label">{{ t('browser.capturedRequests') }}</span>
+      <span class="page-section-label">{{ t('browser.capturedRequests') }}</span>
 
-      <div class="table">
-        <div class="table-head">
+      <div class="page-table">
+        <div class="page-table-head">
           <span>{{ t('browser.colMethod') }}</span>
           <span>{{ t('browser.colPath') }}</span>
           <span>{{ t('browser.colStatus') }}</span>
@@ -205,9 +205,9 @@ async function exportHar() {
 
         <!-- The rows scroll and the head does not: a tab of two hundred requests is a list to read
              down, and a head that left the screen would stop saying which column is which. -->
-        <div class="table-body">
+        <div class="page-table-body">
           <button v-for="record in items" :key="record.id" type="button" class="row" @click="store.selectBrowser(record.id)">
-            <span class="cell-method mono" :class="methodInkClass(record.method)">
+            <span class="page-cell-method mono" :class="methodInkClass(record.method)">
               {{ record.method }}
             </span>
             <span class="cell-path mono" :title="record.url">{{ addressOf(record.url) }}</span>
@@ -221,27 +221,27 @@ async function exportHar() {
       </div>
     </section>
 
-    <div class="cards">
-      <div class="card">
-        <span class="card-title">{{ t('browser.extTitle') }}</span>
-        <span class="card-body">{{ store.capture.connected ? t('browser.extBody', { port }) : t('browser.extBodyOff') }}</span>
-        <button type="button" class="card-action" @click="sheet = 'extension'">
+    <div class="page-cards">
+      <div class="page-card">
+        <span class="page-card-title">{{ t('browser.extTitle') }}</span>
+        <span class="page-card-body">{{ store.capture.connected ? t('browser.extBody', { port }) : t('browser.extBodyOff') }}</span>
+        <button type="button" class="page-card-action" @click="sheet = 'extension'">
           {{ t('browser.extAction') }}
         </button>
       </div>
 
-      <div class="card">
-        <span class="card-title">{{ t('browser.filtersTitle') }}</span>
-        <span class="card-body">{{ t('browser.filtersBody') }}</span>
-        <button type="button" class="card-action" @click="openFilters()">
+      <div class="page-card">
+        <span class="page-card-title">{{ t('browser.filtersTitle') }}</span>
+        <span class="page-card-body">{{ t('browser.filtersBody') }}</span>
+        <button type="button" class="page-card-action" @click="openFilters()">
           {{ t('browser.filtersAction') }}
         </button>
       </div>
 
-      <div class="card">
-        <span class="card-title">{{ t('browser.retentionTitle') }}</span>
-        <span class="card-body">{{ t('browser.retentionBody', { retention }) }}</span>
-        <button type="button" class="card-action" @click="SystemService.ShowSettings('requests')">
+      <div class="page-card">
+        <span class="page-card-title">{{ t('browser.retentionTitle') }}</span>
+        <span class="page-card-body">{{ t('browser.retentionBody', { retention }) }}</span>
+        <button type="button" class="page-card-action" @click="SystemService.ShowSettings('requests')">
           {{ t('browser.retentionAction') }}
         </button>
       </div>
@@ -282,7 +282,7 @@ async function exportHar() {
   padding: 28px 32px;
 }
 
-.head {
+.page-head {
   @apply flex items-start gap-4;
 }
 
@@ -338,28 +338,28 @@ async function exportHar() {
   background: currentColor;
 }
 
-.stats {
+.page-stats {
   @apply grid grid-cols-4 gap-3;
 }
 
-.stat {
+.page-stat {
   @apply flex flex-col gap-1.5 border border-border rounded-xl;
   padding: 14px 16px;
 }
 
-.stat-label {
+.page-stat-label {
   @apply text-[11px] font-semibold uppercase tracking-[0.07em] text-text-tertiary;
 }
 
-.stat-value {
+.page-stat-value {
   @apply text-[19px] font-semibold tracking-[-0.01em];
 }
 
-.stat-value.bad {
+.page-stat-value.bad {
   color: var(--red-text);
 }
 
-.stat-note {
+.page-stat-note {
   @apply text-[13px] text-text-tertiary overflow-hidden text-ellipsis whitespace-nowrap;
 }
 
@@ -367,33 +367,33 @@ async function exportHar() {
   @apply flex flex-col gap-2.5;
 }
 
-.section-label {
+.page-section-label {
   @apply text-[11px] font-semibold uppercase tracking-[0.07em] text-text-tertiary;
 }
 
 /* The rows scroll and the head does not, which is what the collection page does with the same
    problem: a tab of two hundred requests is a list to read down inside a page, and a head that has
    left the screen stops saying which column is which. */
-.table {
+.page-table {
   @apply flex flex-col border border-border rounded-xl overflow-hidden max-h-[320px];
 }
 
-.table-body {
+.page-table-body {
   @apply flex-1 min-h-0 overflow-y-auto;
 }
 
-.table-head,
+.page-table-head,
 .row {
   @apply grid items-center;
   grid-template-columns: 90px minmax(0, 1fr) 110px 110px 110px;
 }
 
-.table-head {
+.page-table-head {
   @apply flex-none bg-bg-inset border-b border-border text-[11px] font-semibold uppercase
          tracking-[0.06em] text-text-tertiary;
 }
 
-.table-head > span {
+.page-table-head > span {
   padding: 10px 16px;
 }
 
@@ -417,7 +417,7 @@ async function exportHar() {
 
 /* The verb wears its own colour — the shared classes at the root do that — and only the size is the
    table's: a table is denser than a list, and the column is laid out by the grid. */
-.cell-method {
+.page-cell-method {
   @apply text-[12px];
 }
 
@@ -440,32 +440,32 @@ async function exportHar() {
   @apply text-[13px] text-text-secondary;
 }
 
-.cards {
+.page-cards {
   @apply grid grid-cols-3 gap-3;
 }
 
-.card {
+.page-card {
   @apply flex flex-col items-start gap-2 border border-border rounded-xl;
   padding: 16px;
 }
 
-.card-title {
+.page-card-title {
   @apply text-[13px] font-semibold;
 }
 
-.card-body {
+.page-card-body {
   @apply text-[13px] leading-normal text-text-secondary;
 }
 
 /* The three cards stand in a row and their sentences differ in length, so the action is pushed to
    the foot of its card: three buttons at three heights read as three different things. */
-.card-action {
+.page-card-action {
   @apply self-start mt-auto h-[30px] px-2 -ml-2 border-0 rounded-[7px] bg-transparent cursor-pointer
          text-[13px] font-medium text-accent;
   font-family: inherit;
 }
 
-.card-action:hover {
+.page-card-action:hover {
   @apply bg-accent-soft;
 }
 

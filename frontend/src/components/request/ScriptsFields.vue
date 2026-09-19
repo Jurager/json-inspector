@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
-import { FLUSH_MS } from '../../stores/collections'
+import { FLUSH_MS } from '../../lib/draftBuffer'
 import { useMessages } from '../../i18n'
 import type { RequestSource } from '../../lib/requestSource'
 

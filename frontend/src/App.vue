@@ -5,6 +5,7 @@ import { useRequestsStore } from './stores/requests'
 import { useCollectionsStore } from './stores/collections'
 import { useSearchStore } from './stores/search'
 import { useWorkspacesStore } from './stores/workspaces'
+import { asked } from './stores/calls'
 import { useCaptureEvents } from './composables/useCaptureEvents'
 import { useRecordEvents } from './composables/useRecordEvents'
 import { useGlobalShortcuts } from './composables/useGlobalShortcuts'
@@ -60,14 +61,18 @@ const account = computed(() => accountState.value?.account ?? null)
 const startup = ref<StartupStatus | null>(null)
 const retrying = ref(false)
 
+// Both of these go through `asked` for the reason the screen exists: a refusal leaves `startup` null,
+// and the window then draws every panel empty without saying the one thing this screen is here to say.
 async function loadStartup() {
-  startup.value = await SystemService.StartupStatus()
+  startup.value = (await asked(SystemService.StartupStatus(), 'startup.readFailed')) ?? null
 }
 
 async function retryInit() {
   retrying.value = true
   try {
-    startup.value = await SystemService.RetryInit()
+    // The status it already has stands when the retry is refused: the screen and its button are the
+    // answer to a refusal, and taking them away would leave nothing to press a second time.
+    startup.value = (await asked(SystemService.RetryInit(), 'startup.readFailed')) ?? startup.value
   } finally {
     retrying.value = false
   }

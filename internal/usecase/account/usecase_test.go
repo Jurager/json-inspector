@@ -219,18 +219,6 @@ func (n *fakeNotifier) Publish(_ string, payload any) {
 	n.events <- state
 }
 
-func (n *fakeNotifier) next(t *testing.T) State {
-	t.Helper()
-
-	select {
-	case state := <-n.events:
-		return state
-	case <-time.After(2 * time.Second):
-		t.Fatal("nothing was announced")
-		return State{}
-	}
-}
-
 // until waits for the announcement a test is about. The app says several things while a sign-in
 // runs its course — the code is out, the code was confirmed — and a test that read the first one
 // would be reading the wrong step.

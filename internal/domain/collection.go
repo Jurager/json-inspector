@@ -1,8 +1,8 @@
 package domain
 
 // Collection is a saved group of requests with a name of its own, and it may hold other
-// collections. What used to be a folder is one of these with a parent: the two were never more than
-// that apart, and keeping them separate is what stopped a collection from being put inside one.
+// collections. A folder is one of these with a parent: the two were never more than that apart, and
+// keeping them separate is what stopped a collection from being put inside one.
 type Collection struct {
 	ID          string `json:"id"`
 	Name        string `json:"name"`

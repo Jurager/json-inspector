@@ -170,12 +170,3 @@ func (s *RecordsService) History(ctx context.Context) (domain.HistoryStats, erro
 func (s *RecordsService) Prune(ctx context.Context) (int, error) {
 	return s.records.Prune(ctx)
 }
-
-// ImportLegacy moves the history the old frontend kept in localStorage into the database, once. The
-// payload is the raw string: reading that shape is this side's job, not the window's.
-func (s *RecordsService) ImportLegacy(
-	ctx context.Context,
-	raw string,
-) (record.ImportReport, error) {
-	return s.records.ImportLegacy(ctx, raw)
-}

@@ -15,16 +15,6 @@ export interface HistoryCleared {
 }
 
 /**
- * ImportReport says what the import did, so the log and the UI can mention it once.
- */
-export interface ImportReport {
-    "records": number;
-    "skipped": number;
-    "warnings"?: string[] | null;
-    "completed": boolean;
-}
-
-/**
  * IngestInput is a request this app did not send. An empty Source means the browser — the
  * extension is the only thing that reports one from the outside.
  */

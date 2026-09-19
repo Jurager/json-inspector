@@ -12,13 +12,12 @@ import (
 )
 
 // fakeStore is the in-memory double for the feature's port. It keeps the same rules the SQL does —
-// variables belong to a scope, the active environment is a setting, an import is claimed once — so
-// the tests below are about the use case, not about SQLite.
+// variables belong to a scope, the active environment is a setting — so the tests below are about
+// the use case, not about SQLite.
 type fakeStore struct {
-	envs    []domain.Environment
-	vars    map[string]fakeVar
-	active  string
-	imports map[string]domain.ImportStatus
+	envs   []domain.Environment
+	vars   map[string]fakeVar
+	active string
 }
 
 type fakeVar struct {
@@ -27,7 +26,7 @@ type fakeVar struct {
 }
 
 func newFakeStore() *fakeStore {
-	return &fakeStore{vars: map[string]fakeVar{}, imports: map[string]domain.ImportStatus{}}
+	return &fakeStore{vars: map[string]fakeVar{}}
 }
 
 // fakeScope answers with the workspace the test is working in. The store below keeps one flat
@@ -36,17 +35,6 @@ func newFakeStore() *fakeStore {
 type fakeScope struct{ id string }
 
 func (f fakeScope) ActiveWorkspace(context.Context) (string, error) {
-	if f.id == "" {
-		return domain.WorkspacePersonalID, nil
-	}
-	return f.id, nil
-}
-
-// fakeHome answers with the workspace the installation began in, which every test here is: the
-// import it serves is about this installation's own data, not about the space on screen.
-type fakeHome struct{ id string }
-
-func (f fakeHome) FirstWorkspace(context.Context) (string, error) {
 	if f.id == "" {
 		return domain.WorkspacePersonalID, nil
 	}
@@ -143,29 +131,11 @@ func (f *fakeStore) SetActiveEnvironment(_ context.Context, _ string, id string)
 	return nil
 }
 
-func (f *fakeStore) ClaimImport(_ context.Context, source string) (bool, error) {
-	if status, ok := f.imports[source]; ok && status != domain.ImportPending {
-		return false, nil
-	}
-	f.imports[source] = domain.ImportPending
-	return true, nil
-}
-
-func (f *fakeStore) FinishImport(
-	_ context.Context,
-	source string,
-	status domain.ImportStatus,
-	_ string,
-) error {
-	f.imports[source] = status
-	return nil
-}
-
 func newUseCase(t *testing.T) (*UseCase, *fakeStore) {
 	t.Helper()
 	store := newFakeStore()
 	ids := platform.NewIDGen()
-	return NewUseCase(store, fakeScope{}, fakeHome{}, ids), store
+	return NewUseCase(store, fakeScope{}, ids), store
 }
 
 func seed(t *testing.T, u *UseCase, name string) (domain.EnvState, domain.Environment) {
@@ -552,96 +522,6 @@ func TestImportEntriesMergesByName(t *testing.T) {
 	}
 	if byName["page_size"].Value != "10" {
 		t.Errorf("the new variable was not added: %+v", byName["page_size"])
-	}
-}
-
-func TestImportLegacyRunsOnceAndLeavesSecretsEmpty(t *testing.T) {
-	u, _ := newUseCase(t)
-	ctx := context.Background()
-
-	payload := `{
-	  "environments": [{"id": "env-1", "name": "Local", "readonly": false, "vars": [
-	    {"id": "v1", "name": "base_url", "value": "https://api.example.com", "kind": "text",
-	    	"enabled": true},
-	    {"id": "v2", "name": "token", "value": "stale", "kind": "secret", "enabled": true}
-	  ]}],
-	  "globals": [{"id": "g1", "name": "page_size", "value": "10", "kind": "text", "enabled": true}],
-	  "activeId": "env-1"
-	}`
-
-	report, err := u.ImportLegacy(ctx, payload)
-	if err != nil {
-		t.Fatalf("ImportLegacy: %v", err)
-	}
-	if !report.Completed || report.Environments != 1 || report.Variables != 3 || report.Secrets != 1 {
-		t.Errorf("report = %+v, want one environment, three variables and one secret", report)
-	}
-	// A secret is named rather than carried: what it held lived in the keychain, which is not read
-	// any more, and the payload's own `value` for it is a stale copy nothing kept up to date.
-	if len(report.Warnings) != 1 {
-		t.Fatalf("warnings = %v, want one about the secret", report.Warnings)
-	}
-
-	state, _ := u.Snapshot(ctx)
-	if state.ActiveID != "env-1" {
-		t.Errorf("activeId = %q, want env-1", state.ActiveID)
-	}
-	if value, err := u.Reveal(ctx, "v2"); err != nil || value != "" {
-		t.Errorf("the secret = %q, %v; want no value at all", value, err)
-	}
-
-	// A second run is a no-op: the claim is what makes the import happen once.
-	again, err := u.ImportLegacy(ctx, payload)
-	if err != nil {
-		t.Fatalf("ImportLegacy (again): %v", err)
-	}
-	if again.Completed || again.Variables != 0 {
-		t.Errorf("second run = %+v, want nothing done", again)
-	}
-	state, _ = u.Snapshot(ctx)
-	if len(state.Environments[0].Vars) != 2 {
-		t.Errorf("the second run duplicated variables: %+v", state.Environments[0].Vars)
-	}
-}
-
-// A secret keeps its kind and reports that it has no value, so the screen draws it as one to fill
-// in rather than as a variable that came over empty.
-func TestImportLegacySecretKeepsItsKindWithoutAValue(t *testing.T) {
-	u, _ := newUseCase(t)
-	ctx := context.Background()
-
-	payload := `{"environments": [{"id": "env-1", "name": "Local", "vars": [
-	  {"id": "v1", "name": "token", "kind": "secret", "enabled": true}
-	]}], "globals": []}`
-
-	report, err := u.ImportLegacy(ctx, payload)
-	if err != nil {
-		t.Fatalf("ImportLegacy: %v", err)
-	}
-	if len(report.Warnings) != 1 {
-		t.Fatalf("warnings = %v, want one naming the secret", report.Warnings)
-	}
-	state, _ := u.Snapshot(ctx)
-	v := state.Environments[0].Vars[0]
-	if v.Kind != domain.VariableSecret || v.HasValue || v.Value != "" {
-		t.Errorf("the variable = %+v, want a secret with no value but its kind", v)
-	}
-}
-
-func TestImportLegacyWithNoPayloadIsRecorded(t *testing.T) {
-	u, _ := newUseCase(t)
-	ctx := context.Background()
-
-	report, err := u.ImportLegacy(ctx, "")
-	if err != nil {
-		t.Fatalf("ImportLegacy: %v", err)
-	}
-	if report.Completed {
-		t.Error("an empty payload reported a completed import")
-	}
-	// The claim is finished, so this does not come back on every launch.
-	if claimed, _ := u.store.ClaimImport(ctx, LegacySource); claimed {
-		t.Error("the import was left pending")
 	}
 }
 

@@ -35,7 +35,7 @@ func TestClearingHistoryEmptiesTheListAndTellsTheWindows(t *testing.T) {
 	}
 
 	notifier := &heard{}
-	uc := record.NewUseCase(store, store, store, nil, notifier,
+	uc := record.NewUseCase(store, store, nil, notifier,
 		record.RetentionSourceFunc(func(context.Context) (domain.Retention, error) {
 			return domain.RetainForever, nil
 		}), nil, nil, platform.NewIDGen(), platform.BuildInfo{Name: "JSON Inspector"})

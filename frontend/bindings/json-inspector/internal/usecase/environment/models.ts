@@ -31,21 +31,6 @@ export interface EnvironmentPatch {
 }
 
 /**
- * ImportReport says what an import did, so the screen can mention it once and the log keeps it.
- */
-export interface ImportReport {
-    "environments": number;
-    "variables": number;
-    "secrets": number;
-    "warnings"?: string[] | null;
-
-    /**
-     * Completed is false when the import had already run, or has nothing to read.
-     */
-    "completed": boolean;
-}
-
-/**
  * VariableDraft is a variable on its way in: the sheet's "add row" leaves it empty, the .env
  * dialog fills it in, and both go through one call.
  */

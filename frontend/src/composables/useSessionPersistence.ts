@@ -33,7 +33,12 @@ export function useSessionPersistence(
     // workspace's, and the window has to know which one before it draws them. Not through the URL
     // like the theme: nothing of the first frame depends on it, and a chip that arrives a moment
     // later is not a window painted in the wrong colour.
-    void useWorkspacesStore().load()
+    void useWorkspacesStore()
+      .load()
+      .catch(() => {
+        // The two below are caught for this same reason: an empty list is a state the switcher can
+        // draw, and the next launch asks again.
+      })
 
     void loadSettings().then(() => {
       const stored = settings.value
@@ -41,11 +46,8 @@ export function useSessionPersistence(
       store.setInspector({ open: stored.inspectorOpen, width: stored.inspectorWidth })
     })
 
-    // History first takes over what the old build left in localStorage, then reads the list — which
-    // is what makes an imported record appear in the same pass as a stored one.
     store
-      .importLegacyOnce()
-      .then(() => store.load())
+      .load()
       .then(() => store.loadDraft())
       .catch(() => {
         // An empty list and an empty command line are states the window can show; the next launch
@@ -55,11 +57,10 @@ export function useSessionPersistence(
     window.addEventListener('blur', handOver)
     document.addEventListener('visibilitychange', handOver)
 
-    // The environments now live in the database: read them, take over what the old build left in
-    // localStorage, and give a fresh install the environment it has always started with.
+    // The environments are read, and a fresh install is given the environment it has always
+    // started with.
     envStore
       .load()
-      .then(() => envStore.importLegacyOnce())
       .then(() => envStore.ensureDefaults())
       .catch(() => {
         // Nothing here is worth blocking the window over: an empty environments list is a state

@@ -97,8 +97,9 @@ export interface RequestSource {
   replace(seed: Seed): Promise<void>
   // A command pasted into the line: read on the other side, and the draft replaced with what it
   // came to. The reading is returned so the window can word the toast; when it is not a command at
-  // all, nothing was replaced and the caller puts the text in the field itself.
-  pasteCommand(text: string): Promise<CommandResult>
+  // all, nothing was replaced and the caller puts the text in the field itself. Nothing at all is
+  // answered when the reading could not be asked for, which has been said out loud by then.
+  pasteCommand(text: string): Promise<CommandResult | null>
   send(): Promise<void>
   cancel(): Promise<void>
   // A send that failed on this side has nothing to wait for any more.

@@ -19,12 +19,11 @@ const maxNameLength = 40
 type UseCase struct {
 	store Store
 	scope Scope
-	home  Home
 	ids   platform.IDGen
 }
 
-func NewUseCase(store Store, scope Scope, home Home, ids platform.IDGen) *UseCase {
-	return &UseCase{store: store, scope: scope, home: home, ids: ids}
+func NewUseCase(store Store, scope Scope, ids platform.IDGen) *UseCase {
+	return &UseCase{store: store, scope: scope, ids: ids}
 }
 
 // Snapshot is the whole screen. Secret values are withheld: a variable that has one says so, and
@@ -119,10 +118,10 @@ func (u *UseCase) Create(ctx context.Context, draft EnvironmentDraft) (domain.En
 	// store for "the next position" would answer from a state read before this environment existed
 	// and hand every copy the same row number.
 	//
-	// An environment written before its variables: a database error halfway through the copy leaves a
-	// half-filled environment on the next read rather than a state that cannot exist. Filling it
-	// again is what the user would do about it, and the copy's names cannot collide — the base's are
-	// unique within a scope and the new scope is empty.
+	// A database error halfway through the copy leaves a half-filled environment on the next read
+	// rather than a state that cannot exist. Filling it again is what the user would do about it, and
+	// the copy's names cannot collide — the base's are unique within a scope and the new scope is
+	// empty.
 	scope := domain.EnvScope{Environment: env.ID}
 	for i, v := range base.Vars {
 		if err := u.store.SaveVariable(ctx, workspace, scope,

@@ -74,8 +74,8 @@ func TestTheKindBecomesAContentType(t *testing.T) {
 		}
 	}
 
-	// Raw declares nothing, and that is the point of it: every draft stored before there were kinds
-	// is raw, and naming a type here would change what is already saved puts on the wire.
+	// Raw declares nothing, and that is the point of it: a body this app does not interpret says
+	// nothing about itself, and naming a type here would be the window guessing at what it is.
 	uc, _ := loaded(t)
 	replaced(t, uc, domain.BodyRaw, "plain")
 	if value, ok := headerOf(prepared(t, uc).Headers, "Content-Type"); ok {

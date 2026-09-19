@@ -35,7 +35,8 @@ func (s *Store) Draft(
 	if err != nil {
 		return domain.Draft{}, fmt.Errorf("reading draft %s: %w", id, err)
 	}
-	// A row written before there were kinds holds text, and text is what raw means.
+	// The column carries a default, so this is only the wire's own gap: a kind that arrived empty
+	// means text, and text is what raw is.
 	draft.BodyKind = domain.KindOf(domain.BodyKind(bodyKind))
 
 	for _, part := range []struct {

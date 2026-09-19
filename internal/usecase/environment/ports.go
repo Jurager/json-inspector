@@ -21,10 +21,6 @@ type Store interface {
 	// Which environment the workspace is working in is kept on the workspace itself: two spaces are
 	// two answers, and a switch that kept one would resolve against the other space's variables.
 	SetActiveEnvironment(ctx context.Context, workspaceID, id string) error
-
-	// The one-time import of what the old frontend kept in localStorage.
-	ClaimImport(ctx context.Context, source string) (bool, error)
-	FinishImport(ctx context.Context, source string, status domain.ImportStatus, detail string) error
 }
 
 // Scope answers which workspace the window is showing. It is a port of this feature's own rather
@@ -32,12 +28,4 @@ type Store interface {
 // needs to know the name of the space it is working in.
 type Scope interface {
 	ActiveWorkspace(ctx context.Context) (string, error)
-}
-
-// Home names the workspace the installation started with. The one-time import of what the old
-// frontend kept in localStorage repairs this installation's own data, so it lands there and not in
-// whichever space happens to be on screen — and not on a fixed id either, now that the row the app
-// is born with can be deleted like any other.
-type Home interface {
-	FirstWorkspace(ctx context.Context) (string, error)
 }

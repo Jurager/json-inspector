@@ -232,9 +232,10 @@ func withContentType(
 	return append(headers, domain.HeaderPair{Name: "Content-Type", Value: value})
 }
 
-// Raw answers with nothing on purpose: every draft written before there were kinds is raw and has
-// always gone out without a Content-Type, and naming one would change what already stored requests
-// put on the wire. A written header wins, so a text/plain typed once sticks.
+// Raw answers with nothing on purpose: a raw body is text this app does not interpret, so it
+// declares nothing about itself and the server reads it as it will. Naming a type for it would be
+// the window guessing at what the user meant. A written header wins, so a text/plain typed once
+// sticks.
 func contentTypeFor(kind domain.BodyKind, file string, boundary string) (string, bool) {
 	switch kind {
 	case domain.BodyJSON:

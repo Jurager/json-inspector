@@ -29,6 +29,8 @@ import {
   type TextResult,
 } from '../../bindings/json-inspector/internal/usecase/draft'
 import type { Level } from '../../bindings/json-inspector/internal/usecase/scripting'
+import { abandoned, owed, settled, typed } from '../lib/draftBuffer'
+import { asked } from './calls'
 import { NO_AUTH } from '../lib/requestSource'
 import type { ChipName } from '../lib/requestSource'
 import {
@@ -45,14 +47,6 @@ import { focusUrlField } from '../composables/urlFocus'
 // The draft this store edits: the one the command line composes. A collection card has a draft of
 // its own, keyed by the node it came from, and it is the collections store that holds it.
 const DRAFT = DraftID.DraftCommandLine
-
-// What the history lived in before it moved into the database.
-const LEGACY_KEY = 'ji-history-v1'
-
-// How long the window holds a text it is typing before handing it over. The draft is Go's, so every
-// keystroke is a write to the database on the other side; a pause is what keeps that from being one
-// write per character. Anything that ends the moment — blur, Enter, sending — flushes at once.
-const FLUSH_MS = 400
 
 // The window's one toast: raised from here for the failures a list answers for — a row whose record
 // is no longer in the database — because the store is what knows it happened.
@@ -278,12 +272,21 @@ export const useRequestsStore = defineStore('requests', {
     // variable added in the environments window is not an edit of this line: without asking again,
     // the block that says the send is held would outlive the variable that caused it. Only the
     // preview is taken, so nothing the window is holding in its buffers is touched.
+    // A read behind the button rather than behind the person: a preview that could not be asked for
+    // leaves the send-block as it was, and the send itself refuses a missing name properly — so this
+    // is the one call in the store that says nothing when it fails.
     async refreshPreview() {
-      this.preview = (await DraftService.Snapshot(DRAFT)).preview
+      try {
+        this.preview = (await DraftService.Snapshot(DRAFT)).preview
+      } catch {
+        // Nothing to say: the verdict is the send's to give, and it gives it.
+      }
     },
 
     async loadDraft() {
-      this.apply(await DraftService.Snapshot(DRAFT))
+      const state = await asked(DraftService.Snapshot(DRAFT), 'request.readFailed')
+      if (!state) return
+      this.apply(state)
       // The line is where this workspace left it. Whatever was typed here yesterday is not an edit
       // somebody made now, and asking about it is asking the wrong question.
       this.lineRevision = this.draft?.revision ?? 0
@@ -291,8 +294,11 @@ export const useRequestsStore = defineStore('requests', {
 
     // The code of the request being composed: written into the draft's own row, and read back from it.
     async loadScripts() {
-      this.scripts = await ScriptingService.Scripts(DRAFT)
-      this.chain = (await ScriptingService.Chain(DRAFT)) ?? []
+      const scripts = await asked(ScriptingService.Scripts(DRAFT), 'request.readFailed')
+      const chain = await asked(ScriptingService.Chain(DRAFT), 'request.readFailed')
+      if (!scripts || !chain) return
+      this.scripts = scripts
+      this.chain = chain ?? []
     },
 
     async saveScripts(pre: string, post: string, off: { pre: boolean; post: boolean }) {
@@ -301,11 +307,23 @@ export const useRequestsStore = defineStore('requests', {
         postOff: off.post && !!post.trim(),
       }
       const written = pre.trim() || post.trim() ? { pre, post, ...flags } : null
-      const saved = await ScriptingService.SaveScripts(DRAFT, written)
-      const chain = (await ScriptingService.Chain(DRAFT)) ?? []
+      const saved = await asked(ScriptingService.SaveScripts(DRAFT, written), 'request.editFailed')
+      const chain = await asked(ScriptingService.Chain(DRAFT), 'request.readFailed')
+      if (!saved || !chain) return
       this.scriptsFor = DRAFT
       this.scripts = saved
-      this.chain = chain
+      this.chain = chain ?? []
+    },
+
+    // An edit of the request, from the click to what the window draws. Go's answer is the only state
+    // this side has — nothing is guessed at while a call is out — so an edit Go refused leaves the
+    // window exactly as it was, which is the truth about a change that never happened. Answers
+    // whether anything landed, because two callers have work of their own to do after it.
+    async edit(call: Promise<State>): Promise<boolean> {
+      const state = await asked(call, 'request.editFailed')
+      if (!state) return false
+      this.apply(state)
+      return true
     },
 
     // Every answer from the draft side lands here: the draft and its preview are replaced, and the
@@ -323,112 +341,90 @@ export const useRequestsStore = defineStore('requests', {
     // very text comes back. A later answer for an earlier revision is dropped rather than applied:
     // by then it describes a text nobody is looking at.
     applyText(result: TextResult) {
-      if (result.field === TextField.FieldURL) {
-        if (result.rev !== this.urlRev) return
-        this.bufferedUrl = false
-      } else {
-        if (result.rev !== this.bodyRev) return
-        this.bufferedBody = false
-      }
-      this.apply(result)
+      if (settled(this, result)) this.apply(result)
     },
 
     setUrl(text: string) {
-      this.urlText = text
-      this.urlRev += 1
-      this.bufferedUrl = true
-      this.scheduleFlush()
+      typed(this, TextField.FieldURL, text, () => void this.flush())
     },
 
     setBody(text: string) {
-      this.bodyText = text
-      this.bodyRev += 1
-      this.bufferedBody = true
-      this.scheduleFlush()
-    },
-
-    scheduleFlush() {
-      if (this.flushTimer) clearTimeout(this.flushTimer)
-      this.flushTimer = setTimeout(() => void this.flush(), FLUSH_MS)
+      typed(this, TextField.FieldBody, text, () => void this.flush())
     },
 
     // Hand over whatever the window is still holding. Blur, Enter, sending and a hidden window all
     // call this, so nothing typed is ever left behind on this side.
     async flush() {
-      if (this.flushTimer) {
-        clearTimeout(this.flushTimer)
-        this.flushTimer = null
-      }
-      if (this.bufferedUrl) {
-        const rev = this.urlRev
-        this.applyText(await DraftService.SetText(DRAFT, { field: TextField.FieldURL, text: this.urlText, rev }))
-      }
-      if (this.bufferedBody) {
-        const rev = this.bodyRev
-        this.applyText(await DraftService.SetText(DRAFT, { field: TextField.FieldBody, text: this.bodyText, rev }))
+      for (const part of owed(this)) {
+        const result = await asked(DraftService.SetText(DRAFT, part), 'request.editFailed')
+        if (result) this.applyText(result)
       }
     },
 
     async setMethod(method: string) {
-      this.apply(await DraftService.SetMethod(DRAFT, method))
+      await this.edit(DraftService.SetMethod(DRAFT, method))
     },
 
     async setAuth(auth: Auth) {
-      this.apply(await DraftService.SetAuth(DRAFT, auth))
+      await this.edit(DraftService.SetAuth(DRAFT, auth))
     },
 
     async setEnvironmentOverride(id: string) {
-      this.apply(await DraftService.SetEnvironmentOverride(DRAFT, id))
+      await this.edit(DraftService.SetEnvironmentOverride(DRAFT, id))
     },
 
     // A row the authorization put in a list is not stored, so an edit to it is an edit to the field
     // behind it and a deletion is the request no longer authorizing itself.
     async patchDerived(target: RowKind, name: string, value: string) {
-      this.apply(await DraftService.PatchDerived(DRAFT, target, name, value))
+      await this.edit(DraftService.PatchDerived(DRAFT, target, name, value))
     },
 
     async removeDerived() {
-      this.apply(await DraftService.RemoveDerived(DRAFT))
+      await this.edit(DraftService.RemoveDerived(DRAFT))
     },
 
     // «Получить токен» and «Очистить». A failure is not swallowed: the user asked in so many words,
     // and the refusal is the answer they are waiting for.
     async obtainAuth() {
-      this.apply(await DraftService.ObtainAuth(DRAFT))
+      await this.edit(DraftService.ObtainAuth(DRAFT))
     },
 
     async forgetAuth() {
-      this.apply(await DraftService.ForgetAuth(DRAFT))
+      await this.edit(DraftService.ForgetAuth(DRAFT))
     },
 
 
     async setBodyKind(kind: BodyKind) {
-      this.apply(await DraftService.SetBodyKind(DRAFT, kind))
+      await this.edit(DraftService.SetBodyKind(DRAFT, kind))
     },
 
     async setBodyFile(path: string) {
-      this.apply(await DraftService.SetBodyFile(DRAFT, path))
+      await this.edit(DraftService.SetBodyFile(DRAFT, path))
     },
 
     // The file is Go's to open and Go's to read: the dialog is native, and the window never holds
     // the bytes. A closed dialog answers with nothing, which is not a failure.
     async pickBodyFile(): Promise<string> {
-      return await DraftService.PickBodyFile(tr('files.bodyFile'), tr('files.allFiles'))
+      const path = await asked(
+        DraftService.PickBodyFile(tr('files.bodyFile'), tr('files.allFiles')),
+        'files.pickFailed'
+      )
+      return path ?? ''
     },
 
     async addRow(kind: RowKind): Promise<string> {
       const before = this.idsOf(kind)
-      this.apply(await DraftService.AddRow(DRAFT, kind))
+      if (!(await this.edit(DraftService.AddRow(DRAFT, kind)))) return ''
       const after = this.idsOf(kind)
       return after.find((id) => !before.includes(id)) ?? ''
     },
 
     async removeRow(kind: RowKind, id: string) {
-      this.apply(await DraftService.RemoveRow(DRAFT, kind, id))
+      await this.edit(DraftService.RemoveRow(DRAFT, kind, id))
     },
 
     async patchRow(kind: RowKind, id: string, patch: RowPatch) {
-      this.apply(await DraftService.PatchRow(DRAFT, kind, id, patch))
+      await this.edit(DraftService.PatchRow(DRAFT, kind, id, patch))
     },
 
     async toggleRow(kind: RowKind, id: string, enabled: boolean) {
@@ -438,16 +434,12 @@ export const useRequestsStore = defineStore('requests', {
     // A whole request handed to the draft: a record opened in the command line, or a command
     // pasted into it.
     async replace(seed: Seed) {
-      // A flush of the text that is being replaced must not land on the draft that replaced it.
-      if (this.flushTimer) {
-        clearTimeout(this.flushTimer)
-        this.flushTimer = null
-      }
+      // A flush of the text that is being replaced must not land on the draft that replaced it, and
+      // the revisions move on so an answer already on its way describes nothing the window holds.
+      abandoned(this)
       this.urlRev += 1
       this.bodyRev += 1
-      this.bufferedUrl = false
-      this.bufferedBody = false
-      this.apply(await DraftService.Replace(DRAFT, seed))
+      if (!(await this.edit(DraftService.Replace(DRAFT, seed)))) return
       // Filled, not edited: what stands in the line is that request and nothing of anybody's own.
       this.lineRevision = this.draft?.revision ?? 0
     },
@@ -460,17 +452,15 @@ export const useRequestsStore = defineStore('requests', {
     //
     // The reading comes back either way. A paste that was not a command returns no state at all,
     // and the window puts the text in the field itself.
-    async pasteCommand(text: string): Promise<CommandResult> {
-      if (this.flushTimer) {
-        clearTimeout(this.flushTimer)
-        this.flushTimer = null
-      }
+    async pasteCommand(text: string): Promise<CommandResult | null> {
+      abandoned(this)
       this.urlRev += 1
       this.bodyRev += 1
-      this.bufferedUrl = false
-      this.bufferedBody = false
 
-      const pasted = await DraftService.PasteCommand(DRAFT, text)
+      // A paste the other side would not read answers with nothing, and the refusal has been said
+      // out loud: the caller words what is left, which is a paste that did not happen.
+      const pasted = await asked(DraftService.PasteCommand(DRAFT, text), 'request.editFailed')
+      if (!pasted) return null
       if (pasted.state) {
         this.apply(pasted.state)
         // A command is a request handed over whole, like a record: the line holds it and nothing of
@@ -498,7 +488,9 @@ export const useRequestsStore = defineStore('requests', {
       // a label that flickered to empty would leave every reader of it, the clear among them, with
       // nothing to compare an event against.
       this.workspaceId = useWorkspacesStore().activeId || this.workspaceId
-      this.records = (await RecordsService.List(RecordSource.$zero, 0)) ?? []
+      const records = await asked(RecordsService.List(RecordSource.$zero, 0), 'history.readFailed')
+      if (!records) return
+      this.records = records ?? []
     },
 
     // What a switch leaves behind: nothing on screen is about the workspace being entered, and a body
@@ -514,19 +506,6 @@ export const useRequestsStore = defineStore('requests', {
       this.loading = false
     },
 
-    // The old build kept history in localStorage; it moves into the database on the first launch of
-    // this one. The raw string goes over as it is — reading that shape is Go's job — and the key is
-    // dropped only once the import is through, so a failure is retried on the next launch.
-    async importLegacyOnce() {
-      const raw = localStorage.getItem(LEGACY_KEY)
-      if (raw === null) return
-      try {
-        await RecordsService.ImportLegacy(raw)
-        localStorage.removeItem(LEGACY_KEY)
-      } catch {
-        // The key stays: the next launch tries again.
-      }
-    },
 
     // A record arriving from Go — one this app sent, the browser did, or the sample is. It lands at
     // the top, and a record already in the list is replaced rather than added twice.
@@ -632,14 +611,21 @@ export const useRequestsStore = defineStore('requests', {
     async applyCaptureFilters() {
       const filters = useSettings().settings.value?.captureFilters
       if (!filters) return
-      await BridgeService.ApplyCaptureFilters(filters)
+      try {
+        await BridgeService.ApplyCaptureFilters(filters)
+      } catch {
+        // Silence is the right answer here and nowhere else: the frames repeat, so the next one is
+        // the retry — and an extension that is away would otherwise raise a toast twice a second.
+      }
     },
 
     // Holding capture down and letting it go: one place for it, because the status bar and the
     // browser page both offer the switch and two copies of it would be two answers.
+    // The strip is drawn from what this store holds, so a toggle that did not happen has to be said
+    // out loud: the control would otherwise show a state the extension is not in.
     async toggleCapture() {
-      if (this.capture.paused) await BridgeService.ResumeCapture()
-      else await BridgeService.PauseCapture()
+      const call = this.capture.paused ? BridgeService.ResumeCapture() : BridgeService.PauseCapture()
+      await asked(call, 'browser.captureFailed')
     },
 
     // A body the record did not bring with it is read once, by name, and kept for as long as the
@@ -683,7 +669,16 @@ export const useRequestsStore = defineStore('requests', {
     async send() {
       await this.flush()
       this.loading = true
-      const id = await RecordsService.Send(DRAFT)
+      // Let out rather than swallowed: the wording of a refusal belongs to the screen the button is
+      // on, and it is that screen that catches this and words it. What belongs here is the button
+      // not being left waiting for a request that was never started.
+      let id: string
+      try {
+        id = await RecordsService.Send(DRAFT)
+      } catch (error) {
+        this.failSend()
+        throw error
+      }
       // What the line holds is a record from this moment on — it is in the history, and sending does
       // not change the draft — so it stops being work of its own. A line edited after this is work
       // again, which is what the revision moving on says.
@@ -711,16 +706,22 @@ export const useRequestsStore = defineStore('requests', {
     // being composed.
     async sendSpec(seed: Seed) {
       this.loading = true
-      const id = await RecordsService.SendSpec(seed)
+      const id = await asked(RecordsService.SendSpec(seed), 'request.sendFailed')
+      if (!id) {
+        this.failSend()
+        return
+      }
       this.claim(id)
       if (this.loading) this.pendingId = id
     },
 
+    // A cancel that failed is not news: the request is already on its way, and the button has stopped
+    // waiting for it either way.
     async cancel() {
       const id = this.pendingId
       this.pendingId = null
       this.loading = false
-      if (id) await RecordsService.Cancel(id)
+      if (id) await asked(RecordsService.Cancel(id), 'request.sendFailed')
     },
 
     async finishSend(record: Record) {
@@ -736,7 +737,7 @@ export const useRequestsStore = defineStore('requests', {
 
     async clearRecords(ids: string[]) {
       if (ids.length === 0) return
-      await RecordsService.Clear(ids)
+      if (!(await asked(RecordsService.Clear(ids), 'history.clearFailed'))) return
 
       const gone = new Set(ids)
       this.records = this.records.filter((r) => !gone.has(r.id))

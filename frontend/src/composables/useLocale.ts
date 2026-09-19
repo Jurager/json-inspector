@@ -69,7 +69,11 @@ function applyLanguage() {
       refused: { title: t('signIn.refused.title'), text: t('signIn.refused.text') },
       failed: t('signIn.failed'),
     },
-  )
+  ).catch(() => {
+    // `void` drops the value, not the refusal, and this is the one that would have gone nowhere. What
+    // it costs is the native menu's words and the sign-in page's: they keep the language they had,
+    // which is a window already drawn rather than a failure anybody can act on.
+  })
 }
 
 function persist(next: Language) {

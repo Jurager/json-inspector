@@ -85,15 +85,18 @@ const sendBlockedReason = computed(() => {
     : t('request.missingNoEnvTitle', { n: missingVarNames.value.length, names })
 })
 
-// A read-only environment is one this window does not write into — that is what its Access switch
-// is for — so a button that quietly put a variable inside it would be breaking the window's own
-// rule. Instead it opens that environment, where the switch is, and says what is in the way.
-const activeReadonly = computed(() => Boolean(envStore.activeEnvironment?.readonly))
+// Which environment this request answers in — the window's, or one it pinned — and where a variable
+// written for it belongs. Both come from one place: the sentence names an environment, and the button
+// beside it has to put the variable in the one it named.
+const { answersIn, stale, scopeId, scopeReadonly } = useRequestEnvironment(store)
 
+// A read-only environment is one this window does not write into — that is what its Access switch is
+// for — so a button that quietly put a variable inside it would be breaking the window's own rule.
+// Instead it opens that environment, where the switch is, and says what is in the way.
 function createMissing() {
-  const envId = envStore.activeId
+  const envId = scopeId.value
   if (envId === null) return
-  if (!activeReadonly.value) {
+  if (!scopeReadonly.value) {
     for (const name of missingVarNames.value) {
       void envStore.addVar(envId, { name }).catch((error) => {
         toast.show(t('request.createFailed', { error: describeFailure(error) }), 'error')
@@ -108,14 +111,13 @@ const createLabel = computed(() =>
 )
 
 const createTitle = computed(() => {
-  if (envStore.activeId === null) return t('request.chooseEnvFirst')
-  if (activeReadonly.value) return t('request.envReadOnly')
+  // The three reasons the button is shut, and each one says what would open it: an environment this
+  // request is pointed at and that is not there any more is not the same as having none at all.
+  if (stale.value) return t('request.pinGone')
+  if (scopeId.value === null) return t('request.chooseEnvFirst')
+  if (scopeReadonly.value) return t('request.envReadOnly')
   return undefined
 })
-
-// Which environment this request answers in — the window's, or one it pinned. The sentence about a
-// missing name has to name that one, and the rule that reads a stale pin is the button's own.
-const { answersIn } = useRequestEnvironment(store)
 
 // ── The send button ──────────────────────────────────────────────────────────────────────────────
 
@@ -234,6 +236,12 @@ async function onUrlPaste(e: ClipboardEvent) {
 
   e.preventDefault()
   const reading = await store.pasteCommand(text)
+  // Nothing came back: the reading could not be asked for, and that has been said already. The paste
+  // was prevented, so the text would otherwise be lost — it goes into the field as plain text.
+  if (!reading) {
+    insertAtCaret(input, text)
+    return
+  }
 
   if (reading.kind === CommandKind.KindError) {
     toast.show(t('request.pasteFailed', { reason: t(`request.parseError.${reading.reason}`) }), 'error')
@@ -363,7 +371,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onWindowKeydown))
          gives way rather than wrapping. -->
     <div v-if="sendBlocked" class="var-error">
       <span class="var-error-dot"></span>
-      <span v-if="envStore.activeId === null" class="var-error-text" :title="sendBlockedReason">{{ t('request.missingVariable', missingVarNames.length) }} <span v-for="(n, i) in missingVarNames" :key="n" class="var-name mono">{{ n }}<span v-if="i < missingVarNames.length - 1">, </span></span> {{ t('request.missingNoEnv') }}</span>
+      <span v-if="scopeId === null" class="var-error-text" :title="sendBlockedReason">{{ t('request.missingVariable', missingVarNames.length) }} <span v-for="(n, i) in missingVarNames" :key="n" class="var-name mono">{{ n }}<span v-if="i < missingVarNames.length - 1">, </span></span> {{ t('request.missingNoEnv') }}</span>
       <span v-else class="var-error-text" :title="sendBlockedReason">{{ t('request.missingVariable', missingVarNames.length) }} <span v-for="(n, i) in missingVarNames" :key="n" class="var-name mono">{{ n }}<span v-if="i < missingVarNames.length - 1">, </span></span> {{ t('request.missingNotIn', missingVarNames.length) }} <b>{{ answersIn }}</b> {{ t('request.missingSendingBlocked') }}</span>
 
       <!-- One way out, as the drawing gives it. In an environment the user has closed the button is
@@ -372,7 +380,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onWindowKeydown))
       <button
         type="button"
         class="var-error-action"
-        :disabled="envStore.activeId === null || activeReadonly"
+        :disabled="scopeId === null || scopeReadonly"
         :title="createTitle"
         @click="createMissing"
       >

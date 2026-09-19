@@ -23,29 +23,17 @@ func (f fakeScope) ActiveWorkspace(context.Context) (string, error) {
 	return f.id, nil
 }
 
-// fakeHome answers with the workspace the installation began in, which every test here is: the
-// import it serves is about this installation's own data, not about the space on screen.
-type fakeHome struct{ id string }
-
-func (f fakeHome) FirstWorkspace(context.Context) (string, error) {
-	if f.id == "" {
-		return domain.WorkspacePersonalID, nil
-	}
-	return f.id, nil
-}
-
 type fakeStore struct {
 	saved    []domain.Record
 	bodies   map[string]string
 	pruned   []domain.PruneOptions
 	listed   []int
 	saveFail error
-	imports  map[string]domain.ImportStatus
 	askedIn  []string
 }
 
 func newFakeStore() *fakeStore {
-	return &fakeStore{bodies: map[string]string{}, imports: map[string]domain.ImportStatus{}}
+	return &fakeStore{bodies: map[string]string{}}
 }
 
 func (f *fakeStore) SaveRecord(_ context.Context, workspaceID string, rec domain.Record) error {
@@ -161,24 +149,6 @@ func (f *fakeStore) HistoryStats(
 		}
 	}
 	return stats, nil
-}
-
-func (f *fakeStore) ClaimImport(_ context.Context, source string) (bool, error) {
-	if status, ok := f.imports[source]; ok && status != domain.ImportPending {
-		return false, nil
-	}
-	f.imports[source] = domain.ImportPending
-	return true, nil
-}
-
-func (f *fakeStore) FinishImport(
-	_ context.Context,
-	source string,
-	status domain.ImportStatus,
-	_ string,
-) error {
-	f.imports[source] = status
-	return nil
 }
 
 type fakeExecutor struct {
@@ -321,7 +291,7 @@ func newScopedUseCase(
 	retention := RetentionSourceFunc(func(context.Context) (domain.Retention, error) {
 		return domain.RetainWeek, nil
 	})
-	return NewUseCase(store, scope, fakeHome{}, executor, notifier, retention, screen, mask,
+	return NewUseCase(store, scope, executor, notifier, retention, screen, mask,
 			platform.NewIDGen(), platform.BuildInfo{Name: "JSON Inspector", Version: "test"}), store,
 		executor, notifier
 }
@@ -792,57 +762,6 @@ func TestHistoryWeighsTheWorkspaceOnScreen(t *testing.T) {
 	}
 	if stats.Bytes != 2048 {
 		t.Errorf("bytes = %d, want only the bodies of that space", stats.Bytes)
-	}
-}
-
-// The oldest rows hold headers as an object of names to values; rows written since headers started
-// repeating hold them as pairs. A profile can hold both, so the import reads both.
-func TestImportLegacyReadsBothHeaderShapes(t *testing.T) {
-	uc, store, _, _ := newUseCase()
-	ctx := context.Background()
-
-	payload := `[
-	  {"id": "old-1", "method": "GET", "url": "https://a.example.com/x", "status": 200,
-	   "source": "manual",
-	   "startedAt": 1000, "requestHeaders": {"Accept": "application/json"},
-	   "responseHeaders": {"Content-Type": "application/json"}, "responseBody": "{\"data\":[]}"},
-	  {"id": "old-2", "method": "POST", "url": "https://b.example.com/y", "status": 201,
-	   "source": "browser",
-	   "startedAt": 2000,
-	   	"responseHeaders": [{"name": "X-One", "value": "1"}, {"name": "X-One", "value": "2"}],
-	   "tabTitle": "Second"},
-	  {"id": "", "method": "GET", "url": "", "startedAt": 3000}
-	]`
-
-	report, err := uc.ImportLegacy(ctx, payload)
-	if err != nil {
-		t.Fatalf("ImportLegacy: %v", err)
-	}
-	if report.Records != 2 || report.Skipped != 1 || !report.Completed {
-		t.Fatalf("report = %+v, want two records and one skipped row", report)
-	}
-
-	first := store.saved[0]
-	if len(first.RequestHeaders) != 1 || first.RequestHeaders[0].Name != "Accept" {
-		t.Errorf("an object of headers came through as %+v", first.RequestHeaders)
-	}
-	second := store.saved[1]
-	if second.Source != domain.SourceBrowser || second.TabTitle != "Second" {
-		t.Errorf("second = %+v, want the browser row with its tab", second.RecordSummary)
-	}
-	var repeated int
-	for _, h := range second.ResponseHeaders {
-		if h.Name == "X-One" {
-			repeated++
-		}
-	}
-	if repeated != 2 {
-		t.Errorf("X-One appears %d times, want both values kept", repeated)
-	}
-
-	// A second run is a no-op: the claim is what makes the import happen once.
-	if again, err := uc.ImportLegacy(ctx, payload); err != nil || again.Records != 0 {
-		t.Errorf("second run = %+v, %v; want nothing done", again, err)
 	}
 }
 

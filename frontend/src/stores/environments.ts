@@ -7,9 +7,6 @@ import type { EnvScope, EnvState, Environment, Variable } from '../../bindings/j
 import type { Entry } from '../../bindings/json-inspector/internal/dotenv'
 import type { EnvironmentDraft } from '../../bindings/json-inspector/internal/usecase/environment'
 
-// What the environments lived in before they moved into the database.
-const LEGACY_KEY = 'ji-env-v1'
-
 function scopeOf(envId: string | null): EnvScope {
   return envId === null ? {} : { environment: envId }
 }
@@ -67,22 +64,6 @@ export const useEnvironmentsStore = defineStore('environments', {
       this.sheetFocus = null
     },
 
-    // The old build kept environments and their secrets in localStorage, apart from the secret
-    // values themselves, which lived in the OS keychain — those do not come over, and the import
-    // reports them by name. The raw string goes over as it is, reading that shape being Go's job,
-    // and the key is dropped only once the import is through.
-    async importLegacyOnce() {
-      const raw = localStorage.getItem(LEGACY_KEY)
-      if (raw === null) return
-      try {
-        await EnvironmentsService.ImportLegacy(raw)
-        localStorage.removeItem(LEGACY_KEY)
-        this.envState = await EnvironmentsService.Snapshot()
-      } catch {
-        // The key stays: the next launch tries again, which is how a database that was locked or
-        // read-only recovers once the user fixes it.
-      }
-    },
 
     // A fresh database has nowhere to type a base URL, which is a poor first screen.
     async ensureDefaults() {

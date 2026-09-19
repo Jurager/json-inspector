@@ -68,14 +68,6 @@ export function History(): $CancellablePromise<domain$0.HistoryStats> {
 }
 
 /**
- * ImportLegacy moves the history the old frontend kept in localStorage into the database, once. The
- * payload is the raw string: reading that shape is this side's job, not the window's.
- */
-export function ImportLegacy(raw: string): $CancellablePromise<record$0.ImportReport> {
-    return $Call.ByID(1457247847, raw);
-}
-
-/**
  * Ingest stores a record the app did not send. The extension has this already, through the bridge;
  * it is bound so the window can keep the sample it shows off with.
  */

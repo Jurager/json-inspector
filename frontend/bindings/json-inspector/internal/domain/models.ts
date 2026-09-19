@@ -109,8 +109,8 @@ export enum BodyKind {
     $zero = "",
 
     /**
-     * BodyRaw is text this app does not interpret. It is the zero answer: a draft, a node or a file
-     * written before there were kinds holds text, and text is what raw means.
+     * BodyRaw is text this app does not interpret. It is the zero answer: a request that says nothing
+     * about its body sends text, and text is what raw means.
      */
     BodyRaw = "raw",
     BodyJSON = "json",
@@ -280,8 +280,8 @@ export enum Code {
 
 /**
  * Collection is a saved group of requests with a name of its own, and it may hold other
- * collections. What used to be a folder is one of these with a parent: the two were never more than
- * that apart, and keeping them separate is what stopped a collection from being put inside one.
+ * collections. A folder is one of these with a parent: the two were never more than that apart, and
+ * keeping them separate is what stopped a collection from being put inside one.
  */
 export interface Collection {
     "id": string;
@@ -384,6 +384,10 @@ export interface CollectionRun {
      * the time. It is a name rather than an id because a run is a thing that happened: the
      * environment on screen next week is not the one these requests were sent with, and neither is
      * the name it may have been renamed to since.
+     * 
+     * It is the environment the run was started under, which is what every request in it resolves in
+     * unless that request pinned one of its own — a request carries its own environment, and the run
+     * carries the one they fall back on.
      */
     "environment"?: string;
     "startedAt": number;

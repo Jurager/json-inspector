@@ -518,7 +518,7 @@ async function run() {
 
 <template>
   <div class="overview">
-    <header class="head">
+    <header class="page-head">
       <span class="folder"><Icon name="folder" :size="23" :stroke-width="1.7" /></span>
       <div class="titles">
         <h1 class="title">{{ title }}</h1>
@@ -556,32 +556,32 @@ async function run() {
       </Button>
     </header>
 
-    <div class="stats">
-      <div v-for="stat in stats" :key="stat.label" class="stat">
-        <span class="stat-label">{{ stat.label }}</span>
-        <span class="stat-value">{{ stat.value }}</span>
-        <span class="stat-note">{{ stat.note }}</span>
+    <div class="page-stats">
+      <div v-for="stat in stats" :key="stat.label" class="page-stat">
+        <span class="page-stat-label">{{ stat.label }}</span>
+        <span class="page-stat-value">{{ stat.value }}</span>
+        <span class="page-stat-note">{{ stat.note }}</span>
       </div>
     </div>
 
     <section class="requests">
       <div class="section-head">
-        <span class="section-label">{{ t('collections.runResults') }}</span>
+        <span class="page-section-label">{{ t('collections.runResults') }}</span>
         <span class="section-note">{{ runNote }}</span>
         <span class="head-spacer"></span>
         <button v-if="mine" type="button" class="report-link" @click="sheet = 'report'">
           {{ t('collections.openReport') }}
         </button>
       </div>
-      <div class="table">
-        <div class="table-head">
+      <div class="page-table">
+        <div class="page-table-head">
           <span>{{ t('collections.columnMethod') }}</span>
           <span>{{ t('collections.columnName') }}</span>
           <span>{{ t('collections.columnAssertions') }}</span>
           <span>{{ t('collections.columnTime') }}</span>
           <span>{{ t('collections.columnStatus') }}</span>
         </div>
-        <div class="table-body">
+        <div class="page-table-body">
           <button
             v-for="entry in tableRows"
             :key="entry.row.id"
@@ -589,7 +589,7 @@ async function run() {
             class="table-row"
             @click="openRow(entry.row)"
           >
-            <span class="cell-method mono" :class="methodInkClass(entry.row.method ?? '')">
+            <span class="page-cell-method mono" :class="methodInkClass(entry.row.method ?? '')">
               {{ entry.row.method }}
             </span>
             <!-- The folder a row came from, where it came from one: the table holds the whole
@@ -615,25 +615,25 @@ async function run() {
       </div>
     </section>
 
-    <div class="cards">
-      <div class="card">
-        <span class="card-title">{{ t('collections.authSheet') }}</span>
-        <span class="card-body">{{ authNote }}</span>
-        <button type="button" class="card-action" @click="sheet = 'auth'">
+    <div class="page-cards">
+      <div class="page-card">
+        <span class="page-card-title">{{ t('collections.authSheet') }}</span>
+        <span class="page-card-body">{{ authNote }}</span>
+        <button type="button" class="page-card-action" @click="sheet = 'auth'">
           {{ t('collections.editAuth') }}
         </button>
       </div>
-      <div class="card">
-        <span class="card-title">{{ t('collections.variablesSheet') }}</span>
-        <span class="card-body">{{ variablesNote }}</span>
-        <button type="button" class="card-action" @click="sheet = 'variables'">
+      <div class="page-card">
+        <span class="page-card-title">{{ t('collections.variablesSheet') }}</span>
+        <span class="page-card-body">{{ variablesNote }}</span>
+        <button type="button" class="page-card-action" @click="sheet = 'variables'">
           {{ t('collections.editVariables') }}
         </button>
       </div>
-      <div class="card">
-        <span class="card-title">{{ t('collections.scriptsSheet') }}</span>
-        <span class="card-body">{{ scriptsNote }}</span>
-        <button type="button" class="card-action" @click="sheet = 'scripts'">
+      <div class="page-card">
+        <span class="page-card-title">{{ t('collections.scriptsSheet') }}</span>
+        <span class="page-card-body">{{ scriptsNote }}</span>
+        <button type="button" class="page-card-action" @click="sheet = 'scripts'">
           {{ t('collections.editScripts') }}
         </button>
       </div>
@@ -693,14 +693,14 @@ async function run() {
 /* «Запустить папку» is the handoff's own one-off button: a shade larger than the two beside it, which
    are Button.vue's plain page size. It is written here rather than added to that file because the
    drawing gives no other button these numbers. */
-.head .btn.run-folder {
+.page-head .btn.run-folder {
   gap: 9px;
   padding: 0 16px;
   font-size: 14px;
   font-weight: 600;
 }
 
-.head {
+.page-head {
   @apply flex items-start gap-4;
 }
 
@@ -739,25 +739,25 @@ async function run() {
 }
 
 /* Four counters on one line: a collection's whole state is worth a glance, and a glance is one line. */
-.stats {
+.page-stats {
   @apply grid grid-cols-4 gap-3;
 }
 
-.stat {
+.page-stat {
   @apply flex flex-col gap-1.5 border border-border rounded-xl;
   padding: 14px 16px;
 }
 
-.stat-label {
+.page-stat-label {
   @apply text-[11px] font-semibold uppercase tracking-[0.07em] text-text-tertiary;
 }
 
-.stat-value {
+.page-stat-value {
   @apply text-[19px] font-semibold;
   letter-spacing: -0.01em;
 }
 
-.stat-note {
+.page-stat-note {
   @apply text-[13px] text-text-tertiary;
 }
 
@@ -771,7 +771,7 @@ async function run() {
   @apply flex items-baseline gap-2.5;
 }
 
-.section-label {
+.page-section-label {
   @apply text-[11px] font-semibold uppercase tracking-[0.07em] text-text-tertiary;
 }
 
@@ -791,26 +791,26 @@ async function run() {
 
 /* The level's rows, capped at the height the handoff draws: a collection of fifty requests is a list
    to scroll inside a page rather than a page of its own. */
-.table {
+.page-table {
   @apply flex flex-col border border-border rounded-xl overflow-hidden max-h-[320px];
 }
 
-.table-body {
+.page-table-body {
   @apply flex-1 min-h-0 overflow-y-auto;
 }
 
-.table-head,
+.page-table-head,
 .table-row {
   @apply grid items-center;
   grid-template-columns: 90px minmax(0, 1fr) 200px 120px 110px;
 }
 
-.table-head {
+.page-table-head {
   @apply bg-bg-inset border-b border-border text-[11px] font-semibold uppercase
          tracking-[0.06em] text-text-tertiary;
 }
 
-.table-head > span {
+.page-table-head > span {
   padding: 10px 16px;
 }
 
@@ -834,7 +834,7 @@ async function run() {
 
 /* The verb wears its own colour, as in the tree beside it: the size is the table's, the ink is the
    shared class's. */
-.cell-method {
+.page-cell-method {
   @apply text-[12px];
 }
 
@@ -883,32 +883,32 @@ async function run() {
   padding: 14px 16px;
 }
 
-.cards {
+.page-cards {
   @apply grid grid-cols-3 gap-3;
 }
 
-.card {
+.page-card {
   @apply flex flex-col items-start gap-2 border border-border rounded-xl;
   padding: 16px;
 }
 
-.card-title {
+.page-card-title {
   @apply text-[13px] font-semibold;
 }
 
-.card-body {
+.page-card-body {
   @apply text-[13px] leading-normal text-text-secondary;
 }
 
 /* The three cards stand in a row and their sentences are of different lengths, so the action is
    pushed to the foot of its card: three buttons at three heights read as three different things. */
-.card-action {
+.page-card-action {
   @apply self-start mt-auto h-[30px] px-2 -ml-2 border-0 rounded-[7px] bg-transparent cursor-pointer
          text-[13px] font-medium text-accent;
   font-family: inherit;
 }
 
-.card-action:hover {
+.page-card-action:hover {
   @apply bg-accent-soft;
 }
 

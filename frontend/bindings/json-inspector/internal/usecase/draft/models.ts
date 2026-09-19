@@ -130,6 +130,14 @@ export interface Seed {
      * knows where the request came from, and a seed is a request, not a place in a tree.
      */
     "auth"?: domain$0.Auth | null;
+
+    /**
+     * EnvironmentID is the environment this one request resolves its `{{tokens}}` in, when it is not
+     * the window's own — a run sends requests that were saved with a pin, and it is no longer looking
+     * at the tree they came from. Empty means the window's, which is what a followed link and a
+     * pasted command answer with: neither was ever pinned to anything.
+     */
+    "environmentId"?: string;
 }
 
 /**

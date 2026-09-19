@@ -57,16 +57,6 @@ export function ImportEntries(scope: domain$0.EnvScope, entries: dotenv$0.Entry[
 }
 
 /**
- * ImportLegacy moves what the old frontend kept in localStorage into the database, once. The
- * payload is the raw string: parsing the old shape is this side's job, not the window's. A secret
- * arrives without its value, which lived in the keychain and is not read any more — the report says
- * so, and the value is one the user enters again.
- */
-export function ImportLegacy(raw: string): $CancellablePromise<environment$0.ImportReport> {
-    return $Call.ByID(3560788915, raw);
-}
-
-/**
  * ParseDotenv reads a .env file for the import dialog's preview: what is in it, and which names
  * look like secrets. The dialog decides what to keep; parsing it is not the window's job.
  */

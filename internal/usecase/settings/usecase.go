@@ -72,9 +72,9 @@ func (u *UseCase) Snapshot(ctx context.Context) (domain.Settings, error) {
 	if channel := domain.UpdateChannel(stored[domain.SettingUpdateChannel]); channel.Valid() {
 		out.UpdateChannel = channel
 	}
-	// Three whose absence means "on": a database written before they existed has no row for them, and
-	// an editor that stopped wrapping lines because nobody had ever said so would be a change nobody
-	// asked for. Only a value that parses and says false turns one off.
+	// Three whose absence means "on": a setting nobody has written has no row at all, and an editor
+	// that stopped wrapping lines because nobody had ever said so would be a change nobody asked for.
+	// Only a value that parses and says false turns one off.
 	if wrap, ok := parseBool(stored[domain.SettingWrapLines]); ok {
 		out.WrapLines = wrap
 	}

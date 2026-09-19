@@ -41,6 +41,32 @@ function files(dir) {
 // can be said about it without running the app.
 const CALL = /\bt\(\s*(['"`])([^'"`]*)\1/g
 
+// A key also reaches `t` through a helper, where the scan above cannot see it: `asked(call, key)` in
+// the stores hands its second argument to `t` on the refusal path. Those keys are written by hand the
+// same way, and one of them went to a catalogue that never had it — the window then showed the key's
+// own name in a toast, and this script said nothing.
+//
+// The call is walked to its own closing bracket rather than matched by a pattern: the first argument
+// is usually a call of its own with commas and brackets in it, and a pattern that stopped at the first
+// comma would quietly skip the very sites this is here to check.
+function askedKeys(source) {
+  const keys = []
+  for (const call of source.matchAll(/\basked\(/g)) {
+    const start = call.index + call[0].length
+    let depth = 1
+    let end = start
+    for (; end < source.length && depth > 0; end++) {
+      if (source[end] === '(') depth++
+      else if (source[end] === ')') depth--
+    }
+    const args = source.slice(start, end - 1)
+    const last = [...args.matchAll(/(['"`])([^'"`]*)\1/g)].pop()
+    // Nothing may follow it: a literal in the middle is something the call was given, not its key.
+    if (last && args.slice(last.index + last[0].length).trim() === '') keys.push(last[2])
+  }
+  return keys
+}
+
 const en = await catalogue('en')
 const ru = await catalogue('ru')
 const problems = []
@@ -57,7 +83,9 @@ for (const code of declared) {
 }
 
 for (const path of files(SRC)) {
-  for (const [, , raw] of readFileSync(path, 'utf8').matchAll(CALL)) {
+  const source = readFileSync(path, 'utf8')
+  const used = [...source.matchAll(CALL)].map((m) => m[2]).concat(askedKeys(source))
+  for (const raw of used) {
     // A key with no dot names nothing in a nested catalogue.
     const key = raw.split('${')[0]
     if (!key.includes('.')) continue

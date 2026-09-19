@@ -6,8 +6,8 @@ package domain
 type BodyKind string
 
 const (
-	// BodyRaw is text this app does not interpret. It is the zero answer: a draft, a node or a file
-	// written before there were kinds holds text, and text is what raw means.
+	// BodyRaw is text this app does not interpret. It is the zero answer: a request that says nothing
+	// about its body sends text, and text is what raw means.
 	BodyRaw    BodyKind = "raw"
 	BodyJSON   BodyKind = "json"
 	BodyXML    BodyKind = "xml"
@@ -17,8 +17,9 @@ const (
 
 // KindOf is the kind a body actually goes out as, with the empty value read as raw.
 //
-// There is deliberately no kind for "no body": an empty text already says that, and it is what
-// keeps the columns written before this type existed meaningful.
+// There is deliberately no kind for "no body": an empty text already says that. The empty value
+// reaches here from the wire, where a request that does not care which format its body is in leaves
+// the field out — and raw is what that means.
 func KindOf(kind BodyKind) BodyKind {
 	if kind == "" {
 		return BodyRaw

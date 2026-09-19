@@ -4,6 +4,8 @@ import { findCollection, holderOf, requestCount, trailOf, type Trail } from '../
 import { takeAnswer } from '../lib/earlyAnswers'
 import { NO_AUTH } from '../lib/requestSource'
 import type { ChipName } from '../lib/requestSource'
+import { abandoned, owed, settled, typed } from '../lib/draftBuffer'
+import { asked } from './calls'
 import { t as tr } from '../i18n'
 import {
   BodyKind,
@@ -43,11 +45,6 @@ import {
   RecordsService,
   ScriptingService,
 } from '../../bindings/json-inspector/internal/transport/wails'
-
-// How long the window holds a text it is typing before handing it over — the same pause the command
-// line uses, and for the same reason: the draft is Go's, so every keystroke would otherwise be a
-// write on the other side of the boundary.
-export const FLUSH_MS = 400
 
 // The saved requests, mirrored. Go owns the tree and the request a card is editing; what the window
 // owns is what it is typing, which rows are open, and what is selected.
@@ -256,7 +253,9 @@ export const useCollectionsStore = defineStore('collections', {
     // ---- the tree ---------------------------------------------------------
 
     async load() {
-      this.applyTree((await CollectionsService.Tree()) ?? [])
+      const tree = await asked(CollectionsService.Tree(), 'collections.readFailed')
+      if (!tree) return
+      this.applyTree(tree ?? [])
     },
 
     // What a workspace switch leaves behind. The tree arrives next and replaces what is drawn; what
@@ -289,8 +288,12 @@ export const useCollectionsStore = defineStore('collections', {
     // A folder is a collection with a parent, so making one is this call with the level it goes in.
     // Empty is the top of the tree, which is where the panel's «+» puts one.
     async createCollection(name: string, parentId = '') {
-      const tree = (await CollectionsService.CreateCollection(name, '', parentId)) ?? []
-      this.applyTree(tree)
+      const tree = await asked(
+        CollectionsService.CreateCollection(name, '', parentId),
+        'collections.saveFailed'
+      )
+      if (!tree) return
+      this.applyTree(tree ?? [])
       // A new collection is what the user is looking at, so it becomes the selection. It is the last
       // one with that name: Go appends, and the id is Go's to mint.
       const created = [...tree].reverse().find((c) => c.name === name)
@@ -300,7 +303,11 @@ export const useCollectionsStore = defineStore('collections', {
     },
 
     async createNode(collectionId: string, name: string, method = 'GET') {
-      const created = await CollectionsService.CreateNode({ collectionId, name, method })
+      const created = await asked(
+        CollectionsService.CreateNode({ collectionId, name, method }),
+        'collections.saveFailed'
+      )
+      if (!created) return
       this.applyTree(created.tree ?? [])
       this.expanded[collectionId] = true
       // A new request opens straight away: it was made to be filled in.
@@ -310,18 +317,24 @@ export const useCollectionsStore = defineStore('collections', {
     // What a drop in the tree calls. A row the drop ended up in the same collection it came from is
     // still a move: a request dropped above its neighbour is the order changing and nothing else.
     async moveNode(id: string, collectionId: string, position: number) {
-      this.applyTree((await CollectionsService.MoveNode(id, collectionId, position)) ?? [])
+      const tree = await asked(CollectionsService.MoveNode(id, collectionId, position), 'collections.saveFailed')
+      if (tree) this.applyTree(tree)
     },
 
     // A collection dropped into another one, or back out at the top level when the parent is empty.
     async moveCollection(id: string, parentId: string, position: number) {
-      this.applyTree((await CollectionsService.MoveCollection(id, parentId, position)) ?? [])
+      const tree = await asked(CollectionsService.MoveCollection(id, parentId, position), 'collections.saveFailed')
+      if (tree) this.applyTree(tree)
     },
 
     // Saving from the command line copies what is composed into a collection. The draft is not
     // touched: saving a copy is not a move, and what is being composed stays where it is.
     async saveDraft(collectionId: string, name: string) {
-      const created = await CollectionsService.SaveDraft(collectionId, name)
+      const created = await asked(
+        CollectionsService.SaveDraft(collectionId, name),
+        'collections.saveFailed'
+      )
+      if (!created) return
       this.applyTree(created.tree ?? [])
       this.expanded[collectionId] = true
     },
@@ -329,7 +342,10 @@ export const useCollectionsStore = defineStore('collections', {
     // A collection travels as a file: the window asks Go for an import, and Go reads the file. A
     // cancelled dialog answers with nothing — neither a change nor a failure.
     async importFile(): Promise<string | null> {
-      const tree = await CollectionsService.ImportFile(tr('files.importCollection'))
+      const tree = await asked(
+        CollectionsService.ImportFile(tr('files.importCollection')),
+        'collections.importFailed'
+      )
       if (!tree) return null
       this.applyTree(tree)
       // What was imported is the last collection: Go appends, and the file's name is its id-less
@@ -346,34 +362,40 @@ export const useCollectionsStore = defineStore('collections', {
     },
 
     async rename(id: string, name: string) {
-      this.applyTree((await CollectionsService.Rename(id, name)) ?? [])
+      const tree = await asked(CollectionsService.Rename(id, name), 'collections.saveFailed')
+      if (tree) this.applyTree(tree)
     },
 
     // A description written in the header is saved the way a rename is: the answer is the whole tree,
     // and the tree is where the header reads the line back from.
     async describe(id: string, description: string) {
-      this.applyTree((await CollectionsService.Describe(id, description)) ?? [])
+      const tree = await asked(CollectionsService.Describe(id, description), 'collections.saveFailed')
+      if (tree) this.applyTree(tree)
     },
 
     // The `{{tokens}}` the level answers for everything inside it. The set travels whole, as the editor
     // holds it: Go numbers it, mints the ids of rows that arrived without one, and refuses a secret —
     // a collection is what gets exported and handed on.
     async saveVariables(id: string, variables: Variable[]) {
-      this.applyTree((await CollectionsService.SaveVariables(id, variables)) ?? [])
+      const tree = await asked(CollectionsService.SaveVariables(id, variables), 'collections.saveFailed')
+      if (tree) this.applyTree(tree)
     },
 
     // What the «Авторизация» tab writes: the level's own auth, which everything inside inherits.
     // «Нет» is the same call with an empty auth — Go stores that as no answer at all.
     async saveAuth(id: string, auth: Auth) {
-      this.applyTree((await CollectionsService.SaveAuth(id, auth)) ?? [])
+      const tree = await asked(CollectionsService.SaveAuth(id, auth), 'collections.saveFailed')
+      if (tree) this.applyTree(tree)
     },
 
     async duplicate(id: string) {
-      this.applyTree((await CollectionsService.Duplicate(id, tr('collections.copySuffix'))) ?? [])
+      const tree = await asked(CollectionsService.Duplicate(id, tr('collections.copySuffix')), 'collections.saveFailed')
+      if (tree) this.applyTree(tree)
     },
 
     async remove(id: string) {
-      this.applyTree((await CollectionsService.Delete(id)) ?? [])
+      const tree = await asked(CollectionsService.Delete(id), 'collections.saveFailed')
+      if (tree) this.applyTree(tree)
     },
 
     // A row that closes takes what is inside it with it: a level left open inside a closed row is not a
@@ -418,17 +440,26 @@ export const useCollectionsStore = defineStore('collections', {
         return
       }
 
-      this.clearFlush()
+      abandoned(this)
       this.editor = null
       this.dirty = false
       this.record = null
       this.bodies = {}
-      this.lastRun = await CollectionsService.LastRun(this.collectionId ?? '', this.runNodeId)
+      const run = await asked(
+        CollectionsService.LastRun(this.collectionId ?? '', this.runNodeId),
+        'collections.readFailed'
+      )
+      if (run === undefined) return
+      this.lastRun = run
     },
 
     async openNode(id: string) {
-      this.clearFlush()
-      const editor = await CollectionsService.OpenNode(id)
+      abandoned(this)
+      const editor = await asked(
+        CollectionsService.OpenNode(id),
+        'collections.readFailed'
+      )
+      if (!editor) return
       this.editor = editor
       this.dirty = false
       this.urlText = editor.state.draft.url
@@ -447,7 +478,8 @@ export const useCollectionsStore = defineStore('collections', {
       const id = this.editor?.node.id
       if (!id) return
       await this.flush()
-      this.applyEditor(await CollectionsService.SaveNode(id))
+      const editor = await asked(CollectionsService.SaveNode(id), 'collections.saveFailed')
+      if (editor) this.applyEditor(editor)
     },
 
     applyEditor(editor: NodeEditor) {
@@ -472,90 +504,76 @@ export const useCollectionsStore = defineStore('collections', {
       this.dirty = true
     },
 
+    // An edit of the card's request, from the click to what the window draws — the command line's own
+    // shape, and guarded for the same reason: Go's answer is the only state this side has, so an edit
+    // Go refused leaves the card exactly as it was and says why. Answers whether anything landed.
+    async edit(call: Promise<NodeEditor['state']>): Promise<boolean> {
+      const state = await asked(call, 'request.editFailed')
+      if (!state) return false
+      this.apply(state)
+      return true
+    },
+
     // The card's own answer, asked again for the same reason the command line asks: the variables it
     // names live in a window of their own, and what this holds goes stale while that window is open.
     // A new editor object rather than a field written into the old one, so nothing is mutated in place.
     async refreshPreview() {
       const id = this.draftId()
       if (!id || !this.editor) return
-      const state = await DraftService.Snapshot(id)
+      // A read behind the button rather than behind the person: a preview that could not be asked
+      // for leaves the send-block as it was, and the send itself refuses a missing name properly.
+      const state = await asked(DraftService.Snapshot(id), 'request.readFailed')
+      if (!state) return
       this.editor = { ...this.editor, state: { ...this.editor.state, preview: state.preview } }
     },
 
     applyText(result: TextResult) {
-      if (result.field === TextField.FieldURL) {
-        if (result.rev !== this.urlRev) return
-        this.bufferedUrl = false
-      } else {
-        if (result.rev !== this.bodyRev) return
-        this.bufferedBody = false
-      }
-      this.apply(result)
+      if (settled(this, result)) this.apply(result)
     },
 
     setUrl(text: string) {
-      this.urlText = text
-      this.urlRev += 1
-      this.bufferedUrl = true
+      typed(this, TextField.FieldURL, text, () => void this.flush())
       this.dirty = true
-      this.scheduleFlush()
     },
 
     setBody(text: string) {
-      this.bodyText = text
-      this.bodyRev += 1
-      this.bufferedBody = true
+      typed(this, TextField.FieldBody, text, () => void this.flush())
       this.dirty = true
-      this.scheduleFlush()
-    },
-
-    scheduleFlush() {
-      if (this.flushTimer) clearTimeout(this.flushTimer)
-      this.flushTimer = setTimeout(() => void this.flush(), FLUSH_MS)
-    },
-
-    clearFlush() {
-      if (this.flushTimer) clearTimeout(this.flushTimer)
-      this.flushTimer = null
     },
 
     async flush() {
-      this.clearFlush()
       const id = this.draftId()
+      const parts = owed(this)
       if (!id) return
-      if (this.bufferedUrl) {
-        const rev = this.urlRev
-        this.applyText(await DraftService.SetText(id, { field: TextField.FieldURL, text: this.urlText, rev }))
-      }
-      if (this.bufferedBody) {
-        const rev = this.bodyRev
-        this.applyText(await DraftService.SetText(id, { field: TextField.FieldBody, text: this.bodyText, rev }))
+      for (const part of parts) {
+        const result = await asked(DraftService.SetText(id, part), 'request.editFailed')
+        if (result) this.applyText(result)
       }
     },
 
     async setMethod(method: string) {
       const id = this.draftId()
-      if (id) this.apply(await DraftService.SetMethod(id, method))
+      if (id) await this.edit(DraftService.SetMethod(id, method))
     },
 
     async setEnvironmentOverride(envId: string) {
       const id = this.draftId()
-      if (id) this.apply(await DraftService.SetEnvironmentOverride(id, envId))
+      if (id) await this.edit(DraftService.SetEnvironmentOverride(id, envId))
     },
 
     async setAuth(auth: Auth) {
       const id = this.draftId()
-      if (id) this.apply(await DraftService.SetAuth(id, auth))
+      if (id) await this.edit(DraftService.SetAuth(id, auth))
     },
 
     async patchDerived(target: RowKind, name: string, value: string) {
       const id = this.draftId()
-      if (id) this.apply(await DraftService.PatchDerived(id, target, name, value))
+      if (id) await this.edit(DraftService.PatchDerived(id, target, name, value))
     },
 
     async removeDerived() {
       const id = this.draftId()
-      if (id) this.apply(await DraftService.RemoveDerived(id))
+      if (id) await this.edit(DraftService.RemoveDerived(id))
     },
 
     // «Получить токен» and «Очистить»: the card's own authorization, not the tree's. A level that
@@ -563,45 +581,50 @@ export const useCollectionsStore = defineStore('collections', {
     // them — which is the Auth tab of the collection, not the popover of a request inside it.
     async obtainAuth() {
       const id = this.draftId()
-      if (id) this.apply(await DraftService.ObtainAuth(id))
+      if (id) await this.edit(DraftService.ObtainAuth(id))
     },
 
     async forgetAuth() {
       const id = this.draftId()
-      if (id) this.apply(await DraftService.ForgetAuth(id))
+      if (id) await this.edit(DraftService.ForgetAuth(id))
     },
 
 
     async setBodyKind(kind: BodyKind) {
       const id = this.draftId()
-      if (id) this.apply(await DraftService.SetBodyKind(id, kind))
+      if (id) await this.edit(DraftService.SetBodyKind(id, kind))
     },
 
     async setBodyFile(path: string) {
       const id = this.draftId()
-      if (id) this.apply(await DraftService.SetBodyFile(id, path))
+      if (id) await this.edit(DraftService.SetBodyFile(id, path))
     },
 
     async pickBodyFile(): Promise<string> {
-      return await DraftService.PickBodyFile(tr('files.bodyFile'), tr('files.allFiles'))
+      const path = await asked(
+        DraftService.PickBodyFile(tr('files.bodyFile'), tr('files.allFiles')),
+        'files.pickFailed'
+      )
+      return path ?? ''
     },
 
     async addRow(kind: RowKind): Promise<string> {
       const id = this.draftId()
       if (!id) return ''
       const before = this.idsOf(kind)
-      this.apply(await DraftService.AddRow(id, kind))
+      const landed = await this.edit(DraftService.AddRow(id, kind))
+      if (!landed) return ''
       return this.idsOf(kind).find((row) => !before.includes(row)) ?? ''
     },
 
     async removeRow(kind: RowKind, rowId: string) {
       const id = this.draftId()
-      if (id) this.apply(await DraftService.RemoveRow(id, kind, rowId))
+      if (id) await this.edit(DraftService.RemoveRow(id, kind, rowId))
     },
 
     async patchRow(kind: RowKind, rowId: string, patch: RowPatch) {
       const id = this.draftId()
-      if (id) this.apply(await DraftService.PatchRow(id, kind, rowId, patch))
+      if (id) await this.edit(DraftService.PatchRow(id, kind, rowId, patch))
     },
 
     async toggleRow(kind: RowKind, rowId: string, enabled: boolean) {
@@ -617,31 +640,27 @@ export const useCollectionsStore = defineStore('collections', {
     // A whole request handed to the card: a link followed out of a response, or a record opened in
     // it.
     async replace(seed: Seed) {
-      // A flush of the text being replaced must not land on the draft that replaced it.
-      this.clearFlush()
       const id = this.draftId()
       if (!id) return
+      // A flush of the text being replaced must not land on the draft that replaced it.
+      abandoned(this)
       this.urlRev += 1
       this.bodyRev += 1
-      this.bufferedUrl = false
-      this.bufferedBody = false
-      this.apply(await DraftService.Replace(id, seed))
+      await this.edit(DraftService.Replace(id, seed))
     },
 
     // A command pasted into a card's line. Reading it and handing it to the draft is one call on the
     // other side; what stays here is the buffering, which belongs to the window. See the command
     // line's own pasteCommand for why the reading travels back.
-    async pasteCommand(text: string): Promise<CommandResult> {
-      this.clearFlush()
+    async pasteCommand(text: string): Promise<CommandResult | null> {
       const id = this.draftId()
       if (!id) return { kind: CommandKind.KindNone } as CommandResult
-
+      abandoned(this)
       this.urlRev += 1
       this.bodyRev += 1
-      this.bufferedUrl = false
-      this.bufferedBody = false
 
-      const pasted = await DraftService.PasteCommand(id, text)
+      const pasted = await asked(DraftService.PasteCommand(id, text), 'request.editFailed')
+      if (!pasted) return null
       if (pasted.state) this.apply(pasted.state)
       return pasted.reading
     },
@@ -663,7 +682,16 @@ export const useCollectionsStore = defineStore('collections', {
       const id = this.draftId()
       if (!id) return
       this.loading = true
-      const sent = await RecordsService.Send(id)
+      // Let out rather than swallowed: the wording of a refusal belongs to the screen the button is
+      // on, and it is that screen that catches this and words it. What belongs here is the button
+      // not being left waiting for a request that was never started.
+      let sent: string
+      try {
+        sent = await RecordsService.Send(id)
+      } catch (error) {
+        this.failSend()
+        throw error
+      }
       // The answer can be back before this call is, and this claim has already adopted it and turned
       // the spinner off by then: putting the id back would leave the button waiting for what it just
       // got.
@@ -683,11 +711,13 @@ export const useCollectionsStore = defineStore('collections', {
       else void this.finishSend(early.record)
     },
 
+    // A cancel that failed is not news: the request is already on its way, and the button has stopped
+    // waiting for it either way.
     async cancel() {
       const id = this.pendingId
       this.pendingId = null
       this.loading = false
-      if (id) await RecordsService.Cancel(id)
+      if (id) await asked(RecordsService.Cancel(id), 'request.sendFailed')
     },
 
     async finishSend(record: Record) {
@@ -704,11 +734,25 @@ export const useCollectionsStore = defineStore('collections', {
         request: record.requestBody?.inline,
         response: record.responseBody?.inline,
       }
+      // Only a body the record did not carry is read by name: one that came inline is already here,
+      // and asking for it again would be a call per look at the same row.
+      //
+      // A row can outlive what it names — the history prunes itself, and another window can clear it
+      // — and the refusal is said out loud while the body is left as the record had it: a pane with
+      // the answer it did bring beats an empty one.
       if (bodyMissing(record.requestBody)) {
-        this.bodies.request = await RecordsService.Body(record.id, BodySide.SideRequest)
+        const request = await asked(
+          RecordsService.Body(record.id, BodySide.SideRequest),
+          'response.openFailed'
+        )
+        if (request) this.bodies.request = request
       }
       if (bodyMissing(record.responseBody)) {
-        this.bodies.response = await RecordsService.Body(record.id, BodySide.SideResponse)
+        const response = await asked(
+          RecordsService.Body(record.id, BodySide.SideResponse),
+          'response.openFailed'
+        )
+        if (response) this.bodies.response = response
       }
     },
 
@@ -765,7 +809,7 @@ export const useCollectionsStore = defineStore('collections', {
     },
 
     async stop() {
-      await CollectionsService.Stop()
+      await asked(CollectionsService.Stop(), 'collections.saveFailed')
     },
 
     // One request of a run has come back. The counters feed the status bar, and the row itself is what
@@ -830,11 +874,12 @@ export const useCollectionsStore = defineStore('collections', {
     async loadScripts() {
       const id = this.selectedId
       if (!id) return
-      const scripts = await ScriptingService.Scripts(id)
-      const chain = (await ScriptingService.Chain(id)) ?? []
+      const scripts = await asked(ScriptingService.Scripts(id), 'request.readFailed')
+      const chain = await asked(ScriptingService.Chain(id), 'request.readFailed')
+      if (!scripts || !chain) return
       this.scriptsFor = id
       this.scripts = scripts
-      this.chain = chain
+      this.chain = chain ?? []
     },
 
     // A level adds code and never cancels it: what it has of its own runs after everything above it,
@@ -848,12 +893,13 @@ export const useCollectionsStore = defineStore('collections', {
         postOff: off.post && !!post.trim(),
       }
       const written = pre.trim() || post.trim() ? { pre, post, ...flags } : null
-      const saved = await ScriptingService.SaveScripts(id, written)
+      const saved = await asked(ScriptingService.SaveScripts(id, written), 'request.editFailed')
       // A level that just gained or lost its code is a level that just entered or left the chain.
-      const chain = (await ScriptingService.Chain(id)) ?? []
+      const chain = await asked(ScriptingService.Chain(id), 'request.readFailed')
+      if (!saved || !chain) return
       this.scriptsFor = id
       this.scripts = saved
-      this.chain = chain
+      this.chain = chain ?? []
     },
 
     // What the level would run for one half if its own editor stayed empty: the nearest code above

@@ -84,36 +84,6 @@ func TestDraftRoundTripKeepsTheBodyFormat(t *testing.T) {
 	}
 }
 
-// A row written before there were kinds holds text, and text is what raw means. This is the promise
-// the migration makes: nothing already stored changes meaning.
-func TestABodyKindThatWasNeverWrittenReadsAsRaw(t *testing.T) {
-	store := newMigratedStore(t)
-	ctx := context.Background()
-
-	if err := store.SaveDraft(ctx, ws, sampleDraft()); err != nil {
-		t.Fatalf("SaveDraft: %v", err)
-	}
-	// Writing the column the way an older version of this app left it: empty, or the word it
-	// defaulted to.
-	for _, written := range []string{"", "raw"} {
-		if _, err := store.db.ExecContext(ctx,
-			`UPDATE drafts SET body_kind = ?, form_json = '[]' WHERE id = ?`, written,
-			domain.DraftCommandLine); err != nil {
-			t.Fatalf("updating the fixture: %v", err)
-		}
-		got, err := store.Draft(ctx, ws, domain.DraftCommandLine)
-		if err != nil {
-			t.Fatalf("Draft: %v", err)
-		}
-		if got.BodyKind != domain.BodyRaw {
-			t.Errorf("body_kind %q read as %q, want raw", written, got.BodyKind)
-		}
-		if got.Body != `{"a": 1}` {
-			t.Errorf("body = %q, want the text untouched", got.Body)
-		}
-	}
-}
-
 // The draft is one row: saving twice replaces what the window was composing before.
 func TestSaveDraftReplacesTheOneBefore(t *testing.T) {
 	store := newMigratedStore(t)

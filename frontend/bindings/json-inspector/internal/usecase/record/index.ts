@@ -3,7 +3,6 @@
 
 export type {
     HistoryCleared,
-    ImportReport,
     IngestInput,
     RequestFailed,
     RequestFinished

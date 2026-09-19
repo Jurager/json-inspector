@@ -23,6 +23,11 @@ export function useRequestEnvironment(source: RequestSource) {
     () => envStore.environments.find((e) => e.id === source.environmentId) ?? null
   )
 
+  // A pin nothing answers to: the environment was deleted while the request was pointed at it. It is
+  // not the same trouble as having no environment at all — the window has one, and the request is the
+  // thing that has to be told where to go — so the two are told apart wherever the difference shows.
+  const stale = computed(() => pinned.value && pinnedEnv.value === null)
+
   // What the button says: the pinned environment's name, or — for a pin nothing answers to — the
   // window's, which is what the request has fallen back to.
   const label = computed(() => (pinned.value ? (pinnedEnv.value?.name ?? windowName.value) : windowName.value))
@@ -31,6 +36,19 @@ export function useRequestEnvironment(source: RequestSource) {
   // window's. Nothing when there is no environment at all: the sentence then says that instead.
   const answersIn = computed(() =>
     pinned.value ? pinnedEnv.value?.name : envStore.activeEnvironment?.name
+  )
+
+  // Where a `{{token}}` written into this request would go, and whether it may go there at all. A
+  // request that answers in an environment of its own puts its variables in that one: a name the
+  // sentence says is missing from «Prod» cannot be created in «Local» and be found.
+  //
+  // A stale pin is the one case where this is not the pin: nothing answers to that id, so the request
+  // is answering in no environment rather than in a deleted one, and the window's own is what it
+  // falls back to — which is also where a variable for it belongs.
+  const scopeId = computed(() => (pinned.value ? (pinnedEnv.value?.id ?? null) : envStore.activeId))
+
+  const scopeReadonly = computed(() =>
+    pinned.value ? Boolean(pinnedEnv.value?.readonly) : Boolean(envStore.activeEnvironment?.readonly)
   )
 
   // Every choice the popover offers: following the window, or one environment named outright. The
@@ -50,5 +68,5 @@ export function useRequestEnvironment(source: RequestSource) {
     void source.setEnvironmentOverride(id)
   }
 
-  return { windowName, pinned, label, answersIn, options, choose }
+  return { windowName, pinned, stale, label, answersIn, scopeId, scopeReadonly, options, choose }
 }

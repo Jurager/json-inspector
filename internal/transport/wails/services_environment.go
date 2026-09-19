@@ -106,14 +106,3 @@ func (s *EnvironmentsService) ImportEntries(
 func (s *EnvironmentsService) Reveal(ctx context.Context, id string) (string, error) {
 	return s.environments.Reveal(ctx, id)
 }
-
-// ImportLegacy moves what the old frontend kept in localStorage into the database, once. The
-// payload is the raw string: parsing the old shape is this side's job, not the window's. A secret
-// arrives without its value, which lived in the keychain and is not read any more — the report says
-// so, and the value is one the user enters again.
-func (s *EnvironmentsService) ImportLegacy(
-	ctx context.Context,
-	raw string,
-) (environment.ImportReport, error) {
-	return s.environments.ImportLegacy(ctx, raw)
-}

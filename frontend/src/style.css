@@ -907,14 +907,6 @@ html.window-translucent body {
   @apply max-w-80 max-h-75 overflow-auto;
 }
 
-.compare-modal {
-  @apply w-140 max-w-[90%] max-h-[80vh] flex flex-col overflow-hidden;
-}
-
-.import-panel {
-  @apply flex flex-col w-[620px] max-h-[70vh] overflow-hidden p-0;
-}
-
 .menu-item {
   @apply flex items-center gap-2 w-full text-left py-1.5 px-2.5 border-none bg-transparent text-text text-xs rounded-md cursor-pointer;
 }
@@ -1092,32 +1084,14 @@ button {
   font-family: var(--mono);
 }
 
-/* ---- Empty state ----
-   A pane nobody has put anything in yet: a linear glyph, a title and a hint under it. The drawing is
-   what says the screen is waiting rather than broken, and the title stays at full strength — a grey
-   one reads as a failure that has already happened. */
+/* ---- A pane that is working on it ----
+   What is left of the centred empty state: a spinner on the middle of the pane. The glyph, the title
+   and the hint that used to stand here are gone with the screens that drew them that way — a page
+   that is waiting for something now says so against the left edge the content will stand on (see
+   .pane-empty below). */
 .empty {
   @apply flex-1 flex flex-col items-center justify-center text-text-tertiary;
   gap: 12px;
-}
-
-/* The glyph names the screen and the words say what to do, so the drawing stays a step behind them:
-   a tone lighter than the faintest line under it, in either theme. */
-.empty-icon {
-  color: color-mix(in srgb, var(--text-tertiary) 60%, transparent);
-}
-
-.empty-text {
-  @apply flex flex-col items-center;
-  gap: 4px;
-}
-
-.empty-title {
-  @apply text-[14px] font-semibold text-text;
-}
-
-.empty-hint {
-  @apply text-[13px] text-center;
 }
 
 /* ---- A pane with nothing in it yet ----
@@ -1170,16 +1144,6 @@ button {
 
 .ja-meta-value {
   @apply text-xs text-text;
-}
-
-.ja-link-url {
-  @apply flex-1 shrink max-w-full min-w-0 overflow-hidden text-ellipsis whitespace-nowrap text-left text-xs text-orange bg-none rounded-md py-px px-2 cursor-pointer;
-  font-family: var(--mono);
-  border: 1px dashed color-mix(in srgb, var(--orange) 55%, transparent);
-}
-
-.ja-link-url:hover {
-  border-style: solid;
 }
 
 mark.search-match {
@@ -1507,6 +1471,89 @@ mark.search-match.current {
 .segment.active .segment-count,
 .segment[data-state='open'] .segment-count {
   color: var(--accent);
+}
+
+/* ── A page of a level ───────────────────────────────────────────────────────────────────────────
+   The browser's captures and a collection are the same page drawn for two sources: a head, a
+   row of stats, a table of requests and a row of cards. They are one page, so the shapes live
+   here rather than in each scoped block — two copies of the same rule drift, and the drill
+   this page is drawn by is the argument the three sidebars are already written on.
+
+   The names are prefixed because they are generic words: `.card`, `.head` and `.table` are
+   each used by half a dozen components for shapes of their own, and a page's card is a
+   particular one. */
+
+.page-card-action {
+  @apply self-start mt-auto h-[30px] px-2 -ml-2 border-0 rounded-[7px] bg-transparent cursor-pointer
+         text-[13px] font-medium text-accent;
+  font-family: inherit;
+}
+
+.page-card-title {
+  @apply text-[13px] font-semibold;
+}
+
+.page-card-body {
+  @apply text-[13px] leading-normal text-text-secondary;
+}
+
+.page-stat-label {
+  @apply text-[11px] font-semibold uppercase tracking-[0.07em] text-text-tertiary;
+}
+
+.page-section-label {
+  @apply text-[11px] font-semibold uppercase tracking-[0.07em] text-text-tertiary;
+}
+
+.page-table-head > span {
+  padding: 10px 16px;
+}
+
+.page-table-body {
+  @apply flex-1 min-h-0 overflow-y-auto;
+}
+
+.page-cell-method {
+  @apply text-[12px];
+}
+
+.page-cards {
+  @apply grid grid-cols-3 gap-3;
+}
+
+.page-card {
+  @apply flex flex-col items-start gap-2 border border-border rounded-xl;
+  padding: 16px;
+}
+
+.page-stats {
+  @apply grid grid-cols-4 gap-3;
+}
+
+.page-stat {
+  @apply flex flex-col gap-1.5 border border-border rounded-xl;
+  padding: 14px 16px;
+}
+
+.page-table {
+  @apply flex flex-col border border-border rounded-xl overflow-hidden max-h-[320px];
+}
+
+.page-head {
+  @apply flex items-start gap-4;
+}
+
+.page-stat-value {
+  @apply text-[19px] font-semibold tracking-[-0.01em];
+}
+
+.page-stat-note {
+  @apply text-[13px] text-text-tertiary overflow-hidden text-ellipsis whitespace-nowrap;
+}
+
+.page-table-head {
+  @apply flex-none bg-bg-inset border-b border-border text-[11px] font-semibold uppercase
+         tracking-[0.06em] text-text-tertiary;
 }
 
 /* ── The side panels ─────────────────────────────────────────────────────────────────────────────

@@ -24,7 +24,6 @@ import {
   List,
   Lock,
   Plus,
-  Minus,
   Search,
   Eye,
   EyeOff,
@@ -130,16 +129,8 @@ const TRASH = createLucideIcon('trash-bin', [
   ['path', { d: 'M5 7h14M10 7V5h4v2M7 7v12h10V7' }],
 ])
 
-// The warning the drawing draws: a plain triangle with an exclamation, where lucide's own is a
-// rounded one with a wider mouth. The same reasoning as the bin — the handoff's glyph, built here
-// through the same factory so it takes a size and a stroke like the rest.
-const WARNING = createLucideIcon('warning-triangle', [
-  ['path', { d: 'M12 4.5 2.8 20h18.4Z' }],
-  ['path', { d: 'M12 10v4.4M12 17.2h.01' }],
-])
-
 // The page the sign-in modal draws on its first step, and the window its button opens: both are the
-// handoff's own paths, built here through the factory like the bin and the warning, because lucide's
+// handoff's own paths, built here through the factory like the bin, because lucide's
 // document has a folded corner and its window has a title bar the drawing does not.
 const FILE = createLucideIcon('file-text', [
   ['path', { d: 'M8 3h8l4 4v10a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2Z' }],
@@ -171,14 +162,12 @@ const ICONS: Record<string, Component> = {
   'chevrons-right': ChevronsRight,
   menu: Menu,
   info: Info,
-  warning: WARNING,
   sparkles: Sparkles,
   folder: Folder,
   'settings-2': Settings2,
   list: List,
   lock: Lock,
   plus: Plus,
-  minus: Minus,
   trash: TRASH,
   search: Search,
   eye: Eye,

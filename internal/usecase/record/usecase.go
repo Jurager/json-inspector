@@ -43,15 +43,11 @@ type UseCase struct {
 	// window's send and a collection run save from goroutines of their own, and two sends landing on
 	// the same counter would be a data race on a number that decides when history is trimmed.
 	sincePrune atomic.Int32
-	// home is the workspace the installation began in: asked once, by the one-time import of what the
-	// old frontend kept, and never by anything the user does now.
-	home Home
 }
 
 func NewUseCase(
 	store Store,
 	scope Scope,
-	home Home,
 	executor Executor,
 	notifier Notifier,
 	retention RetentionSource,
@@ -61,7 +57,7 @@ func NewUseCase(
 	build platform.BuildInfo,
 ) *UseCase {
 	return &UseCase{
-		store: store, scope: scope, home: home, executor: executor, notifier: notifier,
+		store: store, scope: scope, executor: executor, notifier: notifier,
 		retention: retention, screen: screen, mask: mask, ids: ids, build: build,
 	}
 }
