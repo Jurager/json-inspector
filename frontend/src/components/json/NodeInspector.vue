@@ -8,6 +8,7 @@ import { useMessages } from '../../i18n'
 import {
   buildResourceIndex,
   dataResources,
+  documentVersion,
   linkHref,
   relIdentifiers,
   type JsonApiDocument,
@@ -81,14 +82,9 @@ const relationText = computed(() => {
   return r.inDoc ? t('json.inDocument', named) : t('json.needsRelated', named)
 })
 
-const jsonapiVersion = computed(() => {
-  const j = props.doc?.jsonapi
-  if (j && typeof j === 'object' && !Array.isArray(j)) {
-    const v = (j as Record<string, unknown>).version
-    if (typeof v === 'string' && v) return v
-  }
-  return ''
-})
+// The version the document declares, read the same way the status bar and the response's own tag
+// read it: one question about one document has one answer.
+const jsonapiVersion = computed(() => documentVersion(props.doc))
 
 async function copyPath() {
   if (path.value) await copyToClipboard(path.value)

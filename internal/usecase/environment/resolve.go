@@ -2,6 +2,7 @@ package environment
 
 import (
 	"context"
+	"sort"
 
 	"json-inspector/internal/domain"
 )
@@ -26,13 +27,18 @@ func (u *UseCase) SubstituteTexts(
 	mask bool,
 	envID string,
 ) ([]string, error) {
-	resolver, err := u.resolver(ctx, !mask, above, envID)
+	resolver, secrets, err := u.resolver(ctx, !mask, above, envID)
 	if err != nil {
 		return nil, err
 	}
 	out := make([]string, len(texts))
 	for i, text := range texts {
 		out[i] = interpolate(text, resolver, mask)
+		if mask {
+			// A token is filled in first and what is still a value afterwards is redacted: the two
+			// halves of one question, and the second is what catches a text that never had a token.
+			out[i] = redact(out[i], secrets)
+		}
 	}
 	return out, nil
 }
@@ -45,7 +51,7 @@ func (u *UseCase) Missing(
 	texts []string,
 	envID string,
 ) ([]string, error) {
-	resolver, err := u.resolver(ctx, false, above, envID)
+	resolver, _, err := u.resolver(ctx, false, above, envID)
 	if err != nil {
 		return nil, err
 	}
@@ -78,14 +84,14 @@ func (u *UseCase) resolver(
 	revealSecrets bool,
 	above []domain.Variable,
 	envID string,
-) (lookup, error) {
+) (lookup, []string, error) {
 	workspace, err := u.scope.ActiveWorkspace(ctx)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	state, err := u.store.EnvState(ctx, workspace)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	if envID == "" {
 		envID = state.ActiveID
@@ -119,6 +125,13 @@ func (u *UseCase) resolver(
 		}
 	}
 
+	// The values are collected only where they are going to be searched for: the send path reveals
+	// secrets rather than hiding them, and has no use for the list.
+	secrets := []string{}
+	if !revealSecrets {
+		secrets = secretValues(collections, active, globals)
+	}
+
 	return func(name string) (domain.Resolution, bool) {
 		if v, ok := collections[name]; ok {
 			return resolution(v, "collection", revealSecrets), true
@@ -130,7 +143,32 @@ func (u *UseCase) resolver(
 			return resolution(v, "global", revealSecrets), true
 		}
 		return domain.Resolution{}, false
-	}, nil
+	}, secrets, nil
+}
+
+// secretValues is every value a secret answers with across the three levels the resolver reads, the
+// longest first so that one containing another is replaced before it. A value already seen is kept
+// once: a name answered by two levels is one value to search for.
+func secretValues(levels ...map[string]domain.Variable) []string {
+	out := []string{}
+	seen := map[string]bool{}
+	for _, level := range levels {
+		for _, v := range level {
+			if v.Kind != domain.VariableSecret || v.Value == "" || seen[v.Value] {
+				continue
+			}
+			seen[v.Value] = true
+			out = append(out, v.Value)
+		}
+	}
+	// Equal lengths are ordered by value, so the same set of secrets always redacts the same way.
+	sort.Slice(out, func(i, j int) bool {
+		if len(out[i]) != len(out[j]) {
+			return len(out[i]) > len(out[j])
+		}
+		return out[i] < out[j]
+	})
+	return out
 }
 
 func resolution(v domain.Variable, source string, reveal bool) domain.Resolution {

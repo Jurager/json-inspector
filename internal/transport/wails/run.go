@@ -61,18 +61,5 @@ type assertions struct{ store *sqlite.Store }
 var _ collection.Assertions = assertions{}
 
 func (a assertions) Assertions(ctx context.Context, recordID string) (int, int, error) {
-	runs, err := a.store.ScriptRuns(ctx, recordID)
-	if err != nil {
-		return 0, 0, err
-	}
-	passed, total := 0, 0
-	for _, run := range runs {
-		for _, test := range run.Tests {
-			total++
-			if test.Passed {
-				passed++
-			}
-		}
-	}
-	return passed, total, nil
+	return a.store.AssertionCounts(ctx, recordID)
 }

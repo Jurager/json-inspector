@@ -85,18 +85,26 @@ func nestCollections(flat []domain.Collection) []domain.Collection {
 		byParent[c.ParentID] = append(byParent[c.ParentID], c)
 	}
 
-	var build func(parent string) []domain.Collection
-	build = func(parent string) []domain.Collection {
+	// The walk carries how deep it has gone, and stops at the number of rows there are. A tree is at
+	// most that deep, so a walk that is deeper is one going round: a `parent_id` that names one of its
+	// own descendants — a hand-edited database, a migration that went wrong — would otherwise recurse
+	// until the stack ran out, which is a crash rather than an answer. Nothing legitimate reaches the
+	// limit, and the branch beyond it is what keeps the app standing.
+	var build func(parent string, depth int) []domain.Collection
+	build = func(parent string, depth int) []domain.Collection {
+		if depth > len(flat) {
+			return []domain.Collection{}
+		}
 		children := byParent[parent]
 		if children == nil {
 			return []domain.Collection{}
 		}
 		for i := range children {
-			children[i].Children = build(children[i].ID)
+			children[i].Children = build(children[i].ID, depth+1)
 		}
 		return children
 	}
-	return build("")
+	return build("", 0)
 }
 
 // Node reads one node with everything a request is made of, which is what opening it needs and what
@@ -104,7 +112,7 @@ func nestCollections(flat []domain.Collection) []domain.Collection {
 func (s *Store) Node(ctx context.Context, id string) (domain.CollectionNode, error) {
 	var (
 		node                        domain.CollectionNode
-		params, headers, cookies    string
+		params, headers, cookies    sql.NullString
 		auth, scripts               sql.NullString
 		description                 sql.NullString
 		url, body, method, bodyKind sql.NullString
@@ -141,7 +149,7 @@ func (s *Store) Node(ctx context.Context, id string) (domain.CollectionNode, err
 		}
 	}
 	for _, part := range []struct {
-		raw  string
+		raw  sql.NullString
 		into any
 		what string
 	}{
@@ -149,7 +157,13 @@ func (s *Store) Node(ctx context.Context, id string) (domain.CollectionNode, err
 		{headers, &node.Headers, "headers"},
 		{cookies, &node.Cookies, "cookies"},
 	} {
-		if err := json.Unmarshal([]byte(part.raw), part.into); err != nil {
+		// A row written by something other than this app holds nothing in a column the schema allows
+		// to be empty, and nothing is not a document: the node keeps no rows of that kind rather than
+		// failing to open. The same reading form, auth and scripts get above.
+		if !part.raw.Valid || part.raw.String == "" {
+			continue
+		}
+		if err := json.Unmarshal([]byte(part.raw.String), part.into); err != nil {
 			return domain.CollectionNode{}, fmt.Errorf("reading the %s of node %s: %w", part.what, id, err)
 		}
 	}

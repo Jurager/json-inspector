@@ -6,7 +6,6 @@ package update
 
 import (
 	"context"
-	"errors"
 	"time"
 
 	"json-inspector/internal/domain"
@@ -139,7 +138,7 @@ func (u *UseCase) Skip(ctx context.Context) (Info, error) {
 // the app replaces its own binary and starts again.
 func (u *UseCase) Install(ctx context.Context, version string) error {
 	if version == "" {
-		return errors.New("no version to install")
+		return domain.Refuse(domain.CodeNoVersion, domain.ErrNotAllowed, nil)
 	}
 	return u.releases.Install(ctx, version)
 }

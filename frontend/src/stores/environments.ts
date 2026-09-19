@@ -235,11 +235,6 @@ export const useEnvironmentsStore = defineStore('environments', {
       return this.environments.find((e) => e.id === envId)?.vars ?? []
     },
 
-    envById(envId: string | null): Env | null {
-      if (envId === null) return null
-      return this.environments.find((e) => e.id === envId) ?? null
-    },
-
     // ---- sheet -----------------------------------------------------------
 
     editEnv(id: string | null) {

@@ -21,7 +21,7 @@ func setupAuthTree(t *testing.T) authTree {
 	uc, _ := newTestUseCase()
 	ctx := context.Background()
 
-	tree, err := uc.CreateCollection(ctx, "Коллекция", "", "")
+	_, tree, err := uc.CreateCollection(ctx, "Коллекция", "", "")
 	if err != nil {
 		t.Fatalf("CreateCollection: %v", err)
 	}

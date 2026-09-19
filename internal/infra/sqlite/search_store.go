@@ -96,11 +96,12 @@ func (s *Store) FindEnvironments(
 	ctx context.Context,
 	workspaceID string,
 ) ([]domain.SearchHit, error) {
-	var active string
-	if err := s.db.QueryRowContext(ctx,
-		`SELECT active_environment_id FROM workspaces WHERE id = ?`,
-		workspaceID).Scan(&active); err != nil {
-		return nil, fmt.Errorf("reading the active environment: %w", err)
+	// The same read the workspace's own side makes, and it answers the same way: a workspace that is
+	// not there is not found rather than a failure of the database, and one column read two ways is
+	// one column that can disagree with itself.
+	active, err := s.activeEnvironment(ctx, workspaceID)
+	if err != nil {
+		return nil, err
 	}
 
 	environments, err := s.db.QueryContext(ctx,

@@ -11,10 +11,13 @@ import type { Info as UpdateInfo } from '../../bindings/json-inspector/internal/
 const availableUpdate = ref<UpdateInfo | null>(null)
 
 let off: (() => void) | null = null
+// How many components are drawing from the state above: it is one per window, so its subscription is
+// one as well, and the first component to leave must not take the listener away from the rest.
+let users = 0
 
 export function useUpdates() {
   onMounted(() => {
-    if (off) return
+    if (users++ > 0) return
     off = Events.On('update-changed', (ev) => {
       const info = ev.data as UpdateInfo
       availableUpdate.value = info.available ? info : null
@@ -22,6 +25,7 @@ export function useUpdates() {
   })
 
   onBeforeUnmount(() => {
+    if (--users > 0) return
     off?.()
     off = null
   })

@@ -43,6 +43,9 @@ const (
 	CodeUnknownListSide    Code = "unknownListSide"
 	CodeUnknownRetention   Code = "unknownRetention"
 	CodeUnknownChannel     Code = "unknownUpdateChannel"
+	// An install asked for without a version. Nothing was offered, so there is nothing to fetch, and
+	// the sentence the window says about it is not one Go could word.
+	CodeNoVersion Code = "noVersion"
 	// The workspace the app is born with was the one that could not be deleted, and the rule is about
 	// number now: the app has to have somewhere to keep its data, so the last space may not go —
 	// whichever one it happens to be.

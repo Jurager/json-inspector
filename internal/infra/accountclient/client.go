@@ -370,18 +370,14 @@ func (c *Client) take(userCode string) (pending, error) {
 	return flow, nil
 }
 
-// interval is how long to wait between two questions. The standard's own floor is five seconds, and
-// a server that asks for less than a second gets a second: a client that hammers is a client that
-// gets told to slow down.
+// interval is how long to wait between two questions. A server that named no interval, or one that
+// is refusing to name a usable one, gets the standard's own floor of five seconds: a client that
+// hammers is a client that gets told to slow down.
 func interval(seconds int) time.Duration {
-	switch {
-	case seconds <= 0:
+	if seconds < 1 {
 		return 5 * time.Second
-	case seconds < 1:
-		return time.Second
-	default:
-		return time.Duration(seconds) * time.Second
 	}
+	return time.Duration(seconds) * time.Second
 }
 
 func setDevice(request *http.Request, device domain.Device) {

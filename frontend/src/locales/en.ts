@@ -80,6 +80,7 @@ const en = {
     // What the empty field calls the history it answers with.
     recent: 'Recent',
     placeholder: 'Search requests, collections, environments…',
+    failed: 'Could not search: {error}',
     kinds: {
       request: 'Requests',
       collection: 'Collections',
@@ -414,7 +415,6 @@ const en = {
     },
     back: 'Back',
     copyUrl: 'Copy the link',
-    params: 'Parameters {n}',
     paramsTitle: 'Query parameters',
     copyQuery: 'Copy query string',
     copyFailed: 'Could not copy the request: {error}',
@@ -522,6 +522,7 @@ const en = {
   browser: {
     connected: 'Extension connected · listening on port {port}',
     notFound: 'Extension not found · listening on port {port}',
+    portTaken: 'Port {port} is taken — capture did not start',
     captureFailed: 'Capture could not be switched: {error}',
     homeTitle: 'Capture requests straight from your browser',
     homeBody:
@@ -723,6 +724,8 @@ const en = {
     edited: 'edited {ago}',
     imported: 'Imported “{name}”',
     importFailed: 'Could not import: {error}',
+    contentsFailed: 'Could not read the contents: {error}',
+    exportFailed: 'Could not save the file: {error}',
     readFailed: 'Could not read the collection: {error}',
     saveRequest: 'Save the request',
     requestName: 'Request name',
@@ -879,6 +882,7 @@ const en = {
       environmentReadOnly: 'This environment is read-only — switch its Access to Editable and try again.',
       unknownRetention: 'Unknown history retention: {retention}',
       unknownUpdateChannel: 'Unknown update channel: {channel}',
+      noVersion: 'Nothing to install: no version was chosen.',
       notSignedIn: 'Nobody is signed in.',
       serverUnreachable: 'The server could not be reached.',
       serverRefused: 'The server refused the request.',

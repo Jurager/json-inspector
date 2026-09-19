@@ -9,9 +9,9 @@ declare module 'vue-i18n' {
   export interface DefineLocaleMessage extends Messages {}
 }
 
-// The languages the app has catalogues for, in the order the settings screen offers them.
+// The languages the app has catalogues for. Which of them the settings screen offers, and in what
+// order, is Go's answer — a list here would be a second one, and the two would drift.
 export type Locale = 'ru' | 'en'
-export const LOCALES: readonly Locale[] = ['ru', 'en']
 
 // English is both the source of truth for the message keys and the fallback: a key missing from the
 // chosen language has to come out as words rather than as its own name.
@@ -48,7 +48,7 @@ export function systemLocale(): Locale {
 }
 
 /** A stored or URL-supplied choice, resolved. */
-export function resolveLocale(choice: string | null | undefined): Locale {
+function resolveLocale(choice: string | null | undefined): Locale {
   return choice === 'ru' || choice === 'en' ? choice : systemLocale()
 }
 

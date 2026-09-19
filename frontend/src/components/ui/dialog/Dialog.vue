@@ -11,11 +11,13 @@ defineOptions({ inheritAttrs: false })
 // panel is and which way it grows.
 const props = defineProps<DialogRootProps & { title?: string; placement?: 'center' | 'top' }>()
 
-const emit = defineEmits<{ (e: 'update:open'): void }>()
+// The flag travels with the event: reka-ui answers with whether the dialog is open now, and a caller
+// holding `v-model:open` needs it — an event without it reads as "closed" whatever happened.
+const emit = defineEmits<{ (e: 'update:open', open: boolean): void }>()
 </script>
 
 <template>
-  <DialogRoot :open="props.open" @update:open="emit('update:open')">
+  <DialogRoot :open="props.open" @update:open="(open) => emit('update:open', open)">
     <DialogPortal>
       <DialogOverlay class="dialog-overlay" />
       <DialogContent v-bind="$attrs" :class="['dialog', { 'dialog-top': props.placement === 'top' }]">

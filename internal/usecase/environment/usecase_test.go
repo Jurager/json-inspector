@@ -351,6 +351,89 @@ func TestResolutionOrderAndMasking(t *testing.T) {
 	}
 }
 
+// A request a pre-request script rewrote reaches the record already filled in: its `{{tokens}}` are
+// gone, and the value that replaced one is all that is left of the secret. Masking such a text
+// cannot be a walk over tokens — it has none — so a value that is still a value is hidden wherever
+// it stands. This is the text the record, the export and the window are made of.
+func TestAMaskedTextHidesASecretThatHasNoTokenLeft(t *testing.T) {
+	u, _ := newUseCase(t)
+	ctx := context.Background()
+	_, env := seed(t, u, "Local")
+
+	if _, err := u.AddVariable(ctx, domain.EnvScope{Environment: env.ID},
+		VariableDraft{Kind: domain.VariableSecret}); err != nil {
+		t.Fatalf("AddVariable: %v", err)
+	}
+	state, err := u.Snapshot(ctx)
+	if err != nil {
+		t.Fatalf("Snapshot: %v", err)
+	}
+	secret := state.Environments[0].Vars[0]
+	const value = "s3cret-token-value"
+	if _, err := u.UpdateVariable(ctx, domain.EnvScope{Environment: env.ID}, VariablePatch{
+		ID: secret.ID, Name: "token", Kind: domain.VariableSecret, Enabled: true,
+		Value: value, SetValue: true,
+	}); err != nil {
+		t.Fatalf("UpdateVariable: %v", err)
+	}
+
+	texts := []string{"https://api.example.com/a?t=" + value, "Bearer " + value}
+	masked, err := u.SubstituteTexts(ctx, nil, texts, true, "")
+	if err != nil {
+		t.Fatalf("SubstituteTexts (masked): %v", err)
+	}
+	for i, want := range []string{
+		"https://api.example.com/a?t=" + secretMask,
+		"Bearer " + secretMask,
+	} {
+		if masked[i] != want {
+			t.Errorf("masked[%d] = %q, want %q", i, masked[i], want)
+		}
+	}
+
+	// The send path is the other half, and it is untouched: the request goes out with the value.
+	sent, err := u.SubstituteTexts(ctx, nil, texts, false, "")
+	if err != nil {
+		t.Fatalf("SubstituteTexts: %v", err)
+	}
+	if sent[0] != texts[0] || sent[1] != texts[1] {
+		t.Errorf("for sending = %q, want the values left as they are", sent)
+	}
+}
+
+// A value too short to be a credential is not searched for. The search replaces plain text written
+// for other reasons, and hiding a character or two would leave a record describing a request nobody
+// wrote — the worse of the two answers.
+func TestAShortSecretValueIsNotSearchedFor(t *testing.T) {
+	u, _ := newUseCase(t)
+	ctx := context.Background()
+	_, env := seed(t, u, "Local")
+
+	if _, err := u.AddVariable(ctx, domain.EnvScope{Environment: env.ID},
+		VariableDraft{Kind: domain.VariableSecret}); err != nil {
+		t.Fatalf("AddVariable: %v", err)
+	}
+	state, err := u.Snapshot(ctx)
+	if err != nil {
+		t.Fatalf("Snapshot: %v", err)
+	}
+	secret := state.Environments[0].Vars[0]
+	if _, err := u.UpdateVariable(ctx, domain.EnvScope{Environment: env.ID}, VariablePatch{
+		ID: secret.ID, Name: "token", Kind: domain.VariableSecret, Enabled: true,
+		Value: "ab", SetValue: true,
+	}); err != nil {
+		t.Fatalf("UpdateVariable: %v", err)
+	}
+
+	masked, err := u.SubstituteTexts(ctx, nil, []string{"https://api.example.com/ab/cab"}, true, "")
+	if err != nil {
+		t.Fatalf("SubstituteTexts (masked): %v", err)
+	}
+	if masked[0] != "https://api.example.com/ab/cab" {
+		t.Errorf("masked = %q, want the text left alone", masked[0])
+	}
+}
+
 // A request can pin itself to an environment apart from the window's, and when it does, that pin
 // is what "Environment" means for it in the resolution order — not whatever the window is on.
 func TestAPinnedEnvironmentOverridesTheWindows(t *testing.T) {

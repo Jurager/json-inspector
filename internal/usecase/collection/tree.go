@@ -12,38 +12,42 @@ import (
 // invented: the window asks for it in the tree, in the row the user is looking at. The level is the
 // top of the tree when parentID is empty, and the collection it names otherwise — a folder inside a
 // folder is a collection inside one, and the only thing that ever separated them was this argument.
+// The created row comes back with the tree for the reason CreateNode's does: the id is Go's to
+// mint, and a window that looked the row up by name would find the older one of the same name — a
+// folder's name is not unique, and not even within one level.
 func (u *UseCase) CreateCollection(
 	ctx context.Context,
 	name string,
 	description string,
 	parentID string,
-) ([]domain.Collection, error) {
+) (domain.Collection, []domain.Collection, error) {
 	name, err := validName(name)
 	if err != nil {
-		return nil, err
+		return domain.Collection{}, nil, err
 	}
 
 	workspace, err := u.scope.ActiveWorkspace(ctx)
 	if err != nil {
-		return nil, err
+		return domain.Collection{}, nil, err
 	}
 	// A parent that is not there is a refusal rather than a silent insert at the top of the tree:
 	// the window asked for a row in a level it was looking at.
 	if parentID != "" {
 		tree, err := u.store.Collections(ctx, workspace)
 		if err != nil {
-			return nil, err
+			return domain.Collection{}, nil, err
 		}
 		if _, ok := findCollection(tree, parentID); !ok {
-			return nil, fmt.Errorf("collection %s: %w", parentID, domain.ErrNotFound)
+			return domain.Collection{}, nil, fmt.Errorf("collection %s: %w", parentID,
+				domain.ErrNotFound)
 		}
 	}
 
 	position, err := u.store.NextPosition(ctx, workspace, parentID)
 	if err != nil {
-		return nil, err
+		return domain.Collection{}, nil, err
 	}
-	if err := u.store.SaveCollection(ctx, workspace, domain.Collection{
+	created := domain.Collection{
 		ID:          u.ids(),
 		Name:        name,
 		Description: strings.TrimSpace(description),
@@ -51,10 +55,15 @@ func (u *UseCase) CreateCollection(
 		ParentID:    parentID,
 		Items:       []domain.CollectionNode{},
 		Children:    []domain.Collection{},
-	}); err != nil {
-		return nil, err
 	}
-	return u.Tree(ctx)
+	if err := u.store.SaveCollection(ctx, workspace, created); err != nil {
+		return domain.Collection{}, nil, err
+	}
+	tree, err := u.Tree(ctx)
+	if err != nil {
+		return domain.Collection{}, nil, err
+	}
+	return created, tree, nil
 }
 
 // NodeDraft is what the tree asks for when a row is created: where it goes and what is already
@@ -320,7 +329,12 @@ func (u *UseCase) SaveNode(
 	if err != nil {
 		return nil, err
 	}
-	stored.Description = strings.TrimSpace(edited.Description)
+	// The same ceiling the description editor applies: two paths writing one field is two chances for
+	// one of them to let through what the other refuses.
+	stored.Description, err = validDescription(edited.Description)
+	if err != nil {
+		return nil, err
+	}
 	stored.Method = defaultMethod(edited.Method)
 	stored.URL = edited.URL
 	stored.Params = domain.OrEmpty(edited.Params)

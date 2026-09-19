@@ -201,6 +201,83 @@ func compareCollection(t *testing.T, want domain.Collection, got domain.Collecti
 	for i := range want.Children {
 		compareCollection(t, want.Children[i], got.Children[i])
 	}
+	// What the level answers for `{{tokens}}`, in the order it answers them: the nearest answer is the
+	// last one, so the order is part of the answer.
+	if len(got.Variables) != len(want.Variables) {
+		t.Fatalf("%q answers %d names, want %d", want.Name, len(got.Variables), len(want.Variables))
+	}
+	for i := range want.Variables {
+		if got.Variables[i] != want.Variables[i] {
+			t.Errorf("%q variable %d = %+v, want %+v", want.Name, i, got.Variables[i], want.Variables[i])
+		}
+	}
+}
+
+// What a level answers for `{{tokens}}` travels with it both ways. A collection handed to somebody
+// else has to mean the same thing on the other side, which is why a level owns its own.
+func TestCollectionVariablesTravelBothWays(t *testing.T) {
+	original := domain.Collection{
+		Name: "Магазин",
+		Variables: []domain.Variable{
+			{Name: "baseUrl", Value: "https://api.example.com", Kind: domain.VariableText, Enabled: true},
+			{Name: "page", Value: "2", Kind: domain.VariableText, Enabled: false},
+		},
+		Children: []domain.Collection{{
+			Name: "Пользователи",
+			Variables: []domain.Variable{
+				{Name: "version", Value: "v2", Kind: domain.VariableText, Enabled: true},
+			},
+		}},
+	}
+
+	data, err := Export(original)
+	if err != nil {
+		t.Fatalf("Export: %v", err)
+	}
+	back, err := Import(data)
+	if err != nil {
+		t.Fatalf("Import: %v", err)
+	}
+
+	if len(back.Variables) != 2 {
+		t.Fatalf("level = %+v, want the collection's two", back.Variables)
+	}
+	if back.Variables[0].Name != "baseUrl" || back.Variables[0].Value != "https://api.example.com" {
+		t.Errorf("first = %+v, want the value that was written", back.Variables[0])
+	}
+	// A row the file marks disabled comes back disabled: it is a thing about the variable, and not a
+	// comment the file left in passing.
+	if back.Variables[1].Enabled {
+		t.Errorf("second = %+v, want the disabled row kept disabled", back.Variables[1])
+	}
+
+	if len(back.Children) != 1 || len(back.Children[0].Variables) != 1 {
+		t.Fatalf("nested = %+v, want the folder's own answer", back.Children)
+	}
+	if v := back.Children[0].Variables[0]; v.Name != "version" || v.Value != "v2" {
+		t.Errorf("nested variable = %+v, want the one the folder answers", v)
+	}
+}
+
+// A file may write a value as a number or a flag: the format allows any JSON, and what a request
+// substitutes is text, so the JSON spelling of it is what the file meant.
+func TestAVariableWrittenWithoutQuotesImportsAsItsSpelling(t *testing.T) {
+	collection, err := Import([]byte(`{
+		"info": {"name": "Numbers"},
+		"variable": [{"key": "page", "value": 2}, {"key": "all", "value": true}],
+		"item": []
+	}`))
+	if err != nil {
+		t.Fatalf("Import: %v", err)
+	}
+
+	got := map[string]string{}
+	for _, v := range collection.Variables {
+		got[v.Name] = v.Value
+	}
+	if got["page"] != "2" || got["all"] != "true" {
+		t.Errorf("variables = %+v, want the spelling of each value", collection.Variables)
+	}
 }
 
 func compareNode(t *testing.T, want domain.CollectionNode, got domain.CollectionNode) {

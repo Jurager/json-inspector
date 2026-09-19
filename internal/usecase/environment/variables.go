@@ -102,9 +102,12 @@ func (u *UseCase) SetVariable(
 	})
 }
 
+// byName is the answer a script's `get` gets, and it is the answer a `{{token}}` would get: a row
+// that is switched off is off for both. A script reading a value the request itself would not carry
+// is the switch meaning two different things.
 func byName(variables []domain.Variable, name string) (string, bool, error) {
 	for _, v := range variables {
-		if v.Name == name {
+		if v.Enabled && v.Name == name {
 			return v.Value, true, nil
 		}
 	}
@@ -366,13 +369,21 @@ func nextVariablePosition(state domain.EnvState, scope domain.EnvScope) (int, er
 			return 0, fmt.Errorf("environment %s: %w", scope.Environment, domain.ErrNotFound)
 		}
 	}
-	position := 0
-	for _, v := range scopeVariables(state, scope) {
-		if v.Position >= position {
-			position = v.Position + 1
+	return nextPosition(scopeVariables(state, scope),
+		func(v domain.Variable) int { return v.Position }), nil
+}
+
+// nextPosition is one past the highest place anything in a list stands in. Positions are ordered
+// rather than indexed, and a new row goes after the last one rather than into the first gap — which
+// is what makes the row the user just added the last one they see.
+func nextPosition[T any](items []T, position func(T) int) int {
+	out := 0
+	for _, item := range items {
+		if at := position(item); at >= out {
+			out = at + 1
 		}
 	}
-	return position, nil
+	return out
 }
 
 // hideSecretValues copies the state without the secrets' values. The variables themselves stay: the

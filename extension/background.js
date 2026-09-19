@@ -160,17 +160,20 @@ function setCaptureIcon(tabId, state) {
     normal: OFF_ICON,
   }[state];
 
+  // The tab can be gone by the time this runs — a tab closed between the capture changing and the
+  // badge being drawn — and the call then rejects rather than doing nothing. There is no badge to
+  // fix on a tab that is not there, so the rejection is dropped where it is raised.
   chrome.action.setIcon({
     path,
     tabId,
-  });
+  }).catch(() => {});
 }
 
 function setCaptureTitle(tabId, title) {
   chrome.action.setTitle({
     title,
     tabId,
-  });
+  }).catch(() => {});
 }
 
 function pluralRequests(count) {
@@ -341,6 +344,11 @@ function scheduleReconnect() {
   }, RECONNECT_MS);
 }
 
+// The buffer is deliberately left alone: it exists for exactly this moment. Frames in it were
+// captured while the app was away — its window closed, another port, a socket that dropped — and the
+// app is still owed them; emptying it here is what made a changed port lose everything captured so
+// far. Nothing is kept forever either: the buffer has a ceiling, and the worker's memory is what it
+// lives in.
 function disconnect() {
   clearTimeout(reconnectTimer);
 
@@ -353,7 +361,6 @@ function disconnect() {
   }
 
   connected = false;
-  pending = [];
 }
 
 function enqueue(payload) {
@@ -458,7 +465,12 @@ async function disableInTab(tabId) {
       },
       world: 'MAIN',
     });
-  } catch {}
+  } catch (err) {
+    // A tab that cannot be reached — one that was discarded, one on a URL the extension may not touch.
+    // Saying so is all that can be done here: the hook in that page keeps capturing and the worker
+    // drops its frames, so capture there ends when the page is reloaded rather than now.
+    console.warn(`[json-inspector] could not switch capture off in tab ${tabId}:`, err);
+  }
 }
 
 function addCaptureTab(tab, resetCount = true) {
@@ -792,8 +804,13 @@ function headerValue(headers, name) {
 }
 
 // applyFilters is the app telling this extension what to keep. Stored, so a worker restart does not
-// forget it, and answered with a state frame: the app has no way of knowing a frame arrived, and the
-// state it gets back is the one echo this protocol has.
+// forget it.
+//
+// Nothing is answered, and that is deliberate: the app answers every state frame it hears with the
+// rules, so a state frame sent from here would be heard, answered with the same rules, and heard
+// again — a loop with a disk write and a socket frame on every turn. The app does not need the
+// answer anyway: it repeats the rules on every state frame, and this extension sends one when the
+// socket opens, which is the moment it needs them.
 async function applyFilters(rules) {
   filters = {
     ...DEFAULT_FILTERS,
@@ -801,8 +818,6 @@ async function applyFilters(rules) {
   };
 
   await chrome.storage.local.set({ filters });
-
-  sendState();
 }
 
 function originOf(url) {
@@ -947,7 +962,9 @@ function handleCapturedRequest(message, sender) {
     hasTiming: Boolean(message.hasTiming),
     waitMs: message.waitMs || 0,
     downloadMs: message.downloadMs || 0,
-    startedAt: Date.now(),
+    // The moment the request left, which the interceptor knows and this does not: a frame is handled
+    // after the fact, and a slow request would otherwise be filed at the time it came back.
+    startedAt: message.startedAt || Date.now(),
     tabId,
     tabTitle: message.tabTitle,
     tabURL: message.tabURL,
@@ -1232,7 +1249,9 @@ chrome.tabs.onRemoved.addListener((tabId) => {
   capturedCounts.delete(tabId);
   capturedLastAt.delete(tabId);
 
-  persistCapture();
+  // A listener is not a place to await: the tab is already gone and the write is bookkeeping. The
+  // failure is dropped rather than left to surface as a rejection nobody asked for.
+  persistCapture().catch(() => {});
 
   if (captureTabIds.size === 0) {
     chrome.alarms.clear(KEEPALIVE);

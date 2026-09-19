@@ -4,7 +4,6 @@ import CapturedRequestBar from './CapturedRequestBar.vue'
 import Icon from '../ui/Icon.vue'
 import { Button, IconButton } from '../ui/button'
 import { Input } from '../ui/input'
-import { Popover, PopoverTrigger, PopoverContent, PopoverClose } from '../ui/popover'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '../ui/tabs'
 import {
   DropdownMenu,
@@ -17,7 +16,14 @@ import type { RecordView } from '../../lib/requestRecord'
 import { tryParseJson, prettyJson, highlightJson } from '../../lib/json'
 import { formatBytes, formatMicros } from '../../i18n'
 import { statusBadgeClass } from '../../lib/format'
-import { dataResources, linkHref, isJsonApi, resourceMatchesQuery, type JsonApiDocument } from '../../lib/jsonapi'
+import {
+  dataResources,
+  documentVersion,
+  linkHref,
+  isJsonApi,
+  resourceMatchesQuery,
+  type JsonApiDocument,
+} from '../../lib/jsonapi'
 import JsonApiTree from '../json/JsonApiTree.vue'
 import TextViewerTab from './TextViewerTab.vue'
 import SchemaMap from '../json/SchemaMap.vue'
@@ -29,9 +35,9 @@ import { RecordSource } from '../../../bindings/json-inspector/internal/domain'
 import { recordSeed, useRequestsStore } from '../../stores/requests'
 import { useCollectionsStore } from '../../stores/collections'
 import type { InspectorHost } from '../../lib/requestSource'
-import { copyToClipboard } from '../../lib/clipboard'
 import { CommandService } from '../../../bindings/json-inspector/internal/transport/wails'
 import { CommandFormat } from '../../../bindings/json-inspector/internal/usecase/draft'
+import { useCopyFeedback } from '../../composables/useCopyFeedback'
 import { usePlatform } from '../../composables/usePlatform'
 import { useToast } from '../../composables/useToast'
 import { describeFailure, useMessages } from '../../i18n'
@@ -112,12 +118,9 @@ const pageLabel = computed(() => {
   return total ? t('response.pageOf', { page, total }) : t('response.page', { page })
 })
 
-// The version the document declares about itself. The member is typed as unknown because a response
-// is whatever the server sent; a version that is not a string is a version this label has no word for.
-const jsonapiVersion = computed(() => {
-  const declared = (doc.value?.jsonapi ?? null) as { version?: unknown } | null
-  return typeof declared?.version === 'string' ? declared.version : ''
-})
+// The version the document declares about itself, read the same way the status bar and the inspector
+// read it: one question about one document has one answer, and three readers had three.
+const jsonapiVersion = computed(() => documentVersion(doc.value))
 
 // Body search (Cmd/Ctrl+F) shares the pagination toolbar row rather than a container of its own.
 const bodyQuery = ref('')
@@ -250,23 +253,20 @@ function openInRequest() {
 const prettyRaw = computed(() => (isJson.value ? prettyJson(jsonValue.value) : props.record.responseBody))
 const searchShortcut = computed(() => shortcut('F'))
 
-const headersCopied = ref(false)
+// One tick for the toolbar's Copy button — the link and a command line both light it up, which is
+// what says the copy happened on the button that opened the menu — and one for the headers tab.
+const { copied, copy: copyText } = useCopyFeedback()
+const { copied: headersCopied, copy: copyHeadersText } = useCopyFeedback()
 
 async function copyHeaders() {
   const text = responseHeaderEntries.value.map((h) => `${h.name}: ${h.value}`).join('\n')
-  if (await copyToClipboard(text)) {
-    headersCopied.value = true
-    setTimeout(() => (headersCopied.value = false), 1500)
-  }
+  await copyHeadersText(text)
 }
 
 // The link is one of the ways a record is copied, so it says so the way the others do: on the
 // button that opened the menu, which is the thing the eye is already on.
 async function copyUrl() {
-  if (await copyToClipboard(props.record.url)) {
-    copied.value = true
-    setTimeout(() => (copied.value = false), 1500)
-  }
+  await copyText(props.record.url)
 }
 
 // Search belongs to the tab on screen and to one owner: the button in the row above the tabs and the
@@ -339,8 +339,6 @@ const COPY_FORMATS: { id: CommandFormat; label: string }[] = [
   { id: CommandFormat.FormatPowerShell, label: 'PowerShell' },
 ]
 
-const copied = ref(false)
-
 // The command is written on the side that holds the values: a record carries its secrets as dots
 // and nothing else, so what lands in the clipboard is text that can be pasted anywhere.
 async function copyAs(format: CommandFormat) {
@@ -353,20 +351,17 @@ async function copyAs(format: CommandFormat) {
     toast.show(t('response.copyFailed', { error: describeFailure(error) }), 'error')
     return
   }
-  if (await copyToClipboard(text)) {
-    copied.value = true
-    setTimeout(() => (copied.value = false), 1500)
-  }
+  await copyText(text)
 }
 
 </script>
 
 <template>
   <div class="resp">
-    <CapturedRequestBar v-if="record.source === 'browser'" :record="record" />
+    <CapturedRequestBar v-if="record.source === RecordSource.SourceBrowser" :record="record" />
 
     <div class="resp-bar">
-      <IconButton v-if="hasPrev && record.source !== 'browser'" variant="bare" class="resp-back" :hint="t('response.back')" @click="goBack"><Icon name="chevron-left" :size="14" /></IconButton>
+      <IconButton v-if="hasPrev && record.source !== RecordSource.SourceBrowser" variant="bare" class="resp-back" :hint="t('response.back')" @click="goBack"><Icon name="chevron-left" :size="14" /></IconButton>
       <!-- The status and the numbers, in the handoff's order: what came back, how long it took, how
            big it was, what it was. The method is not among them — the tab above says whose answer this
            is, and the request's own method is written on the request. -->
@@ -458,10 +453,10 @@ async function copyAs(format: CommandFormat) {
             <span v-if="jsonapiVersion" class="jsonapi-tag mono">jsonapi <span class="jsonapi-ver">v{{ jsonapiVersion }}</span></span>
             <span class="head-spacer"></span>
             <span v-if="pageLabel" class="page-label">{{ pageLabel }}</span>
-            <Button v-if="hasHistory && record.source === 'browser'" size="bar" class="open-in-request" @click="openInRequest">{{ t('response.openInRequest') }}</Button>
+            <Button v-if="hasHistory && record.source === RecordSource.SourceBrowser" size="bar" class="open-in-request" @click="openInRequest">{{ t('response.openInRequest') }}</Button>
           </template>
         </div>
-        <div v-else-if="record.source === 'browser'" class="toolbar">
+        <div v-else-if="record.source === RecordSource.SourceBrowser" class="toolbar">
           <span class="head-spacer"></span>
           <Button v-if="hasHistory" size="bar" class="open-in-request" @click="openInRequest">{{ t('response.openInRequest') }}</Button>
         </div>
@@ -475,7 +470,7 @@ async function copyAs(format: CommandFormat) {
           v-else
           ref="bodyTextViewer"
           :text="prettyRaw"
-          :show-open-in-request="record.source === 'browser'"
+          :show-open-in-request="record.source === RecordSource.SourceBrowser"
           @open-in-request="openInRequest"
         />
       </TabsContent>

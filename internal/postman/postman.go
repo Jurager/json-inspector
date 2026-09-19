@@ -10,9 +10,10 @@ import "encoding/json"
 const Schema = "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
 
 type collectionFile struct {
-	Info info   `json:"info"`
-	Auth *auth  `json:"auth,omitempty"`
-	Item []item `json:"item"`
+	Info     info       `json:"info"`
+	Auth     *auth      `json:"auth,omitempty"`
+	Variable []variable `json:"variable,omitempty"`
+	Item     []item     `json:"item"`
 }
 
 type info struct {
@@ -24,10 +25,25 @@ type info struct {
 // A folder is this app's "collection inside one" and keeps its own auth: a group that lost it on
 // the way in would behave differently here.
 type item struct {
-	Name    string   `json:"name"`
-	Auth    *auth    `json:"auth,omitempty"`
-	Item    []item   `json:"item,omitempty"`
-	Request *request `json:"request,omitempty"`
+	Name     string     `json:"name"`
+	Auth     *auth      `json:"auth,omitempty"`
+	Variable []variable `json:"variable,omitempty"`
+	Item     []item     `json:"item,omitempty"`
+	Request  *request   `json:"request,omitempty"`
+}
+
+// variable is one `{{name}}` a level answers for, as a file writes it. The value is read as any
+// JSON and not as a string: the format allows a number or a flag, and a value dropped for being
+// written without quotes would be a variable that quietly changed meaning on the way in.
+//
+// What a file calls its type is not kept. Postman's own collection variables are strings, flags,
+// numbers or "any" and never a secret — a secret belongs to an environment there — and what this
+// app substitutes is text in every case, so the type says nothing name and value have not said.
+type variable struct {
+	Key      string `json:"key"`
+	Value    any    `json:"value,omitempty"`
+	Type     string `json:"type,omitempty"`
+	Disabled bool   `json:"disabled,omitempty"`
 }
 
 type request struct {

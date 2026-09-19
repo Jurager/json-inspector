@@ -30,7 +30,7 @@ import {
 } from '../../bindings/json-inspector/internal/usecase/draft'
 import type { Level } from '../../bindings/json-inspector/internal/usecase/scripting'
 import { abandoned, owed, settled, typed } from '../lib/draftBuffer'
-import { asked } from './calls'
+import { asked, done } from './calls'
 import { NO_AUTH } from '../lib/requestSource'
 import type { ChipName } from '../lib/requestSource'
 import {
@@ -294,9 +294,13 @@ export const useRequestsStore = defineStore('requests', {
 
     // The code of the request being composed: written into the draft's own row, and read back from it.
     async loadScripts() {
+      // `null` is an answer here and not a failure: a level with nothing of its own is a level that
+      // inherits, which is the ordinary case. Only `undefined` — the call that did not come back —
+      // is a reason to leave the editor as it is.
       const scripts = await asked(ScriptingService.Scripts(DRAFT), 'request.readFailed')
+      if (scripts === undefined) return
       const chain = await asked(ScriptingService.Chain(DRAFT), 'request.readFailed')
-      if (!scripts || !chain) return
+      if (chain === undefined) return
       this.scripts = scripts
       this.chain = chain ?? []
     },
@@ -307,9 +311,13 @@ export const useRequestsStore = defineStore('requests', {
         postOff: off.post && !!post.trim(),
       }
       const written = pre.trim() || post.trim() ? { pre, post, ...flags } : null
+      // An editor cleared of both halves is written as nothing, and comes back as nothing: that is the
+      // level going back to inheriting, and reading it as a failure would leave the removed code on
+      // screen and the level in the chain.
       const saved = await asked(ScriptingService.SaveScripts(DRAFT, written), 'request.editFailed')
+      if (saved === undefined) return
       const chain = await asked(ScriptingService.Chain(DRAFT), 'request.readFailed')
-      if (!saved || !chain) return
+      if (chain === undefined) return
       this.scriptsFor = DRAFT
       this.scripts = saved
       this.chain = chain ?? []
@@ -640,7 +648,7 @@ export const useRequestsStore = defineStore('requests', {
       if (cached) return cached
 
       const record = this.records.find((r) => r.id === id)
-      if (!record) return {}
+      if (!record) return null
 
       const bodies: RecordBodies = {
         request: record.requestBody?.inline,
@@ -737,7 +745,7 @@ export const useRequestsStore = defineStore('requests', {
 
     async clearRecords(ids: string[]) {
       if (ids.length === 0) return
-      if (!(await asked(RecordsService.Clear(ids), 'history.clearFailed'))) return
+      if (!(await done(RecordsService.Clear(ids), 'history.clearFailed'))) return
 
       const gone = new Set(ids)
       this.records = this.records.filter((r) => !gone.has(r.id))

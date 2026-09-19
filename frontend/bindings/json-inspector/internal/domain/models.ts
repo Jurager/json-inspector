@@ -231,6 +231,12 @@ export enum Code {
     CodeUnknownChannel = "unknownUpdateChannel",
 
     /**
+     * An install asked for without a version. Nothing was offered, so there is nothing to fetch, and
+     * the sentence the window says about it is not one Go could word.
+     */
+    CodeNoVersion = "noVersion",
+
+    /**
      * The workspace the app is born with was the one that could not be deleted, and the rule is about
      * number now: the app has to have somewhere to keep its data, so the last space may not go —
      * whichever one it happens to be.
@@ -1079,13 +1085,19 @@ export enum SearchMatch {
     $zero = 0,
 
     /**
+     * MatchNone is the zero value, and it is deliberately not a tier: a row that matched nothing must
+     * not read as one that matched exactly when somebody forgets to look at the flag beside it.
+     */
+    MatchNone = 0,
+
+    /**
      * MatchExact is the whole name, character for character. It is separated from MatchName because
      * it is the one case where the user has already typed what they want and the row is the answer.
      */
-    MatchExact = 0,
-    MatchName = 1,
-    MatchPath = 2,
-    MatchValue = 3,
+    MatchExact = 1,
+    MatchName = 2,
+    MatchPath = 3,
+    MatchValue = 4,
 };
 
 /**

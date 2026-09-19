@@ -91,8 +91,11 @@ func (u *UseCase) copyCollection(
 		ParentID:    parentID,
 		Position:    position,
 		Auth:        row.Auth,
-		Items:       []domain.CollectionNode{},
-		Children:    []domain.Collection{},
+		// The variables are the copy's own, for the reason the rows are: a variable is addressed by its
+		// id, and one id naming a variable in two collections is one variable in two places.
+		Variables: copyVariables(u.ids, row.Variables),
+		Items:     []domain.CollectionNode{},
+		Children:  []domain.Collection{},
 	}
 
 	for _, node := range row.Items {
@@ -141,57 +144,60 @@ func (u *UseCase) copyNode(
 	return copied, nil
 }
 
-// withIDs gives rows ids they do not have. A file writes no ids at all, and a row the window cannot
-// address is a row it cannot edit.
-func withIDs(ids platform.IDGen, rows []domain.Row) []domain.Row {
-	out := make([]domain.Row, 0, len(rows))
+// minted gives every row an id of its own. Both halves of the tree need it: a row is edited by id,
+// so a copy that kept the original's would be an edit away from changing both.
+//
+// The row is copied out of the list before it is written to, and the list itself is never touched:
+// it belongs to the caller, and a copy that renamed the rows it was copied from would be the very
+// thing the new ids are for.
+func minted[T any](ids platform.IDGen, rows []T, id func(*T) *string) []T {
+	out := make([]T, 0, len(rows))
 	for _, row := range rows {
-		if row.ID == "" {
-			row.ID = ids()
+		*id(&row) = ids()
+		out = append(out, row)
+	}
+	return out
+}
+
+// keptAsIs is minted for rows that may already have ids — a file writes none at all, and a row the
+// window cannot address is a row it cannot edit. An id that is already there stays.
+func keptAsIs[T any](ids platform.IDGen, rows []T, id func(*T) *string) []T {
+	out := make([]T, 0, len(rows))
+	for _, row := range rows {
+		if *id(&row) == "" {
+			*id(&row) = ids()
 		}
 		out = append(out, row)
 	}
 	return out
+}
+
+func withIDs(ids platform.IDGen, rows []domain.Row) []domain.Row {
+	return keptAsIs(ids, rows, func(row *domain.Row) *string { return &row.ID })
 }
 
 func withFormIDs(ids platform.IDGen, rows []domain.FormRow) []domain.FormRow {
-	out := make([]domain.FormRow, 0, len(rows))
-	for _, row := range rows {
-		if row.ID == "" {
-			row.ID = ids()
-		}
-		out = append(out, row)
-	}
-	return out
+	return keptAsIs(ids, rows, func(row *domain.FormRow) *string { return &row.ID })
+}
+
+func withVariablesIDs(ids platform.IDGen, variables []domain.Variable) []domain.Variable {
+	return keptAsIs(ids, variables, func(v *domain.Variable) *string { return &v.ID })
+}
+
+func copyRows(ids platform.IDGen, rows []domain.Row) []domain.Row {
+	return minted(ids, rows, func(row *domain.Row) *string { return &row.ID })
 }
 
 func copyFormRows(ids platform.IDGen, rows []domain.FormRow) []domain.FormRow {
-	out := make([]domain.FormRow, 0, len(rows))
-	for _, row := range rows {
-		row.ID = ids()
-		out = append(out, row)
-	}
-	return out
-}
-
-// copyRows and copyCookies give a copy rows of its own, for the reason the ids exist at all: the
-// window edits a row by id, and a copy that kept them would be an edit away from changing both.
-func copyRows(ids platform.IDGen, rows []domain.Row) []domain.Row {
-	out := make([]domain.Row, 0, len(rows))
-	for _, row := range rows {
-		row.ID = ids()
-		out = append(out, row)
-	}
-	return out
+	return minted(ids, rows, func(row *domain.FormRow) *string { return &row.ID })
 }
 
 func copyCookies(ids platform.IDGen, cookies []domain.CookieRow) []domain.CookieRow {
-	out := make([]domain.CookieRow, 0, len(cookies))
-	for _, cookie := range cookies {
-		cookie.ID = ids()
-		out = append(out, cookie)
-	}
-	return out
+	return minted(ids, cookies, func(cookie *domain.CookieRow) *string { return &cookie.ID })
+}
+
+func copyVariables(ids platform.IDGen, variables []domain.Variable) []domain.Variable {
+	return minted(ids, variables, func(v *domain.Variable) *string { return &v.ID })
 }
 
 // A level waiting to be written. Scripts belong to the level, not to the row, and SaveScripts only

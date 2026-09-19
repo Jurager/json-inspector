@@ -2,11 +2,10 @@
 import { computed } from 'vue'
 import { useRequestsStore } from '../../stores/requests'
 import {
-  buildResourceIndex,
   dataResources,
+  documentVersion,
   isJsonApi,
-  relIdentifiers,
-  resourceKey,
+  missingLinkCount,
   type JsonApiDocument,
 } from '../../lib/jsonapi'
 import { tryParseJson } from '../../lib/json'
@@ -64,36 +63,14 @@ const doc = computed<JsonApiDocument | null>(() => {
   return p.ok && isJsonApi(p.value) ? (p.value as JsonApiDocument) : null
 })
 
-function jsonapiVersion(d: JsonApiDocument): string {
-  const j = d.jsonapi
-  if (j && typeof j === 'object' && !Array.isArray(j)) {
-    const v = (j as Record<string, unknown>).version
-    if (typeof v === 'string' && v) return v
-  }
-  return ''
-}
-
-function countMissing(d: JsonApiDocument): number {
-  const idx = buildResourceIndex(d)
-  let n = 0
-  for (const r of [...dataResources(d), ...(d.included ?? [])]) {
-    for (const rel of Object.values(r.relationships ?? {})) {
-      for (const ri of relIdentifiers(rel)) {
-        if (!idx.has(resourceKey(ri.type, ri.id))) n++
-      }
-    }
-  }
-  return n
-}
-
 const summary = computed(() => {
   const r = selectedRecord.value
   if (!r) return ''
   if (doc.value) {
     const d = doc.value
-    const version = jsonapiVersion(d)
+    const version = documentVersion(d)
     const total = dataResources(d).length + (d.included ?? []).length
-    const missing = countMissing(d)
+    const missing = missingLinkCount(d)
     const parts: string[] = []
     if (version) parts.push(`JSON:API ${version}`)
     parts.push(t('counts.resources', total))

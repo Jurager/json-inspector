@@ -153,14 +153,23 @@ func (m *Materializer) Forget(auth domain.Auth) {
 
 // Held is whether a scheme has a token at this moment and until when, which is all the window is
 // told: it draws «No token» or that there is one, and never the value itself.
+//
+// A token that has died is not held, and the window hears the same thing a send would act on: it
+// asks the same question of the same token, and two answers to it would be two answers about one
+// fact — «there is a token» over a request that is fetching another one.
 func (m *Materializer) Held(auth domain.Auth) domain.AuthToken {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	found, ok := m.tokens[tokenKey(auth)]
+	found, ok := m.live(auth)
 	if !ok {
 		return domain.AuthToken{}
 	}
-	return domain.AuthToken{Held: true, ExpiresAt: found.expires.UnixMilli()}
+	token := domain.AuthToken{Held: true}
+	// A provider that said nothing about when its token ends leaves the moment zero, and zero is what
+	// the window reads as «no expiry was named». Taking it out of a zero time instead would hand it a
+	// date in the year 1.
+	if !found.expires.IsZero() {
+		token.ExpiresAt = found.expires.UnixMilli()
+	}
+	return token
 }
 
 func (m *Materializer) obtain(ctx context.Context, auth domain.Auth, entry scheme) (string, error) {
@@ -184,16 +193,27 @@ func (m *Materializer) obtain(ctx context.Context, auth domain.Auth, entry schem
 }
 
 func (m *Materializer) held(auth domain.Auth) (string, bool) {
+	found, ok := m.live(auth)
+	if !ok {
+		return "", false
+	}
+	return found.token, true
+}
+
+// live is the token a scheme is holding at this moment. One that has died, or that dies within the
+// delta, is not held: asking for another is cheaper than a request that goes out with a credential
+// the server has already stopped taking.
+func (m *Materializer) live(auth domain.Auth) (issued, bool) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	found, ok := m.tokens[tokenKey(auth)]
 	if !ok || found.token == "" {
-		return "", false
+		return issued{}, false
 	}
 	if !found.expires.IsZero() && time.Now().Add(expiryDelta).After(found.expires) {
-		return "", false
+		return issued{}, false
 	}
-	return found.token, true
+	return found, true
 }
 
 // tokenKey names a token by the answers that would fetch it, so two requests that share an

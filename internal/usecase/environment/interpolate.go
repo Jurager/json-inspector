@@ -11,6 +11,7 @@ package environment
 import (
 	"regexp"
 	"strings"
+	"unicode/utf8"
 
 	"json-inspector/internal/domain"
 )
@@ -103,6 +104,29 @@ func interpolate(text string, resolve lookup, maskSecrets bool) string {
 	}
 	out.WriteString(text[last:])
 	return out.String()
+}
+
+// shortestRedacted is the floor under which a value is not searched for. The search replaces plain
+// text that was written for other reasons, and a value of a character or two occurs in every
+// address: hiding it would leave a record describing a request nobody wrote, which is worse than a
+// value no server would take as a credential. Six runes is where a value is long enough to be one.
+const shortestRedacted = 6
+
+// redact replaces a secret's value with its mask wherever the text still carries it. The values
+// arrive longest first, so one that contains another leaves neither half-written.
+//
+// It is the half of masking a rewritten request cannot do without. A token is recognised by its
+// braces; a value that has already been substituted in has none, and a pre-request script is handed
+// the request with its values in it and hands one back. Everything that outlives the send is
+// rendered from that text, so the value is all that is left to find.
+func redact(text string, secrets []string) string {
+	for _, secret := range secrets {
+		if utf8.RuneCountInString(secret) < shortestRedacted {
+			continue
+		}
+		text = strings.ReplaceAll(text, secret, secretMask)
+	}
+	return text
 }
 
 // missing lists the names a text mentions that came to nothing, in the order they were written and

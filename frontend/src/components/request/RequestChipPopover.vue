@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import Icon from '../ui/Icon.vue'
-import VarToken from '../ui/VarToken.vue'
+import TokenField from '../ui/TokenField.vue'
 import { PopoverContent } from '../ui/popover'
 import { Button, IconButton } from '../ui/button'
 import { Checkbox } from '../ui/checkbox'
@@ -14,7 +14,6 @@ import { useRequestsStore } from '../../stores/requests'
 import { useCollectionsStore } from '../../stores/collections'
 import { useAuthSchemes } from '../../composables/useAuthSchemes'
 import type { ChipName, RequestSource } from '../../lib/requestSource'
-import { parseTokens, tokenSegments } from '../../lib/vars'
 import { useMessages, formatCheckedAt } from '../../i18n'
 import { DraftID, RowKind, type Auth } from '../../../bindings/json-inspector/internal/domain'
 
@@ -122,23 +121,6 @@ function onInteractOutside(e: Event) {
   const target = (e as CustomEvent<{ originalEvent?: Event }>).detail?.originalEvent?.target
   if (target instanceof Element && target.closest('.bar-tab')) e.preventDefault()
 }
-
-// Same as the URL field: the input stays the editable control and a transparent layer paints tokens above it.
-function hasTokens(value: string): boolean {
-  return parseTokens(value).length > 0
-}
-
-function syncCellScroll(e: Event) {
-  const input = e.target as HTMLInputElement
-  const display = input.parentElement?.querySelector<HTMLElement>('.row-display')
-  if (display) display.scrollLeft = input.scrollLeft
-}
-
-// Numbers take --tok-num, everything else --tok-str, mirroring the JSON tree's value highlighting.
-function valueClass(v: string): string {
-  return /^-?\d+(\.\d+)?$/.test(v.trim()) ? 'num' : 'str'
-}
-
 </script>
 
 <template>
@@ -164,33 +146,11 @@ function valueClass(v: string): string {
           <div v-for="p in store.params" :key="p.id" class="row" :class="{ off: !p.enabled }">
             <Checkbox :model-value="p.enabled" @update:model-value="toggle(RowKind.RowParams, p.id, $event)" @click.stop />
             <input :value="p.name" class="row-input mono" :placeholder="t('request.placeholderName')" spellcheck="false" @input="patch(RowKind.RowParams, p.id, { name: ($event.target as HTMLInputElement).value })" />
-            <div class="row-cell">
-              <input
-                :value="p.value"
-                class="row-input mono"
-                :class="[valueClass(p.value), { 'row-input-veiled': hasTokens(p.value) }]"
-                :placeholder="t('request.placeholderValue')"
-                spellcheck="false"
-                @input="patch(RowKind.RowParams, p.id, { value: ($event.target as HTMLInputElement).value }); syncCellScroll($event)"
-                @scroll="syncCellScroll"
-              />
-              <span
-                v-if="hasTokens(p.value)"
-                class="row-input row-display mono"
-                :class="valueClass(p.value)"
-                aria-hidden="true"
-              >
-                <template v-for="(seg, si) in tokenSegments(p.value)" :key="si">
-                  <VarToken
-                    v-if="seg.tokenName"
-                    :name="seg.tokenName"
-                    :text="seg.text"
-                    :offset="seg.start"
-                  />
-                  <span v-else>{{ seg.text }}</span>
-                </template>
-              </span>
-            </div>
+            <TokenField
+              :value="p.value"
+              :placeholder="t('request.placeholderValue')"
+              @change="patch(RowKind.RowParams, p.id, { value: $event })"
+            />
             <IconButton variant="danger" size="xl" :hint="t('common.delete')" @click.stop="remove(RowKind.RowParams, p.id)"><Icon name="trash" :size="14" :stroke-width="1.8" /></IconButton>
           </div>
         </TransitionGroup>
@@ -214,34 +174,12 @@ function valueClass(v: string): string {
         <TransitionGroup tag="div" name="row" class="rows">
           <div v-for="h in store.headers" :key="h.id" class="row" :class="{ off: !h.enabled }">
             <Checkbox :model-value="h.enabled" @update:model-value="toggle(RowKind.RowHeaders, h.id, $event)" @click.stop />
-            <input :value="h.name" class="row-input mono" placeholder="Header" spellcheck="false" @input="patch(RowKind.RowHeaders, h.id, { name: ($event.target as HTMLInputElement).value })" />
-            <div class="row-cell">
-              <input
-                :value="h.value"
-                class="row-input mono"
-                :class="[valueClass(h.value), { 'row-input-veiled': hasTokens(h.value) }]"
-                placeholder="Value"
-                spellcheck="false"
-                @input="patch(RowKind.RowHeaders, h.id, { value: ($event.target as HTMLInputElement).value }); syncCellScroll($event)"
-                @scroll="syncCellScroll"
-              />
-              <span
-                v-if="hasTokens(h.value)"
-                class="row-input row-display mono"
-                :class="valueClass(h.value)"
-                aria-hidden="true"
-              >
-                <template v-for="(seg, si) in tokenSegments(h.value)" :key="si">
-                  <VarToken
-                    v-if="seg.tokenName"
-                    :name="seg.tokenName"
-                    :text="seg.text"
-                    :offset="seg.start"
-                  />
-                  <span v-else>{{ seg.text }}</span>
-                </template>
-              </span>
-            </div>
+            <input :value="h.name" class="row-input mono" :placeholder="t('request.placeholderName')" spellcheck="false" @input="patch(RowKind.RowHeaders, h.id, { name: ($event.target as HTMLInputElement).value })" />
+            <TokenField
+              :value="h.value"
+              :placeholder="t('request.placeholderValue')"
+              @change="patch(RowKind.RowHeaders, h.id, { value: $event })"
+            />
             <IconButton variant="danger" size="xl" :hint="t('common.delete')" @click.stop="remove(RowKind.RowHeaders, h.id)"><Icon name="trash" :size="14" :stroke-width="1.8" /></IconButton>
           </div>
         </TransitionGroup>
@@ -361,6 +299,9 @@ function valueClass(v: string): string {
   transform: translateY(-4px);
 }
 
+/* What is left of the row's own CSS: the name column, which is a plain field with no tokens to
+   paint. The value column — its field, its layer and the colours of both — is TokenField's, and it
+   lives there because the same cell is drawn in the card's lists as well as in this popover. */
 .row-input {
   @apply min-w-0 bg-transparent border-0 outline-none text-[13px] p-0 rounded-sm;
   font-family: var(--mono);
@@ -369,28 +310,6 @@ function valueClass(v: string): string {
 
 .row-input:focus {
   background: var(--bg-inset);
-}
-
-.row-cell {
-  @apply relative flex min-w-0;
-}
-
-.row-cell .row-input.row-input-veiled {
-  color: transparent;
-  caret-color: var(--text);
-}
-
-.row-display {
-  @apply absolute inset-0 flex items-center overflow-hidden pointer-events-none;
-  white-space: pre;
-}
-
-.row-input.str {
-  color: var(--tok-str);
-}
-
-.row-input.num {
-  color: var(--tok-num);
 }
 
 /* The sentence a scheme says about itself. It stands at the popover's own edge with the fields under

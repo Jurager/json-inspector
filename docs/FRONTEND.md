@@ -54,7 +54,8 @@ dictionary — and `VarToken.vue`, `PanelFilter.vue`, `Toast.vue`, which need no
 No Vue and no state: `format` (dates, sizes), `clipboard`, `highlightMatch`, `json`, `jsonapi` and
 `schema` (JSON:API types and relationships — what the tree is drawn from), `vars` (the markup of
 `{{tokens}}`), `bodyFormat`, `sample`, `collectionTree`, `commandShape`, `requestRecord`,
-`requestSource`, `earlyAnswers`, `searchKinds`, `platform`.
+`requestSource`, `earlyAnswers`, `searchKinds`, `platform`, `address` (how an address is read),
+`draftBuffer` (the buffer a text is typed into), `recordTabs` (what a captured tab is).
 
 Parsing a document happens in Go, and what is left here is only what has to be **drawn**: `vars` knows
 where in a text a token is, but not what it comes to — the window has no values to know.
@@ -71,9 +72,12 @@ Storage keys are declared where they are read and named `*_STORAGE_KEY`; there a
   `onMounted`. Event names appear only there and in `internal/transport/wails/events.go`.
 - `urlFocus` — a module singleton without reactivity: the request line lives for less time than a
   request for focus aimed at it.
-- `stores/` — Pinia: `requests`, `collections`, `environments`, `workspaces`, `search`. A thin mirror:
-  fields come from Go's answers and are updated by events, and nothing is computed there. A service is
-  called straight from a store; there is no separate `ipc/` layer.
+- `stores/` — Pinia: `requests`, `collections`, `environments`, `workspaces`, `search`, and `calls`,
+  which is not a store but the one place a call to Go is wrapped so that a refusal is said out loud —
+  `asked` for a call that answers with something, `done` for one that answers with nothing, because
+  `undefined` cannot mean both "it came back empty" and "it failed". A thin mirror otherwise: fields
+  come from Go's answers and are updated by events, and nothing is computed there. A service is called
+  straight from a store; there is no separate `ipc/` layer.
 
 ## Theme
 

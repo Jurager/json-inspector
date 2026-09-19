@@ -15,10 +15,14 @@ const store = useRequestsStore()
 const { t } = useMessages()
 
 const port = ref('')
+// True until the runtime answers otherwise: a step not yet asked is not a failure to report, and the
+// call only fails before the runtime is up.
+const listening = ref(true)
 
 onMounted(async () => {
   try {
     port.value = String(await BridgeService.Port())
+    listening.value = await BridgeService.Listening()
   } catch {
     // Runtime not ready yet.
   }
@@ -26,11 +30,11 @@ onMounted(async () => {
 
 const connected = computed(() => store.capture.connected)
 
-const statusText = computed(() =>
-  connected.value
-    ? t('browser.connected', { port: port.value || '…' })
-    : t('browser.notFound', { port: port.value || '…' })
-)
+const statusText = computed(() => {
+  const where = { port: port.value || '…' }
+  if (!listening.value) return t('browser.portTaken', where)
+  return connected.value ? t('browser.connected', where) : t('browser.notFound', where)
+})
 
 // The steps are the mockup's three, with the one thing it could not know left to the app: how this
 // extension gets installed. It is a folder in the repository, in developer mode, not a store.

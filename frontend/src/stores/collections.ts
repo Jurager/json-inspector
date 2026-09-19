@@ -288,18 +288,17 @@ export const useCollectionsStore = defineStore('collections', {
     // A folder is a collection with a parent, so making one is this call with the level it goes in.
     // Empty is the top of the tree, which is where the panel's «+» puts one.
     async createCollection(name: string, parentId = '') {
-      const tree = await asked(
+      const created = await asked(
         CollectionsService.CreateCollection(name, '', parentId),
         'collections.saveFailed'
       )
-      if (!tree) return
-      this.applyTree(tree ?? [])
-      // A new collection is what the user is looking at, so it becomes the selection. It is the last
-      // one with that name: Go appends, and the id is Go's to mint.
-      const created = [...tree].reverse().find((c) => c.name === name)
       if (!created) return
-      await this.select(created.id)
-      this.pendingRename = created.id
+      this.applyTree(created.tree ?? [])
+      // The row that appeared comes back by id, so the selection and the rename box land on it: a
+      // folder inside a folder is not in the top level at all, and a name it shares with another
+      // collection would have put them on the wrong one.
+      await this.select(created.collection.id)
+      this.pendingRename = created.collection.id
     },
 
     async createNode(collectionId: string, name: string, method = 'GET') {
@@ -356,9 +355,14 @@ export const useCollectionsStore = defineStore('collections', {
     },
 
     // Export answers whether anything was written; a cancelled save dialog is not an error and the
-    // window says nothing about it.
+    // window says nothing about it. A refusal is said out loud like every other one: a file that
+    // could not be written is exactly the thing a person must not be left guessing about.
     async exportFile(id: string): Promise<boolean> {
-      return CollectionsService.ExportFile(tr('files.exportCollection'), id)
+      const written = await asked(
+        CollectionsService.ExportFile(tr('files.exportCollection'), id),
+        'collections.exportFailed'
+      )
+      return written ?? false
     },
 
     async rename(id: string, name: string) {
@@ -433,11 +437,16 @@ export const useCollectionsStore = defineStore('collections', {
     // ---- the card ---------------------------------------------------------
 
     // What a click in the tree does: a request opens a card, a collection opens its overview.
-    async select(id: string) {
+    // The one place a card is left from. Every path that changes the selection goes through here —
+    // the tree, the palette, a row of a run — so a card with unsaved edits is asked about before it
+    // is replaced, whichever of them asked. Answers whether the selection moved.
+    async select(id: string): Promise<boolean> {
+      if (id !== this.selectedId && !(await this.askUnsaved())) return false
+
       this.selectedId = id
       if (this.selected) {
         await this.openNode(id)
-        return
+        return true
       }
 
       abandoned(this)
@@ -449,8 +458,11 @@ export const useCollectionsStore = defineStore('collections', {
         CollectionsService.LastRun(this.collectionId ?? '', this.runNodeId),
         'collections.readFailed'
       )
-      if (run === undefined) return
+      // Two clicks in a row are two answers in flight: the one that is no longer the selection is
+      // dropped rather than drawn, or the panel would show a run of the row the user left.
+      if (run === undefined || this.selectedId !== id) return true
       this.lastRun = run
+      return true
     },
 
     async openNode(id: string) {
@@ -459,7 +471,10 @@ export const useCollectionsStore = defineStore('collections', {
         CollectionsService.OpenNode(id),
         'collections.readFailed'
       )
-      if (!editor) return
+      // The selection may have moved on while this was out — a second click, or a row opened from the
+      // palette. Landing the answer would leave the card holding another node's draft, which is what
+      // the next keystroke would then be written into.
+      if (!editor || this.selectedId !== id) return
       this.editor = editor
       this.dirty = false
       this.urlText = editor.state.draft.url
@@ -523,7 +538,9 @@ export const useCollectionsStore = defineStore('collections', {
       // A read behind the button rather than behind the person: a preview that could not be asked
       // for leaves the send-block as it was, and the send itself refuses a missing name properly.
       const state = await asked(DraftService.Snapshot(id), 'request.readFailed')
-      if (!state) return
+      // The card may have been closed or another node opened while this was out: the preview belongs
+      // to the draft it was asked about, and nothing else here does.
+      if (!state || this.draftId() !== id) return
       this.editor = { ...this.editor, state: { ...this.editor.state, preview: state.preview } }
     },
 
@@ -654,7 +671,9 @@ export const useCollectionsStore = defineStore('collections', {
     // line's own pasteCommand for why the reading travels back.
     async pasteCommand(text: string): Promise<CommandResult | null> {
       const id = this.draftId()
-      if (!id) return { kind: CommandKind.KindNone } as CommandResult
+      // No card open is no draft to read into, which is the same answer as a paste that could not be
+      // asked for: the caller words it the same way, and nothing is invented to fill the type.
+      if (!id) return null
       abandoned(this)
       this.urlRev += 1
       this.bodyRev += 1
@@ -874,9 +893,15 @@ export const useCollectionsStore = defineStore('collections', {
     async loadScripts() {
       const id = this.selectedId
       if (!id) return
+      // `null` is an answer here and not a failure: a level with nothing of its own is a level that
+      // inherits, which is the ordinary case. Only `undefined` — the call that did not come back —
+      // is a reason to leave the editor as it is.
       const scripts = await asked(ScriptingService.Scripts(id), 'request.readFailed')
+      if (scripts === undefined) return
       const chain = await asked(ScriptingService.Chain(id), 'request.readFailed')
-      if (!scripts || !chain) return
+      // The selection may have moved while the two reads were out, and a chain that belongs to the
+      // row the user left would name scripts this level does not inherit.
+      if (chain === undefined || this.selectedId !== id) return
       this.scriptsFor = id
       this.scripts = scripts
       this.chain = chain ?? []
@@ -893,10 +918,14 @@ export const useCollectionsStore = defineStore('collections', {
         postOff: off.post && !!post.trim(),
       }
       const written = pre.trim() || post.trim() ? { pre, post, ...flags } : null
+      // An editor cleared of both halves is written as nothing, and comes back as nothing: that is the
+      // level going back to inheriting, and reading it as a failure would leave the removed code on
+      // screen and the level in the chain.
       const saved = await asked(ScriptingService.SaveScripts(id, written), 'request.editFailed')
+      if (saved === undefined) return
       // A level that just gained or lost its code is a level that just entered or left the chain.
       const chain = await asked(ScriptingService.Chain(id), 'request.readFailed')
-      if (!saved || !chain) return
+      if (chain === undefined || this.selectedId !== id) return
       this.scriptsFor = id
       this.scripts = saved
       this.chain = chain ?? []

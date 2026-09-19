@@ -740,3 +740,31 @@ func TestARunRowKeepsTheRefusalItCarried(t *testing.T) {
 			last.Results[1].Failure)
 	}
 }
+
+// A row written by something other than this app — an import, a statement run by hand — fills none
+// of the columns it has nothing to say about, and the schema allows that. Opening the request must
+// not be where that is discovered: the node reads with no rows of its own rather than failing.
+func TestNodeReadsARowWithNullColumns(t *testing.T) {
+	store := newMigratedStore(t)
+	ctx := context.Background()
+
+	if err := store.SaveCollection(ctx, ws, nested("col-1", "", 0, "Коллекция")); err != nil {
+		t.Fatalf("SaveCollection: %v", err)
+	}
+	if _, err := store.DB().ExecContext(ctx, `INSERT INTO collection_nodes
+		(id, collection_id, name, position, created_at, updated_at)
+		VALUES ('r-1', 'col-1', 'Список', 0, 1, 1)`); err != nil {
+		t.Fatalf("inserting the row: %v", err)
+	}
+
+	node, err := store.Node(ctx, "r-1")
+	if err != nil {
+		t.Fatalf("Node: %v", err)
+	}
+	if node.Name != "Список" || node.CollectionID != "col-1" {
+		t.Errorf("node = %+v, want the row that was written", node)
+	}
+	if len(node.Params) != 0 || len(node.Headers) != 0 || len(node.Cookies) != 0 {
+		t.Errorf("node = %+v, want no rows of any kind", node)
+	}
+}

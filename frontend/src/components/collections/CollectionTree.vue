@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, nextTick, ref, watch, type ComponentPublicInstance } from 'vue'
+import { computed, nextTick, ref, watch } from 'vue'
 import Icon from '../ui/Icon.vue'
 import { IconButton } from '../ui/button'
 import PanelFilter from '../ui/PanelFilter.vue'
@@ -12,6 +12,7 @@ import {
 } from '../ui/context-menu'
 import DeleteNodeDialog from './DeleteNodeDialog.vue'
 import { useListKeys } from '../../composables/useListKeys'
+import { useInlineName } from '../../composables/useInlineName'
 import { methodInkClass, shortMethod } from '../../lib/format'
 import { useTreeDrag, type DropTarget } from '../../composables/useTreeDrag'
 import { useCollectionsStore } from '../../stores/collections'
@@ -149,7 +150,8 @@ function indentDepth(depth: number): string {
 // A click selects and opens: a request as a card, a collection as its overview. What is inside a
 // collapsed row is reached by its chevron, which is the gesture the tree has always had.
 async function pick(row: Row) {
-  if (!(await leave())) return
+  // Nothing is asked about unsaved edits here: leaving a card is `select`'s own gate, and it is the
+  // gate the palette and a row of a run go through as well.
   await store.select(row.id)
 }
 
@@ -296,44 +298,19 @@ useListKeys({
 
 // ---- renaming ------------------------------------------------------------
 
-const renamingId = ref<string | null>(null)
-const nameDraft = ref('')
-const renameInput = ref<HTMLInputElement | null>(null)
-const renameInvalid = ref(false)
-
-function setNameInput(el: Element | ComponentPublicInstance | null) {
-  renameInput.value = (el as HTMLInputElement | null) ?? null
-}
+const {
+  target: renamingId,
+  draft: nameDraft,
+  invalid: renameInvalid,
+  setInput: setNameInput,
+  open: openRename,
+  commit: commitRename,
+  cancel: cancelRename,
+  onKeydown: onRenameKeydown,
+} = useInlineName<string>((id, name) => store.rename(id, name))
 
 function startRename(row: Row) {
-  renamingId.value = row.id
-  nameDraft.value = row.name
-  renameInvalid.value = false
-  nextTick(() => {
-    focusNextFrame(renameInput.value)
-    renameInput.value?.select()
-  })
-}
-
-async function commitRename() {
-  const id = renamingId.value
-  if (!id) return
-  const name = nameDraft.value.trim()
-  if (!name) {
-    // An empty name is refused by Go, and saying so here keeps the row open on the text instead of
-    // closing it and letting a call fail.
-    renameInvalid.value = true
-    renameInput.value?.focus()
-    return
-  }
-  renamingId.value = null
-  renameInvalid.value = false
-  await store.rename(id, name)
-}
-
-function cancelRename() {
-  renamingId.value = null
-  renameInvalid.value = false
+  openRename(row.id, row.name)
 }
 
 // The field blurs when the row it was in goes away — Escape unmounts it — and committing there
@@ -342,31 +319,26 @@ function commitRenameFrom(id: string) {
   if (renamingId.value === id) void commitRename()
 }
 
-function onRenameKeydown(e: KeyboardEvent) {
-  e.stopPropagation()
-  if (e.key === 'Enter') {
-    e.preventDefault()
-    void commitRename()
-  } else if (e.key === 'Escape') {
-    e.preventDefault()
-    cancelRename()
-  }
-}
-
 // ---- creating ------------------------------------------------------------
 
 // The row being named right now: the design creates straight in the tree, the way the environments
 // sheet does, so the name is typed where the row will be.
-const creating = ref<{ collectionId: string } | null>(null)
-const creatingName = ref('')
-const creatingInput = ref<HTMLInputElement | null>(null)
-const creatingInvalid = ref(false)
+const {
+  target: creatingIn,
+  draft: creatingName,
+  invalid: creatingInvalid,
+  setInput: setCreatingInput,
+  open: openCreating,
+  commit: commitCreating,
+  cancel: cancelCreating,
+  onKeydown: onCreatingKeydown,
+} = useInlineName<string>((collectionId, name) => store.createNode(collectionId, name, 'GET'))
 
 // Where that row is drawn: at the end of the level the request is about to join, which is where it
 // will actually be. "After the collection's own row" would be a different place whenever the
 // collection has rows of its own — and it is opened as the naming starts, so it always shows them.
 const creatingAt = computed<{ after: string; depth: number } | null>(() => {
-  const target = creating.value?.collectionId
+  const target = creatingIn.value
   if (!target) return null
 
   const rows = visible.value
@@ -377,17 +349,6 @@ const creatingAt = computed<{ after: string; depth: number } | null>(() => {
   while (end + 1 < rows.length && rows[end + 1].depth > rows[at].depth) end += 1
   return { after: rows[end].id, depth: rows[at].depth + 1 }
 })
-
-function setCreatingInput(el: Element | ComponentPublicInstance | null) {
-  creatingInput.value = (el as HTMLInputElement | null) ?? null
-}
-
-// A field that appears where a menu item was clicked cannot be focused in the same tick: the menu is
-// still closing, and whatever it does with focus on the way out lands after this. The next frame is
-// the first moment the caret stays where it was put.
-function focusNextFrame(el: HTMLInputElement | null) {
-  requestAnimationFrame(() => el?.focus())
-}
 
 // A request is created in the collection it will live in — the one that was right-clicked. A
 // collection is not made here: the «+» in the head makes one at the top, and a drop is what puts it
@@ -402,50 +363,14 @@ function levelOf(row: Row): string {
 }
 
 function startCreating(collectionId: string) {
-  creating.value = { collectionId }
-  creatingName.value = t('collections.newRequest')
-  creatingInvalid.value = false
+  // Opened first, so the row the field is drawn in is already on screen when the field appears.
   store.expanded[collectionId] = true
-  nextTick(() => {
-    focusNextFrame(creatingInput.value)
-    creatingInput.value?.select()
-  })
-}
-
-async function commitCreating() {
-  const pending = creating.value
-  if (!pending) return
-  const name = creatingName.value.trim()
-  if (!name) {
-    creatingInvalid.value = true
-    creatingInput.value?.focus()
-    return
-  }
-  creating.value = null
-  creatingInvalid.value = false
-  await store.createNode(pending.collectionId, name, 'GET')
-}
-
-function cancelCreating() {
-  creating.value = null
-  creatingInvalid.value = false
-}
-
-function onCreatingKeydown(e: KeyboardEvent) {
-  e.stopPropagation()
-  if (e.key === 'Enter') {
-    e.preventDefault()
-    void commitCreating()
-  } else if (e.key === 'Escape') {
-    e.preventDefault()
-    cancelCreating()
-  }
+  openCreating(collectionId, t('collections.newRequest'))
 }
 
 // A folder is a collection inside one, so the panel's «+» is this same call without a level: the one
 // that exists where the user is looking is the menu's.
 async function addCollection(parentId = '') {
-  await leave()
   await store.createCollection(nextCollectionName(), parentId)
 }
 
@@ -453,7 +378,7 @@ async function addCollection(parentId = '') {
 // that page is where the rows of the run appear — a run watched only through the status bar's counter
 // is a run nobody can follow.
 async function runNode(row: Row) {
-  if (row.id !== store.selectedId) await store.select(row.id)
+  await store.select(row.id)
   await store.run(store.runNodeId, row.name)
 }
 
@@ -534,19 +459,10 @@ async function remove(row: Row) {
   await store.remove(row.id)
 }
 
-// ---- the unsaved card ----------------------------------------------------
-
-// A card with edits does not disappear quietly: the store raises the alert and answers when it has
-// been answered, and the click that asked waits for it. The alert is drawn once, by the window,
-// because the rail asks the same question and a card does not have to be left through the tree.
-async function leave(): Promise<boolean> {
-  return store.askUnsaved()
-}
-
 defineExpose({ cancelTop })
 
 function cancelTop(): boolean {
-  if (creating.value) {
+  if (creatingIn.value) {
     cancelCreating()
     return true
   }
@@ -726,7 +642,6 @@ function cancelTop(): boolean {
     <DeleteNodeDialog
       v-if="confirming"
       :open="true"
-      :name="confirming?.name ?? ''"
       :count="confirming?.count ?? 0"
       @cancel="confirming = null"
       @confirm="confirming && remove(confirming)"

@@ -1,10 +1,9 @@
 <script setup lang="ts">
 import Icon from '../ui/Icon.vue'
-import VarToken from '../ui/VarToken.vue'
+import TokenField from '../ui/TokenField.vue'
 import { IconButton } from '../ui/button'
 import { useAuthSchemes } from '../../composables/useAuthSchemes'
 import { useMessages } from '../../i18n'
-import { parseTokens, tokenSegments } from '../../lib/vars'
 import { RowKind, type ProjectedRow } from '../../../bindings/json-inspector/internal/domain'
 
 // A row the authorization put in the list rather than a person. It sits in the same grid as the rows
@@ -27,19 +26,10 @@ const { schemeOf } = useAuthSchemes()
 
 const scheme = () => schemeOf(props.row.from)
 
-// Numbers take --tok-num, everything else --tok-str, mirroring the JSON tree's value highlighting.
+// A value that is not edited here still has to be coloured the way every other value is: numbers take
+// the number token, everything else the string one.
 function valueClass(v: string): string {
   return /^-?\d+(\.\d+)?$/.test(v.trim()) ? 'num' : 'str'
-}
-
-function hasTokens(value: string): boolean {
-  return parseTokens(value).length > 0
-}
-
-function syncCellScroll(e: Event) {
-  const input = e.target as HTMLInputElement
-  const display = input.parentElement?.querySelector<HTMLElement>('.row-display')
-  if (display) display.scrollLeft = input.scrollLeft
 }
 </script>
 
@@ -51,40 +41,22 @@ function syncCellScroll(e: Event) {
       v-if="row.editable"
       :value="row.name"
       class="row-input mono"
-      placeholder="Header"
+      :placeholder="t('request.placeholderName')"
       spellcheck="false"
       @input="emit('patch', row.target, ($event.target as HTMLInputElement).value, row.value)"
     />
     <span v-else class="row-text mono">{{ row.name }}</span>
 
-    <div class="row-cell">
-      <input
-        v-if="row.editable"
-        :value="row.value"
-        class="row-input mono"
-        :class="[valueClass(row.value), { 'row-input-veiled': hasTokens(row.value) }]"
-        placeholder="Value"
-        spellcheck="false"
-        @input="emit('patch', row.target, row.name, ($event.target as HTMLInputElement).value); syncCellScroll($event)"
-        @scroll="syncCellScroll"
-      />
-      <span v-else class="row-input mono" :class="valueClass(row.value)">{{ row.value }}</span>
-      <span
-        v-if="hasTokens(row.value)"
-        class="row-input row-display mono"
-        :class="valueClass(row.value)"
-        aria-hidden="true"
-      >
-        <template v-for="(seg, si) in tokenSegments(row.value)" :key="si">
-          <VarToken
-            v-if="seg.tokenName"
-            :name="seg.tokenName"
-            :text="seg.text"
-            :offset="seg.start"
-          />
-          <span v-else>{{ seg.text }}</span>
-        </template>
-      </span>
+    <TokenField
+      v-if="row.editable"
+      :value="row.value"
+      :placeholder="t('request.placeholderValue')"
+      @change="emit('patch', row.target, row.name, $event)"
+    />
+    <!-- The cell the value column is drawn in, kept for a row nobody can edit: the grid has to see
+         the same shape either way, or this row's columns would not line up with the others'. -->
+    <div v-else class="row-cell">
+      <span class="row-input mono" :class="valueClass(row.value)">{{ row.value }}</span>
     </div>
 
     <IconButton
@@ -128,18 +100,10 @@ function syncCellScroll(e: Event) {
   background: var(--bg-inset);
 }
 
+/* The cell the value stands in when nobody can edit it: the grid has to see the same column either
+   way, so this keeps the shape TokenField gives the editable one. */
 .row-cell {
   @apply relative flex min-w-0;
-}
-
-.row-cell .row-input.row-input-veiled {
-  color: transparent;
-  caret-color: var(--text);
-}
-
-.row-display {
-  @apply absolute inset-0 flex items-center overflow-hidden pointer-events-none;
-  white-space: pre;
 }
 
 .row-input.str {

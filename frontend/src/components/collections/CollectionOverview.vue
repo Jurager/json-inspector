@@ -7,9 +7,9 @@ import CollectionScripts from './CollectionScripts.vue'
 import { Sheet } from '../ui/sheet'
 import CollectionVariables from './CollectionVariables.vue'
 import { useCollectionsStore } from '../../stores/collections'
+import { asked } from '../../stores/calls'
 import { useAuthSchemes } from '../../composables/useAuthSchemes'
 import { useToast } from '../../composables/useToast'
-import { findNode } from '../../lib/collectionTree'
 import { addressOf } from '../../lib/address'
 import { methodInkClass, statusBadgeClass } from '../../lib/format'
 import { describeFailure, formatAgo, formatMicros, refusalText, useMessages } from '../../i18n'
@@ -43,12 +43,10 @@ async function exportLevel() {
 }
 
 async function importCollection() {
-  try {
-    const name = await store.importFile()
-    if (name) toast.show(t('collections.imported', { name }))
-  } catch (error) {
-    toast.show(t('collections.importFailed', { error: describeFailure(error) }), 'error')
-  }
+  // No catch here: the store says a refusal out loud, and a dialog nobody answered answers with
+  // nothing at all — neither of which is a rejection to catch.
+  const name = await store.importFile()
+  if (name) toast.show(t('collections.imported', { name }))
 }
 
 // ---- the description -----------------------------------------------------
@@ -112,11 +110,14 @@ async function loadRows() {
     return
   }
   loading.value = true
-  try {
-    requests.value = (await CollectionsService.Contents(levelId.value)) ?? []
-  } finally {
-    loading.value = false
-  }
+  // A refusal is said out loud, and the table is emptied: a failed read that left the rows of the
+  // previous level on screen would be a page describing a collection the user has already left.
+  const rows = await asked(
+    CollectionsService.Contents(levelId.value),
+    'collections.contentsFailed'
+  )
+  loading.value = false
+  requests.value = rows ?? []
 }
 
 // The rows and the code are read when the level opens and again when the selection moves. Neither is
@@ -211,7 +212,12 @@ function timeOf(answer: Answer | undefined): string {
 // The table's rows: the requests of the level and what the run said about each of them, which are
 // two lists that meet by node id.
 const tableRows = computed(() =>
-  requests.value.map((row) => ({ row, answer: answers.value.get(row.id) }))
+  requests.value.map((row) => {
+    const answer = answers.value.get(row.id)
+    // Worked out once per row: the pill draws both its colour and its word, and asking twice would
+    // walk the same reasoning twice on every render of a table that can be a hundred rows long.
+    return { row, answer, status: statusOf(answer) }
+  })
 )
 
 // What the run said about each request, by the node it came from — the row the click hands over.
@@ -257,20 +263,34 @@ const scheme = computed(() => {
   return auth ? schemeOf(auth.type) : null
 })
 
+// What the last run came to, worked out once. The cards above the table and the panel below it say
+// the same things about the same run, and a number worked out twice is a number that can come out
+// differently twice — which is how a card and a line about one run would come to disagree.
+//
+// Broken is what counts as failed here rather than `ok` on the row: a request that answered 200 with
+// an assertion that did not hold is a request that failed, and the run's own counter cannot know that.
+const runSummary = computed(() => {
+  const rows = mine.value?.results ?? []
+  const broken = rows.filter((result) => failed(answers.value.get(result.nodeId)))
+
+  return {
+    run: mine.value,
+    total: rows.length,
+    broken,
+    passed: rows.length - broken.length,
+    assertsPassed: rows.reduce((sum, result) => sum + (result.assertionsPassed ?? 0), 0),
+    assertsTotal: rows.reduce((sum, result) => sum + (result.assertionsTotal ?? 0), 0),
+    slowest: rows.reduce<CollectionRunResult | null>(
+      (best, result) => (best && best.durationUs >= result.durationUs ? best : result),
+      null
+    ),
+  }
+})
+
 // The four numbers a run comes to. Every one of them is about the last run rather than about the
 // level: what a collection is worth is what it did when it went out.
 const stats = computed(() => {
-  const run = mine.value
-  const rows = run?.results ?? []
-  const total = rows.length
-  const passed = rows.filter((result) => result.ok).length
-  const assertsPassed = rows.reduce((sum, result) => sum + (result.assertionsPassed ?? 0), 0)
-  const assertsTotal = rows.reduce((sum, result) => sum + (result.assertionsTotal ?? 0), 0)
-  const broken = rows.filter((result) => failed(answers.value.get(result.nodeId)))
-  const slowest = rows.reduce<CollectionRunResult | null>(
-    (best, result) => (best && best.durationUs >= result.durationUs ? best : result),
-    null
-  )
+  const { run, total, broken, assertsPassed, assertsTotal, slowest } = runSummary.value
 
   return [
     {
@@ -371,17 +391,8 @@ interface ReportRow {
 // run the table above draws, and it is worth a panel of its own because a failure is a thing to read
 // rather than a row to scan past.
 const report = computed<ReportRow[]>(() => {
-  const run = mine.value
+  const { run, broken, passed, assertsPassed, assertsTotal, slowest } = runSummary.value
   if (!run) return []
-  const rows = run.results ?? []
-  const broken = rows.filter((result) => failed(answers.value.get(result.nodeId)))
-  const passed = rows.filter((result) => !failed(answers.value.get(result.nodeId)))
-  const assertsPassed = rows.reduce((sum, result) => sum + (result.assertionsPassed ?? 0), 0)
-  const assertsTotal = rows.reduce((sum, result) => sum + (result.assertionsTotal ?? 0), 0)
-  const slowest = rows.reduce<CollectionRunResult | null>(
-    (best, result) => (best && best.durationUs >= result.durationUs ? best : result),
-    null
-  )
 
   const out: ReportRow[] = broken.map((result) => ({
     label: t('collections.reportFailedRow', {
@@ -396,7 +407,7 @@ const report = computed<ReportRow[]>(() => {
     result,
   }))
   out.push({
-    label: t('collections.reportPassedRow', { n: passed.length }),
+    label: t('collections.reportPassedRow', { n: passed }),
     note: t('collections.reportPassedNote', {
       asserts: t('collections.assertsCount', { passed: assertsPassed, total: assertsTotal }),
       total: formatMicros(run.durationUs),
@@ -454,18 +465,18 @@ const authEditor = ref<Editor>(null)
 const variablesEditor = ref<Editor>(null)
 const scriptsEditor = ref<Editor>(null)
 
-const editor = computed<Editor>(() => {
-  switch (sheet.value) {
-    case 'auth':
-      return authEditor.value
-    case 'variables':
-      return variablesEditor.value
-    case 'scripts':
-      return scriptsEditor.value
-    default:
-      return null
-  }
-})
+// What a sheet needs to know about the level it is open on: the line under its name, and the editor
+// whose footer writes or drops what was being held. One row per sheet, because a sheet is added by
+// adding a row rather than by finding the three switches that were asked about it.
+const SHEETS: Record<Sheet, { sub: () => string; editor: () => Editor }> = {
+  auth: { sub: () => authNote.value, editor: () => authEditor.value },
+  variables: { sub: () => variablesNote.value, editor: () => variablesEditor.value },
+  scripts: { sub: () => scriptsNote.value, editor: () => scriptsEditor.value },
+  // The report is read rather than written, so it has nothing to save and nothing to throw away.
+  report: { sub: () => reportSub.value, editor: () => null },
+}
+
+const editor = computed<Editor>(() => (sheet.value ? SHEETS[sheet.value].editor() : null))
 
 async function saveSheet() {
   await editor.value?.commit()
@@ -495,20 +506,7 @@ const reportSub = computed(() => {
 
 // What a sheet is about, in a line under its name — the drawing gives every one of them a sentence,
 // and the card it was opened from is where the sentence comes from.
-const sheetSub = computed(() => {
-  switch (sheet.value) {
-    case 'auth':
-      return authNote.value
-    case 'variables':
-      return variablesNote.value
-    case 'scripts':
-      return scriptsNote.value
-    case 'report':
-      return reportSub.value
-    default:
-      return ''
-  }
-})
+const sheetSub = computed(() => (sheet.value ? SHEETS[sheet.value].sub() : ''))
 
 async function run() {
   await store.run(store.runNodeId, title.value)
@@ -603,8 +601,8 @@ async function run() {
             </span>
             <span class="cell-time mono">{{ timeOf(entry.answer) }}</span>
             <span class="cell-status">
-              <span class="status-pill" :class="statusOf(entry.answer).cls">
-                {{ statusOf(entry.answer).text }}
+              <span class="status-pill" :class="entry.status.cls">
+                {{ entry.status.text }}
               </span>
             </span>
           </button>

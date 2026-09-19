@@ -22,12 +22,51 @@ func Import(data []byte) (domain.Collection, error) {
 	imported := domain.Collection{
 		Name:        doc.Info.Name,
 		Description: "",
+		Variables:   importedVariables(doc.Variable),
 	}
 	if doc.Auth != nil {
 		imported.Auth = authOf(*doc.Auth)
 	}
 	readLevel(doc.Item, &imported)
 	return imported, nil
+}
+
+// importedVariables reads what a level answers for `{{tokens}}`, in the order the file wrote them:
+// the order is the one the editor draws and the nearest answer is the last, so it is not a thing to
+// sort. A row with no name is a row somebody left empty rather than a variable.
+func importedVariables(from []variable) []domain.Variable {
+	out := []domain.Variable{}
+	for _, v := range from {
+		name := strings.TrimSpace(v.Key)
+		if name == "" {
+			continue
+		}
+		out = append(out, domain.Variable{
+			Name:     name,
+			Value:    variableValue(v.Value),
+			Kind:     domain.VariableText,
+			Enabled:  !v.Disabled,
+			Position: len(out) + 1,
+		})
+	}
+	return out
+}
+
+// variableValue is a value out of a file as the text a request substitutes. A string is the usual
+// case; the format allows any JSON, and a number or a flag becomes its own spelling rather than
+// being dropped — `2` and `"2"` answer `{{page}}` the same way.
+func variableValue(value any) string {
+	if value == nil {
+		return ""
+	}
+	if text, ok := value.(string); ok {
+		return text
+	}
+	encoded, err := json.Marshal(value)
+	if err != nil {
+		return ""
+	}
+	return string(encoded)
 }
 
 // The order the rows are written in is the order the tree draws and a run walks them, and the two
@@ -44,7 +83,11 @@ func readLevel(items []item, into *domain.Collection) {
 			continue
 		}
 
-		nested := domain.Collection{Name: entry.Name, Position: position}
+		nested := domain.Collection{
+			Name:      entry.Name,
+			Position:  position,
+			Variables: importedVariables(entry.Variable),
+		}
 		if entry.Auth != nil {
 			nested.Auth = authOf(*entry.Auth)
 		}

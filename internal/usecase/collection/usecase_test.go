@@ -737,11 +737,11 @@ func TestCreateCollectionAppends(t *testing.T) {
 	uc, _ := newTestUseCase()
 	ctx := context.Background()
 
-	first, err := uc.CreateCollection(ctx, "  Пользователи  ", " тестовые ", "")
+	_, first, err := uc.CreateCollection(ctx, "  Пользователи  ", " тестовые ", "")
 	if err != nil {
 		t.Fatalf("CreateCollection: %v", err)
 	}
-	tree, err := uc.CreateCollection(ctx, "Заказы", "", "")
+	_, tree, err := uc.CreateCollection(ctx, "Заказы", "", "")
 	if err != nil {
 		t.Fatalf("CreateCollection: %v", err)
 	}
@@ -763,7 +763,7 @@ func TestCreateCollectionAppends(t *testing.T) {
 func TestCreateCollectionRejectsAnEmptyName(t *testing.T) {
 	uc, _ := newTestUseCase()
 
-	if _, err := uc.CreateCollection(context.Background(), "   ", "", ""); !errors.Is(err,
+	if _, _, err := uc.CreateCollection(context.Background(), "   ", "", ""); !errors.Is(err,
 		domain.ErrNotAllowed) {
 		t.Fatalf("empty name = %v, want ErrNotAllowed", err)
 	}
@@ -773,7 +773,7 @@ func TestCreateNodeLandsAtTheEndOfItsLevel(t *testing.T) {
 	uc, _ := newTestUseCase()
 	ctx := context.Background()
 
-	tree, err := uc.CreateCollection(ctx, "Коллекция", "", "")
+	_, tree, err := uc.CreateCollection(ctx, "Коллекция", "", "")
 	if err != nil {
 		t.Fatalf("CreateCollection: %v", err)
 	}
@@ -827,15 +827,16 @@ func nestCollectionAt(t *testing.T, uc *UseCase, name string, parentID string, a
 	t.Helper()
 	ctx := context.Background()
 
-	tree, err := uc.CreateCollection(ctx, name, "", "")
+	// The row that came back is the one that appeared: the answer carries it now, so nothing here has
+	// to guess which of the last two it is.
+	made, _, err := uc.CreateCollection(ctx, name, "", "")
 	if err != nil {
 		t.Fatalf("CreateCollection: %v", err)
 	}
-	created := tree[len(tree)-1].ID
-	if _, err := uc.MoveCollection(ctx, created, parentID, at); err != nil {
+	if _, err := uc.MoveCollection(ctx, made.ID, parentID, at); err != nil {
 		t.Fatalf("MoveCollection: %v", err)
 	}
-	return created
+	return made.ID
 }
 
 // A request saved from a composer is written whole: the row that comes back is the one that
@@ -845,7 +846,7 @@ func TestCreateNodeTakesAWholeRequest(t *testing.T) {
 	uc, store := newTestUseCase()
 	ctx := context.Background()
 
-	tree, err := uc.CreateCollection(ctx, "Коллекция", "", "")
+	_, tree, err := uc.CreateCollection(ctx, "Коллекция", "", "")
 	if err != nil {
 		t.Fatalf("CreateCollection: %v", err)
 	}
@@ -892,7 +893,7 @@ func TestRenameReachesBothKinds(t *testing.T) {
 	uc, _ := newTestUseCase()
 	ctx := context.Background()
 
-	tree, _ := uc.CreateCollection(ctx, "Коллекция", "", "")
+	_, tree, _ := uc.CreateCollection(ctx, "Коллекция", "", "")
 	collectionID := only(t, tree).ID
 	_, tree, _ = uc.CreateNode(ctx, NodeDraft{CollectionID: collectionID, Name: "Запрос"})
 	requestID := only(t, tree).Items[0].ID
@@ -920,7 +921,7 @@ func TestRenameKeepsANestedCollectionNested(t *testing.T) {
 	uc, _ := newTestUseCase()
 	ctx := context.Background()
 
-	tree, _ := uc.CreateCollection(ctx, "Коллекция", "", "")
+	_, tree, _ := uc.CreateCollection(ctx, "Коллекция", "", "")
 	collectionID := only(t, tree).ID
 	nestedID := nestCollection(t, uc, "Вложенная", collectionID)
 
@@ -943,7 +944,7 @@ func TestDescribeReachesBothKinds(t *testing.T) {
 	uc, _ := newTestUseCase()
 	ctx := context.Background()
 
-	tree, _ := uc.CreateCollection(ctx, "Коллекция", "старое описание", "")
+	_, tree, _ := uc.CreateCollection(ctx, "Коллекция", "старое описание", "")
 	collectionID := only(t, tree).ID
 	nestedID := nestCollection(t, uc, "Вложенная", collectionID)
 
@@ -989,7 +990,7 @@ func TestDuplicateCopiesTheSubtree(t *testing.T) {
 	uc, store := newTestUseCase()
 	ctx := context.Background()
 
-	tree, _ := uc.CreateCollection(ctx, "Коллекция", "", "")
+	_, tree, _ := uc.CreateCollection(ctx, "Коллекция", "", "")
 	collectionID := only(t, tree).ID
 	nestedID := nestCollection(t, uc, "Вложенная", collectionID)
 	// The tree is read again: the row looked up on the next line is the one this call adds.
@@ -1059,7 +1060,7 @@ func TestDuplicateCopiesTheRequestItself(t *testing.T) {
 	uc, store := newTestUseCase()
 	ctx := context.Background()
 
-	tree, _ := uc.CreateCollection(ctx, "Коллекция", "", "")
+	_, tree, _ := uc.CreateCollection(ctx, "Коллекция", "", "")
 	collectionID := only(t, tree).ID
 	_, tree, _ = uc.CreateNode(ctx, NodeDraft{CollectionID: collectionID, Name: "Запрос"})
 	requestID := only(t, tree).Items[0].ID
@@ -1128,7 +1129,7 @@ func TestSavingARequestKeepsItsScripts(t *testing.T) {
 	uc, store := newTestUseCase()
 	ctx := context.Background()
 
-	tree, _ := uc.CreateCollection(ctx, "Коллекция", "", "")
+	_, tree, _ := uc.CreateCollection(ctx, "Коллекция", "", "")
 	collectionID := only(t, tree).ID
 	_, tree, _ = uc.CreateNode(ctx, NodeDraft{CollectionID: collectionID, Name: "Запрос"})
 	requestID := only(t, tree).Items[0].ID
@@ -1159,7 +1160,7 @@ func TestDuplicateCopiesTheCollectionScripts(t *testing.T) {
 	uc, store := newTestUseCase()
 	ctx := context.Background()
 
-	tree, _ := uc.CreateCollection(ctx, "Коллекция", "", "")
+	_, tree, _ := uc.CreateCollection(ctx, "Коллекция", "", "")
 	collectionID := only(t, tree).ID
 	if err := store.SaveScripts(ctx, ws, collectionID,
 		&domain.Scripts{Pre: "console.log('пошли');"}); err != nil {
@@ -1186,7 +1187,7 @@ func TestDuplicateCopiesACollection(t *testing.T) {
 	uc, store := newTestUseCase()
 	ctx := context.Background()
 
-	tree, _ := uc.CreateCollection(ctx, "Коллекция", "описание", "")
+	_, tree, _ := uc.CreateCollection(ctx, "Коллекция", "описание", "")
 	collectionID := only(t, tree).ID
 	_, tree, _ = uc.CreateNode(ctx, NodeDraft{CollectionID: collectionID, Name: "Первый"})
 	nestedID := nestCollection(t, uc, "Вложенная", collectionID)
@@ -1240,6 +1241,43 @@ func TestDuplicateCopiesACollection(t *testing.T) {
 	}
 }
 
+// A copy answers for the names the original answered for, and with ids of its own: a variable is
+// addressed by its id, and one id naming a variable in two collections names two things.
+func TestDuplicateCopiesTheVariablesOfEveryLevel(t *testing.T) {
+	uc, _ := newTestUseCase()
+	ctx := context.Background()
+
+	_, tree, _ := uc.CreateCollection(ctx, "Коллекция", "", "")
+	collectionID := only(t, tree).ID
+	nestedID := nestCollection(t, uc, "Вложенная", collectionID)
+	saveVariables(t, uc, collectionID, variable("baseUrl", "https://api.example.com"))
+	saveVariables(t, uc, nestedID, variable("version", "v2"))
+
+	tree, err := uc.Duplicate(ctx, collectionID, copySuffix)
+	if err != nil {
+		t.Fatalf("Duplicate: %v", err)
+	}
+	if len(tree) != 2 {
+		t.Fatalf("tree = %d collections, want the copy beside the original", len(tree))
+	}
+	copied := tree[1]
+
+	if len(copied.Variables) != 1 || copied.Variables[0].Name != "baseUrl" ||
+		copied.Variables[0].Value != "https://api.example.com" {
+		t.Fatalf("copy = %+v, want the original's own answer", copied.Variables)
+	}
+	if copied.Variables[0].ID == tree[0].Variables[0].ID {
+		t.Error("the copy kept the original's variable id")
+	}
+
+	if len(copied.Children) != 1 || len(copied.Children[0].Variables) != 1 {
+		t.Fatalf("nested copy = %+v, want the level inside it copied whole", copied.Children)
+	}
+	if v := copied.Children[0].Variables[0]; v.Name != "version" || v.Value != "v2" {
+		t.Errorf("nested variable = %+v, want the one the folder answered", v)
+	}
+}
+
 func TestDuplicateClipsTheNameAtTheCeiling(t *testing.T) {
 	uc, _ := newTestUseCase()
 	ctx := context.Background()
@@ -1248,7 +1286,7 @@ func TestDuplicateClipsTheNameAtTheCeiling(t *testing.T) {
 	for len([]rune(long)) < maxNameLength {
 		long += "я"
 	}
-	tree, err := uc.CreateCollection(ctx, long, "", "")
+	_, tree, err := uc.CreateCollection(ctx, long, "", "")
 	if err != nil {
 		t.Fatalf("CreateCollection: %v", err)
 	}
@@ -1266,7 +1304,7 @@ func TestDeleteTakesTheWholeSubtree(t *testing.T) {
 	uc, _ := newTestUseCase()
 	ctx := context.Background()
 
-	tree, _ := uc.CreateCollection(ctx, "Коллекция", "", "")
+	_, tree, _ := uc.CreateCollection(ctx, "Коллекция", "", "")
 	collectionID := only(t, tree).ID
 	nestedID := nestCollection(t, uc, "Вложенная", collectionID)
 	// The node has to exist for the cascade below to have something to take: what the tree looks like
@@ -1298,7 +1336,7 @@ func TestSaveNodeKeepsWhereItLives(t *testing.T) {
 	uc, store := newTestUseCase()
 	ctx := context.Background()
 
-	tree, _ := uc.CreateCollection(ctx, "Коллекция", "", "")
+	_, tree, _ := uc.CreateCollection(ctx, "Коллекция", "", "")
 	collectionID := only(t, tree).ID
 	nestedID := nestCollection(t, uc, "Вложенная", collectionID)
 	_, tree, _ = uc.CreateNode(ctx, NodeDraft{CollectionID: nestedID, Name: "Запрос"})
@@ -1341,7 +1379,7 @@ func TestSaveNodeRejectsAnEmptyName(t *testing.T) {
 	uc, _ := newTestUseCase()
 	ctx := context.Background()
 
-	tree, _ := uc.CreateCollection(ctx, "Коллекция", "", "")
+	_, tree, _ := uc.CreateCollection(ctx, "Коллекция", "", "")
 	collectionID := only(t, tree).ID
 	_, tree, _ = uc.CreateNode(ctx, NodeDraft{CollectionID: collectionID, Name: "Запрос"})
 	requestID := only(t, tree).Items[0].ID
@@ -1356,7 +1394,7 @@ func TestMoveNodeTakesTheDropIndex(t *testing.T) {
 	uc, _ := newTestUseCase()
 	ctx := context.Background()
 
-	tree, err := uc.CreateCollection(ctx, "Коллекция", "", "")
+	_, tree, err := uc.CreateCollection(ctx, "Коллекция", "", "")
 	if err != nil {
 		t.Fatalf("CreateCollection: %v", err)
 	}
@@ -1405,7 +1443,7 @@ func TestMoveNodeBetweenCollections(t *testing.T) {
 	uc, store := newTestUseCase()
 	ctx := context.Background()
 
-	tree, _ := uc.CreateCollection(ctx, "Коллекция", "", "")
+	_, tree, _ := uc.CreateCollection(ctx, "Коллекция", "", "")
 	collectionID := only(t, tree).ID
 	nestedID := nestCollection(t, uc, "Вложенная", collectionID)
 	_, tree, _ = uc.CreateNode(ctx, NodeDraft{CollectionID: collectionID, Name: "Снаружи"})
@@ -1437,7 +1475,7 @@ func TestMoveCollectionRefusesARing(t *testing.T) {
 	uc, _ := newTestUseCase()
 	ctx := context.Background()
 
-	tree, _ := uc.CreateCollection(ctx, "Коллекция", "", "")
+	_, tree, _ := uc.CreateCollection(ctx, "Коллекция", "", "")
 	collectionID := only(t, tree).ID
 	nestedID := nestCollection(t, uc, "Вложенная", collectionID)
 
@@ -1469,7 +1507,7 @@ func TestMoveCollectionReturnsToTheTopLevel(t *testing.T) {
 	uc, _ := newTestUseCase()
 	ctx := context.Background()
 
-	tree, _ := uc.CreateCollection(ctx, "Коллекция", "", "")
+	_, tree, _ := uc.CreateCollection(ctx, "Коллекция", "", "")
 	collectionID := only(t, tree).ID
 	nestedID := nestCollection(t, uc, "Вложенная", collectionID)
 
@@ -1555,13 +1593,78 @@ func TestImportTakesAWholeCollection(t *testing.T) {
 	}
 }
 
+// A file carries what a level answers for `{{tokens}}`, and an import keeps it: a collection that
+// lost them would answer `{{baseUrl}}` with nothing on the other side of the move.
+func TestImportKeepsTheVariablesOfEveryLevel(t *testing.T) {
+	uc, _ := newTestUseCase()
+	ctx := context.Background()
+
+	tree, err := uc.Import(ctx, domain.Collection{
+		Name: "Импортированная",
+		Variables: []domain.Variable{
+			{Name: "baseUrl", Value: "https://api.example.com", Kind: domain.VariableText, Enabled: true},
+		},
+		Children: []domain.Collection{{
+			Name: "Вложенная",
+			Variables: []domain.Variable{
+				{Name: "version", Value: "v2", Kind: domain.VariableText, Enabled: true},
+			},
+		}},
+	})
+	if err != nil {
+		t.Fatalf("Import: %v", err)
+	}
+
+	collection := only(t, tree)
+	if len(collection.Variables) != 1 || collection.Variables[0].Value != "https://api.example.com" {
+		t.Fatalf("level = %+v, want the file's own answer", collection.Variables)
+	}
+	// A file writes no ids with them, and a variable the window cannot address is one it cannot edit.
+	if collection.Variables[0].ID == "" {
+		t.Error("the imported variable has no id")
+	}
+	if len(collection.Children) != 1 || len(collection.Children[0].Variables) != 1 {
+		t.Fatalf("nested = %+v, want the folder's own answer", collection.Children)
+	}
+	if v := collection.Children[0].Variables[0]; v.Name != "version" || v.Value != "v2" || v.ID == "" {
+		t.Errorf("nested variable = %+v, want the one the file carried", v)
+	}
+}
+
+// An export writes down what a tree row does not carry, and what a level answers for `{{tokens}}`
+// is one of those: a collection handed on has to mean the same thing on the other side.
+func TestFullReadsTheVariablesWhole(t *testing.T) {
+	uc, _ := newTestUseCase()
+	ctx := context.Background()
+
+	_, tree, _ := uc.CreateCollection(ctx, "Коллекция", "", "")
+	collectionID := only(t, tree).ID
+	nestedID := nestCollection(t, uc, "Вложенная", collectionID)
+	saveVariables(t, uc, collectionID, variable("baseUrl", "https://api.example.com"))
+	saveVariables(t, uc, nestedID, variable("version", "v2"))
+
+	full, err := uc.Full(ctx, collectionID)
+	if err != nil {
+		t.Fatalf("Full: %v", err)
+	}
+	if len(full.Variables) != 1 || full.Variables[0].Name != "baseUrl" {
+		t.Errorf("level = %+v, want the collection's own answer", full.Variables)
+	}
+	if len(full.Children) != 1 || len(full.Children[0].Variables) != 1 {
+		t.Fatalf("nested = %+v, want the folder read whole too", full.Children)
+	}
+	if v := full.Children[0].Variables[0]; v.Name != "version" || v.Value != "v2" {
+		t.Errorf("nested variable = %+v, want the one the folder answers", v)
+	}
+}
+
 // An export writes down what a tree row does not carry: Full reads the nodes whole, and a request
 // on its own is the collection an export of one request makes.
 func TestFullReadsTheRequestsWhole(t *testing.T) {
 	uc, _ := newTestUseCase()
 	ctx := context.Background()
 
-	tree, err := uc.CreateCollection(ctx, "Коллекция", "описание", "")
+	_, tree, err := uc.CreateCollection(ctx, "Коллекция", "описание", "")
 	if err != nil {
 		t.Fatalf("CreateCollection: %v", err)
 	}
@@ -1603,7 +1706,7 @@ func TestFullReadsNestedCollectionsWhole(t *testing.T) {
 	uc, _ := newTestUseCase()
 	ctx := context.Background()
 
-	tree, _ := uc.CreateCollection(ctx, "Коллекция", "", "")
+	_, tree, _ := uc.CreateCollection(ctx, "Коллекция", "", "")
 	collectionID := only(t, tree).ID
 	nestedID := nestCollection(t, uc, "Вложенная", collectionID)
 	if _, _, err := uc.CreateNode(ctx, NodeDraft{

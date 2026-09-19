@@ -13,6 +13,7 @@ import (
 	"net/url"
 	"strings"
 	"sync"
+	"sync/atomic"
 
 	"github.com/gorilla/websocket"
 
@@ -22,6 +23,21 @@ import (
 // Port is the local port used by the extension.
 type Port int
 
+// client is one socket together with the mutex that owns its writes. gorilla/websocket allows one
+// writer at a time and no more, and two of ours do meet: the frame a service broadcasts and the
+// frame the next call broadcasts, each on the goroutine its caller arrived on. The mutex is per
+// connection rather than per server, so a socket whose peer has stopped reading delays only itself.
+type client struct {
+	conn *websocket.Conn
+	mu   sync.Mutex
+}
+
+func (c *client) write(payload []byte) error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return c.conn.WriteMessage(websocket.TextMessage, payload)
+}
+
 type Server struct {
 	ingest   Ingest
 	port     Port
@@ -30,7 +46,11 @@ type Server struct {
 	http     *http.Server
 
 	mu      sync.Mutex
-	clients map[*websocket.Conn]struct{}
+	clients map[*client]struct{}
+
+	// listening is whether the socket is up. A port already taken is the one way the bridge fails,
+	// and it is not a failure of the app: it is a fact the window draws.
+	listening atomic.Bool
 }
 
 func NewServer(ingest Ingest, port Port, build platform.BuildInfo) *Server {
@@ -42,7 +62,7 @@ func NewServer(ingest Ingest, port Port, build platform.BuildInfo) *Server {
 		ingest:  ingest,
 		port:    port,
 		build:   build,
-		clients: make(map[*websocket.Conn]struct{}),
+		clients: make(map[*client]struct{}),
 	}
 
 	s.upgrader = websocket.Upgrader{CheckOrigin: s.checkOrigin}
@@ -63,6 +83,12 @@ func (s *Server) Port() int {
 	return int(s.port)
 }
 
+// Listening is whether anything is behind that port. The window draws the address the extension
+// connects to, and an address nothing owns is a worse answer than a sentence saying capture is off.
+func (s *Server) Listening() bool {
+	return s.listening.Load()
+}
+
 // Start binds the port and serves on it without blocking the caller. The listen happens here rather
 // than in the goroutine because a taken port is a fact the caller has to hear: the window shows the
 // address it is listening on, and an address nothing owns is a worse answer than a failure.
@@ -71,6 +97,7 @@ func (s *Server) Start() error {
 	if err != nil {
 		return fmt.Errorf("listening on %s: %w", s.http.Addr, err)
 	}
+	s.listening.Store(true)
 	log.Printf("[bridge] listening on ws://%s", s.http.Addr)
 
 	go func() {
@@ -83,11 +110,13 @@ func (s *Server) Start() error {
 
 // Shutdown closes active connections and stops the server.
 func (s *Server) Shutdown(ctx context.Context) error {
+	s.listening.Store(false)
+
 	s.mu.Lock()
 	for c := range s.clients {
-		_ = c.Close()
+		_ = c.conn.Close()
 	}
-	s.clients = make(map[*websocket.Conn]struct{})
+	s.clients = make(map[*client]struct{})
 	s.mu.Unlock()
 
 	return s.http.Shutdown(ctx)
@@ -99,14 +128,14 @@ func (s *Server) Shutdown(ctx context.Context) error {
 // drained. Sending is best-effort either way.
 func (s *Server) Broadcast(payload []byte) {
 	s.mu.Lock()
-	clients := make([]*websocket.Conn, 0, len(s.clients))
+	clients := make([]*client, 0, len(s.clients))
 	for c := range s.clients {
 		clients = append(clients, c)
 	}
 	s.mu.Unlock()
 
 	for _, c := range clients {
-		_ = c.WriteMessage(websocket.TextMessage, payload)
+		_ = c.write(payload)
 	}
 }
 
@@ -157,14 +186,16 @@ func (s *Server) handleWS(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	c := &client{conn: conn}
+
 	s.mu.Lock()
-	s.clients[conn] = struct{}{}
+	s.clients[c] = struct{}{}
 	s.mu.Unlock()
 
 	defer conn.Close()
 	defer func() {
 		s.mu.Lock()
-		delete(s.clients, conn)
+		delete(s.clients, c)
 		remaining := len(s.clients)
 		s.mu.Unlock()
 

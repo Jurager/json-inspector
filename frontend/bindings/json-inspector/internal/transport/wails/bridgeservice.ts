@@ -26,6 +26,15 @@ export function ApplyCaptureFilters(filters: domain$0.CaptureFilters): $Cancella
     return $Call.ByID(2309446651, filters);
 }
 
+/**
+ * Listening is whether anything answers on that port. A port taken by something else — a second
+ * copy of the app, most often — leaves capture off for the whole session, and the window has to be
+ * able to say so instead of drawing an address that leads nowhere.
+ */
+export function Listening(): $CancellablePromise<boolean> {
+    return $Call.ByID(1959680275);
+}
+
 export function PauseCapture(): $CancellablePromise<void> {
     return $Call.ByID(3364473398);
 }

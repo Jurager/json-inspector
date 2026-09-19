@@ -12,10 +12,10 @@ import {
 import type { JsonApiDocument, Resource } from '../../lib/jsonapi'
 import { dataResources, resourceKey, resourceLabel } from '../../lib/jsonapi'
 import { buildTypeInfos, capitalizeType } from '../../lib/schema'
+import { useCopyFeedback } from '../../composables/useCopyFeedback'
 import { useMessages } from '../../i18n'
 
 const { t } = useMessages()
-import { copyToClipboard } from '../../lib/clipboard'
 
 const props = defineProps<{ doc: JsonApiDocument | null; highlightKey?: string | null }>()
 const emit = defineEmits<{ (e: 'fetch', url: string): void; (e: 'select', key: string): void }>()
@@ -115,7 +115,7 @@ function applyHighlight(k: string | null | undefined) {
 watch(() => props.highlightKey, applyHighlight)
 onMounted(() => applyHighlight(props.highlightKey))
 
-const copied = ref(false)
+const { copied, copy: copyText } = useCopyFeedback()
 
 const EXPORT_FORMATS = [
   { id: 'mermaid', label: 'Mermaid (erDiagram)' },
@@ -197,10 +197,7 @@ function generate(format: ExportId): string {
 
 async function copyExport(format: ExportId) {
   if (!types.value.length) return
-  if (await copyToClipboard(generate(format))) {
-    copied.value = true
-    setTimeout(() => (copied.value = false), 1500)
-  }
+  await copyText(generate(format))
 }
 
 </script>

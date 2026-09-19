@@ -95,6 +95,37 @@ export function resourceMatchesQuery(r: Resource, q: string): boolean {
   return false
 }
 
+/**
+ * The version a document declares about itself, and nothing when it declares none this window has a
+ * word for. The member is read as unknown because a response is whatever the server sent: a version
+ * that is not a string is not a version to print.
+ *
+ * Three places draw it — the status bar, the response's own tag, the inspector — and each had read
+ * it for itself, which is three answers to one question.
+ */
+export function documentVersion(doc: JsonApiDocument | null): string {
+  const declared = (doc?.jsonapi ?? null) as { version?: unknown } | null
+  return typeof declared?.version === 'string' ? declared.version : ''
+}
+
+/**
+ * How many relationships point at a resource the document does not carry. It is the one defect a
+ * JSON:API reader can see on its own: the link is there, and the thing it names is not, so a tree
+ * that followed it would have nothing to open.
+ */
+export function missingLinkCount(doc: JsonApiDocument): number {
+  const index = buildResourceIndex(doc)
+  let missing = 0
+  for (const resource of [...dataResources(doc), ...(doc.included ?? [])]) {
+    for (const rel of Object.values(resource.relationships ?? {})) {
+      for (const id of relIdentifiers(rel)) {
+        if (!index.has(resourceKey(id.type, id.id))) missing += 1
+      }
+    }
+  }
+  return missing
+}
+
 export function isJsonApi(obj: unknown): boolean {
   if (typeof obj !== 'object' || obj === null || Array.isArray(obj)) return false
   const d = obj as Record<string, unknown>

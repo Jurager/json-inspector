@@ -31,6 +31,13 @@ func (s *BridgeService) Port() int {
 	return s.server.Port()
 }
 
+// Listening is whether anything answers on that port. A port taken by something else — a second
+// copy of the app, most often — leaves capture off for the whole session, and the window has to be
+// able to say so instead of drawing an address that leads nowhere.
+func (s *BridgeService) Listening() bool {
+	return s.server.Listening()
+}
+
 func (s *BridgeService) PauseCapture() {
 	s.server.Broadcast([]byte(`{"type":"pause"}`))
 }
@@ -56,6 +63,8 @@ func (s *BridgeService) ApplyCaptureFilters(filters domain.CaptureFilters) error
 // a condition for it — a service that fails to start takes the window down with it.
 func (s *BridgeService) ServiceStartup(_ context.Context, _ application.ServiceOptions) error {
 	if err := s.server.Start(); err != nil {
+		// Kept rather than returned: the window is worth more than capture. The failure is not lost —
+		// Listening is false from here on, and that is what the window draws.
 		log.Printf("[bridge] %v — capture is off", err)
 	}
 	return nil

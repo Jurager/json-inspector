@@ -22,3 +22,18 @@ export async function asked<T>(call: Promise<T>, key: string): Promise<T | undef
     return undefined
   }
 }
+
+/**
+ * The same for a call that answers with nothing. A `void` that came back and one that failed are both
+ * `undefined`, so `asked` cannot tell them apart — and a caller that wrote `if (!(await asked(...)))`
+ * over one would go on as though every call had failed.
+ */
+export async function done(call: Promise<unknown>, key: string): Promise<boolean> {
+  try {
+    await call
+    return true
+  } catch (error) {
+    toast.show(t(key, { error: describeFailure(error) }), 'error')
+    return false
+  }
+}

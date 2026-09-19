@@ -214,6 +214,57 @@ func TestATokenAboutToDieIsAskedForAgain(t *testing.T) {
 	}
 }
 
+// A provider that names no expiry issues a token kept for as long as the window is open, and the
+// window is told exactly that: «nothing was said about when it ends» is zero, not a moment taken
+// out of a zero time, which is a date in the year 1.
+func TestATokenWithNoExpiryIsHeldWithoutOne(t *testing.T) {
+	// expires_in: 0 is how the endpoint spells "the provider named nothing".
+	endpoint := &spyTokenEndpoint{token: "long-lived", expiry: 0}
+	srv := endpoint.server(t)
+	materializer := New(srv.Client(), nil)
+
+	auth := oauthAuth(map[string]string{
+		"grant": "client_credentials", "tokenUrl": srv.URL, "clientId": "id", "clientSecret": "secret",
+	})
+	if _, err := materializer.Materialize(context.Background(), auth,
+		domain.AuthRequest{}); err != nil {
+		t.Fatalf("Materialize: %v", err)
+	}
+
+	held := materializer.Held(auth)
+	if !held.Held {
+		t.Fatalf("held = %+v, want the token the provider issued", held)
+	}
+	if held.ExpiresAt != 0 {
+		t.Errorf("expiresAt = %d, want zero for a provider that named no expiry", held.ExpiresAt)
+	}
+	if held.Expired(time.Now()) {
+		t.Error("a token nobody gave an expiry is reported as expired")
+	}
+}
+
+// A token that has died is not held, and the window hears what a send acts on. Two answers to one
+// question would be two answers about one fact: «there is a token» drawn over a request that is
+// fetching another one.
+func TestADeadTokenIsNotHeld(t *testing.T) {
+	// Five seconds is inside the ten the materializer treats as "already dead".
+	endpoint := &spyTokenEndpoint{token: "short-lived", expiry: 5}
+	srv := endpoint.server(t)
+	materializer := New(srv.Client(), nil)
+
+	auth := oauthAuth(map[string]string{
+		"grant": "client_credentials", "tokenUrl": srv.URL, "clientId": "id", "clientSecret": "secret",
+	})
+	if _, err := materializer.Materialize(context.Background(), auth,
+		domain.AuthRequest{}); err != nil {
+		t.Fatalf("Materialize: %v", err)
+	}
+
+	if held := materializer.Held(auth); held.Held {
+		t.Errorf("held = %+v, want nothing for a token inside the margin", held)
+	}
+}
+
 // Drawing is not asking. A window painting rows while a person types must not send anything
 // anywhere, and «No token» is what it says until there is one.
 func TestDrawingDoesNotAskForAToken(t *testing.T) {

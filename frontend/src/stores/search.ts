@@ -9,6 +9,7 @@ import {
 } from '../../bindings/json-inspector/internal/domain'
 import { SearchService, SystemService } from '../../bindings/json-inspector/internal/transport/wails'
 import { kindLabel } from '../lib/searchKinds'
+import { asked } from './calls'
 import { trailOf } from '../lib/collectionTree'
 import { t as tr } from '../i18n'
 import { useCollectionsStore } from './collections'
@@ -48,10 +49,11 @@ export interface Section {
   rows: PaletteRow[]
 }
 
-// The timer of the question not yet asked, and how many have been asked. Both are the store's own and
-// neither belongs in state: a pending timer is not something the window draws.
+// The timer of the question not yet asked, and which question the answer belongs to. Both are the
+// store's own and neither belongs in state: a pending timer is not something the window draws, and a
+// number that only says "this answer is stale" is not state either.
 let waiting: ReturnType<typeof setTimeout> | null = null
-let asked = 0
+let generation = 0
 
 export const useSearchStore = defineStore('search', {
   state: () => ({
@@ -181,9 +183,14 @@ export const useSearchStore = defineStore('search', {
 
     async ask() {
       waiting = null
-      const mine = ++asked
-      const result = await SearchService.Find({ text: this.query, kind: this.kind })
-      if (mine !== asked) return
+      const mine = ++generation
+      // A refusal is said out loud like every other one: a palette that silently kept the groups it
+      // was showing would be answering a question nobody asked.
+      const result = await asked(
+        SearchService.Find({ text: this.query, kind: this.kind }),
+        'search.failed'
+      )
+      if (mine !== generation || result === undefined) return
       this.groups = result.groups ?? []
       this.activeIndex = 0
     },

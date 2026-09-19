@@ -4,7 +4,6 @@ package workspace
 
 import (
 	"context"
-	"strconv"
 	"strings"
 	"time"
 
@@ -208,13 +207,5 @@ type Changed struct {
 }
 
 func cleanName(raw string) (string, error) {
-	name := strings.TrimSpace(raw)
-	if name == "" {
-		return "", domain.Refuse(domain.CodeNameEmpty, domain.ErrNotAllowed, nil)
-	}
-	if len([]rune(name)) > maxNameLength {
-		return "", domain.Refuse(domain.CodeNameTooLong, domain.ErrNotAllowed,
-			domain.Args{"max": strconv.Itoa(maxNameLength)})
-	}
-	return name, nil
+	return domain.CleanName(raw, maxNameLength)
 }

@@ -5,8 +5,6 @@ package environment
 import (
 	"context"
 	"fmt"
-	"strconv"
-	"strings"
 
 	"json-inspector/internal/domain"
 	"json-inspector/internal/platform"
@@ -99,12 +97,8 @@ func (u *UseCase) Create(ctx context.Context, draft EnvironmentDraft) (domain.En
 		base = found
 	}
 
-	position := 0
-	for _, env := range current.Environments {
-		if env.Position >= position {
-			position = env.Position + 1
-		}
-	}
+	position := nextPosition(current.Environments,
+		func(env domain.Environment) int { return env.Position })
 	env := domain.Environment{ID: u.ids(), Name: name, Color: draft.Color, Position: position}
 	if err := u.store.SaveEnvironment(ctx, workspace, env); err != nil {
 		return domain.EnvState{}, err
@@ -295,13 +289,5 @@ func findEnvironment(state domain.EnvState, id string) (domain.Environment, bool
 // validEnvironmentName is a name an environment may carry, trimmed, or the refusal that says why it
 // may not. Creating one and renaming one ask the same question, so they answer it the same way.
 func validEnvironmentName(raw string) (string, error) {
-	name := strings.TrimSpace(raw)
-	if name == "" {
-		return "", domain.Refuse(domain.CodeNameEmpty, domain.ErrNotAllowed, nil)
-	}
-	if len([]rune(name)) > maxNameLength {
-		return "", domain.Refuse(domain.CodeNameTooLong, domain.ErrNotAllowed,
-			domain.Args{"max": strconv.Itoa(maxNameLength)})
-	}
-	return name, nil
+	return domain.CleanName(raw, maxNameLength)
 }

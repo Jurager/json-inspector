@@ -226,7 +226,7 @@ func (u *UseCase) recordFrom(
 		ResponseBytes:   int64(len(resp.Body)),
 		RequestHeaders:  sentHeaders(masked.Headers, resp),
 		ResponseHeaders: domain.OrEmpty(resp.Headers),
-		RequestCookies:  in.Cookies,
+		RequestCookies:  domain.OrEmpty(in.Cookies),
 		RequestBody:     bodyRef(masked.Body, false),
 		ResponseBody:    bodyRef(resp.Body, resp.BodyTruncated),
 	}

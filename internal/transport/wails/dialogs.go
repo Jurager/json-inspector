@@ -21,6 +21,26 @@ func (h *Host) OpenURL(rawURL string) error {
 	return app.Browser.OpenURL(rawURL)
 }
 
+// safeFileName is what a save dialog opens on: the name a thing is called, with the characters a
+// file system will not take replaced by a dash, and an ending that says what the file is. Nobody
+// names their collection `а/б:в`, but a host name is full of dots and colons and a collection may
+// well carry a slash, so both ends of the app need this.
+//
+// A name that is empty after trimming — or that was nothing but the characters replaced — falls
+// back to `fallback`, because a dialog opening on a bare extension is a dialog with no name.
+func safeFileName(name, fallback, extension string) string {
+	safe := strings.Map(func(r rune) rune {
+		if strings.ContainsRune(`/\:*?"<>|`, r) {
+			return '-'
+		}
+		return r
+	}, strings.TrimSpace(name))
+	if safe == "" {
+		safe = fallback
+	}
+	return safe + extension
+}
+
 // OpenFile answers with the path, or with nothing when the dialog was closed — a cancelled dialog
 // is not a failure. The dialogs live on the Host: a feature asks for a file instead of knowing how
 // this app talks to the system.

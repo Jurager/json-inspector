@@ -19,15 +19,7 @@ const maxNameLength = 120
 const maxDescriptionLength = 500
 
 func validName(name string) (string, error) {
-	name = strings.TrimSpace(name)
-	if name == "" {
-		return "", domain.Refuse(domain.CodeNameEmpty, domain.ErrNotAllowed, nil)
-	}
-	if len([]rune(name)) > maxNameLength {
-		return "", domain.Refuse(domain.CodeNameTooLong, domain.ErrNotAllowed,
-			domain.Args{"max": strconv.Itoa(maxNameLength)})
-	}
-	return name, nil
+	return domain.CleanName(name, maxNameLength)
 }
 
 // validDescription trims what was typed and keeps it within the ceiling. An empty description is a

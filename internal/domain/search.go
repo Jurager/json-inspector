@@ -23,9 +23,12 @@ const (
 type SearchMatch int
 
 const (
+	// MatchNone is the zero value, and it is deliberately not a tier: a row that matched nothing must
+	// not read as one that matched exactly when somebody forgets to look at the flag beside it.
+	MatchNone SearchMatch = iota
 	// MatchExact is the whole name, character for character. It is separated from MatchName because
 	// it is the one case where the user has already typed what they want and the row is the answer.
-	MatchExact SearchMatch = iota
+	MatchExact
 	MatchName
 	MatchPath
 	MatchValue

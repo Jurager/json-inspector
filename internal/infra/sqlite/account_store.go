@@ -67,11 +67,16 @@ func (s *Store) RefreshToken(ctx context.Context) (string, error) {
 
 	var token string
 	err := s.db.QueryRowContext(ctx, query).Scan(&token)
-	if errors.Is(err, sql.ErrNoRows) || token == "" {
+	if errors.Is(err, sql.ErrNoRows) {
 		return "", domain.ErrNotFound
 	}
+	// The error is read before the emptiness of the token: a scan that failed leaves the token empty,
+	// and calling a broken database "no account" would sign the user out over a disk failure.
 	if err != nil {
 		return "", fmt.Errorf("reading the refresh token: %w", err)
+	}
+	if token == "" {
+		return "", domain.ErrNotFound
 	}
 	return token, nil
 }

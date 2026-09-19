@@ -36,6 +36,9 @@ func (u *UseCase) Import(
 		Description: strings.TrimSpace(collection.Description),
 		Position:    position,
 		Auth:        collection.Auth,
+		// A file carries what a level answers for `{{tokens}}` and writes no ids with them: the ids are
+		// minted here, the way every other id of an import is.
+		Variables: withVariablesIDs(u.ids, collection.Variables),
 	}
 
 	// The whole subtree is built before any of it is written: an import that failed halfway would
@@ -77,6 +80,7 @@ func (u *UseCase) adopt(
 			ParentID:    adopted.ID,
 			Position:    child.Position,
 			Auth:        child.Auth,
+			Variables:   withVariablesIDs(u.ids, child.Variables),
 		}
 		out = append(out, u.adopt(nested, child.Items, child.Children)...)
 	}
@@ -128,8 +132,11 @@ func (u *UseCase) fullCollection(
 		Description: collection.Description,
 		Position:    collection.Position,
 		Auth:        collection.Auth,
-		Items:       items,
-		Children:    children,
+		// What the level answers for `{{tokens}}` travels with it: a collection handed to somebody else
+		// has to mean the same thing on the other side, which is the whole reason they exist.
+		Variables: collection.Variables,
+		Items:     items,
+		Children:  children,
 	}, nil
 }
 

@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"os"
-	"strings"
 
 	"github.com/wailsapp/wails/v3/pkg/application"
 )
@@ -46,14 +45,5 @@ func (s *RecordsService) ExportHar(ctx context.Context, title, tabKey string) (b
 // `/` and `:` are legal in a host and not in a file's, and the dialog should open on a name
 // somebody can recognise as the page they were looking at.
 func harFileName(name string) string {
-	safe := strings.Map(func(r rune) rune {
-		if strings.ContainsRune(`/\:*?"<>|`, r) {
-			return '-'
-		}
-		return r
-	}, strings.TrimSpace(name))
-	if safe == "" {
-		safe = "session"
-	}
-	return safe + harExtension
+	return safeFileName(name, "session", harExtension)
 }

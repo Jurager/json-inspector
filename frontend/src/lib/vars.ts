@@ -8,7 +8,7 @@ import type { VariableKind } from '../../bindings/json-inspector/internal/domain
 
 // The kind of a variable is declared once, in Go, and reaches the window as a generated enum: a
 // second spelling here is the duplicate this migration exists to remove.
-export type VarKind = VariableKind
+type VarKind = VariableKind
 
 // `source` and `kind` travel with the value: the tooltip names where it came from and whether it
 // may be shown.

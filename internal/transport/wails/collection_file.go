@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"os"
-	"strings"
 
 	"github.com/wailsapp/wails/v3/pkg/application"
 
@@ -96,14 +95,5 @@ func writeCollection(path string, contents domain.Collection) error {
 // `/` and `:` are legal in a collection's name and not in a file's, and Postman's own ending is
 // what a save dialog should open on.
 func fileNameFor(name string) string {
-	safe := strings.Map(func(r rune) rune {
-		if strings.ContainsRune(`/\:*?"<>|`, r) {
-			return '-'
-		}
-		return r
-	}, strings.TrimSpace(name))
-	if safe == "" {
-		safe = "collection"
-	}
-	return safe + fileExtension
+	return safeFileName(name, "collection", fileExtension)
 }

@@ -19,7 +19,7 @@ export interface TabGroup {
 // The id counts only when it is a real one: `tabId` is `omitempty` on the wire, so the first tab of a
 // browser — the id zero — arrives as absent, and a group keyed on it would be a group that changes
 // its mind about which tab it is.
-export function tabKeyOf(record: Record): string {
+function tabKeyOf(record: Record): string {
   return record.tabId ? String(record.tabId) : record.tabURL || 'unknown'
 }
 
@@ -55,7 +55,7 @@ export function groupLabel(group: TabGroup): string {
   return group.title || hostnameOf(group.url) || t('history.tab')
 }
 
-export function hostnameOf(url: string): string {
+function hostnameOf(url: string): string {
   try {
     return new URL(url).hostname
   } catch {
@@ -107,7 +107,7 @@ export function tabStats(records: Record[]): TabStats {
 
 // A failure is the answer being wrong, not the request being unwise: an error the extension reported,
 // or a status the server has no reason to be proud of.
-export function failedRecord(record: Record): boolean {
+function failedRecord(record: Record): boolean {
   return Boolean(record.error) || (record.status ?? 0) >= 400
 }
 

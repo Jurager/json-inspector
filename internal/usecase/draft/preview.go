@@ -101,8 +101,17 @@ func (p parts) putBack(resolved []string) parts {
 	return p
 }
 
-func (u *UseCase) preview(ctx context.Context, draft domain.Draft) (Preview, error) {
-	missing, err := u.vars.Missing(ctx, nil, collect(draft).texts(), draft.EnvironmentID)
+// Preview is which of a draft's `{{tokens}}` mean nothing, and it is asked the same question the
+// send asks: the same parts, the same levels above. A preview computed from the draft alone would
+// report a name a collection answers for — a card refusing a send that would have gone out — or
+// miss one in an authorization the request inherits, refusing it only after the click.
+func (u *UseCase) Preview(
+	ctx context.Context,
+	draft domain.Draft,
+	inherits *domain.Auth,
+	above []domain.Variable,
+) (Preview, error) {
+	missing, err := u.vars.Missing(ctx, above, partsOf(draft, inherits).texts(), draft.EnvironmentID)
 	if err != nil {
 		return Preview{}, err
 	}
@@ -110,4 +119,8 @@ func (u *UseCase) preview(ctx context.Context, draft domain.Draft) (Preview, err
 		missing = []string{}
 	}
 	return Preview{Missing: missing}, nil
+}
+
+func (u *UseCase) preview(ctx context.Context, draft domain.Draft) (Preview, error) {
+	return u.Preview(ctx, draft, nil, nil)
 }

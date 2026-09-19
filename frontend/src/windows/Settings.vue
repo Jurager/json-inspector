@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
-import { Events, Window } from '@wailsio/runtime'
+import { Window } from '@wailsio/runtime'
 import { useSettings } from '../composables/useSettings'
+import { useSettingsEvents } from '../composables/useSettingsEvents'
 import { useAccount } from '../composables/useAccount'
 import SignInModal from '../components/settings/SignInModal.vue'
 import SignOutSheet from '../components/settings/SignOutSheet.vue'
@@ -60,14 +61,11 @@ onMounted(() => {
   // ours, but the taskbar reads the platform's. Go names the window by identity; the words are here,
   // where the language is known.
   void Window.SetTitle(t('settings.title'))
-
-  // A window that is already open is asked to switch by an event: the account menu sends people to
-  // the account, and a page that has been painted reads no address again.
-  Events.On('settings-tab', (event) => {
-    const asked = event.data as string
-    if (asked) select(asCategory(asked))
-  })
 })
+
+// A window that is already open is asked to switch by an event: the account menu sends people to the
+// account, and a page that has been painted reads no address again.
+useSettingsEvents((category) => select(asCategory(category)))
 </script>
 
 <template>

@@ -9,6 +9,14 @@ import * as domain$0 from "../../domain/models.js";
 import * as draft$0 from "../../usecase/draft/models.js";
 
 /**
+ * CreatedCollection is CreatedNode for a collection rather than a request.
+ */
+export interface CreatedCollection {
+    "collection": domain$0.Collection;
+    "tree": domain$0.Collection[] | null;
+}
+
+/**
  * CreatedNode is what a creation answers with: the row that appeared and the tree it appeared in.
  * The id has to come back from Go — a lookup by name would find the older row of the same name.
  */

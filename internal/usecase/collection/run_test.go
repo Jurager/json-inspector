@@ -28,7 +28,7 @@ func setupRunnable(t *testing.T) *runFixture {
 	uc, store, sender, notifier, asserted := newTestRun()
 	ctx := context.Background()
 
-	tree, err := uc.CreateCollection(ctx, "Коллекция", "", "")
+	_, tree, err := uc.CreateCollection(ctx, "Коллекция", "", "")
 	if err != nil {
 		t.Fatalf("CreateCollection: %v", err)
 	}
@@ -228,6 +228,54 @@ func TestRunSendsTheInheritedAuth(t *testing.T) {
 	}
 }
 
+// A folder two levels down is a level of its own, and the walk that finds it is the walk that
+// collects what stands above it: a run started from the second level down goes out with the
+// authorization and the variables of every level between it and the root, not the root's alone.
+// Both are asserted here because both travel the same path to the sender.
+func TestRunFromAFolderTwoLevelsDownCarriesEveryLevelAbove(t *testing.T) {
+	r := setupRunnable(t)
+	ctx := context.Background()
+
+	deepID := nestCollectionAt(t, r.uc, "Глубокая", r.nestedID, 1)
+	const url = "https://api.example.com/deep"
+	if _, _, err := r.uc.CreateNode(ctx, NodeDraft{
+		CollectionID: deepID, Name: "Глубокий", Method: "GET",
+	}); err != nil {
+		t.Fatalf("CreateNode: %v", err)
+	}
+	deep := findInTree(t, mustTree(t, r), "Глубокий")
+	if _, err := r.uc.SaveNode(ctx, domain.CollectionNode{
+		ID: deep.ID, Name: "Глубокий", Method: "GET", URL: url,
+	}); err != nil {
+		t.Fatalf("SaveNode: %v", err)
+	}
+	r.sender.reply(url, 200, 1000)
+
+	if _, err := r.uc.SaveAuth(ctx, r.collectionID, bearer("корень")); err != nil {
+		t.Fatalf("SaveAuth root: %v", err)
+	}
+	if _, err := r.uc.SaveAuth(ctx, r.nestedID, bearer("середина")); err != nil {
+		t.Fatalf("SaveAuth middle: %v", err)
+	}
+	saveVariables(t, r.uc, r.nestedID, variable("page", "2"))
+
+	if _, err := r.uc.Run(ctx, r.collectionID, deepID); err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+	r.notifier.runFinished(t)
+
+	sent := r.sender.requests()
+	if len(sent) != 1 || sent[0].URL != url {
+		t.Fatalf("sent %v, want the deep folder's one request", r.sender.urls())
+	}
+	if auth := sent[0].Auth; auth == nil || auth.Answer("token") != "середина" {
+		t.Errorf("went out with %+v, want the middle level's authorization", sent[0].Auth)
+	}
+	if len(sent[0].Variables) != 1 || sent[0].Variables[0].Name != "page" {
+		t.Errorf("variables = %+v, want the middle level's own", sent[0].Variables)
+	}
+}
+
 func TestRunGoesOnAfterAFailure(t *testing.T) {
 	r := setupRunnable(t)
 	r.sender.fail(r.requests["Второй"])
@@ -424,7 +472,7 @@ func TestRunRefusesAnEmptySubtree(t *testing.T) {
 	uc, store, _, _, _ := newTestRun()
 	ctx := context.Background()
 
-	tree, err := uc.CreateCollection(ctx, "Пустая", "", "")
+	_, tree, err := uc.CreateCollection(ctx, "Пустая", "", "")
 	if err != nil {
 		t.Fatalf("CreateCollection: %v", err)
 	}
@@ -443,7 +491,7 @@ func TestRunRefusesAnEmptySubtree(t *testing.T) {
 
 	// A request of another collection is a stale selection, not an empty run: the two are told apart
 	// because the window shows them differently.
-	other, err := uc.CreateCollection(ctx, "Другая", "", "")
+	_, other, err := uc.CreateCollection(ctx, "Другая", "", "")
 	if err != nil {
 		t.Fatalf("CreateCollection: %v", err)
 	}
@@ -572,7 +620,7 @@ func TestEveryRequestOfARunCarriesTheSpaceTheRunStartedIn(t *testing.T) {
 		platform.NewIDGen())
 	ctx := context.Background()
 
-	tree, err := uc.CreateCollection(ctx, "Коллекция", "", "")
+	_, tree, err := uc.CreateCollection(ctx, "Коллекция", "", "")
 	if err != nil {
 		t.Fatalf("CreateCollection: %v", err)
 	}
@@ -623,7 +671,7 @@ func TestARunsRequestCarriesWhatItsBodyWasMadeOf(t *testing.T) {
 		notifier, platform.NewIDGen())
 	ctx := context.Background()
 
-	tree, err := uc.CreateCollection(ctx, "Коллекция", "", "")
+	_, tree, err := uc.CreateCollection(ctx, "Коллекция", "", "")
 	if err != nil {
 		t.Fatalf("CreateCollection: %v", err)
 	}
@@ -678,7 +726,7 @@ func TestARunsRequestCarriesTheEnvironmentItWasPinnedTo(t *testing.T) {
 		notifier, platform.NewIDGen())
 	ctx := context.Background()
 
-	tree, err := uc.CreateCollection(ctx, "Коллекция", "", "")
+	_, tree, err := uc.CreateCollection(ctx, "Коллекция", "", "")
 	if err != nil {
 		t.Fatalf("CreateCollection: %v", err)
 	}
@@ -724,7 +772,7 @@ func TestARunKeepsTheEnvironmentItRanUnder(t *testing.T) {
 		platform.NewIDGen())
 	ctx := context.Background()
 
-	tree, err := uc.CreateCollection(ctx, "Коллекция", "", "")
+	_, tree, err := uc.CreateCollection(ctx, "Коллекция", "", "")
 	if err != nil {
 		t.Fatalf("CreateCollection: %v", err)
 	}

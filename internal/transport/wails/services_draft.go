@@ -57,10 +57,12 @@ func completed(
 		// the rows it would have inherited are the only thing missing.
 		if above, err := collections.Above(ctx, state.Draft.ID); err == nil {
 			state.Inherited = above.Auth
-			// The draft's own preview was asked of the environment alone, and a token a collection
-			// answers for is not missing. Dropping those names here is what keeps a card from refusing
-			// a send that would have gone out.
-			state.Preview.Missing = without(state.Preview.Missing, above.Variables)
+			// The preview is worked out again now that the levels above are known, because the draft's
+			// own could only see the draft: a token a collection answers for is not missing, and one in
+			// an authorization the card inherits is — a request that would be refused after the click.
+			if preview, err := drafts.Preview(ctx, state.Draft, above.Auth, above.Variables); err == nil {
+				state.Preview = preview
+			}
 		}
 	}
 	// A draft that answers for itself has already been projected from its own answer; only the one
@@ -75,23 +77,6 @@ func completed(
 	return state
 }
 
-// without drops the names the levels over a request answer for: what resolves is not missing, and
-// the order the two are read in does not matter — a name is either answered or it is not.
-func without(missing []string, above []domain.Variable) []string {
-	answered := map[string]bool{}
-	for _, v := range above {
-		if v.Enabled && v.Name != "" {
-			answered[v.Name] = true
-		}
-	}
-	out := make([]string, 0, len(missing))
-	for _, name := range missing {
-		if !answered[name] {
-			out = append(out, name)
-		}
-	}
-	return out
-}
 
 // AuthSchemes is every way a request can authorize itself, in the order the window draws them: what
 // each scheme asks for, how each field is drawn, and which of them are secrets. The window renders

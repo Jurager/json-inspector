@@ -17,7 +17,11 @@ const notes = ref<string[]>([])
 const checkedAt = ref(0)
 const error = ref('')
 
-let off: (() => void) | null = null
+let offs: (() => void)[] = []
+// How many components are drawing from the state above: it is one per window, so its subscriptions are
+// one as well, and the first component to leave must not take them away from the rest — the settings
+// window draws this line twice.
+let users = 0
 
 export function useUpdateCheck() {
   // What the app knows about updates, in the one shape every window draws from. A reply that has no
@@ -90,7 +94,15 @@ export function useUpdateCheck() {
   }
 
   onMounted(async () => {
-    if (!off) off = Events.On('update-changed', (ev) => apply(ev.data as UpdateInfo))
+    if (users++ === 0) {
+      offs = [
+        Events.On('update-changed', (ev) => apply(ev.data as UpdateInfo)),
+        // The other half of a check asked for from the rail or the menu. Go parks the request for a
+        // window that is about to be created and raises this for one that is already open — and a
+        // window that is open never mounts again, so without this it hears nothing.
+        Events.On('update-check', () => void checkIfRequested()),
+      ]
+    }
     try {
       apply(await UpdateService.Status())
     } catch {
@@ -100,8 +112,9 @@ export function useUpdateCheck() {
   })
 
   onBeforeUnmount(() => {
-    off?.()
-    off = null
+    if (--users > 0) return
+    offs.forEach((off) => off())
+    offs = []
   })
 
   return { phase, latest, notes, checkedAt, error, check, install, skip, openWindow }

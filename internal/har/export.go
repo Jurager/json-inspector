@@ -11,6 +11,7 @@ package har
 import (
 	"encoding/json"
 	"net/url"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -279,9 +280,18 @@ func queryOf(raw string) []nameValue {
 		return []nameValue{}
 	}
 
+	// The names are sorted because a query string is parsed into a map: without this the same capture
+	// would write its parameters in a different order every time it is exported, and two exports of
+	// one session would differ in a way nobody did anything to cause.
+	names := make([]string, 0, len(parsed.Query()))
+	for name := range parsed.Query() {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+
 	out := []nameValue{}
-	for name, values := range parsed.Query() {
-		for _, value := range values {
+	for _, name := range names {
+		for _, value := range parsed.Query()[name] {
 			out = append(out, nameValue{Name: name, Value: value})
 		}
 	}

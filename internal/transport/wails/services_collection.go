@@ -42,13 +42,20 @@ func (s *CollectionsService) Contents(ctx context.Context, id string) ([]domain.
 	return s.collections.Contents(ctx, id)
 }
 
+// CreatedCollection is what making a collection answers with, and it is CreatedNode's shape for
+// CreatedNode's reason: the id has to come back from Go, because a lookup by name would find the
+// older row of the same name — and a folder is created inside another one as often as at the top.
 func (s *CollectionsService) CreateCollection(
 	ctx context.Context,
 	name string,
 	description string,
 	parentID string,
-) ([]domain.Collection, error) {
-	return s.collections.CreateCollection(ctx, name, description, parentID)
+) (CreatedCollection, error) {
+	collection, tree, err := s.collections.CreateCollection(ctx, name, description, parentID)
+	if err != nil {
+		return CreatedCollection{}, err
+	}
+	return CreatedCollection{Collection: collection, Tree: tree}, nil
 }
 
 // CreatedNode is what a creation answers with: the row that appeared and the tree it appeared in.
@@ -56,6 +63,12 @@ func (s *CollectionsService) CreateCollection(
 type CreatedNode struct {
 	Node domain.CollectionNode `json:"node"`
 	Tree []domain.Collection   `json:"tree"`
+}
+
+// CreatedCollection is CreatedNode for a collection rather than a request.
+type CreatedCollection struct {
+	Collection domain.Collection   `json:"collection"`
+	Tree       []domain.Collection `json:"tree"`
 }
 
 func (s *CollectionsService) CreateNode(

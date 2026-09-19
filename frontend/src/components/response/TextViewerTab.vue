@@ -4,7 +4,7 @@ import Icon from '../ui/Icon.vue'
 import { Button, IconButton } from '../ui/button'
 import { Input } from '../ui/input'
 import RawViewer from './RawViewer.vue'
-import { copyToClipboard } from '../../lib/clipboard'
+import { useCopyFeedback } from '../../composables/useCopyFeedback'
 import { useMessages } from '../../i18n'
 
 // Shared by the "Raw" tab and the body of a non-JSON:API response, so a plain
@@ -23,7 +23,7 @@ const query = ref('')
 const searchInput = ref<InstanceType<typeof Input> | null>(null)
 const viewer = ref<{ next: () => void; prev: () => void } | null>(null)
 const stats = ref({ count: 0, index: 0 })
-const copied = ref(false)
+const { copied, copy: copyText } = useCopyFeedback()
 
 function openSearch() {
   searchVisible.value = true
@@ -42,10 +42,7 @@ function onSearchEnter(e: KeyboardEvent) {
 }
 
 async function copy() {
-  if (await copyToClipboard(props.text)) {
-    copied.value = true
-    setTimeout(() => (copied.value = false), 1500)
-  }
+  await copyText(props.text)
 }
 
 // The search itself and not the key that opens it: the row above the tabs owns that, because a tab

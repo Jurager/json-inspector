@@ -131,7 +131,7 @@ onBeforeUnmount(() => void commit())
 <template>
   <div v-if="compact" class="fields compact">
     <label class="field">
-      <span class="label">Pre-request</span>
+      <span class="label">{{ t('collections.scriptPre') }}</span>
       <textarea
         v-model="pre"
         class="code"
@@ -143,7 +143,7 @@ onBeforeUnmount(() => void commit())
     </label>
 
     <label class="field">
-      <span class="label">Post-response</span>
+      <span class="label">{{ t('collections.scriptPost') }}</span>
       <textarea
         v-model="post"
         class="code"

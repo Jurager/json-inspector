@@ -31,6 +31,7 @@ export {
 };
 
 export type {
+    CreatedCollection,
     CreatedNode,
     Failure,
     MenuLabels,

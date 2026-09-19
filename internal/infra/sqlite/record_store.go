@@ -84,6 +84,55 @@ func (s *Store) SaveRecord(ctx context.Context, workspaceID string, rec domain.R
 	return nil
 }
 
+// recordColumns is a record as a query reads it, in the order scanRecord takes it. One list,
+// because two queries read a whole record — the list and the one-by-id — and twenty-seven column
+// names written twice is twenty-seven chances for the two to disagree about which value went where.
+//
+// The phases come back as nullable columns: absent is a phase that did not happen, which is not
+// the same fact as one that took no measurable time.
+const recordColumns = `seq, id, workspace_id, source, method, url, status, status_text,
+	        content_type, error, cancelled, duration_us, dns_us, connect_us, tls_us, wait_us,
+	        download_us, request_bytes, response_bytes, request_headers_json,
+	        response_headers_json, request_cookies_json, started_at, ifnull(tab_id, 0),
+	        ifnull(tab_title, ''), ifnull(tab_url, ''), ifnull(favicon_url, '')`
+
+// rowScanner is what a query and a single-row read both answer with, so that one function can read
+// either. The three JSON columns are decoded here rather than by each caller.
+type rowScanner interface {
+	Scan(dest ...any) error
+}
+
+func scanRecord(row rowScanner) (domain.Record, int64, error) {
+	var (
+		rec                                      domain.Record
+		seq                                      int64
+		cancelled                                int
+		requestHeaders, responseHeaders, cookies string
+	)
+	if err := row.Scan(&seq, &rec.ID, &rec.WorkspaceID, &rec.Source, &rec.Method, &rec.URL,
+		&rec.Status, &rec.StatusText, &rec.ContentType, &rec.Error, &cancelled, &rec.DurationUs,
+		&rec.DNSUs, &rec.ConnectUs, &rec.TLSUs, &rec.WaitUs, &rec.DownloadUs, &rec.RequestBytes,
+		&rec.ResponseBytes, &requestHeaders, &responseHeaders, &cookies, &rec.StartedAt,
+		&rec.TabID, &rec.TabTitle, &rec.TabURL, &rec.FavIconURL); err != nil {
+		return domain.Record{}, 0, err
+	}
+	rec.Cancelled = cancelled != 0
+	for _, part := range []struct {
+		raw  string
+		into any
+		what string
+	}{
+		{requestHeaders, &rec.RequestHeaders, "request headers"},
+		{responseHeaders, &rec.ResponseHeaders, "response headers"},
+		{cookies, &rec.RequestCookies, "cookies"},
+	} {
+		if err := json.Unmarshal([]byte(part.raw), part.into); err != nil {
+			return domain.Record{}, 0, fmt.Errorf("reading the %s of %s: %w", part.what, rec.ID, err)
+		}
+	}
+	return rec, seq, nil
+}
+
 // Everything but the bodies travels: the list is drawn for a record the window has not selected
 // yet, so a second call would be a second wait. Each body comes as its size alone.
 func (s *Store) Records(
@@ -94,14 +143,7 @@ func (s *Store) Records(
 ) ([]domain.Record, error) {
 	scope, args := listScope(workspaceID, source, limit)
 
-	rows, err := s.db.QueryContext(ctx,
-		`SELECT seq, id, workspace_id, source, method, url, status, status_text, content_type, error,
-		        cancelled,
-		        duration_us, dns_us, connect_us, tls_us, wait_us, download_us,
-		        request_bytes, response_bytes, request_headers_json, response_headers_json,
-		        request_cookies_json, started_at, ifnull(tab_id, 0), ifnull(tab_title, ''),
-		        ifnull(tab_url, ''), ifnull(favicon_url, '')
-		   FROM records`+scope, args...)
+	rows, err := s.db.QueryContext(ctx, `SELECT `+recordColumns+` FROM records`+scope, args...)
 	if err != nil {
 		return nil, fmt.Errorf("listing records: %w", err)
 	}
@@ -110,30 +152,9 @@ func (s *Store) Records(
 	out := []domain.Record{}
 	seqs := []int64{}
 	for rows.Next() {
-		var (
-			rec                                      domain.Record
-			seq                                      int64
-			cancelled                                int
-			requestHeaders, responseHeaders, cookies string
-		)
-		// The phases come back as nullable columns: absent is a phase that did not happen, which is
-		// not the same thing as one that took no time.
-		if err := rows.Scan(&seq, &rec.ID, &rec.WorkspaceID, &rec.Source, &rec.Method, &rec.URL,
-			&rec.Status, &rec.StatusText, &rec.ContentType, &rec.Error, &cancelled, &rec.DurationUs,
-			&rec.DNSUs, &rec.ConnectUs, &rec.TLSUs, &rec.WaitUs, &rec.DownloadUs, &rec.RequestBytes,
-			&rec.ResponseBytes, &requestHeaders, &responseHeaders, &cookies, &rec.StartedAt,
-			&rec.TabID, &rec.TabTitle, &rec.TabURL, &rec.FavIconURL); err != nil {
+		rec, seq, err := scanRecord(rows)
+		if err != nil {
 			return nil, fmt.Errorf("listing records: %w", err)
-		}
-		rec.Cancelled = cancelled != 0
-		if err := json.Unmarshal([]byte(requestHeaders), &rec.RequestHeaders); err != nil {
-			return nil, fmt.Errorf("reading the request headers of %s: %w", rec.ID, err)
-		}
-		if err := json.Unmarshal([]byte(responseHeaders), &rec.ResponseHeaders); err != nil {
-			return nil, fmt.Errorf("reading the response headers of %s: %w", rec.ID, err)
-		}
-		if err := json.Unmarshal([]byte(cookies), &rec.RequestCookies); err != nil {
-			return nil, fmt.Errorf("reading the cookies of %s: %w", rec.ID, err)
 		}
 		out = append(out, rec)
 		seqs = append(seqs, seq)
@@ -151,43 +172,13 @@ func (s *Store) Records(
 // Record reads one record by id, with its body references and nothing in them: a run's row opens
 // the record it produced, and the window asks for the bodies only once the viewer is on screen.
 func (s *Store) Record(ctx context.Context, id string) (domain.Record, error) {
-	var (
-		rec                                      domain.Record
-		seq                                      int64
-		cancelled                                int
-		requestHeaders, responseHeaders, cookies string
-	)
-	err := s.db.QueryRowContext(ctx,
-		`SELECT seq, id, workspace_id, source, method, url, status, status_text, content_type, error,
-		        cancelled, duration_us, dns_us, connect_us, tls_us, wait_us, download_us,
-		        request_bytes, response_bytes, request_headers_json, response_headers_json,
-		        request_cookies_json, started_at, ifnull(tab_id, 0), ifnull(tab_title, ''),
-		        ifnull(tab_url, ''), ifnull(favicon_url, '')
-		   FROM records WHERE id = ?`, id).
-		Scan(&seq, &rec.ID, &rec.WorkspaceID, &rec.Source, &rec.Method, &rec.URL, &rec.Status,
-			&rec.StatusText, &rec.ContentType, &rec.Error, &cancelled, &rec.DurationUs, &rec.DNSUs,
-			&rec.ConnectUs, &rec.TLSUs, &rec.WaitUs, &rec.DownloadUs, &rec.RequestBytes,
-			&rec.ResponseBytes, &requestHeaders, &responseHeaders, &cookies, &rec.StartedAt,
-			&rec.TabID, &rec.TabTitle, &rec.TabURL, &rec.FavIconURL)
+	rec, seq, err := scanRecord(s.db.QueryRowContext(ctx,
+		`SELECT `+recordColumns+` FROM records WHERE id = ?`, id))
 	if errors.Is(err, sql.ErrNoRows) {
 		return domain.Record{}, fmt.Errorf("record %s: %w", id, domain.ErrNotFound)
 	}
 	if err != nil {
 		return domain.Record{}, fmt.Errorf("reading record %s: %w", id, err)
-	}
-	rec.Cancelled = cancelled != 0
-	for _, part := range []struct {
-		raw  string
-		into any
-		what string
-	}{
-		{requestHeaders, &rec.RequestHeaders, "request headers"},
-		{responseHeaders, &rec.ResponseHeaders, "response headers"},
-		{cookies, &rec.RequestCookies, "cookies"},
-	} {
-		if err := json.Unmarshal([]byte(part.raw), part.into); err != nil {
-			return domain.Record{}, fmt.Errorf("reading the %s of %s: %w", part.what, id, err)
-		}
 	}
 	// The same call the list makes, for a list of one: it fills the record in place, which is where
 	// the body references come from.

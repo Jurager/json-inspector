@@ -44,5 +44,5 @@ func matchFolded(needle string, hit domain.SearchHit) (domain.SearchMatch, bool)
 	if hit.MatchText != "" && strings.Contains(strings.ToLower(hit.MatchText), needle) {
 		return domain.MatchValue, true
 	}
-	return 0, false
+	return domain.MatchNone, false
 }

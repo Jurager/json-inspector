@@ -72,16 +72,13 @@ func (u *UseCase) Above(ctx context.Context, id domain.DraftID) (Above, error) {
 	}
 	for _, collection := range tree {
 		if found, ok := aboveUnder([]domain.Collection{collection}, string(id), nil, nil); ok {
-			found.Auth = actionable(found.Auth).Stored()
 			return found, nil
 		}
 	}
 	return Above{}, nil
 }
 
-// aboveUnder descends one level at a time, carrying what the levels over the request answered. Each
-// level copies the variables rather than appending to what it was handed: the walk branches, and
-// two branches appending to one slice would give the second one the first one's answers.
+// aboveUnder descends one level at a time, carrying what the levels over the request answered.
 func aboveUnder(
 	collections []domain.Collection,
 	id string,
@@ -90,9 +87,7 @@ func aboveUnder(
 ) (Above, bool) {
 	for _, collection := range collections {
 		at := answerOf(collection.Auth, inherited)
-		variables := make([]domain.Variable, 0, len(above)+len(collection.Variables))
-		variables = append(variables, above...)
-		variables = append(variables, collection.Variables...)
+		variables := appendLevel(above, collection.Variables)
 
 		for _, node := range collection.Items {
 			if node.ID == id {
@@ -112,14 +107,6 @@ func answerOf(level *domain.Auth, inherited *domain.Auth) *domain.Auth {
 		return level
 	}
 	return inherited
-}
-
-// A request with nothing above it authorizes itself with «None».
-func actionable(auth *domain.Auth) domain.Auth {
-	if auth == nil {
-		return domain.NewAuth(domain.AuthNone)
-	}
-	return *auth
 }
 
 // A nil auth stays nil — a level nobody touched; «None» with no answers behind it is stored as

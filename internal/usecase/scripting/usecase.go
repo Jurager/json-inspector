@@ -36,12 +36,16 @@ type UseCase struct {
 	ids    platform.IDGen
 
 	// The run's own scope, which is what `pm.variables` reads and writes. It lives here because it
-	// belongs to no feature that outlives the run: a few strings per run, gone with the process. Only
-	// a run whose scripts actually wrote something has an entry, and a script that only reads leaves
-	// nothing behind.
+	// belongs to no feature that outlives the run: a few strings per run. Only a run whose scripts
+	// actually wrote something has an entry, and a script that only reads leaves nothing behind.
 	mu   sync.Mutex
 	runs map[string]map[string]string
 }
+
+// maxRuns is how many runs keep a scope at once. Nothing reads a run's own memory once the run is
+// over — it is the run's memory and no one else's — so a session of a thousand sends does not have
+// to keep a thousand of them alive for the life of the process.
+const maxRuns = 32
 
 func NewUseCase(
 	engine Engine,
@@ -295,6 +299,17 @@ func (u *UseCase) setRunVariable(run string, name string, value string) {
 	defer u.mu.Unlock()
 
 	if u.runs[run] == nil {
+		// Which entry goes is not worth knowing: a run that is over never reads its scope again, and
+		// only the run that is going reads its own. What is worth knowing is that the entry of the run
+		// being written is never the one taken.
+		if len(u.runs) >= maxRuns {
+			for held := range u.runs {
+				if held != run {
+					delete(u.runs, held)
+					break
+				}
+			}
+		}
 		u.runs[run] = map[string]string{}
 	}
 	u.runs[run][name] = value

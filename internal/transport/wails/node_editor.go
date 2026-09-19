@@ -84,13 +84,13 @@ func draftOfNode(node domain.CollectionNode) domain.Draft {
 		ID:            domain.DraftID(node.ID),
 		Method:        node.Method,
 		URL:           node.URL,
-		Params:        rowsOf(node.Params),
-		Headers:       rowsOf(node.Headers),
+		Params:        domain.OrEmpty(node.Params),
+		Headers:       domain.OrEmpty(node.Headers),
 		Body:          node.Body,
 		BodyKind:      domain.KindOf(node.BodyKind),
-		Form:          formRowsOf(node.Form),
+		Form:          domain.OrEmpty(node.Form),
 		BodyFile:      node.BodyFile,
-		Cookies:       cookiesOf(node.Cookies),
+		Cookies:       domain.OrEmpty(node.Cookies),
 		Auth:          auth,
 		EnvironmentID: node.EnvironmentID,
 	}
@@ -115,25 +115,3 @@ func nodeFromDraft(node domain.CollectionNode, d domain.Draft) domain.Collection
 	return node
 }
 
-// A node with no rows comes back with nil, and the window draws a list: an empty one is easier to
-// draw than a missing one.
-func rowsOf(rows []domain.Row) []domain.Row {
-	if rows == nil {
-		return []domain.Row{}
-	}
-	return rows
-}
-
-func cookiesOf(cookies []domain.CookieRow) []domain.CookieRow {
-	if cookies == nil {
-		return []domain.CookieRow{}
-	}
-	return cookies
-}
-
-func formRowsOf(rows []domain.FormRow) []domain.FormRow {
-	if rows == nil {
-		return []domain.FormRow{}
-	}
-	return rows
-}

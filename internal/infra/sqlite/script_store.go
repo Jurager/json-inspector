@@ -151,6 +151,24 @@ func (s *Store) SaveScriptRun(ctx context.Context, workspaceID string, run domai
 
 // ScriptRuns reads what the scripts of one record did, in the order they ran — the collection's
 // first, then the folders', then the request's own, which is the order they were executed in.
+// AssertionCounts is how many assertions the scripts around a record made, and how many of them
+// held. It exists apart from ScriptRuns because a run of fifty requests asks this once per row, and
+// reading every log of every script to count the tests would be reading the report to have the
+// summary — three queries per row instead of one for the whole run.
+func (s *Store) AssertionCounts(ctx context.Context, recordID string) (int, int, error) {
+	const query = `
+		SELECT ifnull(sum(CASE WHEN t.passed THEN 1 ELSE 0 END), 0), count(t.run_id)
+		  FROM script_runs r
+		  LEFT JOIN test_results t ON t.run_id = r.id
+		 WHERE r.record_seq = (SELECT seq FROM records WHERE id = ?)`
+
+	var passed, total int
+	if err := s.db.QueryRowContext(ctx, query, recordID).Scan(&passed, &total); err != nil {
+		return 0, 0, fmt.Errorf("counting the assertions of record %s: %w", recordID, err)
+	}
+	return passed, total, nil
+}
+
 func (s *Store) ScriptRuns(ctx context.Context, recordID string) ([]domain.ScriptRun, error) {
 	rows, err := s.db.QueryContext(ctx,
 		`SELECT id, node_id, scope, ok, error, duration_us, created_at

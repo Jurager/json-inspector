@@ -61,13 +61,7 @@ func (u *UseCase) Run(ctx context.Context, collectionID string, nodeID string) (
 		return "", err
 	}
 
-	collection, ok := findCollection(tree, collectionID)
-	if !ok {
-		u.running.Store(false)
-		return "", fmt.Errorf("collection %s: %w", collectionID, domain.ErrNotFound)
-	}
-
-	requests, err := requestsUnder(collection, nodeID)
+	requests, err := requestsUnder(tree, collectionID, nodeID)
 	if err != nil {
 		u.running.Store(false)
 		return "", err
@@ -293,22 +287,85 @@ type runnable struct {
 // A request is a list of one, so running a saved request and running a collection are the same
 // call. A node the collection does not have is a deletion the window has not heard about yet, not
 // an empty run.
-func requestsUnder(collection domain.Collection, nodeID string) ([]runnable, error) {
-	if nodeID == "" || nodeID == collection.ID {
-		return requestsIn(collection, nil, nil), nil
+//
+// The tree is walked from the root rather than from the collection the window named, because a
+// folder is run as itself and a folder two levels down still inherits from the levels between it
+// and the root: handing the walk a detached subtree would lose their authorization and their
+// variables silently, and the requests would go out without them.
+func requestsUnder(tree []domain.Collection, collectionID, nodeID string) ([]runnable, error) {
+	anchor, inherited, above, ok := findCollectionWith(tree, collectionID, nil, nil)
+	if !ok {
+		return nil, fmt.Errorf("collection %s: %w", collectionID, domain.ErrNotFound)
 	}
-	if nested, ok := findCollection(collection.Children, nodeID); ok {
-		return requestsIn(nested, answerOf(collection.Auth, nil), collection.Variables), nil
+	if nodeID == "" || nodeID == collectionID {
+		return requestsIn(anchor, inherited, above), nil
 	}
-	node, ok := findNode([]domain.Collection{collection}, nodeID)
+
+	// What the run was started from is a level inside the anchor, and the anchor is one of the levels
+	// above it — so the pair handed to the walk is the anchor's own, not the one it was given.
+	at := answerOf(anchor.Auth, inherited)
+	variables := appendLevel(above, anchor.Variables)
+
+	if nested, nAt, nAbove, ok := findCollectionWith(anchor.Children, nodeID, at, variables); ok {
+		return requestsIn(nested, nAt, nAbove), nil
+	}
+	node, auth, nAbove, ok := findNodeWith(anchor, nodeID, at, variables)
 	if !ok {
 		return nil, fmt.Errorf("node %s: %w", nodeID, domain.ErrNotFound)
 	}
-	return []runnable{{
-		node:      node,
-		auth:      answerOf(node.Auth, answerOf(collection.Auth, nil)),
-		variables: collection.Variables,
-	}}, nil
+	return []runnable{{node: node, auth: auth, variables: nAbove}}, nil
+}
+
+// findCollectionWith is a collection and what the levels above it answer — the pair requestsIn
+// needs to carry the walk down, and the same walk aboveUnder does for a card.
+func findCollectionWith(
+	collections []domain.Collection,
+	id string,
+	inherited *domain.Auth,
+	above []domain.Variable,
+) (domain.Collection, *domain.Auth, []domain.Variable, bool) {
+	for _, collection := range collections {
+		if collection.ID == id {
+			return collection, inherited, above, true
+		}
+		at := answerOf(collection.Auth, inherited)
+		variables := appendLevel(above, collection.Variables)
+		if found, fAt, fAbove, ok := findCollectionWith(collection.Children, id, at, variables); ok {
+			return found, fAt, fAbove, true
+		}
+	}
+	return domain.Collection{}, nil, nil, false
+}
+
+// findNodeWith is the same walk for a request inside a collection: it answers with the level the
+// request itself goes out under, which is what a runnable carries.
+func findNodeWith(
+	collection domain.Collection,
+	id string,
+	inherited *domain.Auth,
+	above []domain.Variable,
+) (domain.CollectionNode, *domain.Auth, []domain.Variable, bool) {
+	for _, node := range collection.Items {
+		if node.ID == id {
+			return node, answerOf(node.Auth, inherited), above, true
+		}
+	}
+	for _, nested := range collection.Children {
+		at := answerOf(nested.Auth, inherited)
+		variables := appendLevel(above, nested.Variables)
+		if node, nAt, nAbove, ok := findNodeWith(nested, id, at, variables); ok {
+			return node, nAt, nAbove, true
+		}
+	}
+	return domain.CollectionNode{}, nil, nil, false
+}
+
+// appendLevel copies rather than appending to what it was handed: the walk branches, and two
+// branches appending to one slice would give the second one the first one's answers.
+func appendLevel(above, level []domain.Variable) []domain.Variable {
+	out := make([]domain.Variable, 0, len(above)+len(level))
+	out = append(out, above...)
+	return append(out, level...)
 }
 
 // The order is the level's own, not requests-then-collections, and the answer of the levels above
@@ -321,9 +378,7 @@ func requestsIn(
 	at := answerOf(collection.Auth, inherited)
 	// A level's own variables stand over the ones above it, so they are appended: the reader takes the
 	// last answer for a name, which is the nearest level.
-	variables := make([]domain.Variable, 0, len(above)+len(collection.Variables))
-	variables = append(variables, above...)
-	variables = append(variables, collection.Variables...)
+	variables := appendLevel(above, collection.Variables)
 
 	out := []runnable{}
 	for _, entry := range collection.Level() {

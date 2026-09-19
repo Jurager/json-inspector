@@ -1,17 +1,16 @@
 (() => {
   const MESSAGE_MARKER = '__JSON_INSPECTOR_CAPTURE__';
   const MAX_BODY_CHARS = 2 * 1024 * 1024;
-  const HOOK_VERSION = 3;
 
-  window.__jsonInspectorLastInjection = HOOK_VERSION;
-
+  // Injected a second time into a page that already has the hook: the flag is turned back on, and the
+  // hooks that are already there are kept — installing them twice would put two wrappers around fetch
+  // and capture every request twice.
   if (window.__jsonInspectorHook) {
     window.__jsonInspectorEnabled = true;
     return;
   }
 
   window.__jsonInspectorHook = true;
-  window.__jsonInspectorHookVersion = HOOK_VERSION;
   window.__jsonInspectorEnabled = true;
 
   const isCaptureEnabled = () => window.__jsonInspectorEnabled === true;
@@ -98,8 +97,11 @@
       return '';
     }
 
+    // Capped here rather than at the call sites, because this is where both of them meet: a request
+    // body is copied into a frame, sent over the port and kept in the worker's buffer, and a fifty
+    // megabyte upload would be carried four times over.
     if (typeof body === 'string') {
-      return body;
+      return limitBody(body);
     }
 
     if (body instanceof URLSearchParams) {
@@ -119,7 +121,7 @@
     }
 
     try {
-      return JSON.stringify(body);
+      return limitBody(JSON.stringify(body));
     } catch {
       return String(body);
     }
@@ -214,7 +216,8 @@
                 statusText: response.statusText,
                 responseHeaders,
                 responseBody: getBinaryResponseBody(contentType),
-                durationMs: Date.now() - startedAt,
+                durationMs: Math.round(performance.now() - startedPerf),
+                startedAt,
               });
 
               return;
@@ -239,7 +242,8 @@
               statusText: response.statusText,
               responseHeaders,
               responseBody,
-              durationMs: Date.now() - startedAt,
+              durationMs: Math.round(performance.now() - startedPerf),
+              startedAt,
               ...phases(startedPerf, headersPerf, performance.now()),
             });
           },
@@ -251,7 +255,8 @@
               requestBody,
               status: 0,
               statusText: String(error?.message || error),
-              durationMs: Date.now() - startedAt,
+              durationMs: Math.round(performance.now() - startedPerf),
+              startedAt,
             });
           }
       );
@@ -306,11 +311,22 @@
           let responseBody = '';
           let timing = null;
 
+          // `responseText` is only readable when the response type is text: any other kind throws on
+          // the getter, and the throw would escape this handler and lose the capture entirely. So the
+          // type is asked first, which is the only question that can be asked safely.
+          const textResponse = this.responseType === '' || this.responseType === 'text';
+
           if (isBinaryContentType(contentType)) {
             responseBody = getBinaryResponseBody(contentType);
-          } else if (typeof this.responseText === 'string') {
+          } else if (textResponse) {
             responseBody = limitBody(this.responseText);
             // Only a body that was actually read has a download time to report.
+            if (headersPerf) timing = phases(startedPerf, headersPerf, performance.now());
+          } else if (this.responseType === 'json' && this.response != null) {
+            // The parsed answer, written back out: it is the same document the server sent — the
+            // browser has already thrown the original spacing away — and a row with no body at all
+            // would say less than the network did.
+            responseBody = limitBody(JSON.stringify(this.response));
             if (headersPerf) timing = phases(startedPerf, headersPerf, performance.now());
           }
 
@@ -325,7 +341,10 @@
                 this.getAllResponseHeaders?.() || ''
             ),
             responseBody,
-            durationMs: Date.now() - state.startedAt,
+            // The duration is the round trip from the send, which is what the caller waited for; the
+            // wall clock is only good enough for the moment the request left, not for measuring.
+            durationMs: Math.round(performance.now() - startedPerf),
+            startedAt: state.startedAt,
             ...(timing ?? {}),
           });
         };
@@ -338,7 +357,8 @@
             requestBody,
             status: 0,
             statusText: 'network error',
-            durationMs: Date.now() - state.startedAt,
+            durationMs: Math.round(performance.now() - startedPerf),
+            startedAt: state.startedAt,
           });
         };
 

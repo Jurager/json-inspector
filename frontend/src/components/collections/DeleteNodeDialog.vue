@@ -5,7 +5,9 @@ import { useMessages } from '../../i18n'
 
 const { t } = useMessages()
 
-defineProps<{ name: string; count: number; open: boolean }>()
+// No name: the question is about what goes with the row, and the row is the one the menu was opened
+// on — naming it again beside the count says nothing the click has not just said.
+defineProps<{ count: number; open: boolean }>()
 
 const emit = defineEmits<{ (e: 'cancel'): void; (e: 'confirm'): void }>()
 </script>

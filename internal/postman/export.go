@@ -9,12 +9,17 @@ import (
 )
 
 // Export writes a collection as a file: the whole collection, or the one request the context
-// menu exports — one item is what Postman expects to be handed. Tokens are written as written:
-// a `{{name}}` stays text, and no value behind it ever reaches a file.
+// menu exports — one item is what Postman expects to be handed. A `{{name}}` in an address or a
+// body stays text, and what a level answers for the names it owns travels beside them: a collection
+// that lost its own values would mean something else on the other side, which is what they are for.
+//
+// Nothing here has to be kept back for being secret. A collection cannot hold one — SaveVariables
+// refuses it for exactly this reason — so every value written is one the user meant to hand over.
 func Export(collection domain.Collection) ([]byte, error) {
 	doc := collectionFile{
-		Info: info{Name: collection.Name, Schema: Schema},
-		Item: exportLevel(collection),
+		Info:     info{Name: collection.Name, Schema: Schema},
+		Variable: exportedVariables(collection.Variables),
+		Item:     exportLevel(collection),
 	}
 	if collection.Auth != nil {
 		doc.Auth = exportedAuth(*collection.Auth)
@@ -32,7 +37,10 @@ func exportLevel(collection domain.Collection) []item {
 	out := make([]item, 0, len(collection.Items)+len(collection.Children))
 	for _, entry := range collection.Level() {
 		if entry.Collection != nil {
-			group := item{Name: entry.Collection.Name}
+			group := item{
+				Name:     entry.Collection.Name,
+				Variable: exportedVariables(entry.Collection.Variables),
+			}
 			if entry.Collection.Auth != nil {
 				group.Auth = exportedAuth(*entry.Collection.Auth)
 			}
@@ -41,6 +49,24 @@ func exportLevel(collection domain.Collection) []item {
 			continue
 		}
 		out = append(out, item{Name: entry.Node.Name, Request: exportedRequest(*entry.Node)})
+	}
+	return out
+}
+
+// exportedVariables writes what a level answers for `{{tokens}}`. A row with no name is not a
+// variable — it is a row somebody left empty, and a name is the only thing that makes one.
+func exportedVariables(variables []domain.Variable) []variable {
+	out := make([]variable, 0, len(variables))
+	for _, v := range variables {
+		if v.Name == "" {
+			continue
+		}
+		out = append(out, variable{
+			Key:      v.Name,
+			Value:    v.Value,
+			Type:     "string",
+			Disabled: !v.Enabled,
+		})
 	}
 	return out
 }

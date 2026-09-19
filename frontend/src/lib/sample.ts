@@ -1,7 +1,7 @@
 import type { IngestInput } from '../../bindings/json-inspector/internal/usecase/record'
 import { RecordSource } from '../../bindings/json-inspector/internal/domain'
 
-export const SAMPLE_JSON_API = `{
+const SAMPLE_JSON_API = `{
   "jsonapi": { "version": "1.0" },
   "links": {
     "self": "http://example.com/articles",

@@ -63,6 +63,7 @@ const ru = {
     everything: 'Всё',
     recent: 'Недавнее',
     placeholder: 'Поиск по запросам, коллекциям, окружениям…',
+    failed: 'Не удалось выполнить поиск: {error}',
     kinds: {
       request: 'Запросы',
       collection: 'Коллекции',
@@ -388,7 +389,6 @@ const ru = {
     },
     back: 'Назад',
     copyUrl: 'Копировать ссылку',
-    params: 'Параметры {n}',
     paramsTitle: 'Параметры запроса',
     copyQuery: 'Копировать строку запроса',
     copyFailed: 'Не удалось скопировать запрос: {error}',
@@ -496,6 +496,7 @@ const ru = {
   browser: {
     connected: 'Расширение подключено · порт {port} слушает',
     notFound: 'Расширение не найдено · порт {port} слушает',
+    portTaken: 'Порт {port} занят — захват не запустился',
     captureFailed: 'Не удалось переключить перехват: {error}',
     homeTitle: 'Перехватывайте запросы прямо из браузера',
     homeBody:
@@ -697,6 +698,8 @@ const ru = {
     edited: 'изменено {ago}',
     imported: 'Импортировано: «{name}»',
     importFailed: 'Не удалось импортировать: {error}',
+    contentsFailed: 'Не удалось прочитать содержимое: {error}',
+    exportFailed: 'Не удалось сохранить: {error}',
     readFailed: 'Не удалось прочитать коллекцию: {error}',
     saveRequest: 'Сохранить запрос',
     requestName: 'Имя запроса',
@@ -849,6 +852,7 @@ const ru = {
       environmentReadOnly: 'Окружение только для чтения — переключите «Доступ» на «Редактируется» и повторите.',
       unknownRetention: 'Неизвестный срок хранения: {retention}',
       unknownUpdateChannel: 'Неизвестный канал обновлений: {channel}',
+      noVersion: 'Устанавливать нечего: версия не выбрана.',
       notSignedIn: 'Вход не выполнен.',
       serverUnreachable: 'Сервер не отвечает.',
       serverRefused: 'Сервер отказал в запросе.',

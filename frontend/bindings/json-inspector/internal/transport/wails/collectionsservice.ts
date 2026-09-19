@@ -33,7 +33,12 @@ export function Contents(id: string): $CancellablePromise<domain$0.LevelRow[] | 
     return $Call.ByID(3362458552, id);
 }
 
-export function CreateCollection(name: string, description: string, parentID: string): $CancellablePromise<domain$0.Collection[] | null> {
+/**
+ * CreatedCollection is what making a collection answers with, and it is CreatedNode's shape for
+ * CreatedNode's reason: the id has to come back from Go, because a lookup by name would find the
+ * older row of the same name — and a folder is created inside another one as often as at the top.
+ */
+export function CreateCollection(name: string, description: string, parentID: string): $CancellablePromise<$models.CreatedCollection> {
     return $Call.ByID(2119561358, name, description, parentID);
 }
 

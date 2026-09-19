@@ -41,10 +41,14 @@ async function refreshMaximised() {
 watch(
   customTitlebar,
   (custom) => {
-    if (custom) {
-      refreshMaximised()
-      window.addEventListener('resize', refreshMaximised)
+    // A titlebar the system draws has no button whose state this could be: the listener goes away with
+    // the bar it was refreshing, or the window keeps waking up for a control it is not drawing.
+    if (!custom) {
+      window.removeEventListener('resize', refreshMaximised)
+      return
     }
+    refreshMaximised()
+    window.addEventListener('resize', refreshMaximised)
   },
   { immediate: true }
 )

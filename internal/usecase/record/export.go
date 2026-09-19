@@ -29,14 +29,16 @@ func (u *UseCase) ExportHAR(ctx context.Context, tabKey string) ([]byte, string,
 		return nil, "", err
 	}
 
-	name := "session"
+	// Named by the first record of the tab, and by a flag rather than by the default still standing:
+	// a tab whose name is literally "session" would otherwise rename the file on every row.
+	name, named := "session", false
 	entries := []har.Entry{}
 	for _, rec := range records {
 		if tabKeyOf(rec) != tabKey {
 			continue
 		}
-		if name == "session" {
-			name = tabNameOf(rec)
+		if !named {
+			name, named = tabNameOf(rec), true
 		}
 		entries = append(entries, har.Entry{
 			Record:       rec,
