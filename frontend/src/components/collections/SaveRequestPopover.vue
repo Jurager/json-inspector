@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { computed, nextTick, ref, watch } from 'vue'
 import Icon from '../ui/Icon.vue'
-import { Button } from '../ui/button'
 import { Popover, PopoverAnchor, PopoverContent } from '../ui/popover'
 import { useCollectionsStore } from '../../stores/collections'
 import { usePlatform } from '../../composables/usePlatform'
@@ -181,6 +180,21 @@ function onInteractOutside(e: Event) {
   if (target instanceof Element && target.closest('.save-anchor')) e.preventDefault()
 }
 
+// The key the last row names, for the window. What it does is what the row under the cursor does: on
+// the list that is opening the row, exactly as Enter does, and on the name it is the save itself. The
+// panel is up, so the key means the panel's thing — not the place remembered from the last save,
+// which is a different row's promise and one the panel has since been opened over.
+function onSaveKey() {
+  if (step.value === 'pick') {
+    const row = target.value
+    if (row) pick(row)
+    return
+  }
+  void save()
+}
+
+defineExpose({ onSaveKey })
+
 async function save() {
   const place = target.value
   const called = name.value.trim() || props.defaultName
@@ -272,12 +286,15 @@ async function save() {
           />
           <span class="name-hint">{{ t('collections.saveNameHint') }}</span>
 
-          <div class="foot">
-            <span class="foot-state">{{ t('collections.saveShortcutNext', { shortcut: shortcut('S') }) }}</span>
-            <Button class="save-btn" variant="primary" :disabled="!canSave || saving" @click="save">
-              {{ t('common.save') }}
-            </Button>
-          </div>
+          <!-- The last row of the panel, built the way the environment popover's «Редактировать
+               переменные…» is: what it does on the left, the key that does the same on the right. One
+               row rather than a button and a sentence about it — the key is the whole of what there
+               was to say, and it stands where the eye looks for it. -->
+          <div class="divider"></div>
+          <button type="button" class="save-row" :disabled="!canSave || saving" @click="save">
+            <span class="save-row-name">{{ t('collections.saveRequest') }}</span>
+            <span class="save-row-key">{{ shortcut('S') }}</span>
+          </button>
         </div>
       </div>
     </PopoverContent>
@@ -430,23 +447,33 @@ async function save() {
   line-height: 1.5;
 }
 
-.foot {
-  @apply flex items-center gap-2 mt-1.5;
-  padding: 10px 4px 2px;
-  border-top: 1px solid color-mix(in srgb, var(--border) 60%, transparent);
+/* The hairline above the last row, drawn the way the environment popover draws the one above its own
+   closing row: a mark the width of the panel, inset so it does not run into the corners. */
+.divider {
+  @apply h-px mx-2 my-1.5 bg-border;
 }
 
-.foot-state {
-  @apply flex-1 min-w-0 text-[12px] text-text-tertiary truncate;
+/* The action the whole panel exists for, in the shape every popover of this window closes with: a row
+   of the list, one line tall, with the key that does the same thing written at its end. */
+.save-row {
+  @apply flex items-center w-full h-[34px] px-2.5 border-none rounded-[9px] bg-transparent text-text text-left cursor-pointer;
+  font: inherit;
+  --wails-draggable: no-drag;
 }
 
-/* The one button the panel ends with: the handoff's 30 tall at the radius that goes with it. Named
-   with the primitive's class as well, because a scoped override and the primitive's own scoped rule
-   stand on the same specificity. */
-.btn.save-btn {
-  height: 30px;
-  padding: 0 13px;
-  border-radius: 8px;
-  font-weight: 600;
+.save-row:hover:not(:disabled) {
+  @apply bg-bg-hover;
+}
+
+.save-row:disabled {
+  @apply opacity-50 cursor-default;
+}
+
+.save-row-name {
+  @apply flex-1 min-w-0 text-[13px];
+}
+
+.save-row-key {
+  @apply flex-none text-[12px] text-text-tertiary;
 }
 </style>

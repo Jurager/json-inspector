@@ -190,6 +190,8 @@ const canSave = computed(() => props.source === 'request')
 
 const saveOpen = ref(false)
 const saveAnchor = ref<HTMLElement | null>(null)
+// The panel's own key goes to the panel: what the shortcut does with it up is the panel's to say.
+const savePanel = ref<InstanceType<typeof SaveRequestPopover> | null>(null)
 
 // A dot on the bookmark while the line holds something a collection does not: it is there for a
 // request somebody typed, and it goes once the request is kept — saved, or sent and filed in the
@@ -257,6 +259,12 @@ function onWindowKeydown(e: KeyboardEvent) {
 // A place the tree no longer has answers the same way: the collection was deleted, and the sheet is
 // where that is found out. So does a line nothing has been done to since the last save.
 async function saveShortcut() {
+  // The panel is up, and the last row of it says what the key does there: the key is the panel's
+  // while the panel is open, or the row would be advertising a key that saves somewhere else.
+  if (saveOpen.value) {
+    savePanel.value?.onSaveKey()
+    return
+  }
   const place = places.value.find((p) => p.id === collections.lastSaveTarget)
   if (!unsaved.value || !place) {
     saveOpen.value = true
@@ -395,6 +403,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onWindowKeydown))
           <span v-if="unsaved" class="unsaved-dot"></span>
         </button>
         <SaveRequestPopover
+          ref="savePanel"
           :open="saveOpen"
           :url="store.url"
           :default-name="saveDefaultName"
