@@ -23,9 +23,9 @@
 
   <div style="display: flex; align-items: flex-end; justify-content: space-between; gap: 48px;">
     <div style="display: flex; flex-direction: column; gap: 10px; max-width: 780px;">
-      <div style="font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; color: #8e8e93;">Turn 3 · чипы-поповеры и все вкладки ответа</div>
+      <div style="font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; color: #8e8e93;">Turn 3 · строка запроса и все вкладки ответа</div>
       <h1 style="margin: 0; font-size: 32px; line-height: 1.12; font-weight: 600; letter-spacing: -0.02em;">Командная строка не двигается — всё остальное открывается поверх</h1>
-      <p style="margin: 0; font-size: 14px; line-height: 1.55; color: #5d5d63; text-wrap: pretty;">Параметры, заголовки, авторизация, тело и скрипты живут чипами в поле URL и раскрываются поповером со стеклянной подложкой, а не панелью, которая толкает ответ вниз. Счётчик на чипе показывает, что заполнено. У ответа один ряд вкладок, и каждая показывает своё содержимое: дерево, карта, сырой JSON, заголовки, cookies, тайминги, скрипты.</p>
+      <p style="margin: 0; font-size: 14px; line-height: 1.55; color: #5d5d63; text-wrap: pretty;">Параметры, заголовки, авторизация, тело и скрипты собраны в тихую полосу подчёркнутых вкладок под полем URL и раскрываются поповером со стеклянной подложкой, а не панелью, которая толкает ответ вниз. Точка у вкладки показывает, что в ней что-то задано. У ответа один ряд вкладок, и каждая показывает своё содержимое: дерево, карта, сырой JSON, заголовки, cookies, тайминги, скрипты.</p>
     </div>
     <div style="display: flex; gap: 28px; flex: none;">
       <div style="display: flex; flex-direction: column; gap: 8px;">
@@ -420,28 +420,70 @@
               <button type="button" style="appearance: none; cursor: pointer; font-family: ui-monospace, 'SF Mono', 'Cascadia Code', Menlo, monospace; font-size: 12px; font-weight: 700; height: 26px; padding: 0 8px; background: var(--ok-soft); color: var(--ok); border: 0; border-radius: 5px; display: flex; align-items: center; gap: 5px; flex: none;" style-hover="filter: brightness(1.06);">GET
                 <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" style="opacity: 0.7;"><path d="m6 9 6 6 6-6"></path></svg>
               </button>
-              <span style="flex: 1; min-width: 0; font-family: ui-monospace, 'SF Mono', 'Cascadia Code', Menlo, monospace; font-size: 13px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis;">https://api.example.com<sc-if value="{{ varError }}" hint-placeholder-val="{{ false }}"><span style="color: var(--bad); text-decoration: underline; text-decoration-style: wavy; text-decoration-color: var(--bad); text-underline-offset: 3px;">/<span>{</span><span>{var}}</span></span></sc-if>/articles<span style="color: var(--ink3);">?include=</span><span style="color: var(--accent);">author,comments</span></span>
+              <span style="flex: 1; min-width: 0; font-family: ui-monospace, 'SF Mono', 'Cascadia Code', Menlo, monospace; font-size: 13px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; position: relative;"><span onMouseEnter="{{ varIn }}" onMouseLeave="{{ varOut }}" style="color: var(--accent); text-decoration: underline; text-decoration-style: dotted; text-decoration-color: var(--accent); text-underline-offset: 3px; cursor: default;"><span>{</span><span>{baseUrl}}</span></span><sc-if value="{{ varError }}" hint-placeholder-val="{{ false }}"><span onMouseEnter="{{ varErrIn }}" onMouseLeave="{{ varOut }}" style="color: var(--bad); text-decoration: underline; text-decoration-style: wavy; text-decoration-color: var(--bad); text-underline-offset: 3px; cursor: default;">/<span>{</span><span>{var}}</span></span></sc-if>/articles<span style="color: var(--ink3);">?include=</span><span style="color: var(--accent);">author,comments</span></span>
+              <sc-if value="{{ varTipOpen }}" hint-placeholder-val="{{ false }}">
+                <span style="position: absolute; top: 40px; left: 44px; z-index: 70; display: flex; flex-direction: column; gap: 3px; padding: 9px 11px; background: var(--pop); backdrop-filter: blur(30px) saturate(180%); -webkit-backdrop-filter: blur(30px) saturate(180%); border: 1px solid var(--line); border-radius: 9px; box-shadow: var(--popshadow); pointer-events: none;">
+                  <span style="font-family: ui-monospace, 'SF Mono', 'Cascadia Code', Menlo, monospace; font-size: 12px; color: {{ varTipInk }};">{{ varTipValue }}</span>
+                  <span style="font-size: 11px; color: var(--ink3);">{{ varTipSource }}</span>
+                </span>
+              </sc-if>
             </div>
-            <button type="button" title="Save to collection" style="appearance: none; cursor: pointer; color: var(--ink2); background: transparent; border: 0; border-radius: 7px; width: 34px; height: 34px; flex: none; display: flex; align-items: center; justify-content: center;" style-hover="background: var(--sel); color: var(--accent);">
+            <div style="position: relative; flex: none;">
+              <button type="button" onClick="{{ toggleBarEnv }}" title="Environment" style="appearance: none; cursor: pointer; font-family: inherit; font-size: 12px; font-weight: 500; color: var(--ink2); background: {{ envChipBg }}; border: 1px solid var(--fieldline); border-radius: 7px; height: 34px; padding: 0 10px; display: flex; align-items: center; gap: 7px;" style-hover="background: var(--sel); color: var(--ink);">
+                <span style="width: 7px; height: 7px; border-radius: 999px; background: {{ barEnvDot }}; box-shadow: {{ barEnvRing }};"></span>{{ barEnvLabel }}
+              </button>
+              <sc-if value="{{ popBarEnv }}" hint-placeholder-val="{{ false }}">
+                <div style="position: absolute; top: 40px; right: 0; width: 300px; background: var(--pop); backdrop-filter: blur(30px) saturate(180%); -webkit-backdrop-filter: blur(30px) saturate(180%); border: 1px solid var(--line); border-radius: 12px; box-shadow: var(--popshadow); padding: 8px; display: flex; flex-direction: column; gap: 2px; z-index: 60;">
+                  <div style="padding: 6px 10px 8px; font-size: 11px; font-weight: 600; letter-spacing: 0.07em; text-transform: uppercase; color: var(--ink3);">Environment for this request</div>
+                  <sc-for list="{{ barEnvs }}" as="e" hint-placeholder-count="5">
+                    <button type="button" onClick="{{ e.on }}" style="appearance: none; cursor: pointer; font-family: inherit; text-align: left; border: 0; border-radius: 9px; background: {{ e.bg }}; height: 34px; padding: 0 10px; display: flex; align-items: center; gap: 10px; color: {{ e.ink }};" style-hover="background: var(--sel);">
+                      <span style="width: 16px; flex: none; display: inline-flex; align-items: center; justify-content: center; color: var(--accent);">
+                        <sc-if value="{{ e.active }}" hint-placeholder-val="{{ false }}"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="m5 13 4 4L19 7"></path></svg></sc-if>
+                      </span>
+                      <span style="flex: 1; min-width: 0; font-size: 13px; font-weight: {{ e.weight }}; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{{ e.name }}</span>
+                      <span style="font-family: ui-monospace, 'SF Mono', 'Cascadia Code', Menlo, monospace; font-size: 11px; color: var(--ink3);">{{ e.vars }}</span>
+                    </button>
+                  </sc-for>
+                  <div style="height: 1px; background: var(--line); margin: 6px 8px;"></div>
+                  <button type="button" onClick="{{ openEnvEditor }}" style="appearance: none; cursor: pointer; font-family: inherit; text-align: left; border: 0; border-radius: 9px; background: transparent; height: 34px; padding: 0 10px; display: flex; align-items: center; gap: 10px; color: var(--ink);" style-hover="background: var(--sel);">
+                    <span style="flex: 1; font-size: 13px;">Edit variables…</span>
+                    <span style="font-size: 12px; color: var(--ink3);">⌘E</span>
+                  </button>
+                </div>
+              </sc-if>
+            </div>
+            <button type="button" title="{{ saveHint }}" style="appearance: none; cursor: pointer; color: var(--ink2); background: transparent; border: 0; border-radius: 7px; width: 34px; height: 34px; flex: none; display: flex; align-items: center; justify-content: center; position: relative;" style-hover="background: var(--sel); color: var(--accent);">
               <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M6.5 4.5h11a1 1 0 0 1 1 1V20l-6.5-4.6L5.5 20V5.5a1 1 0 0 1 1-1Z"></path></svg>
+              <sc-if value="{{ unsaved }}" hint-placeholder-val="{{ true }}">
+                <span style="position: absolute; top: 6px; right: 6px; width: 6px; height: 6px; border-radius: 999px; background: var(--accent); box-shadow: 0 0 0 2px var(--side);"></span>
+              </sc-if>
             </button>
-            <button type="button" style="appearance: none; cursor: pointer; font-family: inherit; font-size: 13px; font-weight: 600; height: 34px; padding: 0 15px; background: var(--accent); color: #fff; border: 0; border-radius: 7px; flex: none; display: flex; align-items: center; gap: 8px; opacity: {{ sendOpacity }};" style-hover="background: var(--accent-press);">Send<span style="font-family: ui-monospace, Menlo, monospace; font-size: 11px; font-weight: 500; opacity: 0.75;">⌘↵</span></button>
+            <button type="button" onClick="{{ sendClick }}" style="appearance: none; cursor: {{ sendCursor }}; font-family: inherit; font-size: 13px; font-weight: 600; height: 34px; min-width: 104px; padding: 0 15px; background: {{ sendBg }}; color: #fff; border: 0; border-radius: 7px; flex: none; display: flex; align-items: center; justify-content: center; gap: 8px; opacity: {{ sendOpacity }};" style-hover="filter: brightness(1.06);">
+              <sc-if value="{{ sending }}" hint-placeholder-val="{{ false }}">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" style="animation: om-spin 720ms linear infinite; transform-origin: 50% 50%;"><circle cx="12" cy="12" r="8.5" stroke="currentColor" stroke-opacity="0.35" stroke-width="3"></circle><circle cx="12" cy="12" r="8.5" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-dasharray="14 40"></circle></svg>
+              </sc-if>
+              {{ sendLabel }}<span style="font-family: ui-monospace, Menlo, monospace; font-size: 11px; font-weight: 500; opacity: 0.75;">{{ sendKey }}</span>
+            </button>
           </div>
-          <div style="display: flex; align-items: center; gap: 10px; padding: 8px 20px 9px;">
-            <div style="display: flex; align-items: center; gap: 1px; padding: 2px; background: var(--chip); border-radius: 8px;">
-              <sc-for list="{{ chips }}" as="c" hint-placeholder-count="5">
-                <button type="button" onClick="{{ c.on }}" style="appearance: none; cursor: pointer; font-family: inherit; font-size: 13px; font-weight: 500; height: 30px; padding: 0 12px; border: 0; border-radius: 6px; background: {{ c.bg }}; color: {{ c.ink }}; box-shadow: {{ c.ring }}; display: flex; align-items: center; gap: 6px;" style-hover="background: {{ c.hoverBg }}; color: {{ c.hoverInk }};">
-                  {{ c.label }}
-                  <sc-if value="{{ c.hasCount }}" hint-placeholder-val="{{ false }}"><span style="font-size: 11px; font-weight: 700; color: {{ c.countInk }};">{{ c.count }}</span></sc-if>
-                </button>
-              </sc-for>
+          <sc-if value="{{ varError }}" hint-placeholder-val="{{ false }}">
+            <div style="display: flex; align-items: center; gap: 9px; margin: 7px 20px 0; padding: 7px 10px; border-radius: 7px; background: var(--bad-soft);">
+              <span style="width: 6px; height: 6px; flex: none; border-radius: 999px; background: var(--bad);"></span>
+              <span style="flex: 1; min-width: 0; font-size: 12px; color: var(--bad); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{{ varErrText }}</span>
+              <button type="button" onClick="{{ openNewVariable }}" style="appearance: none; cursor: pointer; font-family: inherit; font-size: 12px; font-weight: 500; height: 24px; padding: 0 9px; background: var(--field); color: var(--ink); border: 1px solid var(--fieldline); border-radius: 6px; flex: none;" style-hover="background: var(--sel);">{{ varErrAction }}</button>
             </div>
+          </sc-if>
+          <div style="display: flex; align-items: stretch; gap: 2px; height: 34px; padding: 0 20px;">
+            <sc-for list="{{ chips }}" as="c" hint-placeholder-count="5">
+              <button type="button" onClick="{{ c.on }}" style="appearance: none; cursor: pointer; font-family: inherit; font-size: 13px; font-weight: {{ c.weight }}; padding: 0 11px; border: 0; background: transparent; border-bottom: 2px solid {{ c.line }}; color: {{ c.ink }}; display: flex; align-items: center; gap: 7px;" style-hover="color: var(--ink);">
+                {{ c.label }}
+                <sc-if value="{{ c.hasDot }}" hint-placeholder-val="{{ false }}"><span style="width: 5px; height: 5px; border-radius: 999px; background: {{ c.dotInk }};"></span></sc-if>
+              </button>
+            </sc-for>
             <div style="flex: 1;"></div>
-            <span style="font-size: 12px; color: var(--ink3);">{{ envName }}</span>
           </div>
 
           <sc-if value="{{ popParams }}" hint-placeholder-val="{{ false }}">
-            <div style="position: absolute; top: 88px; left: 20px; width: 500px; background: var(--pop); backdrop-filter: blur(30px) saturate(180%); -webkit-backdrop-filter: blur(30px) saturate(180%); border: 1px solid var(--line); border-radius: 12px; box-shadow: var(--popshadow); padding: 14px; display: flex; flex-direction: column; gap: 4px; z-index: 50;">
+            <div style="position: absolute; top: 82px; left: 20px; width: 500px; background: var(--pop); backdrop-filter: blur(30px) saturate(180%); -webkit-backdrop-filter: blur(30px) saturate(180%); border: 1px solid var(--line); border-radius: 12px; box-shadow: var(--popshadow); padding: 14px; display: flex; flex-direction: column; gap: 4px; z-index: 50;">
               <div style="display: flex; align-items: center; justify-content: space-between; padding-bottom: 10px;">
                 <span style="font-size: 14px; font-weight: 600;">Query parameters</span>
                 <button type="button" onClick="{{ closePop }}" style="appearance: none; cursor: pointer; border: 0; border-radius: 6px; background: transparent; color: var(--ink3); width: 28px; height: 28px; display: flex; align-items: center; justify-content: center;" style-hover="background: var(--sel); color: var(--ink);">
@@ -470,7 +512,7 @@
           </sc-if>
 
           <sc-if value="{{ popHeaders }}" hint-placeholder-val="{{ false }}">
-            <div style="position: absolute; top: 88px; left: 20px; width: 500px; background: var(--pop); backdrop-filter: blur(30px) saturate(180%); -webkit-backdrop-filter: blur(30px) saturate(180%); border: 1px solid var(--line); border-radius: 12px; box-shadow: var(--popshadow); padding: 14px; display: flex; flex-direction: column; gap: 4px; z-index: 50;">
+            <div style="position: absolute; top: 82px; left: 20px; width: 500px; background: var(--pop); backdrop-filter: blur(30px) saturate(180%); -webkit-backdrop-filter: blur(30px) saturate(180%); border: 1px solid var(--line); border-radius: 12px; box-shadow: var(--popshadow); padding: 14px; display: flex; flex-direction: column; gap: 4px; z-index: 50;">
               <div style="display: flex; align-items: center; justify-content: space-between; padding-bottom: 10px;">
                 <span style="font-size: 14px; font-weight: 600;">Request headers</span>
                 <button type="button" onClick="{{ closePop }}" style="appearance: none; cursor: pointer; border: 0; border-radius: 6px; background: transparent; color: var(--ink3); width: 28px; height: 28px; display: flex; align-items: center; justify-content: center;" style-hover="background: var(--sel); color: var(--ink);">
@@ -499,7 +541,7 @@
           </sc-if>
 
           <sc-if value="{{ popAuth }}" hint-placeholder-val="{{ false }}">
-            <div style="position: absolute; top: 88px; left: 20px; width: 540px; background: var(--pop); backdrop-filter: blur(30px) saturate(180%); -webkit-backdrop-filter: blur(30px) saturate(180%); border: 1px solid var(--line); border-radius: 12px; box-shadow: var(--popshadow); padding: 14px; display: flex; flex-direction: column; gap: 14px; z-index: 50;">
+            <div style="position: absolute; top: 82px; left: 20px; width: 540px; background: var(--pop); backdrop-filter: blur(30px) saturate(180%); -webkit-backdrop-filter: blur(30px) saturate(180%); border: 1px solid var(--line); border-radius: 12px; box-shadow: var(--popshadow); padding: 14px; display: flex; flex-direction: column; gap: 14px; z-index: 50;">
               <div style="display: flex; align-items: center; justify-content: space-between;">
                 <span style="font-size: 14px; font-weight: 600;">Authorization</span>
                 <button type="button" onClick="{{ closePop }}" style="appearance: none; cursor: pointer; border: 0; border-radius: 6px; background: transparent; color: var(--ink3); width: 28px; height: 28px; display: flex; align-items: center; justify-content: center;" style-hover="background: var(--sel); color: var(--ink);">
@@ -546,7 +588,7 @@
           </sc-if>
 
           <sc-if value="{{ popBody }}" hint-placeholder-val="{{ false }}">
-            <div style="position: absolute; top: 88px; left: 20px; width: 540px; background: var(--pop); backdrop-filter: blur(30px) saturate(180%); -webkit-backdrop-filter: blur(30px) saturate(180%); border: 1px solid var(--line); border-radius: 12px; box-shadow: var(--popshadow); padding: 14px; display: flex; flex-direction: column; gap: 12px; z-index: 50;">
+            <div style="position: absolute; top: 82px; left: 20px; width: 540px; background: var(--pop); backdrop-filter: blur(30px) saturate(180%); -webkit-backdrop-filter: blur(30px) saturate(180%); border: 1px solid var(--line); border-radius: 12px; box-shadow: var(--popshadow); padding: 14px; display: flex; flex-direction: column; gap: 12px; z-index: 50;">
               <div style="display: flex; align-items: center; justify-content: space-between;">
                 <span style="font-size: 14px; font-weight: 600;">Request body</span>
                 <button type="button" onClick="{{ closePop }}" style="appearance: none; cursor: pointer; border: 0; border-radius: 6px; background: transparent; color: var(--ink3); width: 28px; height: 28px; display: flex; align-items: center; justify-content: center;" style-hover="background: var(--sel); color: var(--ink);">
@@ -615,7 +657,7 @@
           </sc-if>
 
           <sc-if value="{{ popScripts }}" hint-placeholder-val="{{ false }}">
-            <div style="position: absolute; top: 88px; left: 20px; width: 500px; background: var(--pop); backdrop-filter: blur(30px) saturate(180%); -webkit-backdrop-filter: blur(30px) saturate(180%); border: 1px solid var(--line); border-radius: 12px; box-shadow: var(--popshadow); padding: 14px; display: flex; flex-direction: column; gap: 12px; z-index: 50;">
+            <div style="position: absolute; top: 82px; left: 20px; width: 500px; background: var(--pop); backdrop-filter: blur(30px) saturate(180%); -webkit-backdrop-filter: blur(30px) saturate(180%); border: 1px solid var(--line); border-radius: 12px; box-shadow: var(--popshadow); padding: 14px; display: flex; flex-direction: column; gap: 12px; z-index: 50;">
               <div style="display: flex; align-items: center; justify-content: space-between;">
                 <span style="font-size: 14px; font-weight: 600;">Request scripts</span>
                 <button type="button" onClick="{{ closePop }}" style="appearance: none; cursor: pointer; border: 0; border-radius: 6px; background: transparent; color: var(--ink3); width: 28px; height: 28px; display: flex; align-items: center; justify-content: center;" style-hover="background: var(--sel); color: var(--ink);">
@@ -636,13 +678,6 @@
         </div>
         </sc-if>
 
-        <sc-if value="{{ varError }}" hint-placeholder-val="{{ false }}">
-          <div style="flex: none; display: flex; align-items: center; gap: 10px; padding: 10px 20px; background: var(--bad-soft); border-bottom: 1px solid var(--line);">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" style="color: var(--bad); flex: none;"><path d="M12 4.5 2.8 20h18.4Z"></path><path d="M12 10v4.4M12 17.2h.01"></path></svg>
-            <span style="flex: 1; min-width: 0; font-size: 13px; color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="The variable var is not defined in Local · dev. Sending is blocked until it resolves."><span style="font-family: ui-monospace, 'SF Mono', 'Cascadia Code', Menlo, monospace; font-size: 12px; font-weight: 600; color: var(--bad);">var</span> is not in <span style="font-weight: 600;">Local · dev</span> — sending is blocked</span>
-            <button type="button" onClick="{{ openNewVariable }}" style="appearance: none; cursor: pointer; font-family: inherit; font-size: 13px; font-weight: 600; white-space: nowrap; height: 30px; padding: 0 14px; background: var(--accent); color: #fff; border: 0; border-radius: 7px; flex: none;" style-hover="background: var(--accent-press);">Create variable</button>
-          </div>
-        </sc-if>
 
         <sc-if value="{{ showNoRun }}" hint-placeholder-val="{{ false }}">
         <div style="flex: 1; min-height: 0; padding: 28px 32px; display: flex; flex-direction: column; gap: 8px; max-width: 560px;">
@@ -3350,6 +3385,10 @@ class Component extends DCLogic {
         on: this.set('pop', on ? null : c.label),
         bg: on ? 'var(--win)' : 'transparent',
         border: '0',
+        line: on ? 'var(--ink)' : 'transparent',
+        weight: on ? 600 : 500,
+        hasDot: !!c.count || (c.filled && !c.count),
+        dotInk: on ? 'var(--ink)' : 'var(--ink3)',
         hoverBg: on ? 'var(--win)' : 'var(--sel)',
         ink: on ? 'var(--ink)' : (c.filled ? 'var(--ink2)' : 'var(--ink3)'),
         hoverInk: 'var(--ink)',
@@ -4595,6 +4634,57 @@ class Component extends DCLogic {
       winBg: segBg(platform === 'windows'), winInk: segInk(platform === 'windows'), winSh: segSh(platform === 'windows'),
 
       envName: this.state.env,
+      envChipBg: this.state.pop === 'BarEnv' ? 'var(--sel)' : 'var(--field)',
+      barEnvLabel: this.state.barEnv || this.state.env,
+      barEnvDot: this.state.barEnv ? 'var(--ok)' : 'transparent',
+      barEnvRing: this.state.barEnv ? 'none' : 'inset 0 0 0 1.5px var(--ink3)',
+      barEnvs: [{ name: 'Follow window · ' + this.state.env, vars: 'global', value: null }]
+        .concat(envDefs.filter(e => e.name !== 'No environment').map(e => ({ name: e.name, vars: e.vars, value: e.name })))
+        .map(e => {
+          const active = (this.state.barEnv || null) === e.value;
+          return {
+            name: e.name, vars: e.vars, active,
+            weight: active ? 600 : 400,
+            bg: active ? 'var(--sel)' : 'transparent',
+            ink: 'var(--ink)',
+            on: () => this.setState({ barEnv: e.value, pop: null })
+          };
+        }),
+      varIn: () => this.setState({ varTip: 'ok' }),
+      varErrIn: () => this.setState({ varTip: 'err' }),
+      varOut: () => this.setState({ varTip: null }),
+      varTipOpen: !!this.state.varTip,
+      varTipValue: this.state.varTip === 'err' ? 'not defined' : 'https://api.example.com',
+      varTipInk: this.state.varTip === 'err' ? 'var(--bad)' : 'var(--ink)',
+      varTipSource: this.state.varTip === 'err'
+        ? 'Looked up in ' + this.state.env + ', collection and globals'
+        : this.state.env + ' · environment variable',
+      varErrText: '{' + '{var}} is not defined in ' + this.state.env + ' — sending is blocked',
+      varErrAction: 'Create variable',
+      sending: !!this.state.sending,
+      sendLabel: this.state.sending ? 'Cancel' : 'Send',
+      sendKey: this.state.sending ? (((this.state.elapsed || 0) / 10).toFixed(1) + ' s') : '⌘↵',
+      sendBg: this.state.sending ? 'var(--bad)' : 'var(--accent)',
+      sendCursor: this.props.missingVariable ? 'default' : 'pointer',
+      sendClick: () => {
+        if (this.props.missingVariable) return;
+        if (this.state.sending) {
+          clearInterval(this._tick); clearTimeout(this._done);
+          this.setState({ sending: false, lastRun: 'cancelled' });
+          return;
+        }
+        this.setState({ sending: true, elapsed: 0, lastRun: '' });
+        clearInterval(this._tick); clearTimeout(this._done);
+        this._tick = setInterval(() => this.setState(st => ({ elapsed: (st.elapsed || 0) + 1 })), 100);
+        this._done = setTimeout(() => {
+          clearInterval(this._tick);
+          this.setState({ sending: false, lastRun: '200 · 412 ms · 1.6 KB' });
+        }, 2100);
+      },
+      popBarEnv: this.state.pop === 'BarEnv',
+      toggleBarEnv: () => this.setState({ pop: this.state.pop === 'BarEnv' ? null : 'BarEnv' }),
+      unsaved: true,
+      saveHint: 'Unsaved changes — save to a collection',
       serverDown: !!this.props.serverDown,
       syncing: !!this.state.syncing,
       showAccDot: signedIn && !this.state.syncing,
